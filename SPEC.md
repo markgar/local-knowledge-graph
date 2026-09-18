@@ -28,7 +28,7 @@ agent-useful retrieval. Statuses describe the repository as of 2026-09-17:
 | Markdown headings, paragraphs, lists, tasks, and wikilinks | Implemented | CommonMark block maps preserve exact source ranges while fenced code is excluded from structural classification. |
 | Rebuildable SQLite schema | Implemented | The packaged schema initializes new indexes; pre-alpha schema changes require rebuilding generated databases. |
 | FTS5 passage search | Implemented | Queries are corpus-scoped and limited to current active revisions, with strict and natural BM25-ranked modes. |
-| Real-world semantic retrieval | In progress | Dense retrieval is implemented and measured; hybrid fusion and reranking remain. |
+| Real-world semantic retrieval | In progress | Dense retrieval is implemented and measured; hybrid fusion is implemented; reranking remains. |
 | Seed entities, approved aliases, and exact mentions | Implemented | Similar names are never merged automatically. |
 | Explicit relationships and graph traversal | Implemented | Anchored wikilink relationships support deterministic one- and two-hop traversal. |
 | Explicit open and completed tasks | Implemented | Checkbox status and optional inline owner and due-date fields are extracted. |
@@ -437,7 +437,7 @@ semantic extraction, another source connector, embeddings, or a review UI.
   unanswerable-query baselines.
 - [x] Add a versioned dense embedding projection over canonical source
   anchors.
-- [ ] Combine sparse and dense candidates using deterministic reciprocal-rank
+- [x] Combine sparse and dense candidates using deterministic reciprocal-rank
   fusion.
 - [ ] Rerank the strongest candidates with a local cross-encoder.
 - [ ] Calibrate answerability so unsupported questions abstain or request
@@ -476,6 +476,16 @@ rankings with reciprocal-rank fusion, and rerank only a bounded candidate set.
 `sqlite-vec` is the lowest-change experimental index; LanceDB is the preferred
 embedded alternative if hybrid-search ergonomics or index maturity require a
 separate derived store. Neither may replace canonical SQLite provenance.
+
+The E2 fusion contract uses the unchanged E0 natural-BM25 and E1 dense
+rankings. Each parent receives identical subject, source, and date filters and
+a default candidate pool of 50, expanded when the caller requests more
+results. Candidates are deduplicated by canonical passage ID and scored with
+weighted reciprocal-rank fusion using `k = 20`, a lexical weight of `1.0`, and
+a dense weight of `0.5`; equal scores are ordered by passage ID. These generic
+defaults remain constructor parameters rather than corpus-specific rules.
+Hybrid search requires a current E1 projection and fails explicitly when that
+projection is missing, stale, or incompatible.
 
 #### Experimental discipline
 

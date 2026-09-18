@@ -1,0 +1,2 @@
+# Replace this URL when working outside Microsoft's network.
+index-url = "https://packagefeedproxy.microsoft.io/pypi/simple"

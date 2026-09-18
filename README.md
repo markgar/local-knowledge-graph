@@ -40,6 +40,13 @@ uv sync --extra dev
 This creates a project-local `.venv`. Run commands through `uv run` or activate
 the environment directly.
 
+The checked-in [`uv.toml`](uv.toml) routes Python dependencies through
+Microsoft's package feed because direct package downloads from public PyPI are
+blocked in the primary development environment. This configuration contains
+no credentials. Contributors outside that environment should replace
+`index-url` with their approved PEP 503 package index or remove `uv.toml` to
+use uv's default public index.
+
 ## Quick start
 
 ```bash
@@ -48,6 +55,7 @@ uv run kg dense-index --manifest corpora/example.yml
 uv run kg search "release" --manifest corpora/example.yml --format json
 uv run kg search "What supports the release?" --manifest corpora/example.yml --query-mode natural
 uv run kg search "What supports the release?" --manifest corpora/example.yml --query-mode dense
+uv run kg search "What supports the release?" --manifest corpora/example.yml --query-mode hybrid
 uv run kg actions Atlas --manifest corpora/example.yml --status open --format json
 uv run kg status Atlas --manifest corpora/example.yml --since 30d --format json
 ```
@@ -122,9 +130,10 @@ cited relationships; similar names are never merged automatically.
 
 `search` and `actions` support `--source` and `--since`; `status` supports
 `--since`. Search defaults to strict all-term matching; `--query-mode natural`
-uses safely quoted any-term matching with BM25 ranking, while `--query-mode
-dense` uses the local versioned embedding projection. Durations use forms such
-as `12h`, `30d`, or `4w`.
+uses safely quoted any-term matching with BM25 ranking, `--query-mode dense`
+uses the local versioned embedding projection, and `--query-mode hybrid`
+combines their unchanged rankings with deterministic reciprocal-rank fusion.
+Durations use forms such as `12h`, `30d`, or `4w`.
 
 Dense indexing uses the pinned Apache-2.0
 `Alibaba-NLP/gte-modernbert-base` revision through Sentence Transformers. The
@@ -209,8 +218,13 @@ retrieval layer is not yet agent-ready:
 
 The first dense-only experiment retained 100% anchor integrity but
 underperformed natural BM25, reaching 29.1% Recall@5, 42.7% Recall@10, and
-0.264 MRR. It is preserved as a measured negative result and as an input to the
-next hybrid-fusion experiment.
+0.264 MRR. It is preserved as a measured negative result and is combined with
+natural BM25 by the E2 hybrid-fusion implementation.
+
+E2 improves the same fixture to 41.6% Recall@5, 60.9% Recall@10, and 0.334 MRR
+while retaining 100% anchor integrity. It remains below the agent-useful
+acceptance gates and has not yet been validated on an email- and
+meeting-notes-style evaluation corpus.
 
 The project should therefore be understood as an experimental evidence index,
 not a production question-answering system.
