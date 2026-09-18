@@ -1,3 +1,4 @@
+from datetime import UTC, datetime
 from pathlib import Path
 
 from kg.config import load_manifest
@@ -197,6 +198,47 @@ def test_invalid_source_does_not_rollback_valid_sources(tmp_path: Path) -> None:
     assert RetrievalService(database, manifest.corpus_id).search("evidence")
 
 
+def test_failed_update_deactivates_stale_current_evidence(tmp_path: Path) -> None:
+    manifest = load_manifest(_manifest(tmp_path))
+    database = Database(manifest.database)
+    IngestService(database).ingest(manifest)
+    (manifest.vault_root / "atlas.md").write_bytes(b"\xff")
+
+    result = IngestService(database).ingest(manifest)
+
+    assert result.failed == 1
+    assert RetrievalService(database, manifest.corpus_id).search("evidence") == []
+
+
+def test_manifest_alias_change_reindexes_unchanged_revision(tmp_path: Path) -> None:
+    manifest_path = _manifest(tmp_path)
+    manifest_path.write_text(
+        manifest_path.read_text(encoding="utf-8")
+        + "\nseed_entities:\n"
+        + "  - entity_id: atlas\n"
+        + "    name: Atlas\n"
+        + "    entity_type: project\n",
+        encoding="utf-8",
+    )
+    manifest = load_manifest(manifest_path)
+    database = Database(manifest.database)
+    first = IngestService(database).ingest(manifest)
+    revision = RetrievalService(database, manifest.corpus_id).search("evidence")[
+        0
+    ].source_revision_id
+
+    manifest.seed_entities[0].aliases.append("Release evidence")
+    second = IngestService(database).ingest(manifest)
+    result = RetrievalService(database, manifest.corpus_id).search(
+        "evidence",
+        subject="Release evidence",
+    )
+
+    assert first.added == 1
+    assert second.changed == 1
+    assert result[0].source_revision_id == revision
+
+
 def test_status_resolves_explicit_wikilink_relationships(tmp_path: Path) -> None:
     vault = tmp_path / "vault"
     vault.mkdir()
@@ -232,11 +274,15 @@ metadata_fields:
     database = Database(manifest.database)
     IngestService(database).ingest(manifest)
 
-    result = RetrievalService(database, manifest.corpus_id).status("Atlas")
+    retrieval = RetrievalService(database, manifest.corpus_id)
+    result = retrieval.status("Atlas")
 
-    assert result.connected_entities == ["compass"]
+    assert [item.related_entity_ids for item in result.connected_entities] == [
+        ["atlas", "compass"]
+    ]
     assert result.recent_material
     assert {item.event_time for item in result.recent_material} == {"2026-09-17"}
+    assert retrieval.connections("Atlas", datetime(9999, 1, 1, tzinfo=UTC)) == []
 
 
 def test_ingestion_persists_structured_tasks_and_explicit_records(tmp_path: Path) -> None:
@@ -314,7 +360,10 @@ seed_entities:
     retrieval = RetrievalService(database, manifest.corpus_id)
     status = retrieval.status("Atlas")
 
-    assert status.connected_entities == ["compass", "beacon"]
+    assert [item.related_entity_ids for item in status.connected_entities] == [
+        ["atlas", "compass"],
+        ["compass", "beacon"],
+    ]
     assert [action.summary for action in status.open_actions] == [
         "Validate the prototype."
     ]

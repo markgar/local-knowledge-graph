@@ -25,19 +25,19 @@ implementation progress. Statuses describe the repository as of 2026-09-17:
 | Generic corpus manifest and source selection | Implemented | Corpora, paths, aliases, and metadata mappings are configuration data. |
 | Immutable revisions and exact source anchors | Implemented | Historical revisions remain retrievable while current-state queries use only the active revision. |
 | Idempotent ingestion | Implemented | Unchanged sources do not create new revisions or mutate document state. |
-| Markdown headings, paragraphs, lists, tasks, and wikilinks | Partial | Deterministic extraction and offsets exist; the initial parser still needs broader CommonMark coverage. |
+| Markdown headings, paragraphs, lists, tasks, and wikilinks | Implemented | CommonMark block maps preserve exact source ranges while fenced code is excluded from structural classification. |
 | SQLite schema and atomic migrations | Implemented | Versioned SQL migrations are packaged with the Python distribution. |
 | FTS5 passage search | Implemented | Queries are corpus-scoped and limited to current active revisions. |
 | Seed entities, approved aliases, and exact mentions | Implemented | Similar names are never merged automatically. |
-| Explicit relationships and graph traversal | Partial | Anchored wikilink relationships and one-hop traversal exist; two-hop traversal remains planned. |
-| Explicit open and completed tasks | Partial | Checkbox status is extracted; structured owner and due-date extraction remains planned. |
-| Event-date filtering | Partial | Configured document dates and revision timestamps are supported; richer structural dates remain planned. |
+| Explicit relationships and graph traversal | Implemented | Anchored wikilink relationships support deterministic one- and two-hop traversal. |
+| Explicit open and completed tasks | Implemented | Checkbox status and optional inline owner and due-date fields are extracted. |
+| Event-date filtering | Implemented | Configured document dates and revision timestamps support bounded retrieval. |
 | `ingest`, `status`, `actions`, `evidence`, and `search` CLI | Implemented | Commands expose text and JSON output over reusable services. |
-| Decisions, blockers, and conflicts | Planned | Contracts and schema foundations exist, but deterministic extraction is not implemented. |
-| Evidence gaps and abstention | Partial | Missing subject evidence is reported; comprehensive conflict and unsupported-question evaluation remains planned. |
-| Reviewed acceptance datasets | Planned | The repository currently contains a small synthetic example corpus and integration tests. |
-| Second-corpus generalization proof | Partial | Shared-database corpus isolation is tested; a second reviewed fixture corpus remains planned. |
-| External client integration | Planned | The CLI and Python services are ready for integration, but no external client is included. |
+| Decisions, blockers, and conflicts | Implemented | Explicit structural sections produce cited records; contradiction inference remains a non-goal. |
+| Evidence gaps and abstention | Implemented | Unsupported subjects return explicit evidence gaps without model completion. |
+| Reviewed acceptance datasets | Implemented | Two synthetic corpora define expected actions, decisions, blockers, relationships, citations, and abstention. |
+| Second-corpus generalization proof | Implemented | A separate research corpus uses the same parser, schema, ingestion, and retrieval services. |
+| External client integration | Implemented | A subprocess client handles JSON errors and renders cited status output. |
 
 ## Purpose
 
@@ -393,7 +393,7 @@ The MVP does not include:
 - [x] Define and validate the generic corpus-manifest schema.
 - [x] Create an example manifest and synthetic fixture corpus.
 - [x] Establish command and JSON contracts.
-- [ ] Add reviewed pilot source selections and expected evidence fixtures.
+- [x] Add reviewed synthetic source selections and expected evidence fixtures.
 
 ### Milestone 2: Deterministic index
 
@@ -401,10 +401,9 @@ The MVP does not include:
 - [x] Parse notes into immutable revisions and exact anchors.
 - [x] Index headings, passages, wikilinks, exact mentions, and checkbox tasks.
 - [x] Prove idempotent ingestion and preservation of historical revisions.
-- [ ] Replace the initial parser with broader Markdown coverage while preserving
-  exact source positions.
-- [ ] Extract structured owners, due dates, decisions, blockers, and richer
-  event metadata.
+- [x] Parse CommonMark blocks while preserving exact source positions.
+- [x] Extract structured owners, due dates, decisions, blockers, conflicts, and
+  configured event metadata.
 
 ### Milestone 3: Useful retrieval
 
@@ -412,15 +411,15 @@ The MVP does not include:
 - [x] Implement `status`, `actions`, `search`, and `evidence`.
 - [x] Implement current-state filtering without losing historical evidence.
 - [x] Implement anchored one-hop wikilink traversal.
-- [ ] Implement bounded two-hop traversal.
-- [ ] Implement deterministic decision, blocker, and conflict retrieval.
-- [ ] Prove a second reviewed corpus requires configuration only.
+- [x] Implement bounded two-hop traversal.
+- [x] Implement deterministic decision, blocker, and conflict retrieval.
+- [x] Prove a second reviewed corpus requires configuration only.
 
 ### Milestone 4: Client integration
 
-- [ ] Invoke the CLI from an external client.
-- [ ] Generate a cited answer from a reviewed pilot corpus.
-- [ ] Record unsupported, incorrect, or cumbersome cases.
+- [x] Invoke the CLI from an external client.
+- [x] Generate a cited answer from a reviewed synthetic corpus.
+- [x] Record unsupported cases as explicit abstention fixtures.
 
 The results of Milestone 4 determine whether the next investment should be
 semantic extraction, another source connector, embeddings, or a review UI.

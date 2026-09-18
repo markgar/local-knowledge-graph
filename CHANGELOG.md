@@ -12,4 +12,8 @@ stable release. Pre-1.0 releases may contain breaking changes.
 - Initial Python package, SQLite schema, Markdown ingestion, FTS5 retrieval,
   evidence lookup, task queries, and CLI.
 - Example corpus, automated tests, and Python 3.12-3.14 CI.
-
+- CommonMark source anchoring, structured task fields, explicit decisions,
+  blockers, conflicts, and cited two-hop relationships.
+- A second synthetic corpus, reviewed acceptance cases, rebuild equivalence,
+  stable move detection, and an external cited-status client.
+- Machine-readable JSON errors and verbose operational diagnostics.

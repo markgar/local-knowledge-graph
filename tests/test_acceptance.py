@@ -45,8 +45,8 @@ def test_reviewed_acceptance_cases(
                 "expected_blockers",
                 [],
             )
-            assert result.connected_entities == case.get(
-                "expected_connected_entities",
+            assert [item.summary for item in result.connected_entities] == case.get(
+                "expected_connections",
                 [],
             )
             assert bool(result.evidence_gaps) is case.get("expect_evidence_gap", False)
@@ -69,4 +69,3 @@ def test_rebuild_produces_equivalent_logical_results(tmp_path: Path) -> None:
     )
 
     assert rebuilt.model_dump() == first.model_dump()
-

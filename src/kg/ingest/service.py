@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import re
 import sqlite3
 import uuid
@@ -17,6 +18,7 @@ from kg.models.manifest import CorpusManifest
 
 PARSER_VERSION = "2"
 SCHEMA_VERSION = 2
+LOGGER = logging.getLogger(__name__)
 
 
 class IngestService:
@@ -24,6 +26,11 @@ class IngestService:
         self.database = database
 
     def ingest(self, manifest: CorpusManifest) -> IngestResult:
+        LOGGER.info(
+            "Starting ingestion for corpus %s into %s",
+            manifest.corpus_id,
+            self.database.path,
+        )
         self.database.migrate()
         selection = select_sources(manifest)
         result = IngestResult(
@@ -32,6 +39,7 @@ class IngestService:
             missing=len(selection.missing),
             errors=[f"No Markdown files matched: {pattern}" for pattern in selection.missing],
         )
+        index_config_hash = self._index_config_hash(manifest)
         started_at = _now()
         selected_source_paths = {
             relative_source_path(manifest, path)
@@ -64,6 +72,7 @@ class IngestService:
                         manifest,
                         path,
                         selected_source_paths,
+                        index_config_hash,
                     )
                     connection.execute("RELEASE SAVEPOINT ingest_source")
                     if outcome == "added":
@@ -77,6 +86,12 @@ class IngestService:
                     connection.execute("RELEASE SAVEPOINT ingest_source")
                     result.failed += 1
                     result.errors.append(f"{path}: {exc}")
+                    LOGGER.warning("Failed to ingest %s: %s", path, exc)
+                    self._deactivate_failed_source(
+                        connection,
+                        manifest.corpus_id,
+                        relative_source_path(manifest, path),
+                    )
 
             self._deactivate_unselected(
                 connection,
@@ -97,6 +112,14 @@ class IngestService:
                     result.run_id,
                 ),
             )
+        LOGGER.info(
+            "Completed ingestion for %s: added=%d changed=%d unchanged=%d failed=%d",
+            manifest.corpus_id,
+            result.added,
+            result.changed,
+            result.unchanged,
+            result.failed,
+        )
         return result
 
     def _ingest_file(
@@ -105,6 +128,7 @@ class IngestService:
         manifest: CorpusManifest,
         path: Path,
         selected_source_paths: set[str],
+        index_config_hash: str,
     ) -> Literal["added", "changed", "unchanged"]:
         source_path = relative_source_path(manifest, path)
         source_size = path.stat().st_size
@@ -136,11 +160,20 @@ class IngestService:
             (stable_document_id,),
         ).fetchone()
         existing_revision = connection.execute(
-            "SELECT 1 FROM source_revision WHERE revision_id = ?",
+            """
+            SELECT indexed_parser_version, indexed_config_hash
+            FROM source_revision
+            WHERE revision_id = ?
+            """,
             (stable_revision_id,),
         ).fetchone()
 
-        if existing_revision:
+        index_is_current = (
+            existing_revision
+            and existing_revision["indexed_parser_version"] == PARSER_VERSION
+            and existing_revision["indexed_config_hash"] == index_config_hash
+        )
+        if index_is_current:
             if (
                 existing_document
                 and (
@@ -200,22 +233,27 @@ class IngestService:
                     now,
                 ),
             )
-        connection.execute(
-            """
-            INSERT INTO source_revision (
-                revision_id, document_id, content_hash, observed_mtime, ingested_at,
-                frontmatter_json
-            ) VALUES (?, ?, ?, ?, ?, ?)
-            """,
-            (
-                stable_revision_id,
-                stable_document_id,
-                content_hash,
-                datetime.fromtimestamp(path.stat().st_mtime, UTC).isoformat(),
-                now,
-                json.dumps(parsed.frontmatter, sort_keys=True, default=str),
-            ),
-        )
+        if existing_revision:
+            self._clear_derived_records(connection, stable_revision_id)
+        else:
+            connection.execute(
+                """
+                INSERT INTO source_revision (
+                    revision_id, document_id, content_hash, observed_mtime, ingested_at,
+                    frontmatter_json, indexed_parser_version, indexed_config_hash
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    stable_revision_id,
+                    stable_document_id,
+                    content_hash,
+                    datetime.fromtimestamp(path.stat().st_mtime, UTC).isoformat(),
+                    now,
+                    json.dumps(parsed.frontmatter, sort_keys=True, default=str),
+                    PARSER_VERSION,
+                    index_config_hash,
+                ),
+            )
 
         aliases = self._aliases_for_corpus(connection, manifest.corpus_id)
         event_time = self._event_time(manifest, parsed.frontmatter)
@@ -228,7 +266,7 @@ class IngestService:
             )
             connection.execute(
                 """
-                INSERT INTO source_anchor (
+                INSERT OR IGNORE INTO source_anchor (
                     anchor_id, revision_id, structural_path, heading_path_json, anchor_kind,
                     start_offset, end_offset, quote, quote_hash
                 ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
@@ -331,8 +369,8 @@ class IngestService:
                 for alias in aliases
                 if alias["normalized_alias"] == link.casefold()
             }
-            for source_entity_key in mentioned_entities - linked_entities:
-                for target_entity_key in linked_entities:
+            for source_entity_key in sorted(mentioned_entities - linked_entities):
+                for target_entity_key in sorted(linked_entities):
                     relationship_key = record_id(
                         stable_anchor_id,
                         "wikilink",
@@ -353,7 +391,40 @@ class IngestService:
                         ),
                     )
 
+        connection.execute(
+            """
+            UPDATE source_revision
+            SET indexed_parser_version = ?, indexed_config_hash = ?
+            WHERE revision_id = ?
+            """,
+            (PARSER_VERSION, index_config_hash, stable_revision_id),
+        )
         return "changed" if existing_document else "added"
+
+    def _clear_derived_records(
+        self,
+        connection: sqlite3.Connection,
+        revision_id: str,
+    ) -> None:
+        anchor_query = "SELECT anchor_id FROM source_anchor WHERE revision_id = ?"
+        passage_query = f"SELECT passage_id FROM passage WHERE anchor_id IN ({anchor_query})"
+        connection.execute(
+            f"DELETE FROM passage_fts WHERE passage_id IN ({passage_query})",
+            (revision_id,),
+        )
+        for table in (
+            "relationship",
+            "mention",
+            "action_item",
+            "decision",
+            "blocker",
+            "conflict",
+            "passage",
+        ):
+            connection.execute(
+                f"DELETE FROM {table} WHERE anchor_id IN ({anchor_query})",
+                (revision_id,),
+            )
 
     def _resolve_document_id(
         self,
@@ -528,6 +599,32 @@ class IngestService:
                 """,
                 (_now(), corpus_id),
             )
+
+    def _deactivate_failed_source(
+        self,
+        connection: sqlite3.Connection,
+        corpus_id: str,
+        source_path: str,
+    ) -> None:
+        connection.execute(
+            """
+            UPDATE source_document
+            SET is_active = 0, updated_at = ?
+            WHERE corpus_id = ? AND source_path = ?
+            """,
+            (_now(), corpus_id, source_path),
+        )
+
+    @staticmethod
+    def _index_config_hash(manifest: CorpusManifest) -> str:
+        index_config = {
+            "seed_entities": [
+                entity.model_dump(mode="json")
+                for entity in manifest.seed_entities
+            ],
+            "metadata_fields": manifest.metadata_fields,
+        }
+        return digest(json.dumps(index_config, sort_keys=True))
 
     @staticmethod
     def _event_time(

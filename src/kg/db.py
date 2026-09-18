@@ -4,7 +4,10 @@ import sqlite3
 from collections.abc import Iterator
 from contextlib import contextmanager
 from importlib import resources
+import logging
 from pathlib import Path
+
+LOGGER = logging.getLogger(__name__)
 
 
 class Database:
@@ -59,6 +62,7 @@ class Database:
                     migration.name,
                     migration.read_text(encoding="utf-8"),
                 )
+                LOGGER.info("Applied database migration %s", migration.name)
 
     @contextmanager
     def transaction(self) -> Iterator[sqlite3.Connection]:

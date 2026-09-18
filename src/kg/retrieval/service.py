@@ -205,6 +205,89 @@ class RetrievalService:
     ) -> list[EvidenceResult]:
         return self._explicit_records("conflict", subject, since)
 
+    def connections(
+        self,
+        subject: str,
+        since: datetime | None = None,
+    ) -> list[EvidenceResult]:
+        scope = self._subject_scope(subject)
+        if not scope.entity_keys:
+            return []
+        placeholders = ", ".join("?" for _ in scope.entity_keys)
+        filters = []
+        parameters: list[object] = [
+            *scope.entity_keys,
+            *scope.entity_keys,
+            self.corpus_id,
+        ]
+        if since:
+            filters.append(
+                "COALESCE(p.event_time, sr.observed_mtime, sr.ingested_at) >= ?"
+            )
+            parameters.append(since.isoformat())
+        filter_sql = "".join(f" AND {condition}" for condition in filters)
+        with self.database.connection() as connection:
+            rows = connection.execute(
+                f"""
+                SELECT
+                    r.relationship_id AS record_id,
+                    r.relationship_type,
+                    source.entity_id AS source_entity_id,
+                    target.entity_id AS target_entity_id,
+                    p.event_time,
+                    sd.title,
+                    sd.source_path,
+                    sr.revision_id,
+                    sa.anchor_id,
+                    sa.heading_path_json,
+                    sa.quote
+                FROM relationship r
+                JOIN entity source ON source.entity_key = r.source_entity_key
+                JOIN entity target ON target.entity_key = r.target_entity_key
+                JOIN source_anchor sa ON sa.anchor_id = r.anchor_id
+                JOIN passage p ON p.anchor_id = sa.anchor_id
+                JOIN source_revision sr ON sr.revision_id = sa.revision_id
+                JOIN source_document sd ON sd.document_id = sr.document_id
+                WHERE r.source_entity_key IN ({placeholders})
+                  AND r.target_entity_key IN ({placeholders})
+                  AND sd.corpus_id = ?
+                  AND sd.is_active = 1
+                  AND sr.revision_id = sd.current_revision_id
+                  {filter_sql}
+                ORDER BY
+                    sd.source_path,
+                    sa.start_offset,
+                    source.entity_id,
+                    target.entity_id,
+                    r.relationship_type,
+                    r.relationship_id
+                """,
+                parameters,
+            ).fetchall()
+        return [
+            EvidenceResult(
+                record_id=row["record_id"],
+                record_type="relationship",
+                title=row["title"],
+                summary=(
+                    f"{row['source_entity_id']} {row['relationship_type']} "
+                    f"{row['target_entity_id']}"
+                ),
+                status=None,
+                event_time=row["event_time"],
+                source_path=row["source_path"],
+                source_revision_id=row["revision_id"],
+                anchor_id=row["anchor_id"],
+                heading_path=json.loads(row["heading_path_json"]),
+                quote=row["quote"],
+                related_entity_ids=[
+                    row["source_entity_id"],
+                    row["target_entity_id"],
+                ],
+            )
+            for row in rows
+        ]
+
     def evidence(self, selected_record_id: str) -> EvidenceResult:
         with self.database.connection() as connection:
             action = connection.execute(
@@ -267,6 +350,54 @@ class RetrievalService:
                         related.get(explicit["anchor_id"], []),
                     )
 
+            relationship = connection.execute(
+                """
+                SELECT
+                    r.relationship_id AS record_id,
+                    r.relationship_type,
+                    source.entity_id AS source_entity_id,
+                    target.entity_id AS target_entity_id,
+                    p.event_time,
+                    sd.title,
+                    sd.source_path,
+                    sr.revision_id,
+                    sa.anchor_id,
+                    sa.heading_path_json,
+                    sa.quote
+                FROM relationship r
+                JOIN entity source ON source.entity_key = r.source_entity_key
+                JOIN entity target ON target.entity_key = r.target_entity_key
+                JOIN source_anchor sa ON sa.anchor_id = r.anchor_id
+                JOIN passage p ON p.anchor_id = sa.anchor_id
+                JOIN source_revision sr ON sr.revision_id = sa.revision_id
+                JOIN source_document sd ON sd.document_id = sr.document_id
+                WHERE r.relationship_id = ? AND sd.corpus_id = ?
+                """,
+                (selected_record_id, self.corpus_id),
+            ).fetchone()
+            if relationship:
+                return EvidenceResult(
+                    record_id=relationship["record_id"],
+                    record_type="relationship",
+                    title=relationship["title"],
+                    summary=(
+                        f"{relationship['source_entity_id']} "
+                        f"{relationship['relationship_type']} "
+                        f"{relationship['target_entity_id']}"
+                    ),
+                    status=None,
+                    event_time=relationship["event_time"],
+                    source_path=relationship["source_path"],
+                    source_revision_id=relationship["revision_id"],
+                    anchor_id=relationship["anchor_id"],
+                    heading_path=json.loads(relationship["heading_path_json"]),
+                    quote=relationship["quote"],
+                    related_entity_ids=[
+                        relationship["source_entity_id"],
+                        relationship["target_entity_id"],
+                    ],
+                )
+
             passage = connection.execute(
                 """
                 SELECT
@@ -302,10 +433,17 @@ class RetrievalService:
         blockers = self.blockers(subject, since)
         conflicts = self.conflicts(subject, since)
         recent_material = self._subject_material(subject, since)
-        scope = self._subject_scope(subject)
-        connected_entities = list(scope.entity_ids[1:]) if scope.entity_ids else []
+        connected_entities = self.connections(subject, since)
         has_evidence = any(
-            (recent_material, decisions, open_actions, completed_actions, blockers, conflicts)
+            (
+                recent_material,
+                decisions,
+                open_actions,
+                completed_actions,
+                blockers,
+                conflicts,
+                connected_entities,
+            )
         )
         gaps = [] if has_evidence else [f"No deterministic evidence found for {subject}"]
         return StatusResult(

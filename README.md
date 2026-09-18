@@ -10,23 +10,24 @@ data, SQLite is the durable index, and every returned record points to an
 immutable source revision and exact quote.
 
 Python 3.12 or newer is required. The supported CI matrix covers Python 3.12,
-3.13, and 3.14. The project is pre-alpha: its core storage and retrieval
-contracts are usable, but the complete MVP described in [`SPEC.md`](SPEC.md)
-is still under development.
+3.13, and 3.14. The Version 1 MVP described in [`SPEC.md`](SPEC.md) is implemented and covered
+by synthetic acceptance corpora. The project remains pre-alpha while its
+interfaces receive broader real-world testing.
 
-The initial scaffold implements the first vertical slice:
+The engine provides:
 
 - Pydantic contracts for corpus manifests and JSON results.
-- Deterministic Markdown anchors with character offsets.
+- CommonMark block parsing with exact source ranges.
 - Versioned SQLite migrations and FTS5 search.
 - Idempotent ingestion with immutable document revisions.
-- Explicit Markdown task extraction.
+- Stable document identity across unambiguous file moves.
+- Explicit tasks, owners, due dates, decisions, blockers, and conflicts.
+- Approved entity aliases, exact mentions, and bounded two-hop relationships.
+- Current-state retrieval without losing historical evidence.
 - Thin Typer commands over reusable Python services.
 
-It does not infer entities, relationships, decisions, or contradictions.
-Decision extraction, structured owner/due-date parsing, conflict detection, and
-two-hop traversal remain later MVP slices; their tables and public contracts
-are present so those additions do not require a packaging or API redesign.
+It does not use an LLM or infer entities, relationships, decisions, blockers,
+or contradictions. Those records must be explicit in source structure.
 
 ## Install from source
 
@@ -45,10 +46,97 @@ the environment directly.
 uv run kg ingest --manifest corpora/example.yml
 uv run kg search "release" --manifest corpora/example.yml --format json
 uv run kg actions Atlas --manifest corpora/example.yml --status open --format json
+uv run kg status Atlas --manifest corpora/example.yml --since 30d --format json
 ```
 
 The example database is written to `.kg/example.sqlite3`, which is ignored by
 Git.
+
+## Corpus manifests
+
+A corpus is configured entirely through YAML:
+
+```yaml
+corpus_id: example
+display_name: Example corpus
+vault_root: notes
+database: ../.kg/example.sqlite3
+include:
+  - "**/*.md"
+allow_symlinks: false
+max_source_bytes: 5000000
+seed_entities:
+  - entity_id: example-project
+    name: Example Project
+    entity_type: project
+    aliases:
+      - Example
+metadata_fields:
+  event_time: date
+```
+
+Paths are resolved relative to the manifest. Symlinks are rejected by default,
+and sources larger than `max_source_bytes` fail ingestion explicitly.
+
+## Explicit Markdown conventions
+
+The indexer recognizes only evidence that is present in the Markdown:
+
+```markdown
+## Actions
+
+- [ ] Review the release. [owner:: Avery] [due:: 2026-10-01]
+
+## Decisions
+
+- Use SQLite for the local index.
+
+## Blockers
+
+- Approval is still pending.
+
+## Conflicts
+
+- The two cited sources report different dates.
+```
+
+Checkboxes determine task status. Optional `[owner:: ...]` and `[due:: ...]`
+fields provide task metadata. Items and paragraphs under exact `Decision`,
+`Decisions`, `Blocker`, `Blockers`, `Conflict`, or `Conflicts` headings become
+explicit records. Wikilinks and approved aliases create exact mentions and
+cited relationships; similar names are never merged automatically.
+
+## CLI
+
+| Command | Purpose |
+| --- | --- |
+| `kg ingest` | Validate a manifest and update immutable revisions and current indexes. |
+| `kg status` | Return cited material, decisions, actions, blockers, relationships, conflicts, and evidence gaps. |
+| `kg actions` | Return explicit open or completed tasks with owners and due dates. |
+| `kg evidence` | Resolve any returned record ID to its exact source anchor. |
+| `kg search` | Search current passages with FTS5. |
+
+`search` and `actions` support `--source` and `--since`; `status` supports
+`--since`. Durations use forms such as `12h`, `30d`, or `4w`.
+
+With `--format json`, output follows the Pydantic contracts in `kg.models`.
+Manifest, argument, query, and lookup failures are emitted to stderr as:
+
+```json
+{"error":"invalid_manifest","message":"Could not read manifest ..."}
+```
+
+Use `--verbose` for migration and ingestion diagnostics.
+
+## External client
+
+[`examples/cited_status.py`](examples/cited_status.py) invokes the CLI as a
+subprocess, handles structured errors, and renders a short report with source,
+heading, and revision citations:
+
+```bash
+uv run python examples/cited_status.py corpora/example.yml Atlas
+```
 
 ## Development
 
@@ -68,9 +156,18 @@ uv build
 - `db.py` owns connections, transactions, and migration application.
 - `cli.py` only parses command-line options and renders service results.
 
-See [`SPEC.md`](SPEC.md) for the product requirements and delivery milestones.
+Schema migrations are append-only SQL files. Released migrations must never be
+edited; compatibility changes require a new numbered migration. See
+[`SPEC.md`](SPEC.md) for the product contract and implementation ledger.
 Contributions are welcome; see [`CONTRIBUTING.md`](CONTRIBUTING.md). Security
 issues should be reported according to [`SECURITY.md`](SECURITY.md).
+
+## Acceptance corpora
+
+`corpora/acceptance/` contains reviewed questions and exact expected evidence
+for two unrelated synthetic corpora. Tests also verify abstention, immutable
+history, rebuild equivalence, corpus isolation, source moves, failed-source
+deactivation, and manifest-driven reindexing.
 
 ## License
 

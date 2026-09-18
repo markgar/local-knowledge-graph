@@ -18,6 +18,11 @@ class IngestResult(ContractModel):
     errors: list[str] = Field(default_factory=list)
 
 
+class ErrorResult(ContractModel):
+    error: str
+    message: str
+
+
 class EvidenceResult(ContractModel):
     record_id: str
     record_type: str
@@ -49,6 +54,6 @@ class StatusResult(ContractModel):
     open_actions: list[ActionResult] = Field(default_factory=list)
     completed_actions: list[ActionResult] = Field(default_factory=list)
     blockers: list[EvidenceResult] = Field(default_factory=list)
-    connected_entities: list[str] = Field(default_factory=list)
+    connected_entities: list[EvidenceResult] = Field(default_factory=list)
     evidence_gaps: list[str] = Field(default_factory=list)
     conflicts: list[EvidenceResult] = Field(default_factory=list)

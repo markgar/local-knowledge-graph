@@ -28,7 +28,9 @@ uv build
 - Do not add corpus-specific parsing or retrieval rules.
 - Update public documentation when contracts or commands change.
 - Describe compatibility or migration implications for schema changes.
+- Add database changes as a new numbered SQL migration. Never edit a migration
+  that has shipped on `main`.
+- Add or update a reviewed case in `corpora/acceptance/` for retrieval changes.
 
 For larger changes, open an issue first so the design can be discussed before
 implementation.
-

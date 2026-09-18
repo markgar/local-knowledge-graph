@@ -1,34 +1,57 @@
 from __future__ import annotations
 
 import json
+import logging
 import re
 from datetime import UTC, datetime, timedelta
+from enum import Enum
 from pathlib import Path
-from typing import Annotated, Any
+from typing import Annotated, Any, Never
 
 import typer
 
 from kg.config import ManifestError, load_manifest
 from kg.db import Database
 from kg.ingest import IngestService
+from kg.models.contracts import ErrorResult
 from kg.models.manifest import CorpusManifest
 from kg.retrieval.service import RecordNotFoundError, RetrievalService, SearchQueryError
 
 app = typer.Typer(no_args_is_help=True, help="Evidence-backed local knowledge retrieval.")
 ManifestOption = Annotated[
     Path,
-    typer.Option(exists=True, dir_okay=False, readable=True),
+    typer.Option(dir_okay=False),
 ]
-FormatOption = Annotated[str, typer.Option("--format")]
+
+
+class OutputFormat(str, Enum):
+    text = "text"
+    json = "json"
+
+
+FormatOption = Annotated[OutputFormat, typer.Option("--format")]
+
+
+@app.callback()
+def main(
+    verbose: Annotated[
+        bool,
+        typer.Option("--verbose", "-v", help="Enable diagnostic logging."),
+    ] = False,
+) -> None:
+    logging.basicConfig(
+        level=logging.DEBUG if verbose else logging.ERROR,
+        format="%(levelname)s %(name)s: %(message)s",
+    )
 
 
 @app.command()
 def ingest(
     manifest: ManifestOption,
-    output_format: FormatOption = "text",
+    output_format: FormatOption = OutputFormat.text,
 ) -> None:
     """Ingest configured Markdown sources."""
-    corpus = _load_manifest_or_exit(manifest)
+    corpus = _load_manifest_or_exit(manifest, output_format)
     result = IngestService(Database(corpus.database)).ingest(corpus)
     _render(result.model_dump(mode="json"), output_format)
     if result.failed:
@@ -40,13 +63,13 @@ def search(
     query: str,
     manifest: ManifestOption,
     subject: Annotated[str | None, typer.Option()] = None,
-    output_format: FormatOption = "text",
+    output_format: FormatOption = OutputFormat.text,
     limit: Annotated[int, typer.Option(min=1, max=100)] = 20,
     since: Annotated[str | None, typer.Option()] = None,
     source: Annotated[str | None, typer.Option()] = None,
 ) -> None:
     """Search indexed evidence using SQLite FTS5."""
-    corpus = _load_manifest_or_exit(manifest)
+    corpus = _load_manifest_or_exit(manifest, output_format)
     try:
         results = RetrievalService(Database(corpus.database), corpus.corpus_id).search(
             query=query,
@@ -56,7 +79,7 @@ def search(
             source_path=source,
         )
     except (SearchQueryError, ValueError) as exc:
-        raise typer.BadParameter(str(exc)) from exc
+        _fail("invalid_query", str(exc), output_format)
     _render([result.model_dump(mode="json") for result in results], output_format)
 
 
@@ -65,14 +88,18 @@ def actions(
     subject: str,
     manifest: ManifestOption,
     status: Annotated[str | None, typer.Option()] = None,
-    output_format: FormatOption = "text",
+    output_format: FormatOption = OutputFormat.text,
     since: Annotated[str | None, typer.Option()] = None,
     source: Annotated[str | None, typer.Option()] = None,
 ) -> None:
     """Return explicit task items associated with a subject."""
     if status not in {None, "open", "completed"}:
-        raise typer.BadParameter("status must be 'open' or 'completed'")
-    corpus = _load_manifest_or_exit(manifest)
+        _fail(
+            "invalid_status",
+            "status must be 'open' or 'completed'",
+            output_format,
+        )
+    corpus = _load_manifest_or_exit(manifest, output_format)
     try:
         results = RetrievalService(Database(corpus.database), corpus.corpus_id).actions(
             subject=subject,
@@ -81,7 +108,7 @@ def actions(
             source_path=source,
         )
     except ValueError as exc:
-        raise typer.BadParameter(str(exc), param_hint="since") from exc
+        _fail("invalid_since", str(exc), output_format)
     _render([result.model_dump(mode="json") for result in results], output_format)
 
 
@@ -89,17 +116,16 @@ def actions(
 def evidence(
     record_id: str,
     manifest: ManifestOption,
-    output_format: FormatOption = "text",
+    output_format: FormatOption = OutputFormat.text,
 ) -> None:
     """Return the exact source anchor supporting a record."""
-    corpus = _load_manifest_or_exit(manifest)
+    corpus = _load_manifest_or_exit(manifest, output_format)
     try:
         result = RetrievalService(Database(corpus.database), corpus.corpus_id).evidence(
             record_id
         )
     except RecordNotFoundError as exc:
-        typer.echo(str(exc), err=True)
-        raise typer.Exit(code=2) from exc
+        _fail("record_not_found", str(exc), output_format)
     _render(result.model_dump(mode="json"), output_format)
 
 
@@ -108,10 +134,10 @@ def status(
     subject: str,
     manifest: ManifestOption,
     since: Annotated[str, typer.Option(help="Window for dated evidence filtering.")] = "30d",
-    output_format: FormatOption = "text",
+    output_format: FormatOption = OutputFormat.text,
 ) -> None:
     """Return an evidence-backed subject summary."""
-    corpus = _load_manifest_or_exit(manifest)
+    corpus = _load_manifest_or_exit(manifest, output_format)
     try:
         cutoff = _parse_since(since)
         result = RetrievalService(Database(corpus.database), corpus.corpus_id).status(
@@ -119,24 +145,24 @@ def status(
             cutoff,
         )
     except (SearchQueryError, ValueError) as exc:
-        raise typer.BadParameter(str(exc), param_hint="since") from exc
+        _fail("invalid_since", str(exc), output_format)
     _render(result.model_dump(mode="json"), output_format)
 
 
-def _load_manifest_or_exit(path: Path) -> CorpusManifest:
+def _load_manifest_or_exit(
+    path: Path,
+    output_format: OutputFormat,
+) -> CorpusManifest:
     try:
         return load_manifest(path)
     except (ManifestError, ValueError) as exc:
-        typer.echo(str(exc), err=True)
-        raise typer.Exit(code=2) from exc
+        _fail("invalid_manifest", str(exc), output_format)
 
 
-def _render(value: Any, output_format: str) -> None:
-    if output_format == "json":
+def _render(value: Any, output_format: OutputFormat) -> None:
+    if output_format is OutputFormat.json:
         typer.echo(json.dumps(value, indent=2, sort_keys=True))
         return
-    if output_format != "text":
-        raise typer.BadParameter("format must be 'text' or 'json'")
     if isinstance(value, list):
         if not value:
             typer.echo("No results.")
@@ -149,6 +175,22 @@ def _render(value: Any, output_format: str) -> None:
             typer.echo(f"  {item.get('source_path')} :: {' / '.join(item.get('heading_path', []))}")
         return
     typer.echo(json.dumps(value, indent=2, sort_keys=True))
+
+
+def _fail(
+    error: str,
+    message: str,
+    output_format: OutputFormat,
+    code: int = 2,
+) -> Never:
+    if output_format is OutputFormat.json:
+        typer.echo(
+            ErrorResult(error=error, message=message).model_dump_json(),
+            err=True,
+        )
+    else:
+        typer.echo(f"Error: {message}", err=True)
+    raise typer.Exit(code=code)
 
 
 def _parse_since(value: str) -> datetime:

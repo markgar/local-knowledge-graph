@@ -13,8 +13,8 @@ cases:
       - Use SQLite for the local index.
     expected_blockers:
       - The migration window still needs explicit approval.
-    expected_connected_entities:
-      - product-compass
+    expected_connections:
+      - project-atlas wikilink product-compass
   - id: atlas-search
     command: search
     query: waiting

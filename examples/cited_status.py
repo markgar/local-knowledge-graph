@@ -1,0 +1,88 @@
+#!/usr/bin/env python3
+"""Invoke the kg CLI and render a small cited status report."""
+
+from __future__ import annotations
+
+import argparse
+import json
+import subprocess
+import sys
+from pathlib import Path
+from typing import Any
+
+
+def load_status(
+    manifest: Path,
+    subject: str,
+    since: str,
+    executable: str = "kg",
+) -> dict[str, Any]:
+    process = subprocess.run(
+        [
+            executable,
+            "status",
+            subject,
+            "--manifest",
+            str(manifest),
+            "--since",
+            since,
+            "--format",
+            "json",
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    if process.returncode:
+        try:
+            error = json.loads(process.stderr)
+            message = error["message"]
+        except (json.JSONDecodeError, KeyError):
+            message = process.stderr.strip() or "kg failed without an error message"
+        raise RuntimeError(message)
+    return json.loads(process.stdout)
+
+
+def render_status(status: dict[str, Any]) -> str:
+    sections = [
+        ("Decisions", status["decisions"]),
+        ("Open actions", status["open_actions"]),
+        ("Completed actions", status["completed_actions"]),
+        ("Blockers", status["blockers"]),
+        ("Conflicts", status["conflicts"]),
+    ]
+    lines = [f"# Status: {status['subject']}"]
+    for title, records in sections:
+        if not records:
+            continue
+        lines.extend(["", f"## {title}"])
+        for record in records:
+            summary = record["summary"] or record["quote"]
+            heading = " / ".join(record["heading_path"])
+            lines.append(
+                f"- {summary} "
+                f"({record['source_path']} @ {heading}; "
+                f"revision {record['source_revision_id'][:12]})"
+            )
+    for gap in status["evidence_gaps"]:
+        lines.extend(["", f"Insufficient evidence: {gap}"])
+    return "\n".join(lines)
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser()
+    parser.add_argument("manifest", type=Path)
+    parser.add_argument("subject")
+    parser.add_argument("--since", default="30d")
+    arguments = parser.parse_args()
+    try:
+        status = load_status(arguments.manifest, arguments.subject, arguments.since)
+    except RuntimeError as exc:
+        print(f"Error: {exc}", file=sys.stderr)
+        return 2
+    print(render_status(status))
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

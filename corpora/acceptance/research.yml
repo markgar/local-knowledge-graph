@@ -3,9 +3,9 @@ cases:
   - id: orbit-two-hop
     command: status
     subject: Orbit
-    expected_connected_entities:
-      - signal
-      - relay
+    expected_connections:
+      - orbit wikilink signal
+      - signal wikilink relay
     expected_decisions:
       - Use a synthetic dataset for the first evaluation.
     expected_blockers:
@@ -22,4 +22,3 @@ cases:
     status: completed
     expected_quotes:
       - "- [x] Publish the synthetic baseline."
-
