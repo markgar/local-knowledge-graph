@@ -29,6 +29,11 @@ class OutputFormat(StrEnum):
     json = "json"
 
 
+class QueryMode(StrEnum):
+    strict = "strict"
+    natural = "natural"
+
+
 FormatOption = Annotated[OutputFormat, typer.Option("--format")]
 
 
@@ -67,6 +72,10 @@ def search(
     limit: Annotated[int, typer.Option(min=1, max=100)] = 20,
     since: Annotated[str | None, typer.Option()] = None,
     source: Annotated[str | None, typer.Option()] = None,
+    query_mode: Annotated[
+        QueryMode,
+        typer.Option(help="Strict all-term or natural any-term BM25 search."),
+    ] = QueryMode.strict,
 ) -> None:
     """Search indexed evidence using SQLite FTS5."""
     corpus = _load_manifest_or_exit(manifest, output_format)
@@ -77,6 +86,9 @@ def search(
             limit=limit,
             since=_parse_since(since) if since else None,
             source_path=source,
+            query_mode=(
+                "natural" if query_mode is QueryMode.natural else "strict"
+            ),
         )
     except (SearchQueryError, ValueError) as exc:
         _fail("invalid_query", str(exc), output_format)

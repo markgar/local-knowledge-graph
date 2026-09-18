@@ -1,0 +1,29 @@
+{
+  "benchmark_version": 1,
+  "dataset": "QASPER",
+  "dataset_version": "0.3",
+  "papers": 50,
+  "questions": 179,
+  "results": {
+    "strict": {
+      "evidence_recall_at_1": 0.0,
+      "evidence_recall_at_5": 0.0,
+      "evidence_recall_at_10": 0.0,
+      "mean_reciprocal_rank": 0.0,
+      "evidence_set_f1_at_10": 0.0,
+      "unanswerable_false_evidence_rate": 0.0,
+      "anchor_integrity": 1.0
+    },
+    "natural": {
+      "evidence_recall_at_1": 0.122137,
+      "evidence_recall_at_5": 0.401673,
+      "evidence_recall_at_10": 0.545716,
+      "mean_reciprocal_rank": 0.301906,
+      "evidence_set_f1_at_10": 0.128274,
+      "unanswerable_false_evidence_rate": 1.0,
+      "anchor_integrity": 1.0,
+      "median_query_latency_ms": 32.008084,
+      "p95_query_latency_ms": 39.649834
+    }
+  }
+}

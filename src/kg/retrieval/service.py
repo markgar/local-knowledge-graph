@@ -6,6 +6,7 @@ import sqlite3
 from collections.abc import Iterable
 from dataclasses import dataclass
 from datetime import datetime
+from typing import Literal
 
 from kg.db import Database
 from kg.models.contracts import ActionResult, EvidenceResult, SearchResult, StatusResult
@@ -38,8 +39,9 @@ class RetrievalService:
         limit: int = 20,
         since: datetime | None = None,
         source_path: str | None = None,
+        query_mode: Literal["strict", "natural"] = "strict",
     ) -> list[SearchResult]:
-        expression = _fts_expression(query)
+        expression = _fts_expression(query, query_mode)
         clauses = [
             "passage_fts MATCH ?",
             "sd.corpus_id = ?",
@@ -90,7 +92,7 @@ class RetrievalService:
                 JOIN source_revision sr ON sr.revision_id = sa.revision_id
                 JOIN source_document sd ON sd.document_id = sr.document_id
                 WHERE {" AND ".join(clauses)}
-                ORDER BY rank
+                ORDER BY rank, sd.source_path, sa.start_offset, p.passage_id
                 LIMIT ?
                 """,
                 parameters,
@@ -757,8 +759,16 @@ class RetrievalService:
         )
 
 
-def _fts_expression(value: str) -> str:
+def _fts_expression(
+    value: str,
+    query_mode: Literal["strict", "natural"] = "strict",
+) -> str:
+    if query_mode not in {"strict", "natural"}:
+        raise SearchQueryError("query mode must be 'strict' or 'natural'")
     tokens = re.findall(r"\w+", value, flags=re.UNICODE)
     if not tokens:
         raise SearchQueryError("Search text must contain at least one letter or number")
-    return " AND ".join(f'"{token}"' for token in tokens)
+    if query_mode == "strict":
+        return " AND ".join(f'"{token}"' for token in tokens)
+    unique_tokens = dict.fromkeys(token.casefold() for token in tokens)
+    return " OR ".join(f'"{token}"' for token in unique_tokens)

@@ -9,3 +9,4 @@ __pycache__/
 *.py[cod]
 build/
 dist/
+benchmarks/qasper/data/

@@ -183,6 +183,16 @@ def test_search_treats_punctuation_as_user_text(tmp_path: Path) -> None:
     assert RetrievalService(database, manifest.corpus_id).search("evidence!")
 
 
+def test_natural_search_matches_any_safely_quoted_term(tmp_path: Path) -> None:
+    manifest = load_manifest(_manifest(tmp_path))
+    database = Database(manifest.database)
+    IngestService(database).ingest(manifest)
+    retrieval = RetrievalService(database, manifest.corpus_id)
+
+    assert retrieval.search("unrelated evidence", query_mode="strict") == []
+    assert retrieval.search("unrelated evidence", query_mode="natural")
+
+
 def test_invalid_source_does_not_rollback_valid_sources(tmp_path: Path) -> None:
     manifest = load_manifest(_manifest(tmp_path))
     (manifest.vault_root / "broken.md").write_text(

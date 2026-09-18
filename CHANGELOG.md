@@ -17,3 +17,7 @@ stable release. Pre-1.0 releases may contain breaking changes.
 - A second synthetic corpus, reviewed acceptance cases, rebuild equivalence,
   stable move detection, and an external cited-status client.
 - Machine-readable JSON errors and verbose operational diagnostics.
+- A reproducible QASPER benchmark fixture with real scientific papers, gold
+  evidence evaluation, and a documented lexical-retrieval baseline.
+- A natural-language lexical search mode using safe FTS5 term expansion and
+  BM25 ranking.

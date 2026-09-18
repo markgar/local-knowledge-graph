@@ -27,7 +27,7 @@ implementation progress. Statuses describe the repository as of 2026-09-17:
 | Idempotent ingestion | Implemented | Unchanged sources do not create new revisions or mutate document state. |
 | Markdown headings, paragraphs, lists, tasks, and wikilinks | Implemented | CommonMark block maps preserve exact source ranges while fenced code is excluded from structural classification. |
 | SQLite schema and atomic migrations | Implemented | Versioned SQL migrations are packaged with the Python distribution. |
-| FTS5 passage search | Implemented | Queries are corpus-scoped and limited to current active revisions. |
+| FTS5 passage search | Implemented | Queries are corpus-scoped and limited to current active revisions, with strict and natural BM25-ranked modes. |
 | Seed entities, approved aliases, and exact mentions | Implemented | Similar names are never merged automatically. |
 | Explicit relationships and graph traversal | Implemented | Anchored wikilink relationships support deterministic one- and two-hop traversal. |
 | Explicit open and completed tasks | Implemented | Checkbox status and optional inline owner and due-date fields are extracted. |

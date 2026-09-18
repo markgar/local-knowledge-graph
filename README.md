@@ -45,6 +45,7 @@ the environment directly.
 ```bash
 uv run kg ingest --manifest corpora/example.yml
 uv run kg search "release" --manifest corpora/example.yml --format json
+uv run kg search "What supports the release?" --manifest corpora/example.yml --query-mode natural
 uv run kg actions Atlas --manifest corpora/example.yml --status open --format json
 uv run kg status Atlas --manifest corpora/example.yml --since 30d --format json
 ```
@@ -117,7 +118,9 @@ cited relationships; similar names are never merged automatically.
 | `kg search` | Search current passages with FTS5. |
 
 `search` and `actions` support `--source` and `--since`; `status` supports
-`--since`. Durations use forms such as `12h`, `30d`, or `4w`.
+`--since`. Search defaults to strict all-term matching; `--query-mode natural`
+uses safely quoted any-term matching with BM25 ranking for natural-language
+questions. Durations use forms such as `12h`, `30d`, or `4w`.
 
 With `--format json`, output follows the Pydantic contracts in `kg.models`.
 Manifest, argument, query, and lookup failures are emitted to stderr as:
@@ -168,6 +171,14 @@ issues should be reported according to [`SECURITY.md`](SECURITY.md).
 for two unrelated synthetic corpora. Tests also verify abstention, immutable
 history, rebuild equivalence, corpus isolation, source moves, failed-source
 deactivation, and manifest-driven reindexing.
+
+## Real-world benchmark
+
+[`benchmarks/qasper/`](benchmarks/qasper/) provides a reproducible evaluation
+against 50 real scientific papers and 179 human-authored QASPER questions with
+gold supporting paragraphs and unanswerable cases. The repository includes the
+downloader, deterministic paper IDs, Markdown converter, evaluator, and
+aggregate baseline results without redistributing the source papers.
 
 ## License
 
