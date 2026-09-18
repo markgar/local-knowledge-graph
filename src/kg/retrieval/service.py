@@ -51,6 +51,8 @@ class RetrievalService:
         source_path: str | None = None,
         query_mode: Literal["strict", "natural"] = "strict",
     ) -> list[SearchResult]:
+        if limit < 1:
+            raise ValueError("limit must be at least 1")
         expression = _fts_expression(query, query_mode)
         clauses = [
             "passage_fts MATCH ?",
@@ -302,6 +304,24 @@ class RetrievalService:
         since: datetime | None = None,
         source_path: str | None = None,
     ) -> list[ActionResult]:
+        with self.database.connection() as connection:
+            return self._actions(
+                connection,
+                subject=subject,
+                status=status,
+                since=since,
+                source_path=source_path,
+            )
+
+    def _actions(
+        self,
+        connection: sqlite3.Connection,
+        *,
+        subject: str | None = None,
+        status: str | None = None,
+        since: datetime | None = None,
+        source_path: str | None = None,
+    ) -> list[ActionResult]:
         clauses = [
             "sd.corpus_id = ?",
             "sd.is_active = 1",
@@ -314,7 +334,7 @@ class RetrievalService:
         if subject:
             subject_clause, subject_parameters = self._subject_clause(
                 subject,
-                self._subject_scope(subject),
+                self._subject_scope(subject, connection),
                 anchor_expression="sa.anchor_id",
                 extra_expressions=("ai.text",),
             )
@@ -356,9 +376,11 @@ class RetrievalService:
             WHERE {" AND ".join(clauses)}
             ORDER BY sd.source_path, sa.start_offset
         """
-        with self.database.connection() as connection:
-            rows = connection.execute(query, parameters).fetchall()
-        related = self._related_entities(row["anchor_id"] for row in rows)
+        rows = connection.execute(query, parameters).fetchall()
+        related = self._related_entities(
+            (row["anchor_id"] for row in rows),
+            connection,
+        )
         return [
             self._action_from_row(row, related.get(row["anchor_id"], []))
             for row in rows
@@ -369,28 +391,40 @@ class RetrievalService:
         subject: str | None = None,
         since: datetime | None = None,
     ) -> list[EvidenceResult]:
-        return self._explicit_records("decision", subject, since)
+        with self.database.connection() as connection:
+            return self._explicit_records(connection, "decision", subject, since)
 
     def blockers(
         self,
         subject: str | None = None,
         since: datetime | None = None,
     ) -> list[EvidenceResult]:
-        return self._explicit_records("blocker", subject, since)
+        with self.database.connection() as connection:
+            return self._explicit_records(connection, "blocker", subject, since)
 
     def conflicts(
         self,
         subject: str | None = None,
         since: datetime | None = None,
     ) -> list[EvidenceResult]:
-        return self._explicit_records("conflict", subject, since)
+        with self.database.connection() as connection:
+            return self._explicit_records(connection, "conflict", subject, since)
 
     def connections(
         self,
         subject: str,
         since: datetime | None = None,
     ) -> list[EvidenceResult]:
-        scope = self._subject_scope(subject)
+        with self.database.connection() as connection:
+            return self._connections(connection, subject, since)
+
+    def _connections(
+        self,
+        connection: sqlite3.Connection,
+        subject: str,
+        since: datetime | None,
+    ) -> list[EvidenceResult]:
+        scope = self._subject_scope(subject, connection)
         if not scope.entity_keys:
             return []
         placeholders = ", ".join("?" for _ in scope.entity_keys)
@@ -402,13 +436,18 @@ class RetrievalService:
         ]
         if since:
             filters.append(
-                "COALESCE(p.event_time, sr.observed_mtime, sr.ingested_at) >= ?"
+                """
+                COALESCE(
+                    datetime(p.event_time),
+                    datetime(sr.observed_mtime),
+                    datetime(sr.ingested_at)
+                ) >= datetime(?)
+                """
             )
             parameters.append(since.isoformat())
         filter_sql = "".join(f" AND {condition}" for condition in filters)
-        with self.database.connection() as connection:
-            rows = connection.execute(
-                f"""
+        rows = connection.execute(
+            f"""
                 SELECT
                     r.relationship_id AS record_id,
                     r.relationship_type,
@@ -442,8 +481,8 @@ class RetrievalService:
                     r.relationship_type,
                     r.relationship_id
                 """,
-                parameters,
-            ).fetchall()
+            parameters,
+        ).fetchall()
         return [
             EvidenceResult(
                 record_id=row["record_id"],
@@ -607,13 +646,44 @@ class RetrievalService:
         )
 
     def status(self, subject: str, since: datetime | None = None) -> StatusResult:
-        open_actions = self.actions(subject=subject, status="open", since=since)
-        completed_actions = self.actions(subject=subject, status="completed", since=since)
-        decisions = self.decisions(subject, since)
-        blockers = self.blockers(subject, since)
-        conflicts = self.conflicts(subject, since)
-        recent_material = self._subject_material(subject, since)
-        connected_entities = self.connections(subject, since)
+        with self.database.connection() as connection:
+            connection.execute("BEGIN")
+            open_actions = self._actions(
+                connection,
+                subject=subject,
+                status="open",
+                since=since,
+            )
+            completed_actions = self._actions(
+                connection,
+                subject=subject,
+                status="completed",
+                since=since,
+            )
+            decisions = self._explicit_records(
+                connection,
+                "decision",
+                subject,
+                since,
+            )
+            blockers = self._explicit_records(
+                connection,
+                "blocker",
+                subject,
+                since,
+            )
+            conflicts = self._explicit_records(
+                connection,
+                "conflict",
+                subject,
+                since,
+            )
+            recent_material = self._subject_material(
+                subject,
+                since,
+                connection=connection,
+            )
+            connected_entities = self._connections(connection, subject, since)
         has_evidence = any(
             (
                 recent_material,
@@ -638,10 +708,16 @@ class RetrievalService:
             conflicts=conflicts,
         )
 
-    def _subject_scope(self, subject: str) -> SubjectScope:
-        with self.database.connection() as connection:
-            rows = connection.execute(
-                """
+    def _subject_scope(
+        self,
+        subject: str,
+        connection: sqlite3.Connection | None = None,
+    ) -> SubjectScope:
+        if connection is None:
+            with self.database.connection() as managed_connection:
+                return self._subject_scope(subject, managed_connection)
+        rows = connection.execute(
+            """
                 WITH RECURSIVE
                 subject_entities(entity_key, entity_id, depth) AS (
                     SELECT DISTINCT e.entity_key, e.entity_id, 0
@@ -683,8 +759,8 @@ class RetrievalService:
                 GROUP BY entity_key, entity_id
                 ORDER BY depth, entity_id
                 """,
-                (self.corpus_id, subject.casefold(), self.corpus_id),
-            ).fetchall()
+            (self.corpus_id, subject.casefold(), self.corpus_id),
+        ).fetchall()
         return SubjectScope(
             entity_keys=tuple(row["entity_key"] for row in rows),
             entity_ids=tuple(row["entity_id"] for row in rows),
@@ -695,7 +771,17 @@ class RetrievalService:
         subject: str,
         since: datetime | None,
         limit: int = 20,
+        *,
+        connection: sqlite3.Connection | None = None,
     ) -> list[EvidenceResult]:
+        if connection is None:
+            with self.database.connection() as managed_connection:
+                return self._subject_material(
+                    subject,
+                    since,
+                    limit,
+                    connection=managed_connection,
+                )
         clauses = [
             "sd.corpus_id = ?",
             "sd.is_active = 1",
@@ -704,7 +790,7 @@ class RetrievalService:
         parameters: list[object] = [self.corpus_id]
         subject_clause, subject_parameters = self._subject_clause(
             subject,
-            self._subject_scope(subject),
+            self._subject_scope(subject, connection),
             anchor_expression="sa.anchor_id",
         )
         clauses.append(subject_clause)
@@ -721,9 +807,8 @@ class RetrievalService:
             )
             parameters.append(since.isoformat())
         parameters.append(limit)
-        with self.database.connection() as connection:
-            rows = connection.execute(
-                f"""
+        rows = connection.execute(
+            f"""
                 SELECT
                     p.passage_id AS record_id,
                     p.title,
@@ -745,9 +830,12 @@ class RetrievalService:
                     sa.start_offset
                 LIMIT ?
                 """,
-                parameters,
-            ).fetchall()
-        related = self._related_entities(row["anchor_id"] for row in rows)
+            parameters,
+        ).fetchall()
+        related = self._related_entities(
+            (row["anchor_id"] for row in rows),
+            connection,
+        )
         return [
             self._evidence_from_row(
                 row,
@@ -759,6 +847,7 @@ class RetrievalService:
 
     def _explicit_records(
         self,
+        connection: sqlite3.Connection,
         table: str,
         subject: str | None,
         since: datetime | None,
@@ -774,7 +863,7 @@ class RetrievalService:
         if subject:
             subject_clause, subject_parameters = self._subject_clause(
                 subject,
-                self._subject_scope(subject),
+                self._subject_scope(subject, connection),
                 anchor_expression="sa.anchor_id",
                 extra_expressions=("r.text",),
             )
@@ -791,9 +880,8 @@ class RetrievalService:
                 """
             )
             parameters.append(since.isoformat())
-        with self.database.connection() as connection:
-            rows = connection.execute(
-                f"""
+        rows = connection.execute(
+            f"""
                 SELECT
                     r.record_id,
                     r.text,
@@ -811,9 +899,12 @@ class RetrievalService:
                 WHERE {" AND ".join(clauses)}
                 ORDER BY sd.source_path, sa.start_offset
                 """,
-                parameters,
-            ).fetchall()
-        related = self._related_entities(row["anchor_id"] for row in rows)
+            parameters,
+        ).fetchall()
+        related = self._related_entities(
+            (row["anchor_id"] for row in rows),
+            connection,
+        )
         return [
             self._evidence_from_row(
                 row,
@@ -874,14 +965,17 @@ class RetrievalService:
     def _related_entities(
         self,
         anchor_ids: Iterable[str],
+        connection: sqlite3.Connection | None = None,
     ) -> dict[str, list[str]]:
         unique_anchor_ids = sorted(set(anchor_ids))
         if not unique_anchor_ids:
             return {}
+        if connection is None:
+            with self.database.connection() as managed_connection:
+                return self._related_entities(unique_anchor_ids, managed_connection)
         placeholders = ", ".join("?" for _ in unique_anchor_ids)
-        with self.database.connection() as connection:
-            rows = connection.execute(
-                f"""
+        rows = connection.execute(
+            f"""
                 SELECT DISTINCT m.anchor_id, e.entity_id
                 FROM mention m
                 JOIN entity e ON e.entity_key = m.entity_key
@@ -889,8 +983,8 @@ class RetrievalService:
                   AND e.corpus_id = ?
                 ORDER BY m.anchor_id, e.entity_id
                 """,
-                (*unique_anchor_ids, self.corpus_id),
-            ).fetchall()
+            (*unique_anchor_ids, self.corpus_id),
+        ).fetchall()
         result: dict[str, list[str]] = {}
         for row in rows:
             result.setdefault(row["anchor_id"], []).append(row["entity_id"])

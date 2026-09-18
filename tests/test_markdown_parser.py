@@ -63,3 +63,16 @@ def test_explicit_record_sections_are_classified() -> None:
         ("blocker", "Network access is unavailable."),
         ("conflict", "- Source A and source B disagree."),
     ]
+
+
+def test_wikilinks_in_code_or_escaped_literal_syntax_are_ignored() -> None:
+    parsed = parse_markdown(
+        "# Project\n\n"
+        "Real [[Target]], inline `[[Inline]]`, and escaped \\[[Literal]].\n",
+        "fallback",
+    )
+
+    paragraph = parsed.anchors[1]
+    assert paragraph.wikilinks == ("Target",)
+    assert "[[Inline]]" not in paragraph.semantic_quote
+    assert "[[Literal]]" not in paragraph.semantic_quote

@@ -1,6 +1,9 @@
 from __future__ import annotations
 
+import hashlib
 import importlib.util
+import io
+from datetime import datetime
 from pathlib import Path
 from types import ModuleType
 
@@ -10,6 +13,7 @@ from kg.config import load_manifest
 from kg.db import Database
 from kg.ingest import IngestService
 from kg.models.contracts import SearchResult
+from kg.retrieval import RetrievalService
 
 
 def _load_benchmark_module(name: str) -> ModuleType:
@@ -101,13 +105,27 @@ def test_qasper_fixture_evaluates_hybrid_strategy(
 
     class StubHybridRetrievalService:
         def __init__(self, database: Database, corpus_id: str) -> None:
-            self.retrieval = evaluate.RetrievalService(database, corpus_id)
+            self.retrieval = RetrievalService(database, corpus_id)
 
         def warmup(self) -> None:
             pass
 
-        def search(self, query: str, **kwargs: object) -> list[SearchResult]:
-            return self.retrieval.search(query, query_mode="natural", **kwargs)
+        def search(
+            self,
+            query: str,
+            subject: str | None = None,
+            limit: int = 20,
+            since: datetime | None = None,
+            source_path: str | None = None,
+        ) -> list[SearchResult]:
+            return self.retrieval.search(
+                query,
+                subject=subject,
+                limit=limit,
+                since=since,
+                source_path=source_path,
+                query_mode="natural",
+            )
 
     monkeypatch.setattr(
         evaluate,
@@ -141,13 +159,27 @@ def test_qasper_fixture_evaluates_reranked_strategy(
 
     class StubRerankedRetrievalService:
         def __init__(self, database: Database, corpus_id: str) -> None:
-            self.retrieval = evaluate.RetrievalService(database, corpus_id)
+            self.retrieval = RetrievalService(database, corpus_id)
 
         def warmup(self) -> None:
             pass
 
-        def search(self, query: str, **kwargs: object) -> list[SearchResult]:
-            return self.retrieval.search(query, query_mode="natural", **kwargs)
+        def search(
+            self,
+            query: str,
+            subject: str | None = None,
+            limit: int = 20,
+            since: datetime | None = None,
+            source_path: str | None = None,
+        ) -> list[SearchResult]:
+            return self.retrieval.search(
+                query,
+                subject=subject,
+                limit=limit,
+                since=since,
+                source_path=source_path,
+                query_mode="natural",
+            )
 
     monkeypatch.setattr(
         evaluate,
@@ -181,3 +213,136 @@ def test_qasper_fixture_refuses_unowned_markdown(tmp_path: Path) -> None:
         assert "Refusing to modify unowned Markdown" in str(exc)
     else:
         raise AssertionError("Expected unowned Markdown protection")
+
+
+def test_qasper_fixture_refuses_unexpected_markdown_on_rerun(tmp_path: Path) -> None:
+    prepare = _load_benchmark_module("prepare")
+    prepare.prepare_corpus(
+        {"1234.56789": _paper()},
+        ["1234.56789"],
+        tmp_path,
+    )
+    (tmp_path / "vault" / "contamination.md").write_text(
+        "# Unexpected\n",
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match="unexpected Markdown"):
+        prepare.prepare_corpus(
+            {"1234.56789": _paper()},
+            ["1234.56789"],
+            tmp_path,
+        )
+
+
+@pytest.mark.parametrize(
+    "relative_path",
+    [
+        Path("vault/1234-56789.md"),
+        Path("corpus.yml"),
+        Path("gold.json"),
+        Path(".qasper-fixture.json"),
+    ],
+)
+def test_qasper_fixture_refuses_symlinked_outputs(
+    tmp_path: Path,
+    relative_path: Path,
+) -> None:
+    prepare = _load_benchmark_module("prepare")
+    prepare.prepare_corpus(
+        {"1234.56789": _paper()},
+        ["1234.56789"],
+        tmp_path,
+    )
+    victim = tmp_path / "victim.txt"
+    victim.write_text("unchanged", encoding="utf-8")
+    output = tmp_path / relative_path
+    output.unlink()
+    output.symlink_to(victim)
+
+    with pytest.raises(ValueError, match="non-regular file"):
+        prepare.prepare_corpus(
+            {"1234.56789": _paper()},
+            ["1234.56789"],
+            tmp_path,
+        )
+
+    assert victim.read_text(encoding="utf-8") == "unchanged"
+
+
+def test_qasper_fixture_refuses_symlinked_vault(tmp_path: Path) -> None:
+    prepare = _load_benchmark_module("prepare")
+    redirected = tmp_path / "redirected"
+    redirected.mkdir()
+    (tmp_path / "vault").symlink_to(redirected, target_is_directory=True)
+
+    with pytest.raises(ValueError, match="symlinked directory"):
+        prepare.prepare_corpus(
+            {"1234.56789": _paper()},
+            ["1234.56789"],
+            tmp_path,
+        )
+
+
+def test_qasper_fixture_refuses_symlinked_output_directory(tmp_path: Path) -> None:
+    prepare = _load_benchmark_module("prepare")
+    redirected = tmp_path / "redirected"
+    redirected.mkdir()
+    output = tmp_path / "output"
+    output.symlink_to(redirected, target_is_directory=True)
+
+    with pytest.raises(ValueError, match="symlinked directory"):
+        prepare.prepare_corpus(
+            {"1234.56789": _paper()},
+            ["1234.56789"],
+            output,
+        )
+
+    assert list(redirected.iterdir()) == []
+
+
+def test_qasper_download_uses_private_temporary_and_atomic_replace(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    prepare = _load_benchmark_module("prepare")
+    payload = b"pinned archive"
+    monkeypatch.setattr(prepare, "ARCHIVE_SHA256", hashlib.sha256(payload).hexdigest())
+    monkeypatch.setattr(
+        prepare.urllib.request,
+        "urlopen",
+        lambda url: io.BytesIO(payload),
+    )
+    destination = tmp_path / "qasper.tgz"
+    predictable_temporary = destination.with_suffix(".tmp")
+    victim = tmp_path / "victim.txt"
+    victim.write_text("unchanged", encoding="utf-8")
+    predictable_temporary.symlink_to(victim)
+
+    assert prepare.download_archive(destination) == destination
+
+    assert destination.read_bytes() == payload
+    assert predictable_temporary.is_symlink()
+    assert victim.read_text(encoding="utf-8") == "unchanged"
+    assert not list(tmp_path.glob(".qasper.tgz.*.tmp"))
+
+
+def test_qasper_download_refuses_symlinked_destination(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    prepare = _load_benchmark_module("prepare")
+    victim = tmp_path / "victim.txt"
+    victim.write_text("unchanged", encoding="utf-8")
+    destination = tmp_path / "qasper.tgz"
+    destination.symlink_to(victim)
+    monkeypatch.setattr(
+        prepare.urllib.request,
+        "urlopen",
+        lambda url: pytest.fail("download should not start"),
+    )
+
+    with pytest.raises(ValueError, match="non-regular file"):
+        prepare.download_archive(destination)
+
+    assert victim.read_text(encoding="utf-8") == "unchanged"

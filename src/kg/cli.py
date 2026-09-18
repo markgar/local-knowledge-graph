@@ -205,13 +205,16 @@ def evidence(
 def status(
     subject: str,
     manifest: ManifestOption,
-    since: Annotated[str, typer.Option(help="Window for dated evidence filtering.")] = "30d",
+    since: Annotated[
+        str | None,
+        typer.Option(help="Optional window for dated evidence filtering."),
+    ] = None,
     output_format: FormatOption = OutputFormat.text,
 ) -> None:
     """Return an evidence-backed subject summary."""
     corpus = _load_manifest_or_exit(manifest, output_format)
     try:
-        cutoff = _parse_since(since)
+        cutoff = _parse_since(since) if since else None
         result = RetrievalService(Database(corpus.database), corpus.corpus_id).status(
             subject,
             cutoff,

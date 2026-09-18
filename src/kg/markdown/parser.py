@@ -38,6 +38,7 @@ class ParsedAnchor:
     start_offset: int
     end_offset: int
     quote: str
+    semantic_quote: str
     wikilinks: tuple[str, ...] = ()
     metadata: dict[str, str] = field(default_factory=dict)
     task: ParsedTask | None = None
@@ -237,7 +238,10 @@ def _anchor(
 ) -> ParsedAnchor:
     headings = tuple(value for _, value in heading_stack)
     path = "/".join([*(f"h{level}:{value}" for level, value in heading_stack), f"{kind}:{index}"])
-    links = tuple(match.group(1).strip() for match in WIKILINK_RE.finditer(quote))
+    semantic_quote = _semantic_quote(quote)
+    links = tuple(
+        match.group(1).strip() for match in WIKILINK_RE.finditer(semantic_quote)
+    )
     return ParsedAnchor(
         structural_path=path,
         heading_path=headings,
@@ -245,8 +249,28 @@ def _anchor(
         start_offset=start,
         end_offset=end,
         quote=quote,
+        semantic_quote=semantic_quote,
         wikilinks=links,
         metadata=metadata or {},
         task=task,
         record_type=record_type,
     )
+
+
+def _semantic_quote(quote: str) -> str:
+    masked = list(quote)
+    inline_tokens = MARKDOWN.parseInline(quote)
+    children = inline_tokens[0].children if inline_tokens else None
+    if children and any(child.type == "code_inline" for child in children):
+        for match in re.finditer(r"(`+)(.+?)\1", quote, re.DOTALL):
+            masked[match.start() : match.end()] = " " * (match.end() - match.start())
+    for match in re.finditer(r"\[\[[^\n]*?]]", quote):
+        slash_count = 0
+        cursor = match.start() - 1
+        while cursor >= 0 and quote[cursor] == "\\":
+            slash_count += 1
+            cursor -= 1
+        if slash_count % 2 == 1:
+            start = match.start() - 1
+            masked[start : match.end()] = " " * (match.end() - start)
+    return "".join(masked)

@@ -86,21 +86,31 @@ class SentenceTransformerEmbeddingProvider:
         *,
         batch_size: int,
     ) -> list[list[float]]:
-        encoded = self._model.encode(
-            texts,
-            batch_size=batch_size,
-            normalize_embeddings=True,
-            show_progress_bar=False,
-        )
-        return _coerce_vectors(encoded)
+        try:
+            encoded = self._model.encode(
+                texts,
+                batch_size=batch_size,
+                normalize_embeddings=True,
+                show_progress_bar=False,
+            )
+            return _coerce_vectors(encoded)
+        except DenseIndexError:
+            raise
+        except (OSError, RuntimeError, TypeError, ValueError, OverflowError) as exc:
+            raise DenseIndexError(f"Could not encode documents: {exc}") from exc
 
     def encode_query(self, text: str) -> list[float]:
-        encoded = self._model.encode(
-            [text],
-            normalize_embeddings=True,
-            show_progress_bar=False,
-        )
-        vectors = _coerce_vectors(encoded)
+        try:
+            encoded = self._model.encode(
+                [text],
+                normalize_embeddings=True,
+                show_progress_bar=False,
+            )
+            vectors = _coerce_vectors(encoded)
+        except DenseIndexError:
+            raise
+        except (OSError, RuntimeError, TypeError, ValueError, OverflowError) as exc:
+            raise DenseIndexError(f"Could not encode query: {exc}") from exc
         if len(vectors) != 1:
             raise DenseIndexError("Embedding model returned an invalid query vector")
         return vectors[0]
@@ -581,15 +591,23 @@ def _projection_id(
 
 
 def _coerce_vectors(value: object) -> list[list[float]]:
-    tolist = getattr(value, "tolist", None)
-    raw = tolist() if callable(tolist) else value
+    try:
+        tolist = getattr(value, "tolist", None)
+        raw = tolist() if callable(tolist) else value
+    except (OSError, RuntimeError, TypeError, ValueError, OverflowError) as exc:
+        raise DenseIndexError(f"Could not convert embedding vectors: {exc}") from exc
     if not isinstance(raw, list):
         raise DenseIndexError("Embedding model returned an unsupported vector type")
     vectors: list[list[float]] = []
     for vector in raw:
         if not isinstance(vector, list):
             raise DenseIndexError("Embedding model returned an unsupported vector shape")
-        vectors.append([float(component) for component in vector])
+        try:
+            vectors.append([float(component) for component in vector])
+        except (TypeError, ValueError, OverflowError) as exc:
+            raise DenseIndexError(
+                f"Could not convert embedding vector components: {exc}"
+            ) from exc
     return vectors
 
 

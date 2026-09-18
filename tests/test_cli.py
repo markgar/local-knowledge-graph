@@ -8,6 +8,7 @@ from typer.testing import CliRunner
 
 from kg.cli import app
 from kg.models.contracts import DenseIndexResult, SearchResult
+from kg.retrieval.dense import DenseIndexError
 
 RUNNER = CliRunner()
 
@@ -142,6 +143,54 @@ def test_natural_query_mode_is_available_through_cli(tmp_path: Path) -> None:
     assert json.loads(result.stdout)[0]["quote"] == "Evidence passage."
 
 
+def test_status_without_since_includes_old_dated_evidence(tmp_path: Path) -> None:
+    manifest = tmp_path / "corpus.yml"
+    vault = tmp_path / "vault"
+    vault.mkdir()
+    (vault / "atlas.md").write_text(
+        "---\n"
+        "date: 2000-01-01\n"
+        "---\n\n"
+        "# Project Atlas\n\n"
+        "## Decisions\n\n"
+        "- Use SQLite for the local index.\n",
+        encoding="utf-8",
+    )
+    manifest.write_text(
+        "corpus_id: test\n"
+        "display_name: Test\n"
+        "vault_root: vault\n"
+        "database: index.sqlite3\n"
+        "include: ['*.md']\n"
+        "seed_entities:\n"
+        "  - entity_id: project-atlas\n"
+        "    name: Project Atlas\n"
+        "    entity_type: project\n"
+        "    aliases: [Atlas]\n"
+        "metadata_fields:\n"
+        "  event_time: date\n",
+        encoding="utf-8",
+    )
+    assert RUNNER.invoke(app, ["ingest", "--manifest", str(manifest)]).exit_code == 0
+
+    result = RUNNER.invoke(
+        app,
+        [
+            "status",
+            "Atlas",
+            "--manifest",
+            str(manifest),
+            "--format",
+            "json",
+        ],
+    )
+
+    assert result.exit_code == 0
+    assert json.loads(result.stdout)["decisions"][0]["summary"] == (
+        "Use SQLite for the local index."
+    )
+
+
 def test_dense_commands_are_available_through_cli(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -226,6 +275,53 @@ def test_dense_commands_are_available_through_cli(
     assert json.loads(index_result.stdout)["projection_id"] == "projection"
     assert search_result.exit_code == 0
     assert json.loads(search_result.stdout)[0]["quote"] == "Semantic evidence."
+
+
+def test_dense_encode_error_is_machine_readable(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    manifest = tmp_path / "corpus.yml"
+    vault = tmp_path / "vault"
+    vault.mkdir()
+    manifest.write_text(
+        "corpus_id: test\n"
+        "display_name: Test\n"
+        "vault_root: vault\n"
+        "database: index.sqlite3\n"
+        "include: ['*.md']\n",
+        encoding="utf-8",
+    )
+
+    class StubDenseRetrievalService:
+        def __init__(self, database: object, corpus_id: str) -> None:
+            pass
+
+        def search(self, query: str, **kwargs: object) -> list[SearchResult]:
+            raise DenseIndexError("Could not encode query: model failure")
+
+    monkeypatch.setattr("kg.cli.DenseRetrievalService", StubDenseRetrievalService)
+
+    result = RUNNER.invoke(
+        app,
+        [
+            "search",
+            "question",
+            "--query-mode",
+            "dense",
+            "--manifest",
+            str(manifest),
+            "--format",
+            "json",
+        ],
+    )
+
+    assert result.exit_code == 2
+    error = json.loads(result.stderr)
+    assert error == {
+        "error": "dense_index_unavailable",
+        "message": "Could not encode query: model failure",
+    }
 
 
 def test_hybrid_query_mode_is_available_through_cli(
