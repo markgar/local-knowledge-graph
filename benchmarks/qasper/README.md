@@ -73,6 +73,10 @@ The aggregate measurements are checked in as
 because it includes dataset-derived identifiers and is more useful as a
 working artifact than as source code.
 
+The permanent experiment history and one-feature-at-a-time methodology are in
+[`RESULTS.md`](RESULTS.md). New retrieval capabilities must record their
+metrics and delta there before the next capability is introduced.
+
 ## Run it
 
 From the repository root:
@@ -96,6 +100,38 @@ uv run python benchmarks/qasper/evaluate.py --strategy strict
 This baseline is intentionally not presented as a solved benchmark. It creates
 a stable, public regression target for better lexical ranking and abstention
 without adding embeddings or answer generation.
+
+## Improvement plan
+
+The benchmark now gates the next retrieval milestones:
+
+1. Add a versioned dense embedding index whose rows retain canonical
+   `anchor_id` and `revision_id` values.
+2. Evaluate lexical and dense retrieval independently.
+3. Combine their candidates using deterministic reciprocal-rank fusion.
+4. Rerank the top candidates with a local cross-encoder.
+5. Calibrate an answerability decision independently from passage relevance.
+
+Target measurements are:
+
+| Stage | Recall@5 | Recall@10 | MRR |
+| --- | ---: | ---: | ---: |
+| Dense plus hybrid | at least 60% | at least 75% | at least 0.45 |
+| Cross-encoder reranked | at least 70% | at least 80% | at least 0.55 |
+
+Every stage must retain 100% anchor integrity and publish its results
+separately. Model-card or external benchmark scores are only selection inputs;
+changes are accepted based on this fixture and the later agent-oriented
+evaluation set.
+
+Experiments are deliberately sequential:
+
+1. Dense retrieval only.
+2. Sparse/dense fusion without changing either retriever.
+3. Reranking without changing candidate generation.
+4. Answerability and abstention without changing retrieval.
+
+This isolates the value and cost of each feature.
 
 The pinned archive is:
 

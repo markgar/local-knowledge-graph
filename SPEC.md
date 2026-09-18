@@ -12,8 +12,8 @@ tags:
 
 ## Implementation Status
 
-This document is both the Version 1 product contract and a record of current
-implementation progress. Statuses describe the repository as of 2026-09-17:
+This document is both the evidence-MVP product contract and the roadmap toward
+agent-useful retrieval. Statuses describe the repository as of 2026-09-17:
 
 - **Implemented**: available and covered by automated tests.
 - **Partial**: the foundational path exists, but the complete requirement is
@@ -28,14 +28,15 @@ implementation progress. Statuses describe the repository as of 2026-09-17:
 | Markdown headings, paragraphs, lists, tasks, and wikilinks | Implemented | CommonMark block maps preserve exact source ranges while fenced code is excluded from structural classification. |
 | SQLite schema and atomic migrations | Implemented | Versioned SQL migrations are packaged with the Python distribution. |
 | FTS5 passage search | Implemented | Queries are corpus-scoped and limited to current active revisions, with strict and natural BM25-ranked modes. |
+| Real-world semantic retrieval | In progress | QASPER establishes the baseline; dense retrieval, hybrid fusion, and reranking remain to be implemented. |
 | Seed entities, approved aliases, and exact mentions | Implemented | Similar names are never merged automatically. |
 | Explicit relationships and graph traversal | Implemented | Anchored wikilink relationships support deterministic one- and two-hop traversal. |
 | Explicit open and completed tasks | Implemented | Checkbox status and optional inline owner and due-date fields are extracted. |
 | Event-date filtering | Implemented | Configured document dates and revision timestamps support bounded retrieval. |
 | `ingest`, `status`, `actions`, `evidence`, and `search` CLI | Implemented | Commands expose text and JSON output over reusable services. |
 | Decisions, blockers, and conflicts | Implemented | Explicit structural sections produce cited records; contradiction inference remains a non-goal. |
-| Evidence gaps and abstention | Implemented | Unsupported subjects return explicit evidence gaps without model completion. |
-| Reviewed acceptance datasets | Implemented | Two synthetic corpora define expected actions, decisions, blockers, relationships, citations, and abstention. |
+| Evidence gaps and abstention | Partial | Unknown configured subjects abstain deterministically, but natural-language answerability is not calibrated. |
+| Reviewed acceptance datasets | Implemented | Synthetic corpora verify contracts; QASPER measures real-world evidence retrieval and exposes current limitations. |
 | Second-corpus generalization proof | Implemented | A separate research corpus uses the same parser, schema, ingestion, and retrieval services. |
 | External client integration | Implemented | A subprocess client handles JSON errors and renders cited status output. |
 
@@ -351,23 +352,25 @@ Each pilot corpus should provide a reviewed set of questions covering:
 Reviewed questions and expected evidence anchors are corpus-specific fixtures,
 not production defaults.
 
-## Definition of Done
+## Evidence MVP Status
 
-The MVP is complete when:
+The evidence substrate is complete, but the agent-useful retrieval milestone
+is not:
 
-1. A corpus is added entirely through a manifest and source files.
-2. Re-running ingestion without source changes produces zero data changes.
-3. Editing one source creates a new revision without destroying prior evidence.
-4. Every returned task, decision, relationship, and status item has an exact
-   source anchor.
-5. A reviewed pilot question set returns the expected evidence with useful
-   retrieval recall.
-6. Unsupported questions clearly report insufficient evidence.
-7. The database can be deleted and rebuilt from the configured sources with
-   equivalent logical results.
-8. An external client can invoke the CLI and present a cited answer from its
-   JSON output.
-9. A second synthetic corpus works without Python or schema changes.
+- [x] A corpus is added entirely through a manifest and source files.
+- [x] Re-running ingestion without source changes produces zero data changes.
+- [x] Editing one source creates a new revision without destroying prior
+  evidence.
+- [x] Every returned task, decision, relationship, and status item has an exact
+  source anchor.
+- [ ] A reviewed real-world question set returns expected evidence with useful
+  retrieval recall.
+- [ ] Unsupported natural-language questions reliably report insufficient
+  evidence or request clarification.
+- [x] The database can be deleted and rebuilt from configured sources with
+  equivalent logical results.
+- [x] An external client can invoke the CLI and present cited JSON output.
+- [x] A second synthetic corpus works without Python or schema changes.
 
 ## Explicit Non-Goals
 
@@ -376,7 +379,11 @@ The MVP does not include:
 - A standalone web application.
 - A general-purpose knowledge graph for the full vault.
 - Hard-coded topics, workstreams, people, products, or source paths.
-- Embeddings or `sqlite-vec`.
+- Training proprietary embedding or reranking models.
+- Implementing a custom approximate-nearest-neighbor algorithm or vector
+  database.
+- Treating a vector index, model output, or inferred graph as authoritative
+  evidence.
 - LLM-based claim or entity extraction.
 - Automatic person merges.
 - Contradiction or supersession inference.
@@ -405,7 +412,7 @@ The MVP does not include:
 - [x] Extract structured owners, due dates, decisions, blockers, conflicts, and
   configured event metadata.
 
-### Milestone 3: Useful retrieval
+### Milestone 3: Deterministic structured retrieval
 
 - [x] Implement corpus-scoped FTS5 search.
 - [x] Implement `status`, `actions`, `search`, and `evidence`.
@@ -423,3 +430,92 @@ The MVP does not include:
 
 The results of Milestone 4 determine whether the next investment should be
 semantic extraction, another source connector, embeddings, or a review UI.
+
+### Milestone 5: Agent-useful retrieval
+
+- [x] Establish a reproducible real-document benchmark with exact gold
+  evidence.
+- [x] Record sparse lexical retrieval, latency, citation integrity, and
+  unanswerable-query baselines.
+- [ ] Add a versioned dense embedding projection over canonical source
+  anchors.
+- [ ] Combine sparse and dense candidates using deterministic reciprocal-rank
+  fusion.
+- [ ] Rerank the strongest candidates with a local cross-encoder.
+- [ ] Calibrate answerability so unsupported questions abstain or request
+  clarification.
+- [ ] Add an agent-oriented evaluation set covering paraphrases, revisions,
+  ambiguity, conflicts, multi-document synthesis, and unsupported questions.
+- [ ] Expose agent-facing evidence search, source-range reads, revision
+  comparison, and citation resolution through a stable tool interface.
+
+The canonical SQLite database remains the evidence and provenance store.
+Embedding indexes, learned sparse indexes, reranking outputs, and inferred
+records are disposable, versioned projections. Every projected result must
+resolve back to an immutable `anchor_id` and `revision_id`.
+
+#### Build versus integrate
+
+The project owns:
+
+- Deterministic Markdown parsing and exact source positions.
+- Stable documents, immutable revisions, and citation resolution.
+- Explicit records and relationships.
+- Current-versus-historical evidence semantics.
+- Benchmark fixtures, evaluation, and acceptance gates.
+
+The project integrates rather than invents:
+
+- Pretrained embedding and cross-encoder models.
+- Vector indexing and nearest-neighbor search.
+- Sparse/dense fusion algorithms.
+- Model inference runtimes.
+
+The initial implementation should evaluate Sentence Transformers with a
+permissively licensed retrieval model, use a local vector projection keyed by
+canonical anchor IDs, retain FTS5 for exact lexical search, fuse independent
+rankings with reciprocal-rank fusion, and rerank only a bounded candidate set.
+`sqlite-vec` is the lowest-change experimental index; LanceDB is the preferred
+embedded alternative if hybrid-search ergonomics or index maturity require a
+separate derived store. Neither may replace canonical SQLite provenance.
+
+#### Experimental discipline
+
+Retrieval work proceeds one measurable feature at a time:
+
+1. Dense retrieval over the existing anchors.
+2. Sparse/dense fusion without changing either underlying retriever.
+3. Cross-encoder reranking without changing candidate generation.
+4. Answerability calibration without changing retrieval.
+5. Agent-tool integration after retrieval and abstention pass their gates.
+
+Each step must preserve the corpus selection, questions, gold evidence, metric
+implementation, and prior configuration. Its aggregate result and delta must
+be added to [`benchmarks/qasper/RESULTS.md`](benchmarks/qasper/RESULTS.md)
+before another retrieval feature begins. Model substitutions, chunking
+changes, fusion methods, and reranker substitutions are separate experiments
+rather than bundled improvements.
+
+#### Retrieval acceptance gates
+
+On the pinned QASPER fixture:
+
+- Dense plus hybrid retrieval: Recall@5 at least 60%, Recall@10 at least 75%,
+  and MRR at least 0.45.
+- Cross-encoder reranking: Recall@5 at least 70%, Recall@10 at least 80%, MRR
+  at least 0.55, and evidence-set F1@10 at least twice the lexical baseline.
+- Citation and anchor integrity must remain 100%.
+
+Before describing the system as useful to an agent, an in-domain evaluation
+set must demonstrate:
+
+- Evidence Recall@10 of at least 85%.
+- Direct-fact MRR of at least 0.70.
+- Claim-level citation correctness of at least 95%.
+- False evidence or answers on unsupported questions of at most 5%.
+- Correct abstention or clarification on unsupported and ambiguous questions
+  of at least 90%.
+- Successful completion of at least 80% of representative agent tasks.
+
+These thresholds are project acceptance gates, not claims of universal
+retrieval quality.

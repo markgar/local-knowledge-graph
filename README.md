@@ -10,9 +10,9 @@ data, SQLite is the durable index, and every returned record points to an
 immutable source revision and exact quote.
 
 Python 3.12 or newer is required. The supported CI matrix covers Python 3.12,
-3.13, and 3.14. The Version 1 MVP described in [`SPEC.md`](SPEC.md) is implemented and covered
-by synthetic acceptance corpora. The project remains pre-alpha while its
-interfaces receive broader real-world testing.
+3.13, and 3.14. The deterministic evidence and provenance MVP described in
+[`SPEC.md`](SPEC.md) is implemented. Real-world semantic retrieval and
+answerability remain active development areas, so the project is pre-alpha.
 
 The engine provides:
 
@@ -179,6 +179,50 @@ against 50 real scientific papers and 179 human-authored QASPER questions with
 gold supporting paragraphs and unanswerable cases. The repository includes the
 downloader, deterministic paper IDs, Markdown converter, evaluator, and
 aggregate baseline results without redistributing the source papers.
+
+[`benchmarks/qasper/RESULTS.md`](benchmarks/qasper/RESULTS.md) preserves the
+baseline and records future experiments one feature at a time, including their
+metric delta, configuration, latency, and index cost.
+
+The benchmark currently shows that the evidence substrate is reliable but the
+retrieval layer is not yet agent-ready:
+
+| Metric | Current natural-search baseline |
+| --- | ---: |
+| Evidence Recall@1 | 12.2% |
+| Evidence Recall@5 | 40.2% |
+| Evidence Recall@10 | 54.6% |
+| Mean reciprocal rank | 0.302 |
+| Unanswerable false-evidence rate | 100.0% |
+| Anchor integrity | 100.0% |
+
+The project should therefore be understood as an experimental evidence index,
+not a production question-answering system.
+
+## Roadmap
+
+The next phase keeps SQLite as the canonical evidence store while adding
+replaceable retrieval projections:
+
+1. Dense embeddings over exact source anchors.
+2. Hybrid sparse and dense retrieval with reciprocal-rank fusion.
+3. Local cross-encoder reranking.
+4. Calibrated abstention and clarification.
+5. Agent-oriented evaluation and a stable tool interface.
+
+The project will integrate established embedding models, vector indexes, and
+rerankers rather than inventing them. Its responsibility remains immutable
+provenance, exact citations, explicit records, deterministic rebuilding, and
+measured retrieval quality. Detailed acceptance gates are recorded in
+[`SPEC.md`](SPEC.md#milestone-5-agent-useful-retrieval).
+
+The first candidates are
+[Sentence Transformers](https://www.sbert.net/) with a permissively licensed
+retrieval model, [sqlite-vec](https://github.com/asg017/sqlite-vec) for a
+minimum-change local experiment, or
+[LanceDB](https://github.com/lancedb/lancedb) if the derived retrieval index
+needs stronger hybrid-search support. These components remain replaceable;
+canonical evidence stays in SQLite.
 
 ## License
 
