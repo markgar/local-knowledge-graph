@@ -85,10 +85,14 @@ From the repository root:
 uv sync --extra dev
 uv run python benchmarks/qasper/prepare.py
 uv run kg ingest --manifest benchmarks/qasper/data/corpus.yml
-uv run kg dense-index --manifest benchmarks/qasper/data/corpus.yml
-uv run python benchmarks/qasper/evaluate.py --strategy dense
-uv run python benchmarks/qasper/evaluate.py --strategy hybrid
-uv run python benchmarks/qasper/evaluate.py --strategy reranked
+uv run kg dense-index --manifest benchmarks/qasper/data/corpus.yml --embedding-profile gte-modernbert
+uv run kg dense-index --manifest benchmarks/qasper/data/corpus.yml --embedding-profile qwen3-embedding-0.6b
+uv run python benchmarks/qasper/evaluate.py --strategy dense --embedding-profile gte-modernbert --output benchmarks/qasper/data/results-dense-gte.json
+uv run python benchmarks/qasper/evaluate.py --strategy dense --embedding-profile qwen3-embedding-0.6b --output benchmarks/qasper/data/results-dense-qwen.json
+uv run python benchmarks/qasper/evaluate.py --strategy hybrid --embedding-profile gte-modernbert --output benchmarks/qasper/data/results-hybrid-gte.json
+uv run python benchmarks/qasper/evaluate.py --strategy hybrid --embedding-profile qwen3-embedding-0.6b --output benchmarks/qasper/data/results-hybrid-qwen.json
+uv run python benchmarks/qasper/evaluate.py --strategy reranked --embedding-profile gte-modernbert --output benchmarks/qasper/data/results-reranked-gte.json
+uv run python benchmarks/qasper/evaluate.py --strategy reranked --embedding-profile qwen3-embedding-0.6b --output benchmarks/qasper/data/results-reranked-qwen.json
 uv run python benchmarks/qasper/evaluate.py
 ```
 
@@ -97,9 +101,10 @@ are written beneath `benchmarks/qasper/data/`, which Git ignores.
 The environment-specific `uv.lock` is also ignored because the configured
 package feed may differ between development environments.
 
-The evaluator uses natural search by default. Run it with `--strategy strict`
-to reproduce the original all-term baseline, or use `--strategy dense` or
-`--strategy hybrid` or `--strategy reranked` after building the dense projection:
+The evaluator uses natural search and the GTE profile by default. Run it with
+`--strategy strict` to reproduce the original all-term baseline, or use
+`--strategy dense`, `--strategy hybrid`, or `--strategy reranked` after
+building the selected profile projection:
 
 ```bash
 uv run python benchmarks/qasper/evaluate.py --strategy strict

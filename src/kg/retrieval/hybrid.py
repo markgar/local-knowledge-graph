@@ -6,7 +6,12 @@ from typing import Protocol
 
 from kg.db import Database
 from kg.models.contracts import SearchResult
-from kg.retrieval.dense import DenseIndexError, DenseRetrievalService
+from kg.retrieval.dense import (
+    DEFAULT_EMBEDDING_PROFILE,
+    DenseIndexError,
+    DenseRetrievalService,
+    EmbeddingProfile,
+)
 from kg.retrieval.service import RetrievalService, SearchQueryError
 
 DEFAULT_CANDIDATE_LIMIT = 50
@@ -40,6 +45,7 @@ class HybridRetrievalService:
         rrf_k: int = DEFAULT_RECIPROCAL_RANK_FUSION_K,
         lexical_weight: float = DEFAULT_LEXICAL_WEIGHT,
         dense_weight: float = DEFAULT_DENSE_WEIGHT,
+        embedding_profile: EmbeddingProfile = DEFAULT_EMBEDDING_PROFILE,
     ) -> None:
         if candidate_limit < 1:
             raise ValueError("candidate_limit must be at least 1")
@@ -51,6 +57,7 @@ class HybridRetrievalService:
         self.dense_retrieval = dense_retrieval or DenseRetrievalService(
             database,
             corpus_id,
+            profile=embedding_profile,
         )
         self.candidate_limit = candidate_limit
         self.rrf_k = rrf_k

@@ -27,3 +27,7 @@ stable release. Pre-1.0 releases may contain breaking changes.
   retrieval over canonical source anchors.
 - Deterministic reciprocal-rank fusion and pinned local cross-encoder
   reranking over unchanged canonical evidence candidates.
+- Two isolated local embedding profiles for the existing pinned GTE
+  ModernBERT model and pinned Qwen3-Embedding-0.6B, including profile-specific
+  projections, asymmetric Qwen query encoding, runtime compatibility checks,
+  CLI and QASPER selection, and a direct measured comparison.

@@ -28,7 +28,7 @@ agent-useful retrieval. Statuses describe the repository as of 2026-09-18:
 | Markdown headings, paragraphs, lists, tasks, and wikilinks | Implemented | CommonMark block maps preserve exact source ranges while fenced code is excluded from structural classification. |
 | Rebuildable SQLite schema | Implemented | The packaged schema initializes new indexes; pre-alpha schema changes require rebuilding generated databases. |
 | FTS5 passage search | Implemented | Queries are corpus-scoped and limited to current active revisions, with strict and natural BM25-ranked modes. |
-| Real-world semantic retrieval | In progress | Dense retrieval, hybrid fusion, and cross-encoder reranking are implemented and measured; acceptance gates remain unmet. |
+| Real-world semantic retrieval | In progress | Two isolated local embedding profiles, hybrid fusion, and cross-encoder reranking are implemented and measured; acceptance gates remain unmet. |
 | Seed entities, approved aliases, and exact mentions | Implemented | Similar names are never merged automatically. |
 | Explicit relationships and graph traversal | Implemented | Anchored wikilink relationships support deterministic one- and two-hop traversal. |
 | Explicit open and completed tasks | Implemented | Checkbox status and optional inline owner and due-date fields are extracted. |
@@ -470,10 +470,16 @@ The project integrates rather than invents:
 - Sparse/dense fusion algorithms.
 - Model inference runtimes.
 
-The implemented semantic retrieval path uses Sentence Transformers with a
-permissively licensed retrieval model, a local vector projection keyed by
-canonical anchor IDs, and FTS5 for exact lexical search. It fuses independent
-rankings with reciprocal-rank fusion and reranks only a bounded candidate set.
+The implemented semantic retrieval path uses Sentence Transformers with two
+fixed, permissively licensed local retrieval profiles, isolated vector
+projections keyed by canonical anchor IDs, and FTS5 for exact lexical search.
+The default `gte-modernbert` profile preserves the pinned
+`Alibaba-NLP/gte-modernbert-base` behavior. The
+`qwen3-embedding-0.6b` profile pins `Qwen/Qwen3-Embedding-0.6B`, applies its
+official asymmetric query instruction, and leaves documents uninstructed.
+Profile-specific databases prevent vector-space or ranking mixing while
+allowing both projections to coexist. It fuses independent rankings with
+reciprocal-rank fusion and reranks only a bounded candidate set.
 `sqlite-vec` is the lowest-change experimental index; LanceDB is the preferred
 embedded alternative if hybrid-search ergonomics or index maturity require a
 separate derived store. Neither may replace canonical SQLite provenance.
@@ -488,13 +494,22 @@ defaults remain constructor parameters rather than corpus-specific rules.
 Hybrid search requires a current E1 projection and fails explicitly when that
 projection is missing, stale, or incompatible.
 
+Projection identity includes the embedding profile, model and exact revision,
+Sentence Transformers, Transformers, PyTorch, and sqlite-vec runtime versions,
+actual local inference device and dtype, dimensions, L2 normalization,
+source-text version, context behavior, query and document encoding behavior,
+and canonical source fingerprint. Generated projections are disposable;
+canonical evidence and immutable provenance remain in SQLite. CUDA and Apple
+MPS may be used when available, but CPU remains a supported local fallback.
+
 #### Experimental discipline
 
 Retrieval work proceeds one measurable feature at a time:
 
 1. Complete an independent code review and resolve its high-confidence
    findings before measuring a feature's efficacy.
-2. Dense retrieval over the existing anchors.
+2. Dense retrieval over the existing anchors, with model substitutions
+   evaluated as isolated profile experiments.
 3. Sparse/dense fusion without changing either underlying retriever.
 4. Cross-encoder reranking without changing candidate generation.
 5. Answerability calibration without changing retrieval.

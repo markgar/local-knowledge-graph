@@ -53,11 +53,12 @@ use uv's default public index.
 ```bash
 uv run kg ingest --manifest corpora/example.yml
 uv run kg dense-index --manifest corpora/example.yml
+uv run kg dense-index --manifest corpora/example.yml --embedding-profile qwen3-embedding-0.6b
 uv run kg search "release" --manifest corpora/example.yml --format json
 uv run kg search "What supports the release?" --manifest corpora/example.yml --query-mode natural
 uv run kg search "What supports the release?" --manifest corpora/example.yml --query-mode dense
-uv run kg search "What supports the release?" --manifest corpora/example.yml --query-mode hybrid
-uv run kg search "What supports the release?" --manifest corpora/example.yml --query-mode reranked
+uv run kg search "What supports the release?" --manifest corpora/example.yml --query-mode hybrid --embedding-profile qwen3-embedding-0.6b
+uv run kg search "What supports the release?" --manifest corpora/example.yml --query-mode reranked --embedding-profile qwen3-embedding-0.6b
 uv run kg actions Atlas --manifest corpora/example.yml --status open --format json
 uv run kg status Atlas --manifest corpora/example.yml --format json
 ```
@@ -124,7 +125,7 @@ cited relationships; similar names are never merged automatically.
 | Command | Purpose |
 | --- | --- |
 | `kg ingest` | Validate a manifest and update immutable revisions and current indexes. |
-| `kg dense-index` | Build a versioned sqlite-vec projection with pinned local embeddings. |
+| `kg dense-index` | Build a profile-specific, versioned sqlite-vec projection with pinned local embeddings. |
 | `kg status` | Return cited material, decisions, actions, blockers, relationships, conflicts, and evidence gaps. |
 | `kg actions` | Return explicit open or completed tasks with owners and due dates. |
 | `kg evidence` | Resolve any returned record ID to its exact source anchor. |
@@ -142,9 +143,29 @@ Durations use forms such as `12h`, `30d`, or `4w`.
 
 Dense indexing uses the pinned Apache-2.0
 `Alibaba-NLP/gte-modernbert-base` revision through Sentence Transformers. The
-model is downloaded on first use. Embeddings are stored in a disposable
-sqlite-vec database beside the canonical corpus database; every vector remains
-keyed to its exact passage, anchor, and source revision.
+GTE profile remains the default and preserves its existing `.dense.sqlite3`
+projection path and encoding behavior. The second fixed profile is the
+Apache-2.0 `Qwen/Qwen3-Embedding-0.6B` revision
+`97b0c614be4d77ee51c0cef4e5f07c00f9eb65b3`. It uses 1,024-dimensional,
+L2-normalized embeddings, the model's 32K context behavior, the official
+`query` prompt
+`Instruct: Given a web search query, retrieve relevant passages that answer the query`
+on queries, and no instruction on documents.
+
+Select either profile with `--embedding-profile gte-modernbert` or
+`--embedding-profile qwen3-embedding-0.6b` on `dense-index` and dense, hybrid,
+or reranked `search`. Both profile projections remain on disk simultaneously;
+switching does not rebuild an existing compatible projection. Sentence
+Transformers uses the best available local PyTorch backend, such as CUDA, MPS,
+or CPU. The actual device and tensor dtype are part of projection
+compatibility, along with the profile, model revision, runtime versions,
+dimensions, normalization, context and encoding behavior, source-text version,
+and canonical corpus fingerprint.
+
+Models are downloaded on first use. Embeddings are stored in disposable
+profile-specific sqlite-vec databases beside the canonical corpus database;
+every vector remains keyed to its exact passage, anchor, and source revision.
+No corpus text is sent to an API.
 
 With `--format json`, output follows the Pydantic contracts in `kg.models`.
 Manifest, argument, query, and lookup failures are emitted to stderr as:
@@ -235,6 +256,16 @@ E3 reranks the unchanged top 50 E2 candidates with a pinned local
 cross-encoder, reaching 58.5% Recall@5, 72.2% Recall@10, and 0.446 MRR while
 retaining deterministic rankings and 100% anchor integrity. This is a material
 improvement but remains below the reranked acceptance gates.
+
+A controlled GTE-versus-Qwen substitution kept all retrieval architecture and
+benchmark inputs unchanged. Qwen improved dense Recall@10 from 42.7% to 64.2%
+and hybrid Recall@5 from 41.6% to 46.6%, but the unchanged reranker produced
+essentially the same final quality: 58.5% Recall@5 for both profiles, with
+Qwen at 71.6% rather than 72.2% Recall@10. Qwen also required about four times
+the model cache, 3.6 times the indexing time, and a 32.8% larger vector index.
+GTE therefore remains the compatibility default. QASPER is one scientific
+paper regression dataset, not the sole basis for selecting a general-purpose
+embedding model.
 
 The project should therefore be understood as an experimental evidence index,
 not a production question-answering system.

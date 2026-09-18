@@ -13,6 +13,7 @@ from kg.config import load_manifest
 from kg.db import Database
 from kg.retrieval import (
     DenseRetrievalService,
+    EmbeddingProfile,
     HybridRetrievalService,
     RerankedRetrievalService,
     RetrievalService,
@@ -62,6 +63,7 @@ def evaluate(
     gold_path: Path,
     limit: int = 10,
     strategy: Strategy = "natural",
+    embedding_profile: EmbeddingProfile = EmbeddingProfile.gte_modernbert,
 ) -> dict[str, Any]:
     if strategy not in {"strict", "natural", "dense", "hybrid", "reranked"}:
         raise ValueError(
@@ -72,17 +74,29 @@ def evaluate(
     manifest = load_manifest(manifest_path)
     retrieval = RetrievalService(Database(manifest.database), manifest.corpus_id)
     dense_retrieval = (
-        DenseRetrievalService(Database(manifest.database), manifest.corpus_id)
+        DenseRetrievalService(
+            Database(manifest.database),
+            manifest.corpus_id,
+            profile=embedding_profile,
+        )
         if strategy == "dense"
         else None
     )
     hybrid_retrieval = (
-        HybridRetrievalService(Database(manifest.database), manifest.corpus_id)
+        HybridRetrievalService(
+            Database(manifest.database),
+            manifest.corpus_id,
+            embedding_profile=embedding_profile,
+        )
         if strategy == "hybrid"
         else None
     )
     reranked_retrieval = (
-        RerankedRetrievalService(Database(manifest.database), manifest.corpus_id)
+        RerankedRetrievalService(
+            Database(manifest.database),
+            manifest.corpus_id,
+            embedding_profile=embedding_profile,
+        )
         if strategy == "reranked"
         else None
     )
@@ -196,6 +210,7 @@ def evaluate(
         "papers": gold["papers"],
         "questions": len(questions),
         "query_strategy": strategy,
+        "embedding_profile": embedding_profile.value,
         "answerable_questions": answerable,
         "unanswerable_questions": unanswerable,
         "metrics": {
@@ -239,16 +254,32 @@ def main() -> None:
         default="natural",
     )
     parser.add_argument(
+        "--embedding-profile",
+        choices=tuple(profile.value for profile in EmbeddingProfile),
+        default=EmbeddingProfile.gte_modernbert.value,
+    )
+    parser.add_argument(
         "--output",
         type=Path,
         default=None,
     )
     args = parser.parse_args()
 
-    result = evaluate(args.manifest, args.gold, args.limit, args.strategy)
-    output = args.output or (
-        benchmark_directory / "data" / f"results-{args.strategy}.json"
+    profile = EmbeddingProfile(args.embedding_profile)
+    result = evaluate(
+        args.manifest,
+        args.gold,
+        args.limit,
+        args.strategy,
+        profile,
     )
+    default_name = f"results-{args.strategy}.json"
+    if (
+        args.strategy in {"dense", "hybrid", "reranked"}
+        and profile is not EmbeddingProfile.gte_modernbert
+    ):
+        default_name = f"results-{args.strategy}-{profile.value}.json"
+    output = args.output or (benchmark_directory / "data" / default_name)
     output.parent.mkdir(parents=True, exist_ok=True)
     output.write_text(
         json.dumps(result, indent=2, sort_keys=True) + "\n",
