@@ -65,6 +65,9 @@ where = ["src"]
 [tool.setuptools.package-data]
 kg = ["schema.sql", "py.typed"]
 
+[tool.setuptools.exclude-package-data]
+"*" = ["__pycache__/*", "*.pyc"]
+
 [tool.pytest.ini_options]
 addopts = "-q"
 testpaths = ["tests"]

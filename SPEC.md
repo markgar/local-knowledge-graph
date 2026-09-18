@@ -203,7 +203,7 @@ Responsibilities:
 ### Status
 
 ```bash
-kg status <subject> --since 30d --format json
+kg status <subject> --manifest <corpus.yml> --format json
 ```
 
 Returns evidence-backed sections for:
@@ -222,7 +222,7 @@ natural-language prose. The calling client is responsible for presentation.
 ### Actions
 
 ```bash
-kg actions <subject> --status open --format json
+kg actions <subject> --manifest <corpus.yml> --status open --format json
 ```
 
 Returns explicit tasks associated with the workstream, including owner, due
@@ -232,7 +232,7 @@ unassigned.
 ### Evidence
 
 ```bash
-kg evidence <record-id> --format json
+kg evidence <record-id> --manifest <corpus.yml> --format json
 ```
 
 Returns every source anchor supporting the selected record, including exact
@@ -241,11 +241,12 @@ quotes and Obsidian-openable paths.
 ### Search
 
 ```bash
-kg search <query> --subject <subject> --format json
+kg search <query> --manifest <corpus.yml> --subject <subject> --format json
 ```
 
-Returns ranked source passages using FTS5. Vector search is not part of the
-MVP.
+Returns ranked source passages using the requested implemented lexical, dense,
+hybrid, or reranked query mode. Every mode resolves results to canonical
+source anchors.
 
 ## Minimal Data Model
 
@@ -439,7 +440,7 @@ semantic extraction, another source connector, embeddings, or a review UI.
   anchors.
 - [x] Combine sparse and dense candidates using deterministic reciprocal-rank
   fusion.
-- [ ] Rerank the strongest candidates with a local cross-encoder.
+- [x] Rerank the strongest candidates with a local cross-encoder.
 - [ ] Calibrate answerability so unsupported questions abstain or request
   clarification.
 - [ ] Add an agent-oriented evaluation set covering paraphrases, revisions,
@@ -469,10 +470,10 @@ The project integrates rather than invents:
 - Sparse/dense fusion algorithms.
 - Model inference runtimes.
 
-The initial implementation should evaluate Sentence Transformers with a
-permissively licensed retrieval model, use a local vector projection keyed by
-canonical anchor IDs, retain FTS5 for exact lexical search, fuse independent
-rankings with reciprocal-rank fusion, and rerank only a bounded candidate set.
+The implemented semantic retrieval path uses Sentence Transformers with a
+permissively licensed retrieval model, a local vector projection keyed by
+canonical anchor IDs, and FTS5 for exact lexical search. It fuses independent
+rankings with reciprocal-rank fusion and reranks only a bounded candidate set.
 `sqlite-vec` is the lowest-change experimental index; LanceDB is the preferred
 embedded alternative if hybrid-search ergonomics or index maturity require a
 separate derived store. Neither may replace canonical SQLite provenance.

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections.abc import Sequence
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -72,7 +73,7 @@ def test_reranked_search_scores_unchanged_hybrid_candidates_and_forwards_filters
         def score(
             self,
             query: str,
-            passages: list[str],
+            passages: Sequence[str],
             *,
             batch_size: int,
         ) -> list[float]:
@@ -118,7 +119,7 @@ def test_reranked_search_breaks_equal_scores_by_record_id(tmp_path: Path) -> Non
         def score(
             self,
             query: str,
-            passages: list[str],
+            passages: Sequence[str],
             *,
             batch_size: int,
         ) -> list[float]:
@@ -135,13 +136,13 @@ def test_reranked_search_breaks_equal_scores_by_record_id(tmp_path: Path) -> Non
     assert [result.record_id for result in service.search("question")] == ["a", "b"]
 
 
-def test_reranked_search_never_expands_the_frozen_candidate_set(
+def test_reranked_search_expands_candidates_to_the_requested_limit(
     tmp_path: Path,
 ) -> None:
     class StubHybridRetrieval:
         def search(self, query: str, **kwargs: object) -> list[SearchResult]:
-            assert kwargs["limit"] == 2
-            return [_result("a"), _result("b")]
+            assert kwargs["limit"] == 100
+            return [_result(f"{index:03}") for index in range(100)]
 
         def warmup(self) -> None:
             pass
@@ -155,11 +156,11 @@ def test_reranked_search_never_expands_the_frozen_candidate_set(
         def score(
             self,
             query: str,
-            passages: list[str],
+            passages: Sequence[str],
             *,
             batch_size: int,
         ) -> list[float]:
-            return [0.5, 0.4]
+            return [1.0] * len(passages)
 
     service = RerankedRetrievalService(
         _database(tmp_path),
@@ -169,7 +170,10 @@ def test_reranked_search_never_expands_the_frozen_candidate_set(
         candidate_limit=2,
     )
 
-    assert len(service.search("question", limit=100)) == 2
+    results = service.search("question", limit=100)
+
+    assert len(results) == 100
+    assert [result.record_id for result in results[:3]] == ["000", "001", "002"]
 
 
 def test_reranked_search_rejects_invalid_scores(tmp_path: Path) -> None:
@@ -189,7 +193,7 @@ def test_reranked_search_rejects_invalid_scores(tmp_path: Path) -> None:
         def score(
             self,
             query: str,
-            passages: list[str],
+            passages: Sequence[str],
             *,
             batch_size: int,
         ) -> list[float]:
@@ -226,7 +230,7 @@ def test_reranked_search_rejects_a_corpus_change(
         def score(
             self,
             query: str,
-            passages: list[str],
+            passages: Sequence[str],
             *,
             batch_size: int,
         ) -> list[float]:

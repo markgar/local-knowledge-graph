@@ -8,7 +8,7 @@ import json
 import subprocess
 import sys
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 
 def load_status(
@@ -40,7 +40,12 @@ def load_status(
         except (json.JSONDecodeError, KeyError):
             message = process.stderr.strip() or "kg failed without an error message"
         raise RuntimeError(message)
-    return json.loads(process.stdout)
+    payload: object = json.loads(process.stdout)
+    if not isinstance(payload, dict) or not all(
+        isinstance(key, str) for key in payload
+    ):
+        raise RuntimeError("kg returned an invalid status payload")
+    return cast(dict[str, Any], payload)
 
 
 def render_status(status: dict[str, Any]) -> str:

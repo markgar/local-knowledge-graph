@@ -59,7 +59,7 @@ uv run kg search "What supports the release?" --manifest corpora/example.yml --q
 uv run kg search "What supports the release?" --manifest corpora/example.yml --query-mode hybrid
 uv run kg search "What supports the release?" --manifest corpora/example.yml --query-mode reranked
 uv run kg actions Atlas --manifest corpora/example.yml --status open --format json
-uv run kg status Atlas --manifest corpora/example.yml --since 30d --format json
+uv run kg status Atlas --manifest corpora/example.yml --format json
 ```
 
 The example database is written to `.kg/example.sqlite3`, which is ignored by
@@ -130,8 +130,9 @@ cited relationships; similar names are never merged automatically.
 | `kg evidence` | Resolve any returned record ID to its exact source anchor. |
 | `kg search` | Search current passages with FTS5. |
 
-`search` and `actions` support `--source` and `--since`; `status` supports
-`--since`. Search defaults to strict all-term matching; `--query-mode natural`
+`search` and `actions` support `--source` and `--since`; `status` supports an
+optional `--since` and otherwise considers all dated evidence. Search defaults
+to strict all-term matching; `--query-mode natural`
 uses safely quoted any-term matching with BM25 ranking, `--query-mode dense`
 uses the local versioned embedding projection, and `--query-mode hybrid`
 combines their unchanged rankings with deterministic reciprocal-rank fusion.

@@ -6,8 +6,7 @@ CREATE TABLE IF NOT EXISTS source_document (
     current_revision_id TEXT,
     is_active INTEGER NOT NULL DEFAULT 1 CHECK (is_active IN (0, 1)),
     created_at TEXT NOT NULL,
-    updated_at TEXT NOT NULL,
-    UNIQUE (corpus_id, source_path)
+    updated_at TEXT NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS source_revision (
@@ -52,8 +51,8 @@ CREATE TABLE IF NOT EXISTS entity (
     entity_id TEXT NOT NULL,
     entity_type TEXT NOT NULL,
     canonical_name TEXT NOT NULL,
-    UNIQUE (corpus_id, entity_id),
-    UNIQUE (corpus_id, entity_type, canonical_name)
+    is_active INTEGER NOT NULL DEFAULT 1 CHECK (is_active IN (0, 1)),
+    UNIQUE (corpus_id, entity_id)
 );
 
 CREATE TABLE IF NOT EXISTS entity_alias (

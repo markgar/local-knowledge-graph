@@ -9,15 +9,15 @@ from datetime import UTC, date, datetime
 from pathlib import Path
 from typing import Literal
 
-from kg.config import relative_source_path, select_sources
+from kg.config import read_source, relative_source_path, select_sources
 from kg.db import Database
 from kg.ids import anchor_id, digest, document_id, record_id, revision_id
 from kg.markdown import parse_markdown
 from kg.models.contracts import IngestResult
 from kg.models.manifest import CorpusManifest
 
-PARSER_VERSION = "2"
-SCHEMA_VERSION = 1
+PARSER_VERSION = "3"
+SCHEMA_VERSION = 2
 LOGGER = logging.getLogger(__name__)
 
 
@@ -32,6 +32,7 @@ class IngestService:
             self.database.path,
         )
         self.database.initialize()
+        self._migrate_schema()
         selection = select_sources(manifest)
         result = IngestResult(
             corpus_id=manifest.corpus_id,
@@ -131,13 +132,8 @@ class IngestService:
         index_config_hash: str,
     ) -> Literal["added", "changed", "unchanged"]:
         source_path = relative_source_path(manifest, path)
-        source_size = path.stat().st_size
-        if source_size > manifest.max_source_bytes:
-            raise ValueError(
-                f"source exceeds max_source_bytes "
-                f"({source_size} > {manifest.max_source_bytes})"
-            )
-        content = path.read_bytes()
+        source = read_source(manifest, path)
+        content = source.content
         text = content.decode("utf-8")
         content_hash = digest(content)
         stable_document_id, moved = self._resolve_document_id(
@@ -247,7 +243,7 @@ class IngestService:
                     stable_revision_id,
                     stable_document_id,
                     content_hash,
-                    datetime.fromtimestamp(path.stat().st_mtime, UTC).isoformat(),
+                    source.observed_mtime,
                     now,
                     json.dumps(parsed.frontmatter, sort_keys=True, default=str),
                     PARSER_VERSION,
@@ -286,6 +282,7 @@ class IngestService:
             mentioned_entities = self._persist_mentions(
                 connection,
                 stable_anchor_id,
+                anchor.semantic_quote,
                 anchor.quote,
                 anchor.start_offset,
                 aliases,
@@ -436,13 +433,14 @@ class IngestService:
     ) -> tuple[str, bool]:
         existing = connection.execute(
             """
-            SELECT document_id
+            SELECT document_id, is_active
             FROM source_document
             WHERE corpus_id = ? AND source_path = ?
+            ORDER BY is_active DESC, updated_at DESC
             """,
             (corpus_id, source_path),
         ).fetchone()
-        if existing:
+        if existing and existing["is_active"]:
             return existing["document_id"], False
 
         parameters: list[object] = [corpus_id, content_hash, source_path]
@@ -453,7 +451,7 @@ class IngestService:
             parameters.extend(sorted(selected_source_paths))
         candidates = connection.execute(
             f"""
-            SELECT sd.document_id
+            SELECT sd.document_id, sd.is_active
             FROM source_document sd
             JOIN source_revision sr
               ON sr.revision_id = sd.current_revision_id
@@ -464,8 +462,13 @@ class IngestService:
             """,
             parameters,
         ).fetchall()
+        active_candidates = [candidate for candidate in candidates if candidate["is_active"]]
+        if len(active_candidates) == 1:
+            return active_candidates[0]["document_id"], True
         if len(candidates) == 1:
             return candidates[0]["document_id"], True
+        if existing:
+            return existing["document_id"], False
         return document_id(corpus_id, source_path), False
 
     def _sync_seed_entities(
@@ -473,6 +476,10 @@ class IngestService:
         connection: sqlite3.Connection,
         manifest: CorpusManifest,
     ) -> None:
+        connection.execute(
+            "UPDATE entity SET is_active = 0 WHERE corpus_id = ?",
+            (manifest.corpus_id,),
+        )
         connection.execute(
             """
             DELETE FROM entity_alias
@@ -487,11 +494,13 @@ class IngestService:
             connection.execute(
                 """
                 INSERT INTO entity (
-                    entity_key, corpus_id, entity_id, entity_type, canonical_name
-                ) VALUES (?, ?, ?, ?, ?)
+                    entity_key, corpus_id, entity_id, entity_type, canonical_name,
+                    is_active
+                ) VALUES (?, ?, ?, ?, ?, 1)
                 ON CONFLICT(entity_key) DO UPDATE SET
                     entity_type = excluded.entity_type,
-                    canonical_name = excluded.canonical_name
+                    canonical_name = excluded.canonical_name,
+                    is_active = 1
                 """,
                 (
                     entity_key,
@@ -511,6 +520,110 @@ class IngestService:
                     (entity_key, alias, alias.casefold()),
                 )
 
+    def _migrate_schema(self) -> None:
+        with self.database.connection() as connection:
+            definitions = {
+                row["name"]: row["sql"] or ""
+                for row in connection.execute(
+                    """
+                    SELECT name, sql
+                    FROM sqlite_master
+                    WHERE type = 'table' AND name IN ('source_document', 'entity')
+                    """
+                )
+            }
+            source_is_legacy = "UNIQUE (corpus_id, source_path)" in definitions.get(
+                "source_document", ""
+            )
+            entity_definition = definitions.get("entity", "")
+            entity_is_legacy = (
+                "is_active" not in entity_definition
+                or "UNIQUE (corpus_id, entity_type, canonical_name)"
+                in entity_definition
+            )
+            connection.execute("PRAGMA foreign_keys = OFF")
+            try:
+                connection.execute("BEGIN IMMEDIATE")
+                if source_is_legacy:
+                    connection.execute(
+                        """
+                        CREATE TABLE source_document_new (
+                            document_id TEXT PRIMARY KEY,
+                            corpus_id TEXT NOT NULL,
+                            source_path TEXT NOT NULL,
+                            title TEXT NOT NULL,
+                            current_revision_id TEXT,
+                            is_active INTEGER NOT NULL DEFAULT 1
+                                CHECK (is_active IN (0, 1)),
+                            created_at TEXT NOT NULL,
+                            updated_at TEXT NOT NULL
+                        )
+                        """
+                    )
+                    connection.execute(
+                        """
+                        INSERT INTO source_document_new
+                        SELECT document_id, corpus_id, source_path, title,
+                               current_revision_id, is_active, created_at, updated_at
+                        FROM source_document
+                        """
+                    )
+                    connection.execute("DROP TABLE source_document")
+                    connection.execute(
+                        "ALTER TABLE source_document_new RENAME TO source_document"
+                    )
+                if entity_is_legacy:
+                    connection.execute(
+                        """
+                        CREATE TABLE entity_new (
+                            entity_key TEXT PRIMARY KEY,
+                            corpus_id TEXT NOT NULL,
+                            entity_id TEXT NOT NULL,
+                            entity_type TEXT NOT NULL,
+                            canonical_name TEXT NOT NULL,
+                            is_active INTEGER NOT NULL DEFAULT 1
+                                CHECK (is_active IN (0, 1)),
+                            UNIQUE (corpus_id, entity_id)
+                        )
+                        """
+                    )
+                    active_expression = "is_active" if "is_active" in entity_definition else "1"
+                    connection.execute(
+                        f"""
+                        INSERT INTO entity_new
+                        SELECT entity_key, corpus_id, entity_id, entity_type,
+                               canonical_name, {active_expression}
+                        FROM entity
+                        """
+                    )
+                    connection.execute("DROP TABLE entity")
+                    connection.execute("ALTER TABLE entity_new RENAME TO entity")
+                connection.execute(
+                    """
+                    CREATE UNIQUE INDEX IF NOT EXISTS source_document_active_path_idx
+                    ON source_document(corpus_id, source_path)
+                    WHERE is_active = 1
+                    """
+                )
+                connection.execute(
+                    """
+                    CREATE UNIQUE INDEX IF NOT EXISTS entity_active_name_idx
+                    ON entity(corpus_id, entity_type, canonical_name)
+                    WHERE is_active = 1
+                    """
+                )
+                connection.commit()
+            except Exception:
+                connection.rollback()
+                raise
+            finally:
+                connection.execute("PRAGMA foreign_keys = ON")
+            violations = connection.execute("PRAGMA foreign_key_check").fetchall()
+            if violations:
+                raise sqlite3.IntegrityError(
+                    f"schema migration left foreign key violations: {violations}"
+                )
+
     def _aliases_for_corpus(
         self,
         connection: sqlite3.Connection,
@@ -522,6 +635,7 @@ class IngestService:
             FROM entity_alias ea
             JOIN entity e ON e.entity_key = ea.entity_key
             WHERE e.corpus_id = ?
+              AND e.is_active = 1
             ORDER BY length(ea.alias) DESC
             """,
             (corpus_id,),
@@ -531,7 +645,8 @@ class IngestService:
         self,
         connection: sqlite3.Connection,
         stable_anchor_id: str,
-        quote: str,
+        searchable_quote: str,
+        source_quote: str,
         source_start_offset: int,
         aliases: list[sqlite3.Row],
     ) -> set[str]:
@@ -542,7 +657,7 @@ class IngestService:
                 rf"(?<!\w){re.escape(alias['alias'])}(?!\w)",
                 re.IGNORECASE,
             )
-            for match in pattern.finditer(quote):
+            for match in pattern.finditer(searchable_quote):
                 span = (match.start(), match.end())
                 if span in occupied:
                     continue
@@ -565,7 +680,7 @@ class IngestService:
                         ),
                         alias["entity_key"],
                         stable_anchor_id,
-                        match.group(0),
+                        source_quote[match.start() : match.end()],
                         absolute_start,
                         absolute_end,
                     ),
@@ -645,6 +760,16 @@ def _now() -> str:
 
 
 def _record_text(quote: str) -> str:
-    first_line = quote.splitlines()[0]
-    value = re.sub(r"^[ \t]*[-*+][ \t]+", "", first_line)
-    return re.sub(r"^\[[ xX]\][ \t]+", "", value).strip()
+    lines = quote.splitlines()
+    if not lines:
+        return ""
+    marker = re.match(r"^([ \t]*[-*+][ \t]+)", lines[0])
+    if marker:
+        lines[0] = lines[0][marker.end() :]
+        continuation_indent = len(marker.group(1).expandtabs(4))
+        for index in range(1, len(lines)):
+            expanded = lines[index].expandtabs(4)
+            if expanded[:continuation_indent].isspace():
+                lines[index] = expanded[continuation_indent:]
+    lines[0] = re.sub(r"^\[[ xX]\][ \t]+", "", lines[0])
+    return "\n".join(lines).strip()

@@ -10,10 +10,16 @@ from kg.db import Database
 from kg.ingest import IngestService
 from kg.retrieval import RetrievalService
 
+ACCEPTANCE_PATHS = sorted(Path("corpora/acceptance").glob("*.yml"))
+
+
+def test_acceptance_manifests_exist() -> None:
+    assert ACCEPTANCE_PATHS, "No acceptance manifests found in corpora/acceptance"
+
 
 @pytest.mark.parametrize(
     "acceptance_path",
-    sorted(Path("corpora/acceptance").glob("*.yml")),
+    ACCEPTANCE_PATHS,
     ids=lambda path: path.stem,
 )
 def test_reviewed_acceptance_cases(
@@ -30,11 +36,11 @@ def test_reviewed_acceptance_cases(
     for case in fixture["cases"]:
         command = case["command"]
         if command == "actions":
-            results = retrieval.actions(case["subject"], case.get("status"))
-            assert [item.quote for item in results] == case["expected_quotes"]
+            action_results = retrieval.actions(case["subject"], case.get("status"))
+            assert [item.quote for item in action_results] == case["expected_quotes"]
         elif command == "search":
-            results = retrieval.search(case["query"], case.get("subject"))
-            assert [item.quote for item in results] == case["expected_quotes"]
+            search_results = retrieval.search(case["query"], case.get("subject"))
+            assert [item.quote for item in search_results] == case["expected_quotes"]
         elif command == "status":
             result = retrieval.status(case["subject"])
             assert [item.summary for item in result.decisions] == case.get(

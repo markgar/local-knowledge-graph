@@ -10,7 +10,11 @@ from kg.config import load_manifest
 from kg.db import Database
 from kg.ingest import IngestService
 from kg.models.contracts import SearchResult
-from kg.retrieval.dense import DenseIndexError, DenseRetrievalService
+from kg.retrieval.dense import (
+    DenseIndexError,
+    DenseRetrievalService,
+    SentenceTransformerEmbeddingProvider,
+)
 
 
 class FakeEmbeddingProvider:
@@ -61,6 +65,48 @@ def _manifest(tmp_path: Path) -> Path:
         encoding="utf-8",
     )
     return path
+
+
+@pytest.mark.parametrize("failure", [OSError("disk"), RuntimeError("model"), ValueError("input")])
+@pytest.mark.parametrize("method", ["encode_documents", "encode_query"])
+def test_sentence_transformer_encode_failures_are_dense_index_errors(
+    failure: Exception,
+    method: str,
+) -> None:
+    class FailingModel:
+        def encode(self, *args: object, **kwargs: object) -> object:
+            raise failure
+
+    provider = SentenceTransformerEmbeddingProvider.__new__(
+        SentenceTransformerEmbeddingProvider
+    )
+    provider._model = FailingModel()
+
+    with pytest.raises(DenseIndexError, match="Could not encode"):
+        if method == "encode_documents":
+            provider.encode_documents(["passage"], batch_size=1)
+        else:
+            provider.encode_query("query")
+
+
+@pytest.mark.parametrize("method", ["encode_documents", "encode_query"])
+def test_sentence_transformer_conversion_failures_are_dense_index_errors(
+    method: str,
+) -> None:
+    class InvalidModel:
+        def encode(self, *args: object, **kwargs: object) -> object:
+            return [["not-a-number"]]
+
+    provider = SentenceTransformerEmbeddingProvider.__new__(
+        SentenceTransformerEmbeddingProvider
+    )
+    provider._model = InvalidModel()
+
+    with pytest.raises(DenseIndexError, match="convert embedding vector"):
+        if method == "encode_documents":
+            provider.encode_documents(["passage"], batch_size=1)
+        else:
+            provider.encode_query("query")
 
 
 def test_dense_projection_is_versioned_and_returns_canonical_evidence(

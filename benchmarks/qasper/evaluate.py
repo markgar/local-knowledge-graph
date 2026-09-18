@@ -7,7 +7,7 @@ import re
 import statistics
 import time
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 from kg.config import load_manifest
 from kg.db import Database
@@ -17,6 +17,8 @@ from kg.retrieval import (
     RerankedRetrievalService,
     RetrievalService,
 )
+
+Strategy = Literal["strict", "natural", "dense", "hybrid", "reranked"]
 
 
 def normalize_text(value: str) -> str:
@@ -59,7 +61,7 @@ def evaluate(
     manifest_path: Path,
     gold_path: Path,
     limit: int = 10,
-    strategy: str = "natural",
+    strategy: Strategy = "natural",
 ) -> dict[str, Any]:
     if strategy not in {"strict", "natural", "dense", "hybrid", "reranked"}:
         raise ValueError(
@@ -124,11 +126,14 @@ def evaluate(
                 limit=limit,
             )
         else:
+            query_mode: Literal["strict", "natural"] = (
+                "strict" if strategy == "strict" else "natural"
+            )
             results = retrieval.search(
                 question["question"],
                 subject=question["paper_title"],
                 limit=limit,
-                query_mode=strategy,
+                query_mode=query_mode,
             )
         latencies.append((time.perf_counter() - started) * 1000)
         retrieved = [normalize_evidence(result.quote) for result in results]

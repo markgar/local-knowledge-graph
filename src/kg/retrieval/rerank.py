@@ -139,10 +139,11 @@ class RerankedRetrievalService:
             raise ValueError("limit must be at least 1")
 
         source_fingerprint = self.retrieval.index_fingerprint()
+        candidate_limit = max(limit, self.candidate_limit)
         candidates = self.hybrid_retrieval.search(
             query,
             subject=subject,
-            limit=self.candidate_limit,
+            limit=candidate_limit,
             since=since,
             source_path=source_path,
         )
