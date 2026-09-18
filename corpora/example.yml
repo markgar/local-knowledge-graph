@@ -1,0 +1,19 @@
+corpus_id: example
+display_name: Example product corpus
+vault_root: fixtures/example-vault
+database: ../.kg/example.sqlite3
+include:
+  - "**/*.md"
+seed_entities:
+  - entity_id: project-atlas
+    name: Project Atlas
+    entity_type: project
+    aliases:
+      - Atlas
+  - entity_id: product-compass
+    name: Compass
+    entity_type: product
+    aliases: []
+metadata_fields:
+  event_time: date
+
