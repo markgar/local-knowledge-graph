@@ -283,3 +283,60 @@ def test_hybrid_query_mode_is_available_through_cli(
 
     assert result.exit_code == 0
     assert json.loads(result.stdout)[0]["quote"] == "Hybrid evidence."
+
+
+def test_reranked_query_mode_is_available_through_cli(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    manifest = tmp_path / "corpus.yml"
+    vault = tmp_path / "vault"
+    vault.mkdir()
+    manifest.write_text(
+        "corpus_id: test\n"
+        "display_name: Test\n"
+        "vault_root: vault\n"
+        "database: index.sqlite3\n"
+        "include: ['*.md']\n",
+        encoding="utf-8",
+    )
+
+    class StubRerankedRetrievalService:
+        def __init__(self, database: object, corpus_id: str) -> None:
+            assert corpus_id == "test"
+
+        def search(self, query: str, **kwargs: object) -> list[SearchResult]:
+            assert query == "reranked question"
+            return [
+                SearchResult(
+                    record_id="passage",
+                    record_type="passage",
+                    title="Note",
+                    source_path="note.md",
+                    source_revision_id="revision",
+                    anchor_id="anchor",
+                    quote="Reranked evidence.",
+                    rank=4.2,
+                )
+            ]
+
+    monkeypatch.setattr(
+        "kg.cli.RerankedRetrievalService",
+        StubRerankedRetrievalService,
+    )
+    result = RUNNER.invoke(
+        app,
+        [
+            "search",
+            "reranked question",
+            "--query-mode",
+            "reranked",
+            "--manifest",
+            str(manifest),
+            "--format",
+            "json",
+        ],
+    )
+
+    assert result.exit_code == 0
+    assert json.loads(result.stdout)[0]["quote"] == "Reranked evidence."

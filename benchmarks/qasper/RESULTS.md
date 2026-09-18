@@ -216,3 +216,56 @@ Interpretation:
 - These measurements establish one-domain evidence only. A separate
   email-and-meeting-notes-style evaluation is required before treating the
   fusion defaults as broadly validated.
+
+## E3: Cross-encoder reranking
+
+E3 adds one capability: local cross-encoder scoring over the unchanged top 50
+E2 hybrid candidates.
+
+Frozen configuration:
+
+- Keep the QASPER corpus, questions, gold evidence, metrics, parser anchors,
+  E1 dense projection, and E2 reciprocal-rank fusion unchanged.
+- Request the top 50 E2 candidates for each paper-scoped question.
+- Score each `(question, passage_text)` pair with the Apache-2.0
+  `cross-encoder/ms-marco-MiniLM-L6-v2` model pinned at revision
+  `233902d25c440f23af6f7d6e94d2946bac0bee0a`.
+- Use the model's raw relevance score and a batch size of 32.
+- Order equal scores by canonical passage ID.
+- Return the existing canonical evidence contract and require 100% anchor
+  integrity.
+- Fail explicitly if the dense projection or reranker is unavailable, or if
+  the corpus changes during candidate generation or reranking.
+
+Runtime:
+
+- Sentence Transformers 5.7.0, Transformers 5.17.0, and PyTorch 2.14.0.
+- Same E1 dense projection, 3,599 canonical passages, and Apple M4 Pro host as
+  E1 and E2.
+- Candidate count: 50 E2 hybrid passages per paper-scoped question; 10
+  reranked results returned.
+- Both full 179-question runs produced identical ranked passage IDs and
+  logical metrics.
+
+| Metric | E2 hybrid | E3 reranked | Delta |
+| --- | ---: | ---: | ---: |
+| Evidence Recall@1 | 15.2% | 22.9% | +7.7 pp |
+| Evidence Recall@5 | 41.6% | 58.5% | +16.9 pp |
+| Evidence Recall@10 | 60.9% | 72.2% | +11.3 pp |
+| Mean reciprocal rank | 0.334 | 0.446 | +0.112 |
+| Evidence-set F1@10 | 14.6% | 17.4% | +2.8 pp |
+| Unanswerable false-evidence rate | 100.0% | 100.0% | 0.0 pp |
+| Anchor integrity | 100.0% | 100.0% | 0.0 pp |
+| Median query latency | 108.1-108.3 ms | 202.0-208.8 ms | +93.7-100.7 ms |
+| p95 query latency | 136.5-140.0 ms | 254.4-314.5 ms | +114.4-178.0 ms |
+
+Interpretation:
+
+- Cross-encoder reranking improves every measured relevance metric over E2.
+- Recall@5 gains 16.9 percentage points and MRR rises by 0.112.
+- Exact citation integrity and logical ranking determinism remain intact.
+- The result remains below the E3 acceptance gates of 70% Recall@5, 80%
+  Recall@10, and 0.55 MRR, so the selected reranker does not yet establish
+  agent-useful retrieval.
+- The 100% false-evidence rate is unchanged because answerability remains the
+  separately scoped E4 experiment.

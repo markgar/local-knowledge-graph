@@ -88,6 +88,7 @@ uv run kg ingest --manifest benchmarks/qasper/data/corpus.yml
 uv run kg dense-index --manifest benchmarks/qasper/data/corpus.yml
 uv run python benchmarks/qasper/evaluate.py --strategy dense
 uv run python benchmarks/qasper/evaluate.py --strategy hybrid
+uv run python benchmarks/qasper/evaluate.py --strategy reranked
 uv run python benchmarks/qasper/evaluate.py
 ```
 
@@ -98,7 +99,7 @@ package feed may differ between development environments.
 
 The evaluator uses natural search by default. Run it with `--strategy strict`
 to reproduce the original all-term baseline, or use `--strategy dense` or
-`--strategy hybrid` after building the dense projection:
+`--strategy hybrid` or `--strategy reranked` after building the dense projection:
 
 ```bash
 uv run python benchmarks/qasper/evaluate.py --strategy strict

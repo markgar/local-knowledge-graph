@@ -14,6 +14,7 @@ from kg.db import Database
 from kg.retrieval import (
     DenseRetrievalService,
     HybridRetrievalService,
+    RerankedRetrievalService,
     RetrievalService,
 )
 
@@ -60,9 +61,9 @@ def evaluate(
     limit: int = 10,
     strategy: str = "natural",
 ) -> dict[str, Any]:
-    if strategy not in {"strict", "natural", "dense", "hybrid"}:
+    if strategy not in {"strict", "natural", "dense", "hybrid", "reranked"}:
         raise ValueError(
-            "strategy must be 'strict', 'natural', 'dense', or 'hybrid'"
+            "strategy must be 'strict', 'natural', 'dense', 'hybrid', or 'reranked'"
         )
     if limit < 10:
         raise ValueError("limit must be at least 10 for @10 metrics")
@@ -78,10 +79,17 @@ def evaluate(
         if strategy == "hybrid"
         else None
     )
+    reranked_retrieval = (
+        RerankedRetrievalService(Database(manifest.database), manifest.corpus_id)
+        if strategy == "reranked"
+        else None
+    )
     if dense_retrieval:
         dense_retrieval.warmup()
     if hybrid_retrieval:
         hybrid_retrieval.warmup()
+    if reranked_retrieval:
+        reranked_retrieval.warmup()
     gold = json.loads(gold_path.read_text(encoding="utf-8"))
     questions = gold["questions"]
     recall_totals = {1: 0.0, 5: 0.0, 10: 0.0}
@@ -97,7 +105,13 @@ def evaluate(
 
     for question in questions:
         started = time.perf_counter()
-        if hybrid_retrieval:
+        if reranked_retrieval:
+            results = reranked_retrieval.search(
+                question["question"],
+                subject=question["paper_title"],
+                limit=limit,
+            )
+        elif hybrid_retrieval:
             results = hybrid_retrieval.search(
                 question["question"],
                 subject=question["paper_title"],
@@ -216,7 +230,7 @@ def main() -> None:
     parser.add_argument("--limit", type=int, default=10)
     parser.add_argument(
         "--strategy",
-        choices=("strict", "natural", "dense", "hybrid"),
+        choices=("strict", "natural", "dense", "hybrid", "reranked"),
         default="natural",
     )
     parser.add_argument(

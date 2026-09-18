@@ -13,7 +13,7 @@ tags:
 ## Implementation Status
 
 This document is both the evidence-MVP product contract and the roadmap toward
-agent-useful retrieval. Statuses describe the repository as of 2026-09-17:
+agent-useful retrieval. Statuses describe the repository as of 2026-09-18:
 
 - **Implemented**: available and covered by automated tests.
 - **Partial**: the foundational path exists, but the complete requirement is
@@ -28,7 +28,7 @@ agent-useful retrieval. Statuses describe the repository as of 2026-09-17:
 | Markdown headings, paragraphs, lists, tasks, and wikilinks | Implemented | CommonMark block maps preserve exact source ranges while fenced code is excluded from structural classification. |
 | Rebuildable SQLite schema | Implemented | The packaged schema initializes new indexes; pre-alpha schema changes require rebuilding generated databases. |
 | FTS5 passage search | Implemented | Queries are corpus-scoped and limited to current active revisions, with strict and natural BM25-ranked modes. |
-| Real-world semantic retrieval | In progress | Dense retrieval is implemented and measured; hybrid fusion is implemented; reranking remains. |
+| Real-world semantic retrieval | In progress | Dense retrieval, hybrid fusion, and cross-encoder reranking are implemented and measured; acceptance gates remain unmet. |
 | Seed entities, approved aliases, and exact mentions | Implemented | Similar names are never merged automatically. |
 | Explicit relationships and graph traversal | Implemented | Anchored wikilink relationships support deterministic one- and two-hop traversal. |
 | Explicit open and completed tasks | Implemented | Checkbox status and optional inline owner and due-date fields are extracted. |
