@@ -15,8 +15,8 @@ from kg.markdown import parse_markdown
 from kg.models.contracts import IngestResult
 from kg.models.manifest import CorpusManifest
 
-PARSER_VERSION = "1"
-SCHEMA_VERSION = 1
+PARSER_VERSION = "2"
+SCHEMA_VERSION = 2
 
 
 class IngestService:
@@ -275,6 +275,25 @@ class IngestService:
                         anchor.task.due_date,
                     ),
                 )
+            if anchor.record_type in {"decision", "blocker", "conflict"}:
+                record_text = _record_text(anchor.quote)
+                connection.execute(
+                    f"""
+                    INSERT INTO {anchor.record_type} (
+                        record_id, anchor_id, text, event_time
+                    ) VALUES (?, ?, ?, ?)
+                    """,
+                    (
+                        record_id(
+                            stable_anchor_id,
+                            anchor.record_type,
+                            record_text,
+                        ),
+                        stable_anchor_id,
+                        record_text,
+                        event_time,
+                    ),
+                )
             linked_entities = {
                 alias["entity_key"]
                 for link in anchor.wikilinks
@@ -453,3 +472,9 @@ class IngestService:
 
 def _now() -> str:
     return datetime.now(UTC).isoformat()
+
+
+def _record_text(quote: str) -> str:
+    first_line = quote.splitlines()[0]
+    value = re.sub(r"^[ \t]*[-*+][ \t]+", "", first_line)
+    return re.sub(r"^\[[ xX]\][ \t]+", "", value).strip()

@@ -4,11 +4,18 @@ import re
 from dataclasses import dataclass, field
 
 import yaml
+from markdown_it import MarkdownIt
+from markdown_it.token import Token
 
-HEADING_RE = re.compile(r"^(#{1,6})[ \t]+(.+?)[ \t]*#*[ \t]*$")
 TASK_RE = re.compile(r"^[ \t]*[-*+][ \t]+\[([ xX])\][ \t]+(.+?)\s*$")
-LIST_RE = re.compile(r"^[ \t]*[-*+][ \t]+(.+?)\s*$")
 WIKILINK_RE = re.compile(r"\[\[([^]|#]+)(?:#[^]|]+)?(?:\|[^]]+)?]]")
+INLINE_FIELD_RE = re.compile(r"\[([A-Za-z][A-Za-z0-9_-]*)::\s*([^]]+)]")
+RECORD_HEADINGS = {
+    "decision": {"decision", "decisions"},
+    "blocker": {"blocker", "blockers"},
+    "conflict": {"conflict", "conflicts"},
+}
+MARKDOWN = MarkdownIt("commonmark")
 
 
 class MarkdownParseError(ValueError):
@@ -32,7 +39,9 @@ class ParsedAnchor:
     end_offset: int
     quote: str
     wikilinks: tuple[str, ...] = ()
+    metadata: dict[str, str] = field(default_factory=dict)
     task: ParsedTask | None = None
+    record_type: str | None = None
 
 
 @dataclass(frozen=True)
@@ -46,23 +55,90 @@ def parse_markdown(text: str, fallback_title: str) -> ParsedDocument:
     frontmatter, body_start = _parse_frontmatter(text)
     lines = text.splitlines(keepends=True)
     offsets = _line_offsets(lines)
+    body_line = text[:body_start].count("\n")
+    tokens = MARKDOWN.parse(text[body_start:])
     heading_stack: list[tuple[int, str]] = []
     anchors: list[ParsedAnchor] = []
-    paragraph_start: int | None = None
-    paragraph_lines: list[str] = []
     title = str(frontmatter.get("title") or fallback_title)
     anchor_index = 0
+    list_depth = 0
 
-    def flush_paragraph() -> None:
-        nonlocal paragraph_start, paragraph_lines, anchor_index
-        if paragraph_start is None:
-            return
-        quote = "".join(paragraph_lines).strip()
-        if quote:
-            start = offsets[paragraph_start] + len(
-                "".join(paragraph_lines)
-            ) - len("".join(paragraph_lines).lstrip())
-            end = start + len(quote)
+    for token_index, token in enumerate(tokens):
+        if token.type == "list_item_open":
+            list_depth += 1
+            if token.map is None:
+                continue
+            start, end, quote = _source_span(
+                text,
+                lines,
+                offsets,
+                body_line + token.map[0],
+                body_line + token.map[1],
+            )
+            first_line = quote.splitlines()[0]
+            task_match = TASK_RE.match(first_line)
+            metadata = _inline_fields(quote)
+            task = None
+            kind = "list_item"
+            if task_match:
+                kind = "task"
+                task_text = INLINE_FIELD_RE.sub("", task_match.group(2)).strip()
+                task = ParsedTask(
+                    text=task_text,
+                    status="completed" if task_match.group(1).casefold() == "x" else "open",
+                    owner=metadata.get("owner"),
+                    due_date=metadata.get("due"),
+                )
+            anchor_index += 1
+            anchors.append(
+                _anchor(
+                    anchor_index,
+                    heading_stack,
+                    kind,
+                    start,
+                    end,
+                    quote,
+                    metadata=metadata,
+                    task=task,
+                    record_type=_record_type(heading_stack),
+                )
+            )
+        elif token.type == "list_item_close":
+            list_depth -= 1
+        elif token.type == "heading_open" and token.map is not None:
+            level = int(token.tag[1])
+            value = _inline_content(tokens, token_index).strip()
+            while heading_stack and heading_stack[-1][0] >= level:
+                heading_stack.pop()
+            heading_stack.append((level, value))
+            if level == 1 and title == fallback_title:
+                title = value
+            anchor_index += 1
+            start, end, quote = _source_span(
+                text,
+                lines,
+                offsets,
+                body_line + token.map[0],
+                body_line + token.map[1],
+            )
+            anchors.append(
+                _anchor(
+                    anchor_index,
+                    heading_stack,
+                    "heading",
+                    start,
+                    end,
+                    quote,
+                )
+            )
+        elif token.type == "paragraph_open" and token.map is not None and list_depth == 0:
+            start, end, quote = _source_span(
+                text,
+                lines,
+                offsets,
+                body_line + token.map[0],
+                body_line + token.map[1],
+            )
             anchor_index += 1
             anchors.append(
                 _anchor(
@@ -72,80 +148,11 @@ def parse_markdown(text: str, fallback_title: str) -> ParsedDocument:
                     start,
                     end,
                     quote,
+                    metadata=_inline_fields(quote),
+                    record_type=_record_type(heading_stack),
                 )
             )
-        paragraph_start = None
-        paragraph_lines = []
 
-    for line_index, line in enumerate(lines):
-        if offsets[line_index] < body_start:
-            continue
-        content = line.rstrip("\r\n")
-        heading = HEADING_RE.match(content)
-        task = TASK_RE.match(content)
-        list_item = LIST_RE.match(content)
-
-        if heading:
-            flush_paragraph()
-            level, value = len(heading.group(1)), heading.group(2).strip()
-            while heading_stack and heading_stack[-1][0] >= level:
-                heading_stack.pop()
-            heading_stack.append((level, value))
-            if level == 1 and title == fallback_title:
-                title = value
-            anchor_index += 1
-            start = offsets[line_index]
-            anchors.append(
-                _anchor(
-                    anchor_index,
-                    heading_stack,
-                    "heading",
-                    start,
-                    start + len(content),
-                    content,
-                )
-            )
-        elif task:
-            flush_paragraph()
-            anchor_index += 1
-            start = offsets[line_index]
-            task_text = task.group(2).strip()
-            anchors.append(
-                _anchor(
-                    anchor_index,
-                    heading_stack,
-                    "task",
-                    start,
-                    start + len(content),
-                    content,
-                    ParsedTask(
-                        text=task_text,
-                        status="completed" if task.group(1).casefold() == "x" else "open",
-                    ),
-                )
-            )
-        elif list_item:
-            flush_paragraph()
-            anchor_index += 1
-            start = offsets[line_index]
-            anchors.append(
-                _anchor(
-                    anchor_index,
-                    heading_stack,
-                    "list_item",
-                    start,
-                    start + len(content),
-                    content,
-                )
-            )
-        elif content.strip():
-            if paragraph_start is None:
-                paragraph_start = line_index
-            paragraph_lines.append(line)
-        else:
-            flush_paragraph()
-
-    flush_paragraph()
     return ParsedDocument(title=title, frontmatter=frontmatter, anchors=anchors)
 
 
@@ -179,6 +186,43 @@ def _line_offsets(lines: list[str]) -> list[int]:
     return offsets
 
 
+def _source_span(
+    text: str,
+    lines: list[str],
+    offsets: list[int],
+    start_line: int,
+    end_line: int,
+) -> tuple[int, int, str]:
+    start = offsets[start_line]
+    raw_end = offsets[end_line] if end_line < len(offsets) else len(text)
+    raw = text[start:raw_end]
+    quote = raw.rstrip()
+    return start, start + len(quote), quote
+
+
+def _inline_content(tokens: list[Token], index: int) -> str:
+    if index + 1 < len(tokens) and tokens[index + 1].type == "inline":
+        return tokens[index + 1].content
+    return ""
+
+
+def _inline_fields(quote: str) -> dict[str, str]:
+    return {
+        match.group(1).casefold(): match.group(2).strip()
+        for match in INLINE_FIELD_RE.finditer(quote)
+    }
+
+
+def _record_type(heading_stack: list[tuple[int, str]]) -> str | None:
+    if not heading_stack:
+        return None
+    heading = heading_stack[-1][1].strip().casefold()
+    for record_type, names in RECORD_HEADINGS.items():
+        if heading in names:
+            return record_type
+    return None
+
+
 def _anchor(
     index: int,
     heading_stack: list[tuple[int, str]],
@@ -186,7 +230,10 @@ def _anchor(
     start: int,
     end: int,
     quote: str,
+    *,
+    metadata: dict[str, str] | None = None,
     task: ParsedTask | None = None,
+    record_type: str | None = None,
 ) -> ParsedAnchor:
     headings = tuple(value for _, value in heading_stack)
     path = "/".join([*(f"h{level}:{value}" for level, value in heading_stack), f"{kind}:{index}"])
@@ -199,5 +246,7 @@ def _anchor(
         end_offset=end,
         quote=quote,
         wikilinks=links,
+        metadata=metadata or {},
         task=task,
+        record_type=record_type,
     )

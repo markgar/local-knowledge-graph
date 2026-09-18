@@ -203,3 +203,29 @@ metadata_fields:
     assert result.connected_entities == ["compass"]
     assert result.recent_material
     assert {item.event_time for item in result.recent_material} == {"2026-09-17"}
+
+
+def test_ingestion_persists_structured_tasks_and_explicit_records(tmp_path: Path) -> None:
+    manifest = load_manifest(_manifest(tmp_path))
+    (manifest.vault_root / "atlas.md").write_text(
+        "# Atlas\n\n## Actions\n\n"
+        "- [ ] Ship it. [owner:: Avery] [due:: 2026-10-01]\n\n"
+        "## Decisions\n\n- Use SQLite.\n\n"
+        "## Blockers\n\n- Waiting for approval.\n\n"
+        "## Conflicts\n\n- Two sources disagree.\n",
+        encoding="utf-8",
+    )
+    database = Database(manifest.database)
+
+    IngestService(database).ingest(manifest)
+
+    with database.connection() as connection:
+        action = connection.execute(
+            "SELECT text, owner, due_date FROM action_item"
+        ).fetchone()
+        counts = {
+            table: connection.execute(f"SELECT count(*) FROM {table}").fetchone()[0]
+            for table in ("decision", "blocker", "conflict")
+        }
+    assert tuple(action) == ("Ship it.", "Avery", "2026-10-01")
+    assert counts == {"decision": 1, "blocker": 1, "conflict": 1}
