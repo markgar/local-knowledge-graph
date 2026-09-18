@@ -82,6 +82,7 @@ metrics and delta there before the next capability is introduced.
 From the repository root:
 
 ```bash
+uv sync --extra dev
 uv run python benchmarks/qasper/prepare.py
 uv run kg ingest --manifest benchmarks/qasper/data/corpus.yml
 uv run kg dense-index --manifest benchmarks/qasper/data/corpus.yml
@@ -92,6 +93,8 @@ uv run python benchmarks/qasper/evaluate.py
 
 Generated papers, gold annotations, the SQLite database, and detailed results
 are written beneath `benchmarks/qasper/data/`, which Git ignores.
+The environment-specific `uv.lock` is also ignored because the configured
+package feed may differ between development environments.
 
 The evaluator uses natural search by default. Run it with `--strategy strict`
 to reproduce the original all-term baseline, or use `--strategy dense` or
