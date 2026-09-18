@@ -25,3 +25,5 @@ stable release. Pre-1.0 releases may contain breaking changes.
   calibrated abstention, and agent-readiness acceptance gates.
 - A versioned sqlite-vec projection and pinned local embedding model for dense
   retrieval over canonical source anchors.
+- Deterministic reciprocal-rank fusion and pinned local cross-encoder
+  reranking over unchanged canonical evidence candidates.

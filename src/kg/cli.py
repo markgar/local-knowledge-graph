@@ -17,6 +17,7 @@ from kg.models.contracts import ErrorResult
 from kg.models.manifest import CorpusManifest
 from kg.retrieval.dense import DenseIndexError, DenseRetrievalService
 from kg.retrieval.hybrid import HybridRetrievalService
+from kg.retrieval.rerank import RerankedRetrievalService, RerankerError
 from kg.retrieval.service import RecordNotFoundError, RetrievalService, SearchQueryError
 
 app = typer.Typer(no_args_is_help=True, help="Evidence-backed local knowledge retrieval.")
@@ -36,6 +37,7 @@ class QueryMode(StrEnum):
     natural = "natural"
     dense = "dense"
     hybrid = "hybrid"
+    reranked = "reranked"
 
 
 FormatOption = Annotated[OutputFormat, typer.Option("--format")]
@@ -97,7 +99,10 @@ def search(
     query_mode: Annotated[
         QueryMode,
         typer.Option(
-            help="Strict, natural BM25, dense semantic, or hybrid RRF search."
+            help=(
+                "Strict, natural BM25, dense semantic, hybrid RRF, "
+                "or cross-encoder reranked search."
+            )
         ),
     ] = QueryMode.strict,
 ) -> None:
@@ -106,7 +111,15 @@ def search(
     try:
         cutoff = _parse_since(since) if since else None
         database = Database(corpus.database)
-        if query_mode is QueryMode.hybrid:
+        if query_mode is QueryMode.reranked:
+            results = RerankedRetrievalService(database, corpus.corpus_id).search(
+                query=query,
+                subject=subject,
+                limit=limit,
+                since=cutoff,
+                source_path=source,
+            )
+        elif query_mode is QueryMode.hybrid:
             results = HybridRetrievalService(database, corpus.corpus_id).search(
                 query=query,
                 subject=subject,
@@ -135,6 +148,8 @@ def search(
             )
     except DenseIndexError as exc:
         _fail("dense_index_unavailable", str(exc), output_format)
+    except RerankerError as exc:
+        _fail("reranker_unavailable", str(exc), output_format)
     except (SearchQueryError, ValueError) as exc:
         _fail("invalid_query", str(exc), output_format)
     _render([result.model_dump(mode="json") for result in results], output_format)

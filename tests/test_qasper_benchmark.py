@@ -125,6 +125,46 @@ def test_qasper_fixture_evaluates_hybrid_strategy(
     assert result["metrics"]["anchor_integrity"] == 1.0
 
 
+def test_qasper_fixture_evaluates_reranked_strategy(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    prepare = _load_benchmark_module("prepare")
+    evaluate = _load_benchmark_module("evaluate")
+    prepare.prepare_corpus(
+        {"1234.56789": _paper()},
+        ["1234.56789"],
+        tmp_path,
+    )
+    manifest = load_manifest(tmp_path / "corpus.yml")
+    IngestService(Database(manifest.database)).ingest(manifest)
+
+    class StubRerankedRetrievalService:
+        def __init__(self, database: Database, corpus_id: str) -> None:
+            self.retrieval = evaluate.RetrievalService(database, corpus_id)
+
+        def warmup(self) -> None:
+            pass
+
+        def search(self, query: str, **kwargs: object) -> list[SearchResult]:
+            return self.retrieval.search(query, query_mode="natural", **kwargs)
+
+    monkeypatch.setattr(
+        evaluate,
+        "RerankedRetrievalService",
+        StubRerankedRetrievalService,
+    )
+    result = evaluate.evaluate(
+        tmp_path / "corpus.yml",
+        tmp_path / "gold.json",
+        strategy="reranked",
+    )
+
+    assert result["query_strategy"] == "reranked"
+    assert result["metrics"]["evidence_recall_at_1"] == 1.0
+    assert result["metrics"]["anchor_integrity"] == 1.0
+
+
 def test_qasper_fixture_refuses_unowned_markdown(tmp_path: Path) -> None:
     prepare = _load_benchmark_module("prepare")
     vault = tmp_path / "vault"

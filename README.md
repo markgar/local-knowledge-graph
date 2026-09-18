@@ -11,8 +11,9 @@ immutable source revision and exact quote.
 
 Python 3.12 or newer is required. The supported CI matrix covers Python 3.12,
 3.13, and 3.14. The deterministic evidence and provenance MVP described in
-[`SPEC.md`](SPEC.md) is implemented. Real-world semantic retrieval and
-answerability remain active development areas, so the project is pre-alpha.
+[`SPEC.md`](SPEC.md) is implemented. Dense retrieval, hybrid fusion, and local
+cross-encoder reranking are measured; answerability remains an active
+development area, so the project is pre-alpha.
 
 The engine provides:
 
@@ -56,6 +57,7 @@ uv run kg search "release" --manifest corpora/example.yml --format json
 uv run kg search "What supports the release?" --manifest corpora/example.yml --query-mode natural
 uv run kg search "What supports the release?" --manifest corpora/example.yml --query-mode dense
 uv run kg search "What supports the release?" --manifest corpora/example.yml --query-mode hybrid
+uv run kg search "What supports the release?" --manifest corpora/example.yml --query-mode reranked
 uv run kg actions Atlas --manifest corpora/example.yml --status open --format json
 uv run kg status Atlas --manifest corpora/example.yml --since 30d --format json
 ```
@@ -133,6 +135,8 @@ cited relationships; similar names are never merged automatically.
 uses safely quoted any-term matching with BM25 ranking, `--query-mode dense`
 uses the local versioned embedding projection, and `--query-mode hybrid`
 combines their unchanged rankings with deterministic reciprocal-rank fusion.
+`--query-mode reranked` scores the unchanged top 50 hybrid candidates with a
+pinned local cross-encoder before returning the requested result count.
 Durations use forms such as `12h`, `30d`, or `4w`.
 
 Dense indexing uses the pinned Apache-2.0
@@ -226,6 +230,11 @@ while retaining 100% anchor integrity. It remains below the agent-useful
 acceptance gates and has not yet been validated on an email- and
 meeting-notes-style evaluation corpus.
 
+E3 reranks the unchanged top 50 E2 candidates with a pinned local
+cross-encoder, reaching 58.5% Recall@5, 72.2% Recall@10, and 0.446 MRR while
+retaining deterministic rankings and 100% anchor integrity. This is a material
+improvement but remains below the reranked acceptance gates.
+
 The project should therefore be understood as an experimental evidence index,
 not a production question-answering system.
 
@@ -234,11 +243,9 @@ not a production question-answering system.
 The next phase keeps SQLite as the canonical evidence store while adding
 replaceable retrieval projections:
 
-1. Dense embeddings over exact source anchors.
-2. Hybrid sparse and dense retrieval with reciprocal-rank fusion.
-3. Local cross-encoder reranking.
-4. Calibrated abstention and clarification.
-5. Agent-oriented evaluation and a stable tool interface.
+1. Calibrated abstention and clarification over the accepted E3 retrieval
+   pipeline.
+2. Agent-oriented evaluation and a stable tool interface.
 
 The project will integrate established embedding models, vector indexes, and
 rerankers rather than inventing them. Its responsibility remains immutable
