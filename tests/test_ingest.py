@@ -95,6 +95,8 @@ def test_retrieval_returns_cited_actions_and_search_results(tmp_path: Path) -> N
     assert actions[0].source_path == "atlas.md"
     assert results[0].quote == "Release evidence."
     assert results[0].anchor_id
+    assert retrieval.search("evidence", source_path="missing.md") == []
+    assert retrieval.actions("Atlas", source_path="missing.md") == []
 
 
 def test_removed_source_is_not_returned_as_current_evidence(tmp_path: Path) -> None:
@@ -229,3 +231,59 @@ def test_ingestion_persists_structured_tasks_and_explicit_records(tmp_path: Path
         }
     assert tuple(action) == ("Ship it.", "Avery", "2026-10-01")
     assert counts == {"decision": 1, "blocker": 1, "conflict": 1}
+
+    status = RetrievalService(database, manifest.corpus_id).status("Atlas")
+    assert [item.summary for item in status.decisions] == ["Use SQLite."]
+    assert [item.summary for item in status.blockers] == ["Waiting for approval."]
+    assert [item.summary for item in status.conflicts] == ["Two sources disagree."]
+
+
+def test_subject_scope_traverses_two_hops_across_documents(tmp_path: Path) -> None:
+    vault = tmp_path / "vault"
+    vault.mkdir()
+    (vault / "atlas.md").write_text(
+        "# Atlas\n\nAtlas links to [[Compass]].\n",
+        encoding="utf-8",
+    )
+    (vault / "compass.md").write_text(
+        "# Compass\n\nCompass links to [[Beacon]].\n",
+        encoding="utf-8",
+    )
+    (vault / "beacon.md").write_text(
+        "# Beacon\n\n## Actions\n\n- [ ] Validate the prototype.\n",
+        encoding="utf-8",
+    )
+    manifest_path = tmp_path / "corpus.yml"
+    manifest_path.write_text(
+        """
+corpus_id: graph
+display_name: Graph corpus
+vault_root: vault
+database: index.sqlite3
+include:
+  - "*.md"
+seed_entities:
+  - entity_id: atlas
+    name: Atlas
+    entity_type: project
+  - entity_id: compass
+    name: Compass
+    entity_type: product
+  - entity_id: beacon
+    name: Beacon
+    entity_type: topic
+""".strip(),
+        encoding="utf-8",
+    )
+    manifest = load_manifest(manifest_path)
+    database = Database(manifest.database)
+    IngestService(database).ingest(manifest)
+
+    retrieval = RetrievalService(database, manifest.corpus_id)
+    status = retrieval.status("Atlas")
+
+    assert status.connected_entities == ["compass", "beacon"]
+    assert [action.summary for action in status.open_actions] == [
+        "Validate the prototype."
+    ]
+    assert retrieval.search("prototype", subject="Atlas")

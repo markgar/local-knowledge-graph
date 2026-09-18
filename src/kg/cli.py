@@ -42,17 +42,21 @@ def search(
     subject: Annotated[str | None, typer.Option()] = None,
     output_format: FormatOption = "text",
     limit: Annotated[int, typer.Option(min=1, max=100)] = 20,
+    since: Annotated[str | None, typer.Option()] = None,
+    source: Annotated[str | None, typer.Option()] = None,
 ) -> None:
     """Search indexed evidence using SQLite FTS5."""
     corpus = _load_manifest_or_exit(manifest)
     try:
         results = RetrievalService(Database(corpus.database), corpus.corpus_id).search(
-            query,
-            subject,
-            limit,
+            query=query,
+            subject=subject,
+            limit=limit,
+            since=_parse_since(since) if since else None,
+            source_path=source,
         )
-    except SearchQueryError as exc:
-        raise typer.BadParameter(str(exc), param_hint="query") from exc
+    except (SearchQueryError, ValueError) as exc:
+        raise typer.BadParameter(str(exc)) from exc
     _render([result.model_dump(mode="json") for result in results], output_format)
 
 
@@ -62,15 +66,22 @@ def actions(
     manifest: ManifestOption,
     status: Annotated[str | None, typer.Option()] = None,
     output_format: FormatOption = "text",
+    since: Annotated[str | None, typer.Option()] = None,
+    source: Annotated[str | None, typer.Option()] = None,
 ) -> None:
     """Return explicit task items associated with a subject."""
     if status not in {None, "open", "completed"}:
         raise typer.BadParameter("status must be 'open' or 'completed'")
     corpus = _load_manifest_or_exit(manifest)
-    results = RetrievalService(Database(corpus.database), corpus.corpus_id).actions(
-        subject,
-        status,
-    )
+    try:
+        results = RetrievalService(Database(corpus.database), corpus.corpus_id).actions(
+            subject=subject,
+            status=status,
+            since=_parse_since(since) if since else None,
+            source_path=source,
+        )
+    except ValueError as exc:
+        raise typer.BadParameter(str(exc), param_hint="since") from exc
     _render([result.model_dump(mode="json") for result in results], output_format)
 
 
