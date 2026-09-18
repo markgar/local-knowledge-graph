@@ -14,12 +14,14 @@ Change one retrieval feature at a time:
 2. Start from the immediately preceding experiment.
 3. Change one independent retrieval capability or one clearly bounded
    configuration choice.
-4. Run the full 179-question fixture at least twice.
-5. Confirm identical logical rankings and metrics across runs. Latency may
+4. Complete an independent code review and resolve its high-confidence
+   findings before running the efficacy benchmark.
+5. Run the full 179-question fixture at least twice.
+6. Confirm identical logical rankings and metrics across runs. Latency may
    vary and is reported separately.
-6. Record the exact feature, configuration, aggregate metrics, and delta from
+7. Record the exact feature, configuration, aggregate metrics, and delta from
    the preceding experiment before starting another feature.
-7. Preserve citation and anchor integrity at 100%.
+8. Preserve citation and anchor integrity at 100%.
 
 Do not combine a new embedding model, fusion method, chunking strategy, and
 reranker in one experiment. If a feature requires several inseparable
@@ -96,7 +98,7 @@ Each experiment begins only after the previous result is recorded.
 
 | ID | Single feature under test | Comparison |
 | --- | --- | --- |
-| E1 | Dense retrieval over the existing canonical anchors | Dense versus E0 natural lexical retrieval |
+| E1 | Dense retrieval over the existing canonical anchors | Complete: dense versus E0 natural lexical retrieval |
 | E2 | Reciprocal-rank fusion of unchanged E0 lexical and E1 dense rankings | Hybrid versus the better of E0 and E1 |
 | E3 | Cross-encoder reranking of the unchanged E2 candidate set | Reranked hybrid versus E2 |
 | E4 | Calibrated answerability and abstention over unchanged E3 retrieval | Selective answering versus E3 |
@@ -105,24 +107,57 @@ Each experiment begins only after the previous result is recorded.
 Chunking changes, alternate embedding models, and alternate rerankers are
 separate experiments. They do not silently replace E1 or E3 configurations.
 
-## Next experiment: E1 dense retrieval
+## E1: Dense retrieval
 
-E1 will add one capability: semantic nearest-neighbor retrieval over the same
+E1 adds one capability: semantic nearest-neighbor retrieval over the same
 source anchors used by E0.
 
-Planned constraints:
+Configuration:
 
 - Keep current Markdown parsing and anchor boundaries unchanged.
 - Keep canonical evidence and metadata in SQLite.
 - Store a disposable vector projection keyed by `anchor_id` and `revision_id`.
-- Use Sentence Transformers with one pinned, permissively licensed embedding
-  model. The initial candidate is `Alibaba-NLP/gte-modernbert-base`.
+- Use Sentence Transformers with the Apache-2.0
+  `Alibaba-NLP/gte-modernbert-base` model pinned at revision
+  `752e76f479f37e13f5e956c0a277bd7ccea80714`.
+- Store normalized 768-dimensional vectors in a versioned sqlite-vec
+  projection keyed by passage, anchor, and revision IDs.
 - Use cosine similarity and return the same public evidence contracts.
 - Do not add lexical fusion, query rewriting, reranking, answer generation, or
   abstention in E1.
 - Compare dense-only results directly with E0 natural lexical results.
 
-The model revision, inference runtime, vector-index implementation, and exact
-hardware measurements must be recorded when E1 begins; they are not considered
-fixed until the implementation dependency and local-runtime constraints have
-been validated.
+Runtime:
+
+- Sentence Transformers 5.7.0, Transformers 5.17.0, and PyTorch 2.14.0.
+- sqlite-vec 0.1.9 with cosine distance.
+- Apple M4 Pro with 24 GiB RAM on macOS 26.6.2.
+- 3,599 canonical passages; unchanged parser anchor boundaries.
+- Indexing time: 70.8 seconds.
+- Derived-index size: 159,739,904 bytes (152.3 MiB).
+- Candidate count: 10 passages per paper-scoped question.
+
+Both full 179-question runs produced identical ranked passage IDs and logical
+metrics.
+
+| Metric | E0 natural | E1 dense | Delta |
+| --- | ---: | ---: | ---: |
+| Evidence Recall@1 | 12.2% | 10.0% | -2.2 pp |
+| Evidence Recall@5 | 40.2% | 29.1% | -11.1 pp |
+| Evidence Recall@10 | 54.6% | 42.7% | -11.9 pp |
+| Mean reciprocal rank | 0.302 | 0.264 | -0.038 |
+| Evidence-set F1@10 | 12.8% | 11.2% | -1.6 pp |
+| Unanswerable false-evidence rate | 100.0% | 100.0% | 0.0 pp |
+| Anchor integrity | 100.0% | 100.0% | 0.0 pp |
+| Median query latency | 32.0 ms | 74.6-76.1 ms | +42.6-44.1 ms |
+| p95 query latency | 39.6 ms | 90.1-241.5 ms | +50.5-201.9 ms |
+
+Interpretation:
+
+- Dense-only retrieval underperforms the natural BM25 baseline at every
+  relevance metric on this fixture.
+- Exact citation resolution remains intact.
+- The selected model and unchanged anchor boundaries do not justify replacing
+  lexical retrieval.
+- E1 is retained as a reproducible negative result and as the dense component
+  for the separately measured E2 reciprocal-rank-fusion experiment.

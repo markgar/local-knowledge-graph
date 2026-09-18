@@ -84,6 +84,8 @@ From the repository root:
 ```bash
 uv run python benchmarks/qasper/prepare.py
 uv run kg ingest --manifest benchmarks/qasper/data/corpus.yml
+uv run kg dense-index --manifest benchmarks/qasper/data/corpus.yml
+uv run python benchmarks/qasper/evaluate.py --strategy dense
 uv run python benchmarks/qasper/evaluate.py
 ```
 
@@ -91,7 +93,8 @@ Generated papers, gold annotations, the SQLite database, and detailed results
 are written beneath `benchmarks/qasper/data/`, which Git ignores.
 
 The evaluator uses natural search by default. Run it with `--strategy strict`
-to reproduce the original all-term baseline:
+to reproduce the original all-term baseline, or `--strategy dense` after
+building the dense projection:
 
 ```bash
 uv run python benchmarks/qasper/evaluate.py --strategy strict

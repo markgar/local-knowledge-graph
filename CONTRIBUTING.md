@@ -27,9 +27,8 @@ uv build
 - Preserve deterministic behavior and exact source provenance.
 - Do not add corpus-specific parsing or retrieval rules.
 - Update public documentation when contracts or commands change.
-- Describe compatibility or migration implications for schema changes.
-- Add database changes as a new numbered SQL migration. Never edit a migration
-  that has shipped on `main`.
+- Update `src/kg/schema.sql` directly for database changes; indexes are
+  rebuildable from source during pre-alpha development.
 - Add or update a reviewed case in `corpora/acceptance/` for retrieval changes.
 
 For larger changes, open an issue first so the design can be discussed before

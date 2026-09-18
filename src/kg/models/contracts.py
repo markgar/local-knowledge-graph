@@ -18,6 +18,21 @@ class IngestResult(ContractModel):
     errors: list[str] = Field(default_factory=list)
 
 
+class DenseIndexResult(ContractModel):
+    corpus_id: str
+    projection_id: str
+    model_name: str
+    model_revision: str
+    model_license: str
+    pipeline_version: str
+    dimensions: int
+    passage_count: int
+    built: bool
+    duration_ms: float
+    index_path: str
+    index_bytes: int
+
+
 class ErrorResult(ContractModel):
     error: str
     message: str
