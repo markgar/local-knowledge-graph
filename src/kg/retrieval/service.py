@@ -127,7 +127,7 @@ class RetrievalService:
             "sd.is_active = 1",
             "sr.revision_id = sd.current_revision_id",
         ]
-        parameters: list[str] = [self.corpus_id]
+        parameters: list[object] = [self.corpus_id]
         if status:
             clauses.append("ai.status = ?")
             parameters.append(status)
@@ -738,6 +738,9 @@ class RetrievalService:
         columns = set(row.keys())
         passage_text = row["passage_text"] if "passage_text" in columns else None
         summary = row["text"] if "text" in columns else None
+        quote = row["quote"] if "quote" in columns else passage_text
+        if not isinstance(quote, str):
+            raise ValueError("Evidence row is missing its source quote")
         return EvidenceResult(
             record_id=row["record_id"],
             record_type=record_type,
@@ -749,7 +752,7 @@ class RetrievalService:
             source_revision_id=row["revision_id"],
             anchor_id=row["anchor_id"],
             heading_path=json.loads(row["heading_path_json"]),
-            quote=row["quote"] if "quote" in columns else passage_text,
+            quote=quote,
             related_entity_ids=related_entity_ids,
         )
 
