@@ -44,7 +44,8 @@ class Database:
             }
             migration_root = resources.files("kg").joinpath("migrations")
             migrations = sorted(
-                item for item in migration_root.iterdir() if item.name.endswith(".sql")
+                (item for item in migration_root.iterdir() if item.name.endswith(".sql")),
+                key=lambda item: item.name,
             )
             for migration in migrations:
                 version_text, _, _ = migration.name.partition("_")
