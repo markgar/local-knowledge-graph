@@ -11,7 +11,7 @@ from typing import Any
 
 from kg.config import load_manifest
 from kg.db import Database
-from kg.retrieval import RetrievalService
+from kg.retrieval import DenseRetrievalService, RetrievalService
 
 
 def normalize_text(value: str) -> str:
@@ -56,12 +56,19 @@ def evaluate(
     limit: int = 10,
     strategy: str = "natural",
 ) -> dict[str, Any]:
-    if strategy not in {"strict", "natural"}:
-        raise ValueError("strategy must be 'strict' or 'natural'")
+    if strategy not in {"strict", "natural", "dense"}:
+        raise ValueError("strategy must be 'strict', 'natural', or 'dense'")
     if limit < 10:
         raise ValueError("limit must be at least 10 for @10 metrics")
     manifest = load_manifest(manifest_path)
     retrieval = RetrievalService(Database(manifest.database), manifest.corpus_id)
+    dense_retrieval = (
+        DenseRetrievalService(Database(manifest.database), manifest.corpus_id)
+        if strategy == "dense"
+        else None
+    )
+    if dense_retrieval:
+        dense_retrieval.warmup()
     gold = json.loads(gold_path.read_text(encoding="utf-8"))
     questions = gold["questions"]
     recall_totals = {1: 0.0, 5: 0.0, 10: 0.0}
@@ -77,12 +84,19 @@ def evaluate(
 
     for question in questions:
         started = time.perf_counter()
-        results = retrieval.search(
-            question["question"],
-            subject=question["paper_title"],
-            limit=limit,
-            query_mode=strategy,
-        )
+        if dense_retrieval:
+            results = dense_retrieval.search(
+                question["question"],
+                subject=question["paper_title"],
+                limit=limit,
+            )
+        else:
+            results = retrieval.search(
+                question["question"],
+                subject=question["paper_title"],
+                limit=limit,
+                query_mode=strategy,
+            )
         latencies.append((time.perf_counter() - started) * 1000)
         retrieved = [normalize_evidence(result.quote) for result in results]
         retrieved_at_10 = retrieved[:10]
@@ -128,6 +142,7 @@ def evaluate(
                 "question_id": question["question_id"],
                 "answerable": bool(gold_sets),
                 "returned": len(results),
+                "record_ids": [result.record_id for result in results],
                 "recall_at_10": _best_recall(retrieved_set_at_10, gold_sets),
             }
         )
@@ -180,17 +195,24 @@ def main() -> None:
         default=benchmark_directory / "data" / "gold.json",
     )
     parser.add_argument("--limit", type=int, default=10)
-    parser.add_argument("--strategy", choices=("strict", "natural"), default="natural")
+    parser.add_argument(
+        "--strategy",
+        choices=("strict", "natural", "dense"),
+        default="natural",
+    )
     parser.add_argument(
         "--output",
         type=Path,
-        default=benchmark_directory / "data" / "results.json",
+        default=None,
     )
     args = parser.parse_args()
 
     result = evaluate(args.manifest, args.gold, args.limit, args.strategy)
-    args.output.parent.mkdir(parents=True, exist_ok=True)
-    args.output.write_text(
+    output = args.output or (
+        benchmark_directory / "data" / f"results-{args.strategy}.json"
+    )
+    output.parent.mkdir(parents=True, exist_ok=True)
+    output.write_text(
         json.dumps(result, indent=2, sort_keys=True) + "\n",
         encoding="utf-8",
     )

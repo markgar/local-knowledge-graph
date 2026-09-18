@@ -1,9 +1,10 @@
 from __future__ import annotations
 
+import hashlib
 import json
 import re
 import sqlite3
-from collections.abc import Iterable
+from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Literal
@@ -26,11 +27,20 @@ class SubjectScope:
     entity_ids: tuple[str, ...]
 
 
+@dataclass(frozen=True)
+class PassageProjectionRecord:
+    passage_id: str
+    anchor_id: str
+    revision_id: str
+    document_id: str
+    quote: str
+
+
 class RetrievalService:
     def __init__(self, database: Database, corpus_id: str) -> None:
         self.database = database
         self.corpus_id = corpus_id
-        self.database.migrate()
+        self.database.initialize()
 
     def search(
         self,
@@ -116,6 +126,174 @@ class RetrievalService:
             )
             for row in rows
         ]
+
+    def current_passages(self) -> list[PassageProjectionRecord]:
+        with self.database.connection() as connection:
+            rows = connection.execute(
+                """
+                SELECT
+                    p.passage_id,
+                    p.document_id,
+                    p.passage_text,
+                    sr.revision_id,
+                    sa.anchor_id
+                FROM passage p
+                JOIN source_anchor sa ON sa.anchor_id = p.anchor_id
+                JOIN source_revision sr ON sr.revision_id = sa.revision_id
+                JOIN source_document sd ON sd.document_id = sr.document_id
+                WHERE sd.corpus_id = ?
+                  AND sd.is_active = 1
+                  AND sr.revision_id = sd.current_revision_id
+                ORDER BY sd.source_path, sa.start_offset, p.passage_id
+                """,
+                (self.corpus_id,),
+            ).fetchall()
+        return [
+            PassageProjectionRecord(
+                passage_id=row["passage_id"],
+                anchor_id=row["anchor_id"],
+                revision_id=row["revision_id"],
+                document_id=row["document_id"],
+                quote=row["passage_text"],
+            )
+            for row in rows
+        ]
+
+    def index_fingerprint(
+        self,
+        connection: sqlite3.Connection | None = None,
+    ) -> str:
+        if connection is None:
+            with self.database.connection() as managed_connection:
+                return self._index_fingerprint(managed_connection)
+        return self._index_fingerprint(connection)
+
+    def _index_fingerprint(self, connection: sqlite3.Connection) -> str:
+        rows = connection.execute(
+            """
+            SELECT
+                sd.document_id,
+                sd.current_revision_id,
+                sr.indexed_parser_version,
+                sr.indexed_config_hash
+            FROM source_document sd
+            JOIN source_revision sr
+              ON sr.revision_id = sd.current_revision_id
+            WHERE sd.corpus_id = ? AND sd.is_active = 1
+            ORDER BY sd.document_id
+            """,
+            (self.corpus_id,),
+        ).fetchall()
+        payload = [dict(row) for row in rows]
+        return hashlib.sha256(
+            json.dumps(payload, sort_keys=True, separators=(",", ":")).encode()
+        ).hexdigest()
+
+    def eligible_passages(
+        self,
+        *,
+        subject: str | None = None,
+        since: datetime | None = None,
+        source_path: str | None = None,
+    ) -> dict[str, str]:
+        clauses = [
+            "sd.corpus_id = ?",
+            "sd.is_active = 1",
+            "sr.revision_id = sd.current_revision_id",
+        ]
+        parameters: list[object] = [self.corpus_id]
+        if subject:
+            subject_clause, subject_parameters = self._subject_clause(
+                subject,
+                self._subject_scope(subject),
+                anchor_expression="sa.anchor_id",
+            )
+            clauses.append(subject_clause)
+            parameters.extend(subject_parameters)
+        if since:
+            clauses.append(
+                """
+                COALESCE(
+                    datetime(p.event_time),
+                    datetime(sr.observed_mtime),
+                    datetime(sr.ingested_at)
+                ) >= datetime(?)
+                """
+            )
+            parameters.append(since.isoformat())
+        if source_path:
+            clauses.append("sd.source_path = ?")
+            parameters.append(source_path)
+        with self.database.connection() as connection:
+            rows = connection.execute(
+                f"""
+                SELECT p.passage_id, p.document_id
+                FROM passage p
+                JOIN source_anchor sa ON sa.anchor_id = p.anchor_id
+                JOIN source_revision sr ON sr.revision_id = sa.revision_id
+                JOIN source_document sd ON sd.document_id = sr.document_id
+                WHERE {" AND ".join(clauses)}
+                """,
+                parameters,
+            ).fetchall()
+        return {row["passage_id"]: row["document_id"] for row in rows}
+
+    def passage_results(
+        self,
+        ranked_passage_ids: Sequence[tuple[str, float]],
+    ) -> list[SearchResult]:
+        if not ranked_passage_ids:
+            return []
+        passage_ids = [passage_id for passage_id, _ in ranked_passage_ids]
+        placeholders = ", ".join("?" for _ in passage_ids)
+        with self.database.connection() as connection:
+            rows = connection.execute(
+                f"""
+                SELECT
+                    p.passage_id AS record_id,
+                    p.title,
+                    p.passage_text,
+                    p.event_time,
+                    sd.source_path,
+                    sr.revision_id,
+                    sa.anchor_id,
+                    sa.heading_path_json
+                FROM passage p
+                JOIN source_anchor sa ON sa.anchor_id = p.anchor_id
+                JOIN source_revision sr ON sr.revision_id = sa.revision_id
+                JOIN source_document sd ON sd.document_id = sr.document_id
+                WHERE p.passage_id IN ({placeholders})
+                  AND sd.corpus_id = ?
+                  AND sd.is_active = 1
+                  AND sr.revision_id = sd.current_revision_id
+                """,
+                (*passage_ids, self.corpus_id),
+            ).fetchall()
+        rows_by_id = {row["record_id"]: row for row in rows}
+        related = self._related_entities(row["anchor_id"] for row in rows)
+        results = []
+        for passage_id, rank in ranked_passage_ids:
+            row = rows_by_id.get(passage_id)
+            if row is None:
+                continue
+            results.append(
+                SearchResult(
+                    record_id=row["record_id"],
+                    record_type="passage",
+                    title=row["title"],
+                    summary=None,
+                    status=None,
+                    event_time=row["event_time"],
+                    source_path=row["source_path"],
+                    source_revision_id=row["revision_id"],
+                    anchor_id=row["anchor_id"],
+                    heading_path=json.loads(row["heading_path_json"]),
+                    quote=row["passage_text"],
+                    related_entity_ids=related.get(row["anchor_id"], []),
+                    rank=rank,
+                )
+            )
+        return results
 
     def actions(
         self,
@@ -653,9 +831,18 @@ class RetrievalService:
         anchor_expression: str,
         extra_expressions: tuple[str, ...] = (),
     ) -> tuple[str, list[object]]:
-        pattern = f"%{subject.casefold()}%"
+        escaped_subject = (
+            subject.casefold()
+            .replace("\\", "\\\\")
+            .replace("%", "\\%")
+            .replace("_", "\\_")
+        )
+        pattern = f"%{escaped_subject}%"
         text_expressions = ("sd.title", "sa.heading_path_json", *extra_expressions)
-        clauses = [f"lower({expression}) LIKE ?" for expression in text_expressions]
+        clauses = [
+            f"lower({expression}) LIKE ? ESCAPE '\\'"
+            for expression in text_expressions
+        ]
         parameters: list[object] = [pattern] * len(text_expressions)
         if scope and scope.entity_keys:
             placeholders = ", ".join("?" for _ in scope.entity_keys)

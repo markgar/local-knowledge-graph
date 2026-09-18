@@ -31,38 +31,15 @@ class Database:
         finally:
             connection.close()
 
-    def migrate(self) -> None:
+    def initialize(self) -> None:
         with self.connection() as connection:
-            connection.execute(
-                """
-                CREATE TABLE IF NOT EXISTS schema_migration (
-                    version INTEGER PRIMARY KEY,
-                    name TEXT NOT NULL,
-                    applied_at TEXT NOT NULL
-                )
-                """
+            schema = resources.files("kg").joinpath("schema.sql")
+            connection.executescript(
+                "BEGIN IMMEDIATE;\n"
+                f"{schema.read_text(encoding='utf-8')}\n"
+                "COMMIT;\n"
             )
-            applied = {
-                row["version"]
-                for row in connection.execute("SELECT version FROM schema_migration").fetchall()
-            }
-            migration_root = resources.files("kg").joinpath("migrations")
-            migrations = sorted(
-                (item for item in migration_root.iterdir() if item.name.endswith(".sql")),
-                key=lambda item: item.name,
-            )
-            for migration in migrations:
-                version_text, _, _ = migration.name.partition("_")
-                version = int(version_text)
-                if version in applied:
-                    continue
-                _apply_migration(
-                    connection,
-                    version,
-                    migration.name,
-                    migration.read_text(encoding="utf-8"),
-                )
-                LOGGER.info("Applied database migration %s", migration.name)
+            LOGGER.debug("Initialized database schema from schema.sql")
 
     @contextmanager
     def transaction(self) -> Iterator[sqlite3.Connection]:
@@ -76,25 +53,3 @@ class Database:
             raise
         finally:
             connection.close()
-
-
-def _apply_migration(
-    connection: sqlite3.Connection,
-    version: int,
-    name: str,
-    sql: str,
-) -> None:
-    escaped_name = name.replace("'", "''")
-    script = (
-        "BEGIN IMMEDIATE;\n"
-        f"{sql}\n"
-        "INSERT INTO schema_migration (version, name, applied_at) "
-        f"VALUES ({version}, '{escaped_name}', datetime('now'));\n"
-        "COMMIT;\n"
-    )
-    try:
-        connection.executescript(script)
-    except sqlite3.Error:
-        if connection.in_transaction:
-            connection.execute("ROLLBACK")
-        raise

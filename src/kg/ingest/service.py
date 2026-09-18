@@ -17,7 +17,7 @@ from kg.models.contracts import IngestResult
 from kg.models.manifest import CorpusManifest
 
 PARSER_VERSION = "2"
-SCHEMA_VERSION = 2
+SCHEMA_VERSION = 1
 LOGGER = logging.getLogger(__name__)
 
 
@@ -31,7 +31,7 @@ class IngestService:
             manifest.corpus_id,
             self.database.path,
         )
-        self.database.migrate()
+        self.database.initialize()
         selection = select_sources(manifest)
         result = IngestResult(
             corpus_id=manifest.corpus_id,

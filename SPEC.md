@@ -26,9 +26,9 @@ agent-useful retrieval. Statuses describe the repository as of 2026-09-17:
 | Immutable revisions and exact source anchors | Implemented | Historical revisions remain retrievable while current-state queries use only the active revision. |
 | Idempotent ingestion | Implemented | Unchanged sources do not create new revisions or mutate document state. |
 | Markdown headings, paragraphs, lists, tasks, and wikilinks | Implemented | CommonMark block maps preserve exact source ranges while fenced code is excluded from structural classification. |
-| SQLite schema and atomic migrations | Implemented | Versioned SQL migrations are packaged with the Python distribution. |
+| Rebuildable SQLite schema | Implemented | The packaged schema initializes new indexes; pre-alpha schema changes require rebuilding generated databases. |
 | FTS5 passage search | Implemented | Queries are corpus-scoped and limited to current active revisions, with strict and natural BM25-ranked modes. |
-| Real-world semantic retrieval | In progress | QASPER establishes the baseline; dense retrieval, hybrid fusion, and reranking remain to be implemented. |
+| Real-world semantic retrieval | In progress | Dense retrieval is implemented and measured; hybrid fusion and reranking remain. |
 | Seed entities, approved aliases, and exact mentions | Implemented | Similar names are never merged automatically. |
 | Explicit relationships and graph traversal | Implemented | Anchored wikilink relationships support deterministic one- and two-hop traversal. |
 | Explicit open and completed tasks | Implemented | Checkbox status and optional inline owner and due-date fields are extracted. |
@@ -282,8 +282,6 @@ MVP.
   - Searchable source text associated with an anchor.
 - `passage_fts`
   - FTS5 index over titles, headings, aliases, and passage text.
-- `schema_migration`
-  - Applied schema versions.
 
 ## Identity Rules
 
@@ -308,7 +306,7 @@ Use Python with:
 - Typer for the CLI.
 - Pydantic for command and output contracts.
 - A Markdown parser that preserves source positions.
-- Plain versioned SQL migration files.
+- One packaged SQL schema file for rebuildable generated databases.
 
 Organize the code as a reusable package:
 
@@ -317,7 +315,7 @@ src/kg/
   cli.py
   config.py
   db.py
-  migrations/
+  schema.sql
   ingest/
   markdown/
   retrieval/
@@ -404,7 +402,7 @@ The MVP does not include:
 
 ### Milestone 2: Deterministic index
 
-- [x] Create atomic migrations and the SQLite schema.
+- [x] Create the rebuildable SQLite schema.
 - [x] Parse notes into immutable revisions and exact anchors.
 - [x] Index headings, passages, wikilinks, exact mentions, and checkbox tasks.
 - [x] Prove idempotent ingestion and preservation of historical revisions.
@@ -437,7 +435,7 @@ semantic extraction, another source connector, embeddings, or a review UI.
   evidence.
 - [x] Record sparse lexical retrieval, latency, citation integrity, and
   unanswerable-query baselines.
-- [ ] Add a versioned dense embedding projection over canonical source
+- [x] Add a versioned dense embedding projection over canonical source
   anchors.
 - [ ] Combine sparse and dense candidates using deterministic reciprocal-rank
   fusion.
@@ -483,11 +481,13 @@ separate derived store. Neither may replace canonical SQLite provenance.
 
 Retrieval work proceeds one measurable feature at a time:
 
-1. Dense retrieval over the existing anchors.
-2. Sparse/dense fusion without changing either underlying retriever.
-3. Cross-encoder reranking without changing candidate generation.
-4. Answerability calibration without changing retrieval.
-5. Agent-tool integration after retrieval and abstention pass their gates.
+1. Complete an independent code review and resolve its high-confidence
+   findings before measuring a feature's efficacy.
+2. Dense retrieval over the existing anchors.
+3. Sparse/dense fusion without changing either underlying retriever.
+4. Cross-encoder reranking without changing candidate generation.
+5. Answerability calibration without changing retrieval.
+6. Agent-tool integration after retrieval and abstention pass their gates.
 
 Each step must preserve the corpus selection, questions, gold evidence, metric
 implementation, and prior configuration. Its aggregate result and delta must

@@ -23,3 +23,5 @@ stable release. Pre-1.0 releases may contain breaking changes.
   BM25 ranking.
 - An evidence-backed roadmap for dense retrieval, hybrid fusion, reranking,
   calibrated abstention, and agent-readiness acceptance gates.
+- A versioned sqlite-vec projection and pinned local embedding model for dense
+  retrieval over canonical source anchors.

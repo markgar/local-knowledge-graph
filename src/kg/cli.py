@@ -15,6 +15,7 @@ from kg.db import Database
 from kg.ingest import IngestService
 from kg.models.contracts import ErrorResult
 from kg.models.manifest import CorpusManifest
+from kg.retrieval.dense import DenseIndexError, DenseRetrievalService
 from kg.retrieval.service import RecordNotFoundError, RetrievalService, SearchQueryError
 
 app = typer.Typer(no_args_is_help=True, help="Evidence-backed local knowledge retrieval.")
@@ -32,6 +33,7 @@ class OutputFormat(StrEnum):
 class QueryMode(StrEnum):
     strict = "strict"
     natural = "natural"
+    dense = "dense"
 
 
 FormatOption = Annotated[OutputFormat, typer.Option("--format")]
@@ -63,6 +65,24 @@ def ingest(
         raise typer.Exit(code=1)
 
 
+@app.command("dense-index")
+def dense_index(
+    manifest: ManifestOption,
+    output_format: FormatOption = OutputFormat.text,
+    batch_size: Annotated[int, typer.Option(min=1)] = 32,
+) -> None:
+    """Build the versioned dense projection for a corpus."""
+    corpus = _load_manifest_or_exit(manifest, output_format)
+    try:
+        result = DenseRetrievalService(
+            Database(corpus.database),
+            corpus.corpus_id,
+        ).build_index(batch_size=batch_size)
+    except (DenseIndexError, ValueError) as exc:
+        _fail("dense_index_failed", str(exc), output_format)
+    _render(result.model_dump(mode="json"), output_format)
+
+
 @app.command()
 def search(
     query: str,
@@ -74,22 +94,35 @@ def search(
     source: Annotated[str | None, typer.Option()] = None,
     query_mode: Annotated[
         QueryMode,
-        typer.Option(help="Strict all-term or natural any-term BM25 search."),
+        typer.Option(help="Strict, natural BM25, or dense semantic search."),
     ] = QueryMode.strict,
 ) -> None:
-    """Search indexed evidence using SQLite FTS5."""
+    """Search indexed evidence."""
     corpus = _load_manifest_or_exit(manifest, output_format)
     try:
-        results = RetrievalService(Database(corpus.database), corpus.corpus_id).search(
-            query=query,
-            subject=subject,
-            limit=limit,
-            since=_parse_since(since) if since else None,
-            source_path=source,
-            query_mode=(
-                "natural" if query_mode is QueryMode.natural else "strict"
-            ),
-        )
+        cutoff = _parse_since(since) if since else None
+        database = Database(corpus.database)
+        if query_mode is QueryMode.dense:
+            results = DenseRetrievalService(database, corpus.corpus_id).search(
+                query=query,
+                subject=subject,
+                limit=limit,
+                since=cutoff,
+                source_path=source,
+            )
+        else:
+            results = RetrievalService(database, corpus.corpus_id).search(
+                query=query,
+                subject=subject,
+                limit=limit,
+                since=cutoff,
+                source_path=source,
+                query_mode=(
+                    "natural" if query_mode is QueryMode.natural else "strict"
+                ),
+            )
+    except DenseIndexError as exc:
+        _fail("dense_index_unavailable", str(exc), output_format)
     except (SearchQueryError, ValueError) as exc:
         _fail("invalid_query", str(exc), output_format)
     _render([result.model_dump(mode="json") for result in results], output_format)
