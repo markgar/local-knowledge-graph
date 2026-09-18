@@ -12,6 +12,12 @@ cd local-knowledge-graph
 uv sync --extra dev
 ```
 
+Dependency resolution uses the repository's [`uv.toml`](uv.toml). It points to
+the package feed required by the primary Microsoft development environment and
+contains no credentials. If that feed is unavailable in your environment,
+replace `index-url` with your approved PEP 503 index or remove the file to use
+uv's default public index.
+
 Before opening a pull request, run:
 
 ```bash

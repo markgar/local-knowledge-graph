@@ -161,3 +161,58 @@ Interpretation:
   lexical retrieval.
 - E1 is retained as a reproducible negative result and as the dense component
   for the separately measured E2 reciprocal-rank-fusion experiment.
+
+## E2: Sparse/dense reciprocal-rank fusion
+
+E2 adds one capability: deterministic reciprocal-rank fusion over the
+unchanged E0 natural-BM25 and E1 dense rankings.
+
+Frozen configuration:
+
+- Keep the QASPER corpus, questions, gold evidence, metric implementation,
+  Markdown parsing, anchor boundaries, and E1 embedding projection unchanged.
+- Request 50 candidates from E0 and 50 candidates from E1 for each
+  paper-scoped question.
+- Apply identical subject, source, and date filters to both parent retrievers.
+- Deduplicate candidates by canonical passage ID.
+- Score each candidate as `1.0 / (20 + lexical_rank)` plus
+  `0.5 / (20 + dense_rank)` when it appears in the respective parent ranking.
+- Order equal fusion scores by passage ID.
+- Return the existing canonical evidence contract and require 100% anchor
+  integrity.
+- Fail explicitly if the E1 projection is missing, stale, or incompatible.
+
+Runtime:
+
+- Same model, projection, 3,599 canonical passages, and Apple M4 Pro host as
+  E1.
+- Candidate count: 50 passages from each parent ranking; 10 fused results
+  returned.
+- Both full 179-question runs produced identical ranked passage IDs and
+  logical metrics.
+
+| Metric | E0 natural | E1 dense | E2 hybrid | Delta vs. E0 |
+| --- | ---: | ---: | ---: | ---: |
+| Evidence Recall@1 | 12.2% | 10.0% | 15.2% | +3.0 pp |
+| Evidence Recall@5 | 40.2% | 29.1% | 41.6% | +1.4 pp |
+| Evidence Recall@10 | 54.6% | 42.7% | 60.9% | +6.4 pp |
+| Mean reciprocal rank | 0.302 | 0.264 | 0.334 | +0.032 |
+| Evidence-set F1@10 | 12.8% | 11.2% | 14.6% | +1.8 pp |
+| Unanswerable false-evidence rate | 100.0% | 100.0% | 100.0% | 0.0 pp |
+| Anchor integrity | 100.0% | 100.0% | 100.0% | 0.0 pp |
+| Median query latency | 31.6-31.9 ms | 72.2-72.6 ms | 108.1-108.3 ms | +76.2-76.7 ms |
+| p95 query latency | 39.7-40.2 ms | 85.8-88.0 ms | 136.5-140.0 ms | +96.3-100.3 ms |
+
+Interpretation:
+
+- Hybrid retrieval improves every measured relevance metric over both
+  unchanged parent retrievers on this fixture.
+- The largest gain is Recall@10, which rises 6.4 percentage points over E0.
+- Citation integrity remains exact and deterministic.
+- The result does not meet the Milestone 5 acceptance gates of 60% Recall@5,
+  75% Recall@10, and 0.45 MRR.
+- The 100% false-evidence rate is unchanged because E2 ranks passages but does
+  not make an answerability decision.
+- These measurements establish one-domain evidence only. A separate
+  email-and-meeting-notes-style evaluation is required before treating the
+  fusion defaults as broadly validated.

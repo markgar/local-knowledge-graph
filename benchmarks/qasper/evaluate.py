@@ -11,7 +11,11 @@ from typing import Any
 
 from kg.config import load_manifest
 from kg.db import Database
-from kg.retrieval import DenseRetrievalService, RetrievalService
+from kg.retrieval import (
+    DenseRetrievalService,
+    HybridRetrievalService,
+    RetrievalService,
+)
 
 
 def normalize_text(value: str) -> str:
@@ -56,8 +60,10 @@ def evaluate(
     limit: int = 10,
     strategy: str = "natural",
 ) -> dict[str, Any]:
-    if strategy not in {"strict", "natural", "dense"}:
-        raise ValueError("strategy must be 'strict', 'natural', or 'dense'")
+    if strategy not in {"strict", "natural", "dense", "hybrid"}:
+        raise ValueError(
+            "strategy must be 'strict', 'natural', 'dense', or 'hybrid'"
+        )
     if limit < 10:
         raise ValueError("limit must be at least 10 for @10 metrics")
     manifest = load_manifest(manifest_path)
@@ -67,8 +73,15 @@ def evaluate(
         if strategy == "dense"
         else None
     )
+    hybrid_retrieval = (
+        HybridRetrievalService(Database(manifest.database), manifest.corpus_id)
+        if strategy == "hybrid"
+        else None
+    )
     if dense_retrieval:
         dense_retrieval.warmup()
+    if hybrid_retrieval:
+        hybrid_retrieval.warmup()
     gold = json.loads(gold_path.read_text(encoding="utf-8"))
     questions = gold["questions"]
     recall_totals = {1: 0.0, 5: 0.0, 10: 0.0}
@@ -84,7 +97,13 @@ def evaluate(
 
     for question in questions:
         started = time.perf_counter()
-        if dense_retrieval:
+        if hybrid_retrieval:
+            results = hybrid_retrieval.search(
+                question["question"],
+                subject=question["paper_title"],
+                limit=limit,
+            )
+        elif dense_retrieval:
             results = dense_retrieval.search(
                 question["question"],
                 subject=question["paper_title"],
@@ -197,7 +216,7 @@ def main() -> None:
     parser.add_argument("--limit", type=int, default=10)
     parser.add_argument(
         "--strategy",
-        choices=("strict", "natural", "dense"),
+        choices=("strict", "natural", "dense", "hybrid"),
         default="natural",
     )
     parser.add_argument(

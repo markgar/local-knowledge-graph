@@ -226,3 +226,60 @@ def test_dense_commands_are_available_through_cli(
     assert json.loads(index_result.stdout)["projection_id"] == "projection"
     assert search_result.exit_code == 0
     assert json.loads(search_result.stdout)[0]["quote"] == "Semantic evidence."
+
+
+def test_hybrid_query_mode_is_available_through_cli(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    manifest = tmp_path / "corpus.yml"
+    vault = tmp_path / "vault"
+    vault.mkdir()
+    manifest.write_text(
+        "corpus_id: test\n"
+        "display_name: Test\n"
+        "vault_root: vault\n"
+        "database: index.sqlite3\n"
+        "include: ['*.md']\n",
+        encoding="utf-8",
+    )
+
+    class StubHybridRetrievalService:
+        def __init__(self, database: object, corpus_id: str) -> None:
+            assert corpus_id == "test"
+
+        def search(self, query: str, **kwargs: object) -> list[SearchResult]:
+            assert query == "hybrid question"
+            return [
+                SearchResult(
+                    record_id="passage",
+                    record_type="passage",
+                    title="Note",
+                    source_path="note.md",
+                    source_revision_id="revision",
+                    anchor_id="anchor",
+                    quote="Hybrid evidence.",
+                    rank=0.03,
+                )
+            ]
+
+    monkeypatch.setattr(
+        "kg.cli.HybridRetrievalService",
+        StubHybridRetrievalService,
+    )
+    result = RUNNER.invoke(
+        app,
+        [
+            "search",
+            "hybrid question",
+            "--query-mode",
+            "hybrid",
+            "--manifest",
+            str(manifest),
+            "--format",
+            "json",
+        ],
+    )
+
+    assert result.exit_code == 0
+    assert json.loads(result.stdout)[0]["quote"] == "Hybrid evidence."

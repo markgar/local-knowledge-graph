@@ -16,6 +16,7 @@ from kg.ingest import IngestService
 from kg.models.contracts import ErrorResult
 from kg.models.manifest import CorpusManifest
 from kg.retrieval.dense import DenseIndexError, DenseRetrievalService
+from kg.retrieval.hybrid import HybridRetrievalService
 from kg.retrieval.service import RecordNotFoundError, RetrievalService, SearchQueryError
 
 app = typer.Typer(no_args_is_help=True, help="Evidence-backed local knowledge retrieval.")
@@ -34,6 +35,7 @@ class QueryMode(StrEnum):
     strict = "strict"
     natural = "natural"
     dense = "dense"
+    hybrid = "hybrid"
 
 
 FormatOption = Annotated[OutputFormat, typer.Option("--format")]
@@ -94,7 +96,9 @@ def search(
     source: Annotated[str | None, typer.Option()] = None,
     query_mode: Annotated[
         QueryMode,
-        typer.Option(help="Strict, natural BM25, or dense semantic search."),
+        typer.Option(
+            help="Strict, natural BM25, dense semantic, or hybrid RRF search."
+        ),
     ] = QueryMode.strict,
 ) -> None:
     """Search indexed evidence."""
@@ -102,7 +106,15 @@ def search(
     try:
         cutoff = _parse_since(since) if since else None
         database = Database(corpus.database)
-        if query_mode is QueryMode.dense:
+        if query_mode is QueryMode.hybrid:
+            results = HybridRetrievalService(database, corpus.corpus_id).search(
+                query=query,
+                subject=subject,
+                limit=limit,
+                since=cutoff,
+                source_path=source,
+            )
+        elif query_mode is QueryMode.dense:
             results = DenseRetrievalService(database, corpus.corpus_id).search(
                 query=query,
                 subject=subject,
