@@ -1,8 +1,8 @@
 from __future__ import annotations
 
+from collections.abc import Iterable
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Iterable
 
 import yaml
 
@@ -48,7 +48,11 @@ def select_sources(manifest: CorpusManifest) -> SourceSelection:
     missing: list[str] = []
     for pattern in manifest.include:
         matches = list(_safe_glob(root, pattern))
-        markdown_files = [path for path in matches if path.is_file() and path.suffix.lower() == ".md"]
+        markdown_files = [
+            path
+            for path in matches
+            if path.is_file() and path.suffix.lower() == ".md"
+        ]
         if not markdown_files:
             missing.append(pattern)
             continue

@@ -4,7 +4,7 @@ import json
 import re
 import sqlite3
 import uuid
-from datetime import date, datetime, timezone
+from datetime import UTC, date, datetime
 from pathlib import Path
 from typing import Literal
 
@@ -45,7 +45,8 @@ class IngestService:
             connection.execute(
                 """
                 INSERT INTO ingest_run (
-                    run_id, corpus_id, parser_version, schema_version, started_at, status, counts_json
+                    run_id, corpus_id, parser_version, schema_version, started_at,
+                    status, counts_json
                 ) VALUES (?, ?, ?, ?, ?, 'running', '{}')
                 """,
                 (
@@ -179,7 +180,7 @@ class IngestService:
                 stable_revision_id,
                 stable_document_id,
                 digest(content),
-                datetime.fromtimestamp(path.stat().st_mtime, timezone.utc).isoformat(),
+                datetime.fromtimestamp(path.stat().st_mtime, UTC).isoformat(),
                 now,
                 json.dumps(parsed.frontmatter, sort_keys=True, default=str),
             ),
@@ -451,4 +452,4 @@ class IngestService:
 
 
 def _now() -> str:
-    return datetime.now(timezone.utc).isoformat()
+    return datetime.now(UTC).isoformat()

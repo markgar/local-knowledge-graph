@@ -96,7 +96,14 @@ def parse_markdown(text: str, fallback_title: str) -> ParsedDocument:
             anchor_index += 1
             start = offsets[line_index]
             anchors.append(
-                _anchor(anchor_index, heading_stack, "heading", start, start + len(content), content)
+                _anchor(
+                    anchor_index,
+                    heading_stack,
+                    "heading",
+                    start,
+                    start + len(content),
+                    content,
+                )
             )
         elif task:
             flush_paragraph()

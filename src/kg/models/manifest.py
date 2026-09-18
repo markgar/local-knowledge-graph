@@ -59,7 +59,7 @@ class CorpusManifest(BaseModel):
         return includes
 
     @model_validator(mode="after")
-    def aliases_must_be_unambiguous(self) -> "CorpusManifest":
+    def aliases_must_be_unambiguous(self) -> CorpusManifest:
         entity_ids = [entity.entity_id for entity in self.seed_entities]
         if len(entity_ids) != len(set(entity_ids)):
             raise ValueError("seed entity IDs must be unique")

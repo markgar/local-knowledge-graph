@@ -2,9 +2,9 @@ from __future__ import annotations
 
 import json
 import re
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
-from typing import Any
+from typing import Annotated, Any
 
 import typer
 
@@ -15,12 +15,17 @@ from kg.models.manifest import CorpusManifest
 from kg.retrieval.service import RecordNotFoundError, RetrievalService, SearchQueryError
 
 app = typer.Typer(no_args_is_help=True, help="Evidence-backed local knowledge retrieval.")
+ManifestOption = Annotated[
+    Path,
+    typer.Option(exists=True, dir_okay=False, readable=True),
+]
+FormatOption = Annotated[str, typer.Option("--format")]
 
 
 @app.command()
 def ingest(
-    manifest: Path = typer.Option(..., exists=True, dir_okay=False, readable=True),
-    output_format: str = typer.Option("text", "--format"),
+    manifest: ManifestOption,
+    output_format: FormatOption = "text",
 ) -> None:
     """Ingest configured Markdown sources."""
     corpus = _load_manifest_or_exit(manifest)
@@ -33,10 +38,10 @@ def ingest(
 @app.command()
 def search(
     query: str,
-    manifest: Path = typer.Option(..., exists=True, dir_okay=False, readable=True),
-    subject: str | None = typer.Option(None),
-    output_format: str = typer.Option("text", "--format"),
-    limit: int = typer.Option(20, min=1, max=100),
+    manifest: ManifestOption,
+    subject: Annotated[str | None, typer.Option()] = None,
+    output_format: FormatOption = "text",
+    limit: Annotated[int, typer.Option(min=1, max=100)] = 20,
 ) -> None:
     """Search indexed evidence using SQLite FTS5."""
     corpus = _load_manifest_or_exit(manifest)
@@ -54,9 +59,9 @@ def search(
 @app.command()
 def actions(
     subject: str,
-    manifest: Path = typer.Option(..., exists=True, dir_okay=False, readable=True),
-    status: str | None = typer.Option(None),
-    output_format: str = typer.Option("text", "--format"),
+    manifest: ManifestOption,
+    status: Annotated[str | None, typer.Option()] = None,
+    output_format: FormatOption = "text",
 ) -> None:
     """Return explicit task items associated with a subject."""
     if status not in {None, "open", "completed"}:
@@ -72,8 +77,8 @@ def actions(
 @app.command()
 def evidence(
     record_id: str,
-    manifest: Path = typer.Option(..., exists=True, dir_okay=False, readable=True),
-    output_format: str = typer.Option("text", "--format"),
+    manifest: ManifestOption,
+    output_format: FormatOption = "text",
 ) -> None:
     """Return the exact source anchor supporting a record."""
     corpus = _load_manifest_or_exit(manifest)
@@ -90,9 +95,9 @@ def evidence(
 @app.command()
 def status(
     subject: str,
-    manifest: Path = typer.Option(..., exists=True, dir_okay=False, readable=True),
-    since: str = typer.Option("30d", help="Reserved for dated evidence filtering."),
-    output_format: str = typer.Option("text", "--format"),
+    manifest: ManifestOption,
+    since: Annotated[str, typer.Option(help="Window for dated evidence filtering.")] = "30d",
+    output_format: FormatOption = "text",
 ) -> None:
     """Return an evidence-backed subject summary."""
     corpus = _load_manifest_or_exit(manifest)
@@ -146,4 +151,4 @@ def _parse_since(value: str) -> datetime:
         "d": timedelta(days=quantity),
         "w": timedelta(weeks=quantity),
     }[unit]
-    return datetime.now(timezone.utc) - duration
+    return datetime.now(UTC) - duration
