@@ -4,7 +4,7 @@ import json
 import logging
 import re
 from datetime import UTC, datetime, timedelta
-from enum import Enum
+from enum import StrEnum
 from pathlib import Path
 from typing import Annotated, Any, Never
 
@@ -24,7 +24,7 @@ ManifestOption = Annotated[
 ]
 
 
-class OutputFormat(str, Enum):
+class OutputFormat(StrEnum):
     text = "text"
     json = "json"
 

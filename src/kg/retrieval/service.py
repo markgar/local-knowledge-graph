@@ -735,8 +735,9 @@ class RetrievalService:
         record_type: str,
         related_entity_ids: list[str],
     ) -> EvidenceResult:
-        passage_text = row["passage_text"] if "passage_text" in row.keys() else None
-        summary = row["text"] if "text" in row.keys() else None
+        columns = set(row.keys())
+        passage_text = row["passage_text"] if "passage_text" in columns else None
+        summary = row["text"] if "text" in columns else None
         return EvidenceResult(
             record_id=row["record_id"],
             record_type=record_type,
@@ -748,7 +749,7 @@ class RetrievalService:
             source_revision_id=row["revision_id"],
             anchor_id=row["anchor_id"],
             heading_path=json.loads(row["heading_path_json"]),
-            quote=row["quote"] if "quote" in row.keys() else passage_text,
+            quote=row["quote"] if "quote" in columns else passage_text,
             related_entity_ids=related_entity_ids,
         )
 

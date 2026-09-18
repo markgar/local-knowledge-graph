@@ -1,10 +1,10 @@
 from __future__ import annotations
 
+import logging
 import sqlite3
 from collections.abc import Iterator
 from contextlib import contextmanager
 from importlib import resources
-import logging
 from pathlib import Path
 
 LOGGER = logging.getLogger(__name__)
