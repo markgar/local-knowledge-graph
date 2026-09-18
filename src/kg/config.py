@@ -47,7 +47,7 @@ def select_sources(manifest: CorpusManifest) -> SourceSelection:
     selected: set[Path] = set()
     missing: list[str] = []
     for pattern in manifest.include:
-        matches = list(_safe_glob(root, pattern))
+        matches = list(_safe_glob(root, pattern, manifest.allow_symlinks))
         markdown_files = [
             path
             for path in matches
@@ -65,8 +65,14 @@ def relative_source_path(manifest: CorpusManifest, path: Path) -> str:
     return path.resolve().relative_to(manifest.vault_root).as_posix()
 
 
-def _safe_glob(root: Path, pattern: str) -> Iterable[Path]:
+def _safe_glob(
+    root: Path,
+    pattern: str,
+    allow_symlinks: bool,
+) -> Iterable[Path]:
     for path in root.glob(pattern):
+        if path.is_symlink() and not allow_symlinks:
+            raise ManifestError(f"symlink sources are disabled: {path}")
         resolved = path.resolve()
         try:
             resolved.relative_to(root)

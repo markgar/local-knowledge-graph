@@ -113,6 +113,38 @@ def test_removed_source_is_not_returned_as_current_evidence(tmp_path: Path) -> N
     assert retrieval.search("evidence") == []
 
 
+def test_moved_source_preserves_document_and_revision_identity(tmp_path: Path) -> None:
+    manifest = load_manifest(_manifest(tmp_path))
+    database = Database(manifest.database)
+    IngestService(database).ingest(manifest)
+    with database.connection() as connection:
+        before = connection.execute(
+            """
+            SELECT document_id, current_revision_id
+            FROM source_document
+            """
+        ).fetchone()
+
+    (manifest.vault_root / "atlas.md").rename(manifest.vault_root / "renamed.md")
+    result = IngestService(database).ingest(manifest)
+
+    with database.connection() as connection:
+        after = connection.execute(
+            """
+            SELECT document_id, current_revision_id, source_path
+            FROM source_document
+            """
+        ).fetchone()
+        document_count = connection.execute(
+            "SELECT count(*) FROM source_document"
+        ).fetchone()[0]
+    assert result.changed == 1
+    assert document_count == 1
+    assert after["document_id"] == before["document_id"]
+    assert after["current_revision_id"] == before["current_revision_id"]
+    assert after["source_path"] == "renamed.md"
+
+
 def test_shared_database_keeps_corpora_isolated(tmp_path: Path) -> None:
     first_manifest_path = _manifest(tmp_path / "first")
     first_manifest = load_manifest(first_manifest_path)

@@ -33,11 +33,8 @@ class IngestService:
             errors=[f"No Markdown files matched: {pattern}" for pattern in selection.missing],
         )
         started_at = _now()
-        selected_document_ids = {
-            document_id(
-                manifest.corpus_id,
-                relative_source_path(manifest, path),
-            )
+        selected_source_paths = {
+            relative_source_path(manifest, path)
             for path in selection.paths
         }
 
@@ -62,7 +59,12 @@ class IngestService:
             for path in selection.paths:
                 connection.execute("SAVEPOINT ingest_source")
                 try:
-                    outcome = self._ingest_file(connection, manifest, path)
+                    outcome = self._ingest_file(
+                        connection,
+                        manifest,
+                        path,
+                        selected_source_paths,
+                    )
                     connection.execute("RELEASE SAVEPOINT ingest_source")
                     if outcome == "added":
                         result.added += 1
@@ -79,7 +81,7 @@ class IngestService:
             self._deactivate_unselected(
                 connection,
                 manifest.corpus_id,
-                selected_document_ids,
+                selected_source_paths,
             )
             status = "completed" if result.failed == 0 else "completed_with_errors"
             connection.execute(
@@ -102,11 +104,25 @@ class IngestService:
         connection: sqlite3.Connection,
         manifest: CorpusManifest,
         path: Path,
+        selected_source_paths: set[str],
     ) -> Literal["added", "changed", "unchanged"]:
         source_path = relative_source_path(manifest, path)
-        stable_document_id = document_id(manifest.corpus_id, source_path)
+        source_size = path.stat().st_size
+        if source_size > manifest.max_source_bytes:
+            raise ValueError(
+                f"source exceeds max_source_bytes "
+                f"({source_size} > {manifest.max_source_bytes})"
+            )
         content = path.read_bytes()
         text = content.decode("utf-8")
+        content_hash = digest(content)
+        stable_document_id, moved = self._resolve_document_id(
+            connection,
+            manifest.corpus_id,
+            source_path,
+            content_hash,
+            selected_source_paths,
+        )
         stable_revision_id = revision_id(stable_document_id, content)
         parsed = parse_markdown(text, path.stem)
         now = _now()
@@ -130,26 +146,41 @@ class IngestService:
                 and (
                     existing_document["current_revision_id"] != stable_revision_id
                     or existing_document["is_active"] != 1
+                    or moved
                 )
             ):
                 connection.execute(
                     """
                     UPDATE source_document
-                    SET current_revision_id = ?, is_active = 1, updated_at = ?
+                    SET source_path = ?, title = ?, current_revision_id = ?,
+                        is_active = 1, updated_at = ?
                     WHERE document_id = ?
                     """,
-                    (stable_revision_id, now, stable_document_id),
+                    (
+                        source_path,
+                        parsed.title,
+                        stable_revision_id,
+                        now,
+                        stable_document_id,
+                    ),
                 )
-            return "unchanged"
+            return "changed" if moved else "unchanged"
 
         if existing_document:
             connection.execute(
                 """
                 UPDATE source_document
-                SET title = ?, current_revision_id = ?, is_active = 1, updated_at = ?
+                SET source_path = ?, title = ?, current_revision_id = ?,
+                    is_active = 1, updated_at = ?
                 WHERE document_id = ?
                 """,
-                (parsed.title, stable_revision_id, now, stable_document_id),
+                (
+                    source_path,
+                    parsed.title,
+                    stable_revision_id,
+                    now,
+                    stable_document_id,
+                ),
             )
         else:
             connection.execute(
@@ -179,7 +210,7 @@ class IngestService:
             (
                 stable_revision_id,
                 stable_document_id,
-                digest(content),
+                content_hash,
                 datetime.fromtimestamp(path.stat().st_mtime, UTC).isoformat(),
                 now,
                 json.dumps(parsed.frontmatter, sort_keys=True, default=str),
@@ -324,6 +355,48 @@ class IngestService:
 
         return "changed" if existing_document else "added"
 
+    def _resolve_document_id(
+        self,
+        connection: sqlite3.Connection,
+        corpus_id: str,
+        source_path: str,
+        content_hash: str,
+        selected_source_paths: set[str],
+    ) -> tuple[str, bool]:
+        existing = connection.execute(
+            """
+            SELECT document_id
+            FROM source_document
+            WHERE corpus_id = ? AND source_path = ?
+            """,
+            (corpus_id, source_path),
+        ).fetchone()
+        if existing:
+            return existing["document_id"], False
+
+        parameters: list[object] = [corpus_id, content_hash, source_path]
+        excluded_clause = ""
+        if selected_source_paths:
+            placeholders = ", ".join("?" for _ in selected_source_paths)
+            excluded_clause = f"AND sd.source_path NOT IN ({placeholders})"
+            parameters.extend(sorted(selected_source_paths))
+        candidates = connection.execute(
+            f"""
+            SELECT sd.document_id
+            FROM source_document sd
+            JOIN source_revision sr
+              ON sr.revision_id = sd.current_revision_id
+            WHERE sd.corpus_id = ?
+              AND sr.content_hash = ?
+              AND sd.source_path != ?
+              {excluded_clause}
+            """,
+            parameters,
+        ).fetchall()
+        if len(candidates) == 1:
+            return candidates[0]["document_id"], True
+        return document_id(corpus_id, source_path), False
+
     def _sync_seed_entities(
         self,
         connection: sqlite3.Connection,
@@ -432,19 +505,19 @@ class IngestService:
         self,
         connection: sqlite3.Connection,
         corpus_id: str,
-        selected_document_ids: set[str],
+        selected_source_paths: set[str],
     ) -> None:
-        if selected_document_ids:
-            placeholders = ", ".join("?" for _ in selected_document_ids)
+        if selected_source_paths:
+            placeholders = ", ".join("?" for _ in selected_source_paths)
             connection.execute(
                 f"""
                 UPDATE source_document
                 SET is_active = 0, updated_at = ?
                 WHERE corpus_id = ?
                   AND is_active = 1
-                  AND document_id NOT IN ({placeholders})
+                  AND source_path NOT IN ({placeholders})
                 """,
-                (_now(), corpus_id, *sorted(selected_document_ids)),
+                (_now(), corpus_id, *sorted(selected_source_paths)),
             )
         else:
             connection.execute(

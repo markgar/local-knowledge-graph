@@ -1,0 +1,27 @@
+corpus: ../example.yml
+cases:
+  - id: atlas-open-actions
+    command: actions
+    subject: Atlas
+    status: open
+    expected_quotes:
+      - "- [ ] Confirm the release window with the product team. [owner:: Avery] [due:: 2026-10-01]"
+  - id: atlas-status
+    command: status
+    subject: Atlas
+    expected_decisions:
+      - Use SQLite for the local index.
+    expected_blockers:
+      - The migration window still needs explicit approval.
+    expected_connected_entities:
+      - product-compass
+  - id: atlas-search
+    command: search
+    query: waiting
+    subject: Atlas
+    expected_quotes:
+      - The release is waiting on explicit approval of the migration window.
+  - id: abstention
+    command: status
+    subject: Unknown subject
+    expect_evidence_gap: true
