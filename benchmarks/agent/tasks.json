@@ -1,0 +1,73 @@
+{
+  "benchmark_version": 1,
+  "description": "Reviewed end-to-end tasks for the stable JSON CLI interface.",
+  "tasks": [
+    {
+      "id": "paraphrased-decision",
+      "category": "paraphrase",
+      "workflow": "search",
+      "query": "Which evaluation dataset was selected?",
+      "subject": "Orbit",
+      "expected_quotes": [
+        "- Use a synthetic dataset for the first evaluation."
+      ]
+    },
+    {
+      "id": "multi-document-status",
+      "category": "multi_document_synthesis",
+      "workflow": "status",
+      "subject": "Orbit",
+      "expected_decisions": [
+        "Use a synthetic dataset for the first evaluation."
+      ],
+      "expected_blockers": [
+        "The sample size has not been approved."
+      ],
+      "expected_connections": [
+        "orbit wikilink signal",
+        "signal wikilink relay"
+      ]
+    },
+    {
+      "id": "explicit-conflict",
+      "category": "conflict",
+      "workflow": "status",
+      "subject": "Orbit",
+      "expected_conflicts": [
+        "The evaluation notes disagree about the approved sample size."
+      ]
+    },
+    {
+      "id": "ambiguous-cross-source-query",
+      "category": "ambiguity",
+      "workflow": "ambiguous_search",
+      "query": "synthetic",
+      "expected_source_paths": [
+        "orbit.md",
+        "relay.md"
+      ]
+    },
+    {
+      "id": "unsupported-subject",
+      "category": "unsupported",
+      "workflow": "status",
+      "subject": "Unknown program",
+      "expect_evidence_gap": true
+    },
+    {
+      "id": "citation-round-trip",
+      "category": "citation",
+      "workflow": "citation_round_trip",
+      "query": "sample size",
+      "subject": "Orbit"
+    },
+    {
+      "id": "revision-comparison",
+      "category": "revision",
+      "workflow": "revision_comparison",
+      "source_path": "orbit.md",
+      "before": "- Use a synthetic dataset for the first evaluation.",
+      "after": "- Use a curated dataset for the first evaluation."
+    }
+  ]
+}

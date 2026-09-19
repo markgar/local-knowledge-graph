@@ -101,8 +101,8 @@ Each experiment begins only after the previous result is recorded.
 | E1 | Dense retrieval over the existing canonical anchors | Complete: dense versus E0 natural lexical retrieval |
 | E2 | Reciprocal-rank fusion of unchanged E0 lexical and E1 dense rankings | Hybrid versus the better of E0 and E1 |
 | E3 | Cross-encoder reranking of the unchanged E2 candidate set | Reranked hybrid versus E2 |
-| E4 | Calibrated answerability and abstention over unchanged E3 retrieval | Selective answering versus E3 |
-| E5 | Agent-facing tool interface over the accepted retrieval pipeline | End-to-end agent tasks versus direct retrieval |
+| E4 | Calibrated answerability and abstention over unchanged E3 retrieval | Complete: selective answering versus E3 |
+| E5 | Agent-facing tool interface over the accepted retrieval pipeline | Complete: JSON CLI workflows versus direct retrieval |
 
 Chunking changes, alternate embedding models, and alternate rerankers are
 separate experiments. They do not silently replace E1 or E3 configurations.
@@ -269,6 +269,107 @@ Interpretation:
   agent-useful retrieval.
 - The 100% false-evidence rate is unchanged because answerability remains the
   separately scoped E4 experiment.
+
+## E4: Calibrated answerability and abstention
+
+E4 adds one capability: a calibrated decision to return the unchanged E3
+ranking or abstain. It does not alter candidate generation, reranker scores,
+passage order, source anchors, or citations.
+
+Configuration:
+
+- Use the raw top E3 cross-encoder score as the only answerability feature.
+- Assign whole papers to five deterministic folds using SHA-256 so questions
+  about one paper never appear in both a fold's calibration and evaluation
+  data.
+- On the other four folds, select the score threshold that maximizes balanced
+  answerability accuracy. Break equal objectives by lower false-positive rate,
+  then higher answerable coverage, then the higher threshold.
+- Evaluate each question only with the threshold learned without its paper.
+- Report selective retrieval metrics over all answerable questions, assigning
+  zero retrieval credit when the system abstains.
+- Fit a separate full-sample threshold for later deployment experiments; do
+  not use it for the out-of-fold metrics below.
+
+Runtime:
+
+- Same E3 GTE projection, hybrid candidate set, reranker, 50 papers, 3,599
+  passages, and 179 questions.
+- 167 questions have gold evidence and 12 are unanswerable at the question
+  level.
+- The full-sample threshold is `0.7454872131347656`.
+- Fold thresholds range from `-4.038587212562561` to
+  `0.7454872131347656`.
+- Out-of-fold confusion counts are 115 true positives, 52 false negatives,
+  7 false positives, and 5 true negatives.
+
+| Metric | E3 reranked | E4 selective | Delta |
+| --- | ---: | ---: | ---: |
+| Evidence Recall@1 | 22.9% | 13.3% | -9.6 pp |
+| Evidence Recall@5 | 58.5% | 38.6% | -19.9 pp |
+| Evidence Recall@10 | 72.2% | 48.7% | -23.5 pp |
+| Mean reciprocal rank | 0.446 | 0.289 | -0.157 |
+| Evidence-set F1@10 | 17.4% | 12.2% | -5.2 pp |
+| Unanswerable false-evidence rate | 100.0% | 58.3% | -41.7 pp |
+| Answerable coverage | 100.0% | 68.9% | -31.1 pp |
+| Answered precision | 93.3% | 94.3% | +1.0 pp |
+| Answerability balanced accuracy | 50.0% | 55.3% | +5.3 pp |
+
+Interpretation:
+
+- The score threshold reduces false evidence, but still answers seven of the
+  twelve unanswerable questions.
+- The reduction costs 31.1 percentage points of answerable coverage and
+  materially lowers every evidence-retrieval metric.
+- Thresholds vary substantially across paper-grouped folds, showing that the
+  top reranker score is not a stable answerability signal on this sample.
+- E4 therefore does not establish calibrated abstention for the accepted
+  retrieval pipeline. A later experiment needs a separately justified
+  answerability signal and more question-level unanswerable examples; it must
+  not tune passage ranking on E4 labels.
+
+## E5: Agent-facing JSON CLI
+
+E5 packages the existing retrieval and provenance services as a versioned,
+machine-readable CLI interface. It deliberately does not add an agent SDK,
+network service, or MCP dependency.
+
+Interface:
+
+- `kg capabilities` publishes interface version 1 and the supported
+  operations.
+- `kg search` returns evidence candidates.
+- `kg evidence` resolves a result record to its citation.
+- `kg source-range` returns the immutable anchor, exact offsets, quote, and
+  quote hash.
+- `kg revisions` lists a document's immutable history.
+- `kg compare-revisions` compares added, removed, modified, and unchanged
+  anchored ranges.
+- `kg status` returns structured multi-document evidence, explicit conflicts,
+  and evidence gaps.
+
+The reviewed `benchmarks/agent/tasks.json` fixture exercises seven workflows:
+paraphrase retrieval, multi-document synthesis, explicit conflict reporting,
+ambiguous cross-source results, unsupported-subject abstention, citation
+round-tripping, and revision comparison.
+
+| Metric | Result |
+| --- | ---: |
+| Workflow pass rate | 7/7 (100%) |
+| Citation round-trip integrity | 100% |
+| Historical source-range availability | 100% |
+| Revision comparison success | 100% |
+
+Interpretation:
+
+- The CLI is sufficient as the first agent integration boundary; MCP can
+  remain a future transport adapter.
+- All reviewed deterministic workflows preserve exact citations and immutable
+  revision identity.
+- This integration result does not override the E3 relevance shortfall or the
+  rejected E4 answerability threshold. Agents can use the tools reliably, but
+  natural-language evidence selection and abstention are not yet
+  production-ready.
 
 ## E1-S1: GTE versus Qwen embedding substitution
 

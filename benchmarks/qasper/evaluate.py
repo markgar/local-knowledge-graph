@@ -154,14 +154,17 @@ def evaluate(
         retrieved_at_10 = retrieved[:10]
         retrieved_set_at_10 = set(retrieved_at_10)
         gold_sets = _gold_sets(question)
+        recall_by_cutoff = {
+            cutoff: _best_recall(set(retrieved[:cutoff]), gold_sets)
+            for cutoff in recall_totals
+        }
+        reciprocal_rank = 0.0
+        evidence_f1_at_10 = _best_f1(retrieved_set_at_10, gold_sets)
 
         if gold_sets:
             answerable += 1
             for cutoff in recall_totals:
-                recall_totals[cutoff] += _best_recall(
-                    set(retrieved[:cutoff]),
-                    gold_sets,
-                )
+                recall_totals[cutoff] += recall_by_cutoff[cutoff]
             first_hit = next(
                 (
                     rank
@@ -171,8 +174,9 @@ def evaluate(
                 None,
             )
             if first_hit:
-                reciprocal_rank_total += 1 / first_hit
-            evidence_f1_total += _best_f1(retrieved_set_at_10, gold_sets)
+                reciprocal_rank = 1 / first_hit
+                reciprocal_rank_total += reciprocal_rank
+            evidence_f1_total += evidence_f1_at_10
         else:
             unanswerable += 1
             false_evidence += bool(results)
@@ -195,7 +199,12 @@ def evaluate(
                 "answerable": bool(gold_sets),
                 "returned": len(results),
                 "record_ids": [result.record_id for result in results],
-                "recall_at_10": _best_recall(retrieved_set_at_10, gold_sets),
+                "top_score": results[0].rank if results else None,
+                "recall_at_1": recall_by_cutoff[1],
+                "recall_at_5": recall_by_cutoff[5],
+                "recall_at_10": recall_by_cutoff[10],
+                "reciprocal_rank": reciprocal_rank,
+                "evidence_f1_at_10": evidence_f1_at_10,
             }
         )
 

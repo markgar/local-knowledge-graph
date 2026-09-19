@@ -62,6 +62,48 @@ class SearchResult(EvidenceResult):
     rank: float
 
 
+class SourceRangeResult(ContractModel):
+    document_id: str
+    source_path: str
+    source_revision_id: str
+    is_current: bool
+    anchor_id: str
+    structural_path: str
+    heading_path: list[str] = Field(default_factory=list)
+    anchor_kind: str
+    start_offset: int
+    end_offset: int
+    quote: str
+    quote_hash: str
+
+
+class RevisionResult(ContractModel):
+    document_id: str
+    source_path: str
+    source_revision_id: str
+    content_hash: str
+    observed_mtime: str | None = None
+    ingested_at: str
+    is_current: bool
+
+
+class RevisionRangeChange(ContractModel):
+    structural_path: str
+    before: SourceRangeResult
+    after: SourceRangeResult
+
+
+class RevisionComparisonResult(ContractModel):
+    document_id: str
+    source_path: str
+    from_revision_id: str
+    to_revision_id: str
+    added: list[SourceRangeResult] = Field(default_factory=list)
+    removed: list[SourceRangeResult] = Field(default_factory=list)
+    modified: list[RevisionRangeChange] = Field(default_factory=list)
+    unchanged_count: int = 0
+
+
 class ActionResult(EvidenceResult):
     owner: str | None = None
     due_date: str | None = None

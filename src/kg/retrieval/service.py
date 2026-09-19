@@ -7,10 +7,19 @@ import sqlite3
 from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Literal
+from typing import Literal, cast
 
 from kg.db import Database
-from kg.models.contracts import ActionResult, EvidenceResult, SearchResult, StatusResult
+from kg.models.contracts import (
+    ActionResult,
+    EvidenceResult,
+    RevisionComparisonResult,
+    RevisionRangeChange,
+    RevisionResult,
+    SearchResult,
+    SourceRangeResult,
+    StatusResult,
+)
 
 
 class RecordNotFoundError(LookupError):
@@ -18,6 +27,10 @@ class RecordNotFoundError(LookupError):
 
 
 class SearchQueryError(ValueError):
+    pass
+
+
+class RevisionComparisonError(ValueError):
     pass
 
 
@@ -161,6 +174,145 @@ class RetrievalService:
             for row in rows
         ]
 
+    def source_range(self, anchor_id: str) -> SourceRangeResult:
+        with self.database.connection() as connection:
+            row = connection.execute(
+                """
+                SELECT
+                    sd.document_id,
+                    sd.source_path,
+                    sd.current_revision_id,
+                    sr.revision_id,
+                    sa.anchor_id,
+                    sa.structural_path,
+                    sa.heading_path_json,
+                    sa.anchor_kind,
+                    sa.start_offset,
+                    sa.end_offset,
+                    sa.quote,
+                    sa.quote_hash
+                FROM source_anchor sa
+                JOIN source_revision sr ON sr.revision_id = sa.revision_id
+                JOIN source_document sd ON sd.document_id = sr.document_id
+                WHERE sa.anchor_id = ? AND sd.corpus_id = ?
+                """,
+                (anchor_id, self.corpus_id),
+            ).fetchone()
+        if not row:
+            raise RecordNotFoundError(f"No source range found for {anchor_id}")
+        return self._source_range_from_row(row)
+
+    def revisions(self, source_path: str) -> list[RevisionResult]:
+        with self.database.connection() as connection:
+            document = self._document_for_source(connection, source_path)
+            rows = connection.execute(
+                """
+                SELECT
+                    sd.document_id,
+                    sd.source_path,
+                    sd.current_revision_id,
+                    sr.revision_id,
+                    sr.content_hash,
+                    sr.observed_mtime,
+                    sr.ingested_at
+                FROM source_revision sr
+                JOIN source_document sd ON sd.document_id = sr.document_id
+                WHERE sr.document_id = ?
+                ORDER BY sr.ingested_at, sr.revision_id
+                """,
+                (document["document_id"],),
+            ).fetchall()
+        return [
+            RevisionResult(
+                document_id=row["document_id"],
+                source_path=row["source_path"],
+                source_revision_id=row["revision_id"],
+                content_hash=row["content_hash"],
+                observed_mtime=row["observed_mtime"],
+                ingested_at=row["ingested_at"],
+                is_current=row["revision_id"] == row["current_revision_id"],
+            )
+            for row in rows
+        ]
+
+    def compare_revisions(
+        self,
+        source_path: str,
+        *,
+        from_revision_id: str | None = None,
+        to_revision_id: str | None = None,
+    ) -> RevisionComparisonResult:
+        with self.database.connection() as connection:
+            document = self._document_for_source(connection, source_path)
+            revisions = connection.execute(
+                """
+                SELECT revision_id, ingested_at
+                FROM source_revision
+                WHERE document_id = ?
+                ORDER BY ingested_at, revision_id
+                """,
+                (document["document_id"],),
+            ).fetchall()
+            revision_ids = [row["revision_id"] for row in revisions]
+            selected_to = to_revision_id or document["current_revision_id"]
+            if selected_to not in revision_ids:
+                raise RevisionComparisonError(
+                    f"Revision {selected_to} does not belong to {source_path}"
+                )
+            if from_revision_id is None:
+                to_index = revision_ids.index(selected_to)
+                if to_index == 0:
+                    raise RevisionComparisonError(
+                        f"No earlier revision exists for {source_path}"
+                    )
+                selected_from = revision_ids[to_index - 1]
+            else:
+                selected_from = from_revision_id
+            if selected_from not in revision_ids:
+                raise RevisionComparisonError(
+                    f"Revision {selected_from} does not belong to {source_path}"
+                )
+            if selected_from == selected_to:
+                raise RevisionComparisonError("Revision comparison requires two revisions")
+
+            before_rows = self._revision_anchor_rows(connection, selected_from)
+            after_rows = self._revision_anchor_rows(connection, selected_to)
+
+        before_by_path = {row["structural_path"]: row for row in before_rows}
+        after_by_path = {row["structural_path"]: row for row in after_rows}
+        common_paths = sorted(before_by_path.keys() & after_by_path.keys())
+        modified = [
+            RevisionRangeChange(
+                structural_path=path,
+                before=self._source_range_from_row(before_by_path[path]),
+                after=self._source_range_from_row(after_by_path[path]),
+            )
+            for path in common_paths
+            if before_by_path[path]["quote_hash"] != after_by_path[path]["quote_hash"]
+        ]
+        unchanged_count = sum(
+            before_by_path[path]["quote_hash"] == after_by_path[path]["quote_hash"]
+            for path in common_paths
+        )
+        removed = [
+            self._source_range_from_row(before_by_path[path])
+            for path in sorted(before_by_path.keys() - after_by_path.keys())
+        ]
+        added = [
+            self._source_range_from_row(after_by_path[path])
+            for path in sorted(after_by_path.keys() - before_by_path.keys())
+        ]
+        return RevisionComparisonResult(
+            document_id=document["document_id"],
+            source_path=source_path,
+            from_revision_id=selected_from,
+            to_revision_id=selected_to,
+            added=added,
+            removed=removed,
+            modified=modified,
+            unchanged_count=unchanged_count,
+        )
+
     def index_fingerprint(
         self,
         connection: sqlite3.Connection | None = None,
@@ -190,6 +342,59 @@ class RetrievalService:
         return hashlib.sha256(
             json.dumps(payload, sort_keys=True, separators=(",", ":")).encode()
         ).hexdigest()
+
+    def _document_for_source(
+        self,
+        connection: sqlite3.Connection,
+        source_path: str,
+    ) -> sqlite3.Row:
+        rows = connection.execute(
+            """
+            SELECT document_id, source_path, current_revision_id, is_active
+            FROM source_document
+            WHERE corpus_id = ? AND source_path = ?
+            ORDER BY is_active DESC, updated_at DESC, document_id
+            """,
+            (self.corpus_id, source_path),
+        ).fetchall()
+        if not rows:
+            raise RecordNotFoundError(f"No source document found for {source_path}")
+        active = [row for row in rows if row["is_active"]]
+        candidates = active or rows
+        if len(candidates) != 1:
+            raise RevisionComparisonError(
+                f"Source path is ambiguous in corpus {self.corpus_id}: {source_path}"
+            )
+        return cast(sqlite3.Row, candidates[0])
+
+    def _revision_anchor_rows(
+        self,
+        connection: sqlite3.Connection,
+        revision_id: str,
+    ) -> list[sqlite3.Row]:
+        return connection.execute(
+            """
+            SELECT
+                sd.document_id,
+                sd.source_path,
+                sd.current_revision_id,
+                sr.revision_id,
+                sa.anchor_id,
+                sa.structural_path,
+                sa.heading_path_json,
+                sa.anchor_kind,
+                sa.start_offset,
+                sa.end_offset,
+                sa.quote,
+                sa.quote_hash
+            FROM source_anchor sa
+            JOIN source_revision sr ON sr.revision_id = sa.revision_id
+            JOIN source_document sd ON sd.document_id = sr.document_id
+            WHERE sr.revision_id = ? AND sd.corpus_id = ?
+            ORDER BY sa.start_offset, sa.end_offset, sa.anchor_id
+            """,
+            (revision_id, self.corpus_id),
+        ).fetchall()
 
     def eligible_passages(
         self,
@@ -1037,6 +1242,23 @@ class RetrievalService:
             heading_path=json.loads(row["heading_path_json"]),
             quote=quote,
             related_entity_ids=related_entity_ids,
+        )
+
+    @staticmethod
+    def _source_range_from_row(row: sqlite3.Row) -> SourceRangeResult:
+        return SourceRangeResult(
+            document_id=row["document_id"],
+            source_path=row["source_path"],
+            source_revision_id=row["revision_id"],
+            is_current=row["revision_id"] == row["current_revision_id"],
+            anchor_id=row["anchor_id"],
+            structural_path=row["structural_path"],
+            heading_path=json.loads(row["heading_path_json"]),
+            anchor_kind=row["anchor_kind"],
+            start_offset=row["start_offset"],
+            end_offset=row["end_offset"],
+            quote=row["quote"],
+            quote_hash=row["quote_hash"],
         )
 
 

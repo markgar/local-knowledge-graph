@@ -23,7 +23,12 @@ from kg.retrieval.dense import (
 )
 from kg.retrieval.hybrid import HybridRetrievalService
 from kg.retrieval.rerank import RerankedRetrievalService, RerankerError
-from kg.retrieval.service import RecordNotFoundError, RetrievalService, SearchQueryError
+from kg.retrieval.service import (
+    RecordNotFoundError,
+    RetrievalService,
+    RevisionComparisonError,
+    SearchQueryError,
+)
 
 app = typer.Typer(no_args_is_help=True, help="Evidence-backed local knowledge retrieval.")
 ManifestOption = Annotated[
@@ -46,6 +51,7 @@ class QueryMode(StrEnum):
 
 
 FormatOption = Annotated[OutputFormat, typer.Option("--format")]
+AGENT_INTERFACE_VERSION = "1"
 
 
 @app.callback()
@@ -58,6 +64,52 @@ def main(
     logging.basicConfig(
         level=logging.DEBUG if verbose else logging.ERROR,
         format="%(levelname)s %(name)s: %(message)s",
+    )
+
+
+@app.command()
+def capabilities(
+    output_format: FormatOption = OutputFormat.text,
+) -> None:
+    """Describe the stable JSON CLI operations available to agents."""
+    _render(
+        {
+            "interface_version": AGENT_INTERFACE_VERSION,
+            "transport": "local_cli_json",
+            "tools": [
+                {
+                    "name": "evidence_search",
+                    "command": "search",
+                    "result": "list[SearchResult]",
+                },
+                {
+                    "name": "source_range_read",
+                    "command": "source-range",
+                    "result": "SourceRangeResult",
+                },
+                {
+                    "name": "revision_list",
+                    "command": "revisions",
+                    "result": "list[RevisionResult]",
+                },
+                {
+                    "name": "revision_compare",
+                    "command": "compare-revisions",
+                    "result": "RevisionComparisonResult",
+                },
+                {
+                    "name": "citation_resolve",
+                    "command": "evidence",
+                    "result": "EvidenceResult",
+                },
+                {
+                    "name": "subject_status",
+                    "command": "status",
+                    "result": "StatusResult",
+                },
+            ],
+        },
+        output_format,
     )
 
 
@@ -224,6 +276,68 @@ def evidence(
         )
     except RecordNotFoundError as exc:
         _fail("record_not_found", str(exc), output_format)
+    _render(result.model_dump(mode="json"), output_format)
+
+
+@app.command("source-range")
+def source_range(
+    anchor_id: str,
+    manifest: ManifestOption,
+    output_format: FormatOption = OutputFormat.text,
+) -> None:
+    """Return an exact immutable source range by anchor ID."""
+    corpus = _load_manifest_or_exit(manifest, output_format)
+    try:
+        result = RetrievalService(
+            Database(corpus.database),
+            corpus.corpus_id,
+        ).source_range(anchor_id)
+    except RecordNotFoundError as exc:
+        _fail("source_range_not_found", str(exc), output_format)
+    _render(result.model_dump(mode="json"), output_format)
+
+
+@app.command()
+def revisions(
+    source_path: str,
+    manifest: ManifestOption,
+    output_format: FormatOption = OutputFormat.text,
+) -> None:
+    """List immutable revisions for a source document."""
+    corpus = _load_manifest_or_exit(manifest, output_format)
+    try:
+        results = RetrievalService(
+            Database(corpus.database),
+            corpus.corpus_id,
+        ).revisions(source_path)
+    except (RecordNotFoundError, RevisionComparisonError) as exc:
+        _fail("source_not_found", str(exc), output_format)
+    _render([result.model_dump(mode="json") for result in results], output_format)
+
+
+@app.command("compare-revisions")
+def compare_revisions(
+    source_path: str,
+    manifest: ManifestOption,
+    from_revision: Annotated[str | None, typer.Option("--from")] = None,
+    to_revision: Annotated[str | None, typer.Option("--to")] = None,
+    output_format: FormatOption = OutputFormat.text,
+) -> None:
+    """Compare exact source ranges between two immutable revisions."""
+    corpus = _load_manifest_or_exit(manifest, output_format)
+    try:
+        result = RetrievalService(
+            Database(corpus.database),
+            corpus.corpus_id,
+        ).compare_revisions(
+            source_path,
+            from_revision_id=from_revision,
+            to_revision_id=to_revision,
+        )
+    except RecordNotFoundError as exc:
+        _fail("source_not_found", str(exc), output_format)
+    except RevisionComparisonError as exc:
+        _fail("invalid_revision_comparison", str(exc), output_format)
     _render(result.model_dump(mode="json"), output_format)
 
 

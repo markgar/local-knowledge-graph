@@ -125,10 +125,14 @@ cited relationships; similar names are never merged automatically.
 | Command | Purpose |
 | --- | --- |
 | `kg ingest` | Validate a manifest and update immutable revisions and current indexes. |
+| `kg capabilities` | Describe the versioned JSON CLI operations available to agents. |
 | `kg dense-index` | Build a profile-specific, versioned sqlite-vec projection with pinned local embeddings. |
 | `kg status` | Return cited material, decisions, actions, blockers, relationships, conflicts, and evidence gaps. |
 | `kg actions` | Return explicit open or completed tasks with owners and due dates. |
 | `kg evidence` | Resolve any returned record ID to its exact source anchor. |
+| `kg source-range` | Read an immutable source anchor with exact offsets and quote hash. |
+| `kg revisions` | List the immutable revision history for a source document. |
+| `kg compare-revisions` | Compare added, removed, modified, and unchanged source ranges. |
 | `kg search` | Search current passages with FTS5. |
 
 `search` and `actions` support `--source` and `--since`; `status` supports an
@@ -270,14 +274,27 @@ embedding model.
 The project should therefore be understood as an experimental evidence index,
 not a production question-answering system.
 
+## Agent CLI
+
+E5 uses the local CLI and machine-readable JSON as the agent integration
+boundary. Run `kg capabilities --format json` to discover the versioned
+operations. Search results can be followed through `kg evidence` and
+`kg source-range`; `kg revisions` and `kg compare-revisions` expose immutable
+history without requiring an agent SDK or network service.
+
+The reviewed workflow benchmark in [`benchmarks/agent/`](benchmarks/agent/)
+covers paraphrased retrieval, multi-document status, explicit conflicts,
+ambiguous cross-source results, unsupported subjects, citation round-trips,
+and revision comparison. MCP can be added later as a transport adapter over
+the same service contracts.
+
 ## Roadmap
 
 The next phase keeps SQLite as the canonical evidence store while adding
 replaceable retrieval projections:
 
-1. Calibrated abstention and clarification over the accepted E3 retrieval
-   pipeline.
-2. Agent-oriented evaluation and a stable tool interface.
+1. Improve answerability beyond the rejected E4 top-score threshold.
+2. Expand agent evaluation beyond the initial stable JSON CLI workflows.
 
 The project will integrate established embedding models, vector indexes, and
 rerankers rather than inventing them. Its responsibility remains immutable
