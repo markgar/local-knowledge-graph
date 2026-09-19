@@ -1,0 +1,40 @@
+{
+  "recorded_at": "2026-09-19T20:26:09.563645+00:00",
+  "identified_before_answer_review_and_scoring": true,
+  "question_id": "ledger-lifecycle",
+  "frozen_gold_unchanged": true,
+  "finding": "Five gold rules require literal YAML date lines that are absent from stored source anchors. KG returns document event dates as metadata, not quotable frontmatter. This is a scoring-accessibility defect, not evidence of incorrect KG facts.",
+  "observations": [
+    {
+      "source_path": "history/atlas/01-working-record.md",
+      "required_quote": "date: 2026-01-05",
+      "stored_anchor_count": 10,
+      "matching_anchors": 0
+    },
+    {
+      "source_path": "history/atlas/09-working-record.md",
+      "required_quote": "date: 2026-03-02",
+      "stored_anchor_count": 10,
+      "matching_anchors": 0
+    },
+    {
+      "source_path": "history/atlas/17-working-record.md",
+      "required_quote": "date: 2026-04-27",
+      "stored_anchor_count": 10,
+      "matching_anchors": 0
+    },
+    {
+      "source_path": "history/atlas/25-working-record.md",
+      "required_quote": "date: 2026-06-22",
+      "stored_anchor_count": 10,
+      "matching_anchors": 0
+    },
+    {
+      "source_path": "history/atlas/36-working-record.md",
+      "required_quote": "date: 2026-09-07",
+      "stored_anchor_count": 9,
+      "matching_anchors": 0
+    }
+  ],
+  "interpretation": "Report original frozen scores and component scores without modifying this run. Do not attribute failure of these frontmatter-only citation rules to factual inaccuracy. Future generator builds remove the redundant YAML rules while retaining date facts and task-version citations."
+}

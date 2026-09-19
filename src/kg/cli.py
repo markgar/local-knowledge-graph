@@ -13,7 +13,8 @@ import typer
 from kg.config import ManifestError, load_manifest
 from kg.db import Database
 from kg.ingest import IngestService
-from kg.models.contracts import ErrorResult
+from kg.ingest.explain import render_ingest_report
+from kg.models.contracts import ErrorResult, IngestReport
 from kg.models.manifest import CorpusManifest
 from kg.retrieval.dense import (
     DEFAULT_EMBEDDING_PROFILE,
@@ -51,6 +52,13 @@ class QueryMode(StrEnum):
 
 
 FormatOption = Annotated[OutputFormat, typer.Option("--format")]
+ContextualOption = Annotated[
+    bool,
+    typer.Option(
+        "--contextual",
+        help="Include titles and headings in semantic retrieval; uses a separate dense index.",
+    ),
+]
 AGENT_INTERFACE_VERSION = "1"
 
 
@@ -88,6 +96,11 @@ def capabilities(
                     "result": "SourceRangeResult",
                 },
                 {
+                    "name": "source_context_read",
+                    "command": "source-context",
+                    "result": "SourceContextResult",
+                },
+                {
                     "name": "revision_list",
                     "command": "revisions",
                     "result": "list[RevisionResult]",
@@ -107,6 +120,11 @@ def capabilities(
                     "command": "status",
                     "result": "StatusResult",
                 },
+                {
+                    "name": "record_state_audit",
+                    "command": "record-state",
+                    "result": "RecordStateReport",
+                },
             ],
         },
         output_format,
@@ -117,11 +135,30 @@ def capabilities(
 def ingest(
     manifest: ManifestOption,
     output_format: FormatOption = OutputFormat.text,
+    explain: Annotated[
+        bool, typer.Option(help="Explain per-document outcomes and stored evidence.")
+    ] = False,
+    include_quotes: Annotated[
+        bool, typer.Option(help="Include source quotes in explain output (requires --explain).")
+    ] = False,
+    explain_limit: Annotated[
+        int, typer.Option(min=1, max=200, help="Maximum explained records per document.")
+    ] = 50,
 ) -> None:
     """Ingest configured Markdown sources."""
+    if include_quotes and not explain:
+        _fail("invalid_ingest_options", "--include-quotes requires --explain", output_format)
     corpus = _load_manifest_or_exit(manifest, output_format)
-    result = IngestService(Database(corpus.database)).ingest(corpus)
-    _render(result.model_dump(mode="json"), output_format)
+    result = IngestService(Database(corpus.database)).ingest(
+        corpus, explain=explain, include_quotes=include_quotes, detail_limit=explain_limit
+    )
+    if isinstance(result, IngestReport):
+        if output_format == OutputFormat.text:
+            typer.echo(render_ingest_report(result))
+        else:
+            _render(result.model_dump(mode="json", exclude_none=True), output_format)
+    else:
+        _render(result.model_dump(mode="json"), output_format)
     if result.failed:
         raise typer.Exit(code=1)
 
@@ -135,6 +172,7 @@ def dense_index(
         EmbeddingProfile,
         typer.Option(help="Local single-vector embedding profile."),
     ] = DEFAULT_EMBEDDING_PROFILE,
+    contextual: ContextualOption = False,
 ) -> None:
     """Build the versioned dense projection for a corpus."""
     corpus = _load_manifest_or_exit(manifest, output_format)
@@ -143,6 +181,7 @@ def dense_index(
             Database(corpus.database),
             corpus.corpus_id,
             profile=embedding_profile,
+            contextual=contextual,
         ).build_index(batch_size=batch_size)
     except (DenseIndexError, ValueError) as exc:
         _fail("dense_index_failed", str(exc), output_format)
@@ -171,17 +210,54 @@ def search(
         EmbeddingProfile,
         typer.Option(help="Embedding profile for dense, hybrid, and reranked search."),
     ] = DEFAULT_EMBEDDING_PROFILE,
+    contextual: ContextualOption = False,
+    explain: Annotated[
+        bool, typer.Option(help="Explain lexical search ranking, filters, and subject scope.")
+    ] = False,
+    include_quotes: Annotated[
+        bool, typer.Option(help="Include source quotes in explain output (requires --explain).")
+    ] = False,
 ) -> None:
     """Search indexed evidence."""
+    from kg.retrieval.explain import (
+        SearchExplanationError,
+        explain_search,
+        render_search_explanation,
+    )
+
+    if include_quotes and not explain:
+        _fail("invalid_query", "--include-quotes requires --explain", output_format)
+    if explain and query_mode not in {QueryMode.strict, QueryMode.natural}:
+        _fail(
+            "unsupported_explanation_mode",
+            "--explain supports only strict and natural search",
+            output_format,
+        )
     corpus = _load_manifest_or_exit(manifest, output_format)
     try:
+        if contextual and query_mode in {QueryMode.strict, QueryMode.natural}:
+            raise SearchQueryError(
+                "--contextual requires --query-mode dense, hybrid, or reranked"
+            )
         cutoff = _parse_since(since) if since else None
         database = Database(corpus.database)
+        if explain:
+            report = explain_search(
+                database, corpus.corpus_id, query, subject, limit, cutoff, source,
+                "natural" if query_mode is QueryMode.natural else "strict",
+                include_quotes=include_quotes,
+            )
+            if output_format is OutputFormat.text:
+                typer.echo(render_search_explanation(report))
+            else:
+                _render(report.model_dump(mode="json", exclude_none=True), output_format)
+            return
         if query_mode is QueryMode.reranked:
             results = RerankedRetrievalService(
                 database,
                 corpus.corpus_id,
                 embedding_profile=embedding_profile,
+                contextual=contextual,
             ).search(
                 query=query,
                 subject=subject,
@@ -194,6 +270,7 @@ def search(
                 database,
                 corpus.corpus_id,
                 embedding_profile=embedding_profile,
+                contextual=contextual,
             ).search(
                 query=query,
                 subject=subject,
@@ -206,6 +283,7 @@ def search(
                 database,
                 corpus.corpus_id,
                 profile=embedding_profile,
+                contextual=contextual,
             ).search(
                 query=query,
                 subject=subject,
@@ -224,6 +302,8 @@ def search(
                     "natural" if query_mode is QueryMode.natural else "strict"
                 ),
             )
+    except SearchExplanationError as exc:
+        _fail(exc.code, str(exc), output_format)
     except DenseIndexError as exc:
         _fail("dense_index_unavailable", str(exc), output_format)
     except RerankerError as exc:
@@ -297,6 +377,25 @@ def source_range(
     _render(result.model_dump(mode="json"), output_format)
 
 
+@app.command("source-context")
+def source_context(
+    anchor_id: str,
+    manifest: ManifestOption,
+    output_format: FormatOption = OutputFormat.text,
+    max_anchors: Annotated[int, typer.Option(min=1, max=200)] = 50,
+) -> None:
+    """Read the containing section's anchored evidence from the same revision."""
+    corpus = _load_manifest_or_exit(manifest, output_format)
+    try:
+        result = RetrievalService(
+            Database(corpus.database),
+            corpus.corpus_id,
+        ).source_context(anchor_id, max_anchors=max_anchors)
+    except RecordNotFoundError as exc:
+        _fail("source_context_not_found", str(exc), output_format)
+    _render(result.model_dump(mode="json"), output_format)
+
+
 @app.command()
 def revisions(
     source_path: str,
@@ -362,6 +461,23 @@ def status(
     except (SearchQueryError, ValueError) as exc:
         _fail("invalid_since", str(exc), output_format)
     _render(result.model_dump(mode="json"), output_format)
+
+
+@app.command("record-state")
+def record_state(
+    manifest: ManifestOption,
+    output_format: FormatOption = OutputFormat.text,
+    include_quotes: Annotated[
+        bool, typer.Option(help="Include exact source quotes in the state audit.")
+    ] = False,
+    limit: Annotated[int, typer.Option(min=1, max=200)] = 50,
+) -> None:
+    """Audit explicit supersession decisions and unresolved references across a corpus."""
+    corpus = _load_manifest_or_exit(manifest, output_format)
+    result = RetrievalService(Database(corpus.database), corpus.corpus_id).record_state(
+        include_quotes=include_quotes, limit=limit
+    )
+    _render(result.model_dump(mode="json", exclude_none=True), output_format)
 
 
 def _load_manifest_or_exit(

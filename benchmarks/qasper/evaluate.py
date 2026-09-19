@@ -64,6 +64,7 @@ def evaluate(
     limit: int = 10,
     strategy: Strategy = "natural",
     embedding_profile: EmbeddingProfile = EmbeddingProfile.gte_modernbert,
+    contextual: bool = False,
 ) -> dict[str, Any]:
     if strategy not in {"strict", "natural", "dense", "hybrid", "reranked"}:
         raise ValueError(
@@ -71,6 +72,8 @@ def evaluate(
         )
     if limit < 10:
         raise ValueError("limit must be at least 10 for @10 metrics")
+    if contextual and strategy in {"strict", "natural"}:
+        raise ValueError("contextual retrieval requires dense, hybrid, or reranked strategy")
     manifest = load_manifest(manifest_path)
     retrieval = RetrievalService(Database(manifest.database), manifest.corpus_id)
     dense_retrieval = (
@@ -78,6 +81,7 @@ def evaluate(
             Database(manifest.database),
             manifest.corpus_id,
             profile=embedding_profile,
+            contextual=contextual,
         )
         if strategy == "dense"
         else None
@@ -87,6 +91,7 @@ def evaluate(
             Database(manifest.database),
             manifest.corpus_id,
             embedding_profile=embedding_profile,
+            contextual=contextual,
         )
         if strategy == "hybrid"
         else None
@@ -96,6 +101,7 @@ def evaluate(
             Database(manifest.database),
             manifest.corpus_id,
             embedding_profile=embedding_profile,
+            contextual=contextual,
         )
         if strategy == "reranked"
         else None
@@ -220,6 +226,7 @@ def evaluate(
         "questions": len(questions),
         "query_strategy": strategy,
         "embedding_profile": embedding_profile.value,
+        "contextual": contextual,
         "answerable_questions": answerable,
         "unanswerable_questions": unanswerable,
         "metrics": {
@@ -257,6 +264,7 @@ def main() -> None:
         default=benchmark_directory / "data" / "gold.json",
     )
     parser.add_argument("--limit", type=int, default=10)
+    parser.add_argument("--contextual", action="store_true")
     parser.add_argument(
         "--strategy",
         choices=("strict", "natural", "dense", "hybrid", "reranked"),
@@ -281,6 +289,7 @@ def main() -> None:
         args.limit,
         args.strategy,
         profile,
+        args.contextual,
     )
     default_name = f"results-{args.strategy}.json"
     if (
@@ -289,6 +298,8 @@ def main() -> None:
     ):
         default_name = f"results-{args.strategy}-{profile.value}.json"
     output = args.output or (benchmark_directory / "data" / default_name)
+    if args.contextual and args.output is None:
+        output = output.with_stem(f"{output.stem}-contextual")
     output.parent.mkdir(parents=True, exist_ok=True)
     output.write_text(
         json.dumps(result, indent=2, sort_keys=True) + "\n",

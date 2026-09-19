@@ -1,0 +1,164 @@
+{
+  "answers": [
+    {
+      "id": "current-launch",
+      "answer": "The October 8 steering decision explicitly selected November 12, 2026, superseding November 5. This remains conditional on security approval.",
+      "facts": {"date": "2026-11-12"},
+      "abstains": false,
+      "citations": [
+        {"source_path": "history/atlas/launch-03.md", "quote": "- Move the Atlas launch target to November 12, 2026. [key:: expanded-launch-nov12] [supersedes:: expanded-launch-nov5]"},
+        {"source_path": "history/atlas/launch-03.md", "quote": "This target is conditional on security approval."}
+      ]
+    },
+    {
+      "id": "open-work",
+      "answer": "Three explicit actions remain open: reconcile the historical permission ledger (Lena, October 9), update the launch calendar (Morgan, September 25), and upload access evidence (Morgan, September 24).",
+      "facts": {"actions": [
+        {"task": "Reconcile the historical permission ledger.", "owner": "Lena", "due": "2026-10-09"},
+        {"task": "Update the launch calendar.", "owner": "Morgan", "due": "2026-09-25"},
+        {"task": "Upload access evidence.", "owner": "Morgan", "due": "2026-09-24"}
+      ]},
+      "abstains": false,
+      "citations": [
+        {"source_path": "history/atlas/36-working-record.md", "quote": "- [ ] Reconcile the historical permission ledger. [owner:: Lena] [due:: 2026-10-09] [key:: expanded-ledger-v5] [supersedes:: expanded-ledger-v4]"},
+        {"source_path": "atlas-vault/07-launch-date-decision.md", "quote": "- [ ] Update the launch calendar. [owner:: Morgan] [due:: 2026-09-25]"},
+        {"source_path": "atlas-vault/03-security-review.md", "quote": "1. [ ] Upload access evidence. [owner:: Morgan] [due:: 2026-09-24]"}
+      ]
+    },
+    {
+      "id": "review-confirmed",
+      "answer": "Yes. Priya explicitly completed the review-date task. The documented review appointment is September 25, 2026, at 10:00.",
+      "facts": {"completed": true, "owner": "Priya", "review_date": "2026-09-25", "review_time": "10:00"},
+      "abstains": false,
+      "citations": [
+        {"source_path": "atlas-updates/11-review-completion.md", "quote": "- [x] Confirm the review date. [owner:: Priya] [key:: review-date-v2] [supersedes:: review-date-v1]"},
+        {"source_path": "atlas-vault/09-completion-email.md", "quote": "Priya confirmed the review date with the reviewers. The review is scheduled for September 25, 2026, at 10:00."}
+      ]
+    },
+    {
+      "id": "approval-evidence",
+      "answer": "Security Review explicitly requires the signed access inventory before approval.",
+      "facts": {"required_artifacts": ["signed access inventory"]},
+      "abstains": false,
+      "citations": [
+        {"source_path": "atlas-vault/03-security-review.md", "quote": "1. Require the signed access inventory before approval."}
+      ]
+    },
+    {
+      "id": "downstream-blocker",
+      "answer": "Audit Trail has the unavailable archive signing certificate. Atlas needs Security Review approval, and Security Review needs Audit Trail's export: Atlas → Security Review → Audit Trail.",
+      "facts": {"system": "Audit Trail", "blocker": "The archive signing certificate is unavailable.", "path": ["Atlas", "Security Review", "Audit Trail"]},
+      "abstains": false,
+      "citations": [
+        {"source_path": "atlas-vault/01-planning-meeting.md", "quote": "Atlas needs approval from [[Security Review]] before launch."},
+        {"source_path": "atlas-vault/03-security-review.md", "quote": "Security Review needs the export from [[Audit Trail]]."},
+        {"source_path": "atlas-vault/04-audit-trail.md", "quote": "- The archive signing certificate is unavailable."}
+      ]
+    },
+    {
+      "id": "calendar-state",
+      "answer": "On September 24, the shared calendar still listed October 1 despite the September 23 decision selecting October 8. The latest target is November 12. The supplied records do not confirm a calendar correction; the October 8 packet explicitly says it was not verified.",
+      "facts": {"calendar_date": "2026-10-01", "conflicting_decision_date": "2026-10-08", "current_target": "2026-11-12", "calendar_update_confirmed": false},
+      "abstains": false,
+      "citations": [
+        {"source_path": "atlas-vault/08-calendar-discrepancy.md", "quote": "- The shared calendar still lists October 1 for Atlas, but the September 23 decision sets October 8. The calendar has not yet been updated."},
+        {"source_path": "history/atlas/launch-03.md", "quote": "- Move the Atlas launch target to November 12, 2026. [key:: expanded-launch-nov12] [supersedes:: expanded-launch-nov5]"},
+        {"source_path": "history/atlas/launch-03.md", "quote": "The group did not verify whether the shared calendar had been corrected."}
+      ]
+    },
+    {
+      "id": "project-isolation",
+      "answer": "No. The exhausted separate reporting-cluster quota belongs to Atlascope, a separate project, not Atlas.",
+      "facts": {"belongs_to_atlas": false, "project": "Atlascope"},
+      "abstains": false,
+      "citations": [
+        {"source_path": "atlas-vault/05-atlascope-planning.md", "quote": "Atlascope is a separate project migrating the reporting service."},
+        {"source_path": "atlas-vault/05-atlascope-planning.md", "quote": "- Use the separate reporting cluster."},
+        {"source_path": "atlas-vault/05-atlascope-planning.md", "quote": "- The separate cluster quota is exhausted."}
+      ]
+    },
+    {
+      "id": "literal-examples",
+      "answer": "Neither is live: the integration notes explicitly label the Atlascope dependency and sample-database deletion as an illustrative template.",
+      "facts": {"live_dependency": false, "live_task": false},
+      "abstains": false,
+      "citations": [
+        {"source_path": "atlas-vault/06-integration-notes.md", "quote": "- The following template is illustrative, not a live dependency or task:\n\n  ```markdown\n  Atlas depends on [[Atlascope]].\n  - [ ] Delete the sample database. [owner:: Example]\n  ```"}
+      ]
+    },
+    {
+      "id": "unknown-approval",
+      "answer": "No final production approval or approver can be established. The October 8 packet explicitly states that final production approval is not recorded.",
+      "facts": {"approval_confirmed": false, "approver": null},
+      "abstains": true,
+      "citations": [
+        {"source_path": "history/atlas/launch-03.md", "quote": "This target is conditional on security approval. Final production approval is not recorded."}
+      ]
+    },
+    {
+      "id": "launch-history",
+      "answer": "Within September 19–26, the September 19 email tentatively selected October 1; the September 23 decision replaced it with October 8; the September 26 decision selected October 15. October 15 was current at the interval's end.",
+      "facts": {"target_history": ["2026-10-01", "2026-10-08", "2026-10-15"], "current_target": "2026-10-15"},
+      "abstains": false,
+      "citations": [
+        {"source_path": "atlas-vault/02-follow-up-email.md", "quote": "The tentative Atlas launch date is October 1, 2026."},
+        {"source_path": "atlas-vault/07-launch-date-decision.md", "quote": "- Move the Atlas launch target to October 8, 2026. This replaces the tentative October 1 date in the September 19 email. [key:: launch-oct8]"},
+        {"source_path": "atlas-updates/12-launch-rescheduling.md", "quote": "- Move the launch target to October 15, 2026, to allow another week for certificate provisioning. [key:: launch-oct15] [supersedes:: launch-oct8]"}
+      ]
+    },
+    {
+      "id": "ledger-lifecycle",
+      "answer": "The January 5 task was open under Priya, due February 6. March 2 completed it under Priya, due March 2. April 27 reopened it under Morgan, due June 12. June 22 transferred the open task to Lena, due August 14. September 7 retained Lena and moved the due date to October 9. Lena owns the effective open task.",
+      "facts": {"versions": [
+        {"date": "2026-01-05", "owner": "Priya", "status": "open", "due": "2026-02-06"},
+        {"date": "2026-03-02", "owner": "Priya", "status": "completed", "due": "2026-03-02"},
+        {"date": "2026-04-27", "owner": "Morgan", "status": "open", "due": "2026-06-12"},
+        {"date": "2026-06-22", "owner": "Lena", "status": "open", "due": "2026-08-14"},
+        {"date": "2026-09-07", "owner": "Lena", "status": "open", "due": "2026-10-09"}
+      ], "current_owner": "Lena"},
+      "abstains": false,
+      "citations": [
+        {"source_path": "history/atlas/01-working-record.md", "quote": "- [ ] Reconcile the historical permission ledger. [owner:: Priya] [due:: 2026-02-06] [key:: expanded-ledger-v1]"},
+        {"source_path": "history/atlas/09-working-record.md", "quote": "- [x] Reconcile the historical permission ledger. [owner:: Priya] [due:: 2026-03-02] [key:: expanded-ledger-v2] [supersedes:: expanded-ledger-v1]"},
+        {"source_path": "history/atlas/17-working-record.md", "quote": "- [ ] Reconcile the historical permission ledger. [owner:: Morgan] [due:: 2026-06-12] [key:: expanded-ledger-v3] [supersedes:: expanded-ledger-v2]"},
+        {"source_path": "history/atlas/17-working-record.md", "quote": "A replay exposed missing inherited roles; the completed task is reopened."},
+        {"source_path": "history/atlas/25-working-record.md", "quote": "- [ ] Reconcile the historical permission ledger. [owner:: Lena] [due:: 2026-08-14] [key:: expanded-ledger-v4] [supersedes:: expanded-ledger-v3]"},
+        {"source_path": "history/atlas/36-working-record.md", "quote": "- [ ] Reconcile the historical permission ledger. [owner:: Lena] [due:: 2026-10-09] [key:: expanded-ledger-v5] [supersedes:: expanded-ledger-v4]"}
+      ]
+    },
+    {
+      "id": "extended-launch-history",
+      "answer": "The successive targets were October 1 (September 19 email), October 8 (September 23), October 15 (September 26), October 22 (September 27), November 5 (October 2), and November 12 (October 8). November 12 is current. The final steering decision moved it because the repeat rehearsal is scheduled after the maintenance window.",
+      "facts": {"target_history": ["2026-10-01", "2026-10-08", "2026-10-15", "2026-10-22", "2026-11-05", "2026-11-12"], "current_target": "2026-11-12", "last_reason": "The repeat rehearsal is scheduled after the maintenance window."},
+      "abstains": false,
+      "citations": [
+        {"source_path": "atlas-vault/02-follow-up-email.md", "quote": "The tentative Atlas launch date is October 1, 2026."},
+        {"source_path": "atlas-vault/07-launch-date-decision.md", "quote": "- Move the Atlas launch target to October 8, 2026. This replaces the tentative October 1 date in the September 19 email. [key:: launch-oct8]"},
+        {"source_path": "atlas-updates/12-launch-rescheduling.md", "quote": "- Move the launch target to October 15, 2026, to allow another week for certificate provisioning. [key:: launch-oct15] [supersedes:: launch-oct8]"},
+        {"source_path": "history/atlas/launch-01.md", "quote": "- Move the Atlas launch target to October 22, 2026. [key:: expanded-launch-oct22] [supersedes:: launch-oct15]"},
+        {"source_path": "history/atlas/launch-02.md", "quote": "- Move the Atlas launch target to November 5, 2026. [key:: expanded-launch-nov5] [supersedes:: expanded-launch-oct22]"},
+        {"source_path": "history/atlas/launch-03.md", "quote": "- Move the Atlas launch target to November 12, 2026. [key:: expanded-launch-nov12] [supersedes:: expanded-launch-nov5]"},
+        {"source_path": "history/atlas/launch-03.md", "quote": "The steering group reviewed the pilot evidence. The repeat rehearsal is scheduled after the maintenance window."}
+      ]
+    },
+    {
+      "id": "ledger-replay-comparison",
+      "answer": "Both replays sampled the same 120 accounts. Missing inherited-role entries fell from 18 accounts on March 30 to 3 on August 3. Identifier-based deduplication removed 15 omissions. This observation explicitly did not complete the task.",
+      "facts": {"sampled_accounts": [120, 120], "missing_accounts": [18, 3], "omissions_removed": 15, "completed": false},
+      "abstains": false,
+      "citations": [
+        {"source_path": "history/atlas/13-working-record.md", "quote": "The March 30 Atlas ledger replay sampled 120 accounts and found 18 accounts missing inherited-role entries. The parser skipped inherited roles when a direct role had the same display name. This measurement concerns the ledger replay, not the routine weekly rehearsal batch."},
+        {"source_path": "history/atlas/31-working-record.md", "quote": "The August 3 Atlas ledger replay resampled the same 120 accounts and found 3 accounts missing inherited-role entries. Deduplicating by role identifier instead of display name removed 15 omissions. This observation is not a task completion; the remaining accounts still need reconciliation."}
+      ]
+    },
+    {
+      "id": "unknown-production-serial",
+      "answer": "The production signing-certificate serial number is not recorded in the October 8 packet. A staging identifier cannot establish it.",
+      "facts": {"recorded": false, "serial_number": null},
+      "abstains": true,
+      "citations": [
+        {"source_path": "history/atlas/launch-03.md", "quote": "No production certificate serial number was recorded in this packet; staging certificate identifiers must not be substituted."}
+      ]
+    }
+  ]
+}

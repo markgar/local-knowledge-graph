@@ -1,0 +1,58 @@
+{
+  "version": 1,
+  "created_at": "2026-09-19T19:19:24.675614+00:00",
+  "sources": {
+    "atlas-updates/11-review-completion.md": {
+      "sha256": "a8a56a1df8e812938ae3182b64d3b33768710f16a95741d6c8a7bf843eeb592f",
+      "bytes": 293
+    },
+    "atlas-updates/12-launch-rescheduling.md": {
+      "sha256": "5918ca97682b600da9daa2cb39b4d2aeda65633fe2896b27d59ead1f7e9cbde0",
+      "bytes": 254
+    },
+    "atlas-vault/01-planning-meeting.md": {
+      "sha256": "8e09574c78239fa8076f2131ad5cda16301c84fd8d657df8fbf4761c755d3343",
+      "bytes": 385
+    },
+    "atlas-vault/02-follow-up-email.md": {
+      "sha256": "a95f0cd8c3d919b199c4355daba0f6b2758c801e93c736bc5623a62c7ad82c7f",
+      "bytes": 391
+    },
+    "atlas-vault/03-security-review.md": {
+      "sha256": "1eeede658681b462c942218b77bd8e959e1d36c5daa14e5dd01fe7d34ec2433a",
+      "bytes": 308
+    },
+    "atlas-vault/04-audit-trail.md": {
+      "sha256": "26e0ed86da97f37829361ce591b4848ac5cd6a995cca401f42f00380ce05cad4",
+      "bytes": 205
+    },
+    "atlas-vault/05-atlascope-planning.md": {
+      "sha256": "4da602260fc7bd7f0d07e8a1fb396d4f192d10a55e4ec85f11b2592e0c1bbc6f",
+      "bytes": 360
+    },
+    "atlas-vault/06-integration-notes.md": {
+      "sha256": "b5106ed510a8ac8cd93f8efbc9cc78fd85e5802a64b31839a767075d146dc7f0",
+      "bytes": 437
+    },
+    "atlas-vault/07-launch-date-decision.md": {
+      "sha256": "77f06392899d3b09c7e5eb12f41772c5682c6a64a5322ef8c666bdc3cb20eb56",
+      "bytes": 328
+    },
+    "atlas-vault/08-calendar-discrepancy.md": {
+      "sha256": "b6d5dbaa3cedb0773b0adad1ae5e4dbf65855846e839f42bd8b1d9fdbe03cbb5",
+      "bytes": 244
+    },
+    "atlas-vault/09-completion-email.md": {
+      "sha256": "677c2898347ce90131acc8f84bc31439963247e340fe5d9282301afce3381e01",
+      "bytes": 328
+    },
+    "atlas-vault/10-meeting-agenda.md": {
+      "sha256": "a98b0306e59558006c30655cd4d48902868b33d8c3859670aba446577ffb3767",
+      "bytes": 398
+    }
+  },
+  "questions_sha256": "05481d2bc54dc0eff78a73feac6557563ef5d8fcf43af889ff2e394854d2aab2",
+  "gold_sha256": "e8791a376adc574915a759ded10d19fd17c0bd0c596ca0ca361ec5c48e1b7e8b",
+  "manifest_sha256": "1d93c23a1eeb53344d5200632e70a8176632ff521769859643b06594ccd09c3e",
+  "protocol": "Two fresh general-purpose agents using the same runtime defaults; different data tools only. Protocol restriction, not a security sandbox."
+}

@@ -46,6 +46,7 @@ class HybridRetrievalService:
         lexical_weight: float = DEFAULT_LEXICAL_WEIGHT,
         dense_weight: float = DEFAULT_DENSE_WEIGHT,
         embedding_profile: EmbeddingProfile = DEFAULT_EMBEDDING_PROFILE,
+        contextual: bool = False,
     ) -> None:
         if candidate_limit < 1:
             raise ValueError("candidate_limit must be at least 1")
@@ -58,6 +59,7 @@ class HybridRetrievalService:
             database,
             corpus_id,
             profile=embedding_profile,
+            contextual=contextual,
         )
         self.candidate_limit = candidate_limit
         self.rrf_k = rrf_k

@@ -1,0 +1,13 @@
+{
+  "redactions": [
+    "Native Python executable replaced with <PYTHON> in archived execution.argv.",
+    "Absolute run directory replaced with <RUN> in archived execution.argv."
+  ],
+  "unchanged": [
+    "raw source snapshots",
+    "answer files and submission hashes",
+    "returned result objects and response hashes",
+    "measured counts and timings"
+  ],
+  "original_unredacted_journals": "Retained in the session run artifact."
+}

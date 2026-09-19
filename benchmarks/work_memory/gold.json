@@ -1,0 +1,85 @@
+{
+  "version": 1,
+  "scoring_notes": [
+    "These expectations are frozen before agent runs. This is a synthetic pilot, not an independent real-world benchmark.",
+    "Score exact canonical facts, abstention, valid source excerpts, and coverage of the required evidence separately.",
+    "An evidence rule passes when at least one exact citation from an allowed source contains every required substring. Matching is case-insensitive, but citation validity requires an exact source substring.",
+    "Review natural-language answers separately for contradictions or unsupported extra claims. Deterministic fact scoring is not a semantic judge.",
+    "Calendar-update confirmation and final-approval confirmation are absent; do not interpret this as proof of the actual live calendar or approval system state."
+  ],
+  "answers": {
+    "current-launch": {
+      "facts": {"date": "2026-10-15"},
+      "abstains": false,
+      "evidence": [{"sources": ["atlas-updates/12-launch-rescheduling.md"], "contains": ["October 15, 2026"]}]
+    },
+    "open-work": {
+      "facts": {"actions": [
+        {"task": "Update the launch calendar.", "owner": "Morgan", "due": "2026-09-25"},
+        {"task": "Upload access evidence.", "owner": "Morgan", "due": "2026-09-24"}
+      ]},
+      "abstains": false,
+      "evidence": [
+        {"sources": ["atlas-vault/03-security-review.md"], "contains": ["Upload access evidence.", "Morgan", "2026-09-24"]},
+        {"sources": ["atlas-vault/07-launch-date-decision.md"], "contains": ["Update the launch calendar.", "Morgan", "2026-09-25"]}
+      ]
+    },
+    "review-confirmed": {
+      "facts": {"completed": true, "owner": "Priya", "review_date": "2026-09-25", "review_time": "10:00"},
+      "abstains": false,
+      "evidence": [
+        {"sources": ["atlas-updates/11-review-completion.md"], "contains": ["[x]", "Priya"]},
+        {"sources": ["atlas-vault/09-completion-email.md", "atlas-updates/11-review-completion.md"], "contains": ["September 25", "10:00"]}
+      ]
+    },
+    "approval-evidence": {
+      "facts": {"required_artifacts": ["signed access inventory"]},
+      "abstains": false,
+      "evidence": [{"sources": ["atlas-vault/03-security-review.md"], "contains": ["signed access inventory", "before approval"]}]
+    },
+    "downstream-blocker": {
+      "facts": {"system": "Audit Trail", "blocker": "The archive signing certificate is unavailable.", "path": ["Atlas", "Security Review", "Audit Trail"]},
+      "abstains": false,
+      "evidence": [
+        {"sources": ["atlas-vault/01-planning-meeting.md"], "contains": ["Atlas needs approval from [[Security Review]]"]},
+        {"sources": ["atlas-vault/03-security-review.md"], "contains": ["Security Review needs the export from [[Audit Trail]]"]},
+        {"sources": ["atlas-vault/04-audit-trail.md"], "contains": ["archive signing certificate is unavailable"]}
+      ]
+    },
+    "calendar-state": {
+      "facts": {"calendar_date": "2026-10-01", "conflicting_decision_date": "2026-10-08", "current_target": "2026-10-15", "calendar_update_confirmed": false},
+      "abstains": false,
+      "evidence": [
+        {"sources": ["atlas-vault/08-calendar-discrepancy.md"], "contains": ["October 1", "October 8", "not yet been updated"]},
+        {"sources": ["atlas-updates/12-launch-rescheduling.md"], "contains": ["October 15, 2026"]}
+      ]
+    },
+    "project-isolation": {
+      "facts": {"belongs_to_atlas": false, "project": "Atlascope"},
+      "abstains": false,
+      "evidence": [
+        {"sources": ["atlas-vault/05-atlascope-planning.md"], "contains": ["Atlascope is a separate project"]},
+        {"sources": ["atlas-vault/05-atlascope-planning.md"], "contains": ["cluster quota is exhausted"]}
+      ]
+    },
+    "literal-examples": {
+      "facts": {"live_dependency": false, "live_task": false},
+      "abstains": false,
+      "evidence": [{"sources": ["atlas-vault/06-integration-notes.md"], "contains": ["illustrative, not a live dependency or task"]}]
+    },
+    "unknown-approval": {
+      "facts": {"approval_confirmed": false, "approver": null},
+      "abstains": true,
+      "evidence": [{"sources": ["atlas-vault/01-planning-meeting.md"], "contains": ["security approval for Atlas is still pending"]}]
+    },
+    "launch-history": {
+      "facts": {"target_history": ["2026-10-01", "2026-10-08", "2026-10-15"], "current_target": "2026-10-15"},
+      "abstains": false,
+      "evidence": [
+        {"sources": ["atlas-vault/02-follow-up-email.md"], "contains": ["tentative Atlas launch date is October 1, 2026"]},
+        {"sources": ["atlas-vault/07-launch-date-decision.md"], "contains": ["October 8, 2026"]},
+        {"sources": ["atlas-updates/12-launch-rescheduling.md"], "contains": ["October 15, 2026", "supersedes:: launch-oct8"]}
+      ]
+    }
+  }
+}

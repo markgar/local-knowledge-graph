@@ -7,17 +7,27 @@ import sqlite3
 import uuid
 from datetime import UTC, date, datetime
 from pathlib import Path
-from typing import Literal
 
+import yaml
+
+from kg.aliases import alias_pattern
 from kg.config import read_source, relative_source_path, select_sources
 from kg.db import Database
 from kg.ids import anchor_id, digest, document_id, record_id, revision_id
-from kg.markdown import parse_markdown
-from kg.models.contracts import IngestResult
+from kg.ingest.explain import explain_document
+from kg.lexical import refresh_lexical_index
+from kg.markdown import MarkdownParseError, parse_markdown
+from kg.models.contracts import IngestDocumentReport, IngestReport, IngestResult, IngestWithWarnings
 from kg.models.manifest import CorpusManifest
+from kg.record_state import (
+    bind_record,
+    resolve_record_state,
+    validate_state_fields,
+    without_state_fields,
+)
 
-PARSER_VERSION = "3"
-SCHEMA_VERSION = 2
+PARSER_VERSION = "6"
+SCHEMA_VERSION = 4
 LOGGER = logging.getLogger(__name__)
 
 
@@ -25,7 +35,18 @@ class IngestService:
     def __init__(self, database: Database) -> None:
         self.database = database
 
-    def ingest(self, manifest: CorpusManifest) -> IngestResult:
+    def ingest(
+        self,
+        manifest: CorpusManifest,
+        *,
+        explain: bool = False,
+        include_quotes: bool = False,
+        detail_limit: int = 50,
+    ) -> IngestResult:
+        if include_quotes and not explain:
+            raise ValueError("include_quotes requires explain=True")
+        if not 1 <= detail_limit <= 200:
+            raise ValueError("detail_limit must be between 1 and 200")
         LOGGER.info(
             "Starting ingestion for corpus %s into %s",
             manifest.corpus_id,
@@ -34,12 +55,22 @@ class IngestService:
         self.database.initialize()
         self._migrate_schema()
         selection = select_sources(manifest)
-        result = IngestResult(
+        result: IngestResult = IngestResult(
             corpus_id=manifest.corpus_id,
             run_id=str(uuid.uuid4()),
             missing=len(selection.missing),
             errors=[f"No Markdown files matched: {pattern}" for pattern in selection.missing],
         )
+        if explain:
+            result = IngestReport(
+                **result.model_dump(),
+                configured_entities=sorted(
+                    manifest.seed_entities, key=lambda entity: entity.entity_id
+                ),
+                unmatched_patterns=selection.missing,
+                include_quotes=include_quotes,
+                detail_limit=detail_limit,
+            )
         index_config_hash = self._index_config_hash(manifest)
         started_at = _now()
         selected_source_paths = {
@@ -68,37 +99,87 @@ class IngestService:
             for path in selection.paths:
                 connection.execute("SAVEPOINT ingest_source")
                 try:
-                    outcome = self._ingest_file(
+                    document = self._ingest_file(
                         connection,
                         manifest,
                         path,
                         selected_source_paths,
                         index_config_hash,
                     )
-                    connection.execute("RELEASE SAVEPOINT ingest_source")
-                    if outcome == "added":
-                        result.added += 1
-                    elif outcome == "changed":
-                        result.changed += 1
-                    else:
-                        result.unchanged += 1
                 except (OSError, UnicodeError, ValueError, sqlite3.Error) as exc:
                     connection.execute("ROLLBACK TO SAVEPOINT ingest_source")
                     connection.execute("RELEASE SAVEPOINT ingest_source")
                     result.failed += 1
-                    result.errors.append(f"{path}: {exc}")
-                    LOGGER.warning("Failed to ingest %s: %s", path, exc)
+                    message = _source_error(exc)
+                    result.errors.append(f"{path}: {message}")
+                    LOGGER.warning("Failed to ingest %s: %s", path, message)
+                    source_path = relative_source_path(manifest, path)
                     self._deactivate_failed_source(
                         connection,
                         manifest.corpus_id,
-                        relative_source_path(manifest, path),
+                        source_path,
                     )
+                    if isinstance(result, IngestReport):
+                        retained = connection.execute(
+                            """
+                            SELECT document_id, current_revision_id FROM source_document
+                            WHERE corpus_id = ? AND source_path = ?
+                            ORDER BY updated_at DESC, document_id LIMIT 1
+                            """,
+                            (manifest.corpus_id, source_path),
+                        ).fetchone()
+                        result.documents.append(IngestDocumentReport(
+                            source_path=source_path, outcome="failed",
+                            reasons=["source_failed"], error=message,
+                            document_id=retained["document_id"] if retained else None,
+                            source_revision_id=(
+                                retained["current_revision_id"] if retained else None
+                            ),
+                        ))
+                else:
+                    connection.execute("RELEASE SAVEPOINT ingest_source")
+                    if document.outcome == "added":
+                        result.added += 1
+                    elif document.outcome == "changed":
+                        result.changed += 1
+                    else:
+                        result.unchanged += 1
+                    if isinstance(result, IngestReport):
+                        explain_document(
+                            connection, document, include_quotes=include_quotes,
+                            detail_limit=detail_limit,
+                        )
+                        result.documents.append(document)
 
-            self._deactivate_unselected(
+            deactivated = self._deactivate_unselected(
                 connection,
                 manifest.corpus_id,
                 selected_source_paths,
+                collect=isinstance(result, IngestReport),
             )
+            if isinstance(result, IngestReport):
+                result.documents.extend(
+                    IngestDocumentReport(
+                        source_path=row["source_path"], outcome="deactivated",
+                        reasons=["source_no_longer_selected"],
+                        document_id=row["document_id"],
+                        source_revision_id=row["current_revision_id"],
+                        previous_revision_id=row["current_revision_id"],
+                        revision_state="unchanged",
+                    )
+                    for row in deactivated
+                )
+                result.documents.sort(key=lambda document: (document.source_path, document.outcome))
+            refresh_lexical_index(connection, manifest.corpus_id)
+            state = resolve_record_state(
+                connection, manifest.corpus_id, include_quotes=include_quotes
+            )
+            if isinstance(result, IngestReport):
+                result.record_state = state.report(detail_limit)
+            elif state.warnings:
+                result = IngestWithWarnings(**result.model_dump(), state_warnings=state.warnings)
+            for warning in state.warnings:
+                LOGGER.warning("Record state: %s", warning)
             status = "completed" if result.failed == 0 else "completed_with_errors"
             connection.execute(
                 """
@@ -109,7 +190,9 @@ class IngestService:
                 (
                     _now(),
                     status,
-                    result.model_dump_json(exclude={"run_id", "corpus_id", "errors"}),
+                    result.model_dump_json(
+                        include={"added", "changed", "unchanged", "missing", "failed"}
+                    ),
                     result.run_id,
                 ),
             )
@@ -130,7 +213,7 @@ class IngestService:
         path: Path,
         selected_source_paths: set[str],
         index_config_hash: str,
-    ) -> Literal["added", "changed", "unchanged"]:
+    ) -> IngestDocumentReport:
         source_path = relative_source_path(manifest, path)
         source = read_source(manifest, path)
         content = source.content
@@ -149,7 +232,7 @@ class IngestService:
 
         existing_document = connection.execute(
             """
-            SELECT current_revision_id, is_active
+            SELECT current_revision_id, is_active, source_path
             FROM source_document
             WHERE document_id = ?
             """,
@@ -163,21 +246,67 @@ class IngestService:
             """,
             (stable_revision_id,),
         ).fetchone()
+        previous_revision_id = (
+            existing_document["current_revision_id"] if existing_document else None
+        )
+        if previous_revision_id and not connection.execute(
+            "SELECT 1 FROM revision_activation WHERE document_id = ? LIMIT 1",
+            (stable_document_id,),
+        ).fetchone():
+            self._record_activation(
+                connection, stable_document_id, previous_revision_id, None, now
+            )
+            LOGGER.warning(
+                "Started activation history for existing document %s; earlier transitions "
+                "are unknown. Specify both revisions when comparing older states.",
+                source_path,
+            )
 
         index_is_current = (
             existing_revision
             and existing_revision["indexed_parser_version"] == PARSER_VERSION
             and existing_revision["indexed_config_hash"] == index_config_hash
         )
+        report = IngestDocumentReport(
+            source_path=source_path,
+            outcome="changed" if existing_document else "added",
+            reasons=[],
+            document_id=stable_document_id,
+            source_revision_id=stable_revision_id,
+            previous_revision_id=previous_revision_id,
+            previous_source_path=existing_document["source_path"] if moved else None,
+            revision_state=(
+                "new" if not existing_revision
+                else "unchanged" if previous_revision_id == stable_revision_id
+                else "reused"
+            ),
+            active=True,
+        )
+        if not existing_document:
+            report.reasons.append("new_document")
+        if not existing_revision:
+            report.reasons.append("new_revision")
+        elif previous_revision_id != stable_revision_id:
+            report.reasons.append("restored_revision")
+        if moved:
+            report.reasons.append("moved_source")
+        if existing_document and not existing_document["is_active"]:
+            report.reasons.append("reactivated_source")
+        if existing_revision:
+            if existing_revision["indexed_parser_version"] != PARSER_VERSION:
+                report.reasons.append("parser_changed")
+            if existing_revision["indexed_config_hash"] != index_config_hash:
+                report.reasons.append("index_configuration_changed")
         if index_is_current:
-            if (
+            state_changed = (
                 existing_document
                 and (
                     existing_document["current_revision_id"] != stable_revision_id
                     or existing_document["is_active"] != 1
                     or moved
                 )
-            ):
+            )
+            if state_changed:
                 connection.execute(
                     """
                     UPDATE source_document
@@ -193,7 +322,15 @@ class IngestService:
                         stable_document_id,
                     ),
                 )
-            return "changed" if moved else "unchanged"
+                if previous_revision_id != stable_revision_id:
+                    self._record_activation(
+                        connection, stable_document_id, stable_revision_id,
+                        previous_revision_id, now,
+                    )
+            report.outcome = "changed" if state_changed else "unchanged"
+            if not report.reasons:
+                report.reasons.append("already_indexed")
+            return report
 
         if existing_document:
             connection.execute(
@@ -250,10 +387,15 @@ class IngestService:
                     index_config_hash,
                 ),
             )
+        if previous_revision_id != stable_revision_id:
+            self._record_activation(
+                connection, stable_document_id, stable_revision_id, previous_revision_id, now
+            )
 
         aliases = self._aliases_for_corpus(connection, manifest.corpus_id)
         event_time = self._event_time(manifest, parsed.frontmatter)
         for anchor in parsed.anchors:
+            validate_state_fields(anchor)
             stable_anchor_id = anchor_id(
                 stable_revision_id,
                 anchor.structural_path,
@@ -326,6 +468,7 @@ class IngestService:
                 ),
             )
             if anchor.task:
+                action_id = record_id(stable_anchor_id, "action", anchor.task.text)
                 connection.execute(
                     """
                     INSERT INTO action_item (
@@ -333,7 +476,7 @@ class IngestService:
                     ) VALUES (?, ?, ?, ?, ?, ?)
                     """,
                     (
-                        record_id(stable_anchor_id, "action", anchor.task.text),
+                        action_id,
                         stable_anchor_id,
                         anchor.task.text,
                         anchor.task.status,
@@ -341,8 +484,10 @@ class IngestService:
                         anchor.task.due_date,
                     ),
                 )
+                bind_record(connection, anchor, stable_anchor_id, action_id, "action")
             if anchor.record_type in {"decision", "blocker", "conflict"}:
-                record_text = _record_text(anchor.quote)
+                record_text = _record_text(without_state_fields(anchor))
+                explicit_id = record_id(stable_anchor_id, anchor.record_type, record_text)
                 connection.execute(
                     f"""
                     INSERT INTO {anchor.record_type} (
@@ -350,16 +495,14 @@ class IngestService:
                     ) VALUES (?, ?, ?, ?)
                     """,
                     (
-                        record_id(
-                            stable_anchor_id,
-                            anchor.record_type,
-                            record_text,
-                        ),
+                        explicit_id,
                         stable_anchor_id,
                         record_text,
                         event_time,
                     ),
                 )
+                if anchor.record_type == "decision":
+                    bind_record(connection, anchor, stable_anchor_id, explicit_id, "decision")
             linked_entities = {
                 alias["entity_key"]
                 for link in anchor.wikilinks
@@ -396,7 +539,25 @@ class IngestService:
             """,
             (PARSER_VERSION, index_config_hash, stable_revision_id),
         )
-        return "changed" if existing_document else "added"
+        report.records_rebuilt = True
+        return report
+
+    @staticmethod
+    def _record_activation(
+        connection: sqlite3.Connection,
+        stable_document_id: str,
+        selected_revision_id: str,
+        previous_revision_id: str | None,
+        activated_at: str,
+    ) -> None:
+        connection.execute(
+            """
+            INSERT INTO revision_activation (
+                document_id, revision_id, previous_revision_id, activated_at
+            ) VALUES (?, ?, ?, ?)
+            """,
+            (stable_document_id, selected_revision_id, previous_revision_id, activated_at),
+        )
 
     def _clear_derived_records(
         self,
@@ -410,6 +571,7 @@ class IngestService:
             (revision_id,),
         )
         for table in (
+            "record_binding",
             "relationship",
             "mention",
             "action_item",
@@ -469,7 +631,14 @@ class IngestService:
             return candidates[0]["document_id"], True
         if existing:
             return existing["document_id"], False
-        return document_id(corpus_id, source_path), False
+        candidate_id = document_id(corpus_id, source_path)
+        generation = 0
+        while connection.execute(
+            "SELECT 1 FROM source_document WHERE document_id = ?", (candidate_id,)
+        ).fetchone():
+            generation += 1
+            candidate_id = document_id(corpus_id, source_path, generation=generation)
+        return candidate_id, False
 
     def _sync_seed_entities(
         self,
@@ -653,10 +822,7 @@ class IngestService:
         mentioned: set[str] = set()
         occupied: set[tuple[int, int]] = set()
         for alias in aliases:
-            pattern = re.compile(
-                rf"(?<!\w){re.escape(alias['alias'])}(?!\w)",
-                re.IGNORECASE,
-            )
+            pattern = alias_pattern(alias["alias"])
             for match in pattern.finditer(searchable_quote):
                 span = (match.start(), match.end())
                 if span in occupied:
@@ -692,28 +858,32 @@ class IngestService:
         connection: sqlite3.Connection,
         corpus_id: str,
         selected_source_paths: set[str],
-    ) -> None:
+        *,
+        collect: bool = False,
+    ) -> list[sqlite3.Row]:
+        condition = "corpus_id = ? AND is_active = 1"
+        parameters = (corpus_id, *sorted(selected_source_paths))
         if selected_source_paths:
             placeholders = ", ".join("?" for _ in selected_source_paths)
+            condition += f" AND source_path NOT IN ({placeholders})"
+        deactivated = (
             connection.execute(
                 f"""
-                UPDATE source_document
-                SET is_active = 0, updated_at = ?
-                WHERE corpus_id = ?
-                  AND is_active = 1
-                  AND source_path NOT IN ({placeholders})
+                SELECT document_id, source_path, current_revision_id
+                FROM source_document WHERE {condition}
                 """,
-                (_now(), corpus_id, *sorted(selected_source_paths)),
-            )
-        else:
-            connection.execute(
-                """
-                UPDATE source_document
-                SET is_active = 0, updated_at = ?
-                WHERE corpus_id = ? AND is_active = 1
-                """,
-                (_now(), corpus_id),
-            )
+                parameters,
+            ).fetchall()
+            if collect else []
+        )
+        connection.execute(
+            f"""
+            UPDATE source_document SET is_active = 0, updated_at = ?
+            WHERE {condition}
+            """,
+            (_now(), *parameters),
+        )
+        return deactivated
 
     def _deactivate_failed_source(
         self,
@@ -759,11 +929,19 @@ def _now() -> str:
     return datetime.now(UTC).isoformat()
 
 
+def _source_error(exc: Exception) -> str:
+    if isinstance(exc, MarkdownParseError) and isinstance(exc.__cause__, yaml.MarkedYAMLError):
+        mark = exc.__cause__.problem_mark
+        location = f" at frontmatter line {mark.line + 1}, column {mark.column + 1}" if mark else ""
+        return f"Invalid YAML frontmatter{location}; check source syntax."
+    return str(exc)
+
+
 def _record_text(quote: str) -> str:
-    lines = quote.splitlines()
+    lines = re.split(r"\r\n|\r|\n", quote)
     if not lines:
         return ""
-    marker = re.match(r"^([ \t]*[-*+][ \t]+)", lines[0])
+    marker = re.match(r"^([ \t]*(?:[-*+]|[0-9]{1,9}[.)])[ \t]+)", lines[0])
     if marker:
         lines[0] = lines[0][marker.end() :]
         continuation_indent = len(marker.group(1).expandtabs(4))

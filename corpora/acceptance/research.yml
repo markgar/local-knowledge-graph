@@ -1,5 +1,12 @@
 corpus: ../research.yml
 cases:
+  - id: orbit-decision-section
+    command: source-context
+    query: first evaluation
+    subject: Orbit
+    expected_quotes:
+      - "## Decisions"
+      - "- Use a synthetic dataset for the first evaluation."
   - id: orbit-two-hop
     command: status
     subject: Orbit

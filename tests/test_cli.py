@@ -191,9 +191,11 @@ def test_status_without_since_includes_old_dated_evidence(tmp_path: Path) -> Non
     )
 
 
+@pytest.mark.parametrize("use_context", [False, True])
 def test_dense_commands_are_available_through_cli(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
+    use_context: bool,
 ) -> None:
     manifest = tmp_path / "corpus.yml"
     vault = tmp_path / "vault"
@@ -214,9 +216,11 @@ def test_dense_commands_are_available_through_cli(
             corpus_id: str,
             *,
             profile: EmbeddingProfile,
+            contextual: bool,
         ) -> None:
             assert corpus_id == "test"
             assert profile is EmbeddingProfile.qwen3_embedding_06b
+            assert contextual is use_context
 
         def build_index(self, *, batch_size: int) -> DenseIndexResult:
             assert batch_size == 16
@@ -261,6 +265,7 @@ def test_dense_commands_are_available_through_cli(
         app,
         [
             "dense-index",
+            *(["--contextual"] if use_context else []),
             "--manifest",
             str(manifest),
             "--batch-size",
@@ -276,6 +281,7 @@ def test_dense_commands_are_available_through_cli(
         [
             "search",
             "semantic question",
+            *(["--contextual"] if use_context else []),
             "--query-mode",
             "dense",
             "--embedding-profile",
@@ -316,6 +322,7 @@ def test_dense_encode_error_is_machine_readable(
             corpus_id: str,
             *,
             profile: EmbeddingProfile,
+            contextual: bool,
         ) -> None:
             pass
 
@@ -346,9 +353,11 @@ def test_dense_encode_error_is_machine_readable(
     }
 
 
+@pytest.mark.parametrize("use_context", [False, True])
 def test_hybrid_query_mode_is_available_through_cli(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
+    use_context: bool,
 ) -> None:
     manifest = tmp_path / "corpus.yml"
     vault = tmp_path / "vault"
@@ -369,9 +378,11 @@ def test_hybrid_query_mode_is_available_through_cli(
             corpus_id: str,
             *,
             embedding_profile: EmbeddingProfile,
+            contextual: bool,
         ) -> None:
             assert corpus_id == "test"
             assert embedding_profile is EmbeddingProfile.qwen3_embedding_06b
+            assert contextual is use_context
 
         def search(self, query: str, **kwargs: object) -> list[SearchResult]:
             assert query == "hybrid question"
@@ -397,6 +408,7 @@ def test_hybrid_query_mode_is_available_through_cli(
         [
             "search",
             "hybrid question",
+            *(["--contextual"] if use_context else []),
             "--query-mode",
             "hybrid",
             "--embedding-profile",
@@ -412,9 +424,11 @@ def test_hybrid_query_mode_is_available_through_cli(
     assert json.loads(result.stdout)[0]["quote"] == "Hybrid evidence."
 
 
+@pytest.mark.parametrize("use_context", [False, True])
 def test_reranked_query_mode_is_available_through_cli(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
+    use_context: bool,
 ) -> None:
     manifest = tmp_path / "corpus.yml"
     vault = tmp_path / "vault"
@@ -435,9 +449,11 @@ def test_reranked_query_mode_is_available_through_cli(
             corpus_id: str,
             *,
             embedding_profile: EmbeddingProfile,
+            contextual: bool,
         ) -> None:
             assert corpus_id == "test"
             assert embedding_profile is EmbeddingProfile.qwen3_embedding_06b
+            assert contextual is use_context
 
         def search(self, query: str, **kwargs: object) -> list[SearchResult]:
             assert query == "reranked question"
@@ -463,6 +479,7 @@ def test_reranked_query_mode_is_available_through_cli(
         [
             "search",
             "reranked question",
+            *(["--contextual"] if use_context else []),
             "--query-mode",
             "reranked",
             "--embedding-profile",

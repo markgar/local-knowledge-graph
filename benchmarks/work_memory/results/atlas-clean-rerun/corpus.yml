@@ -1,0 +1,53 @@
+{
+  "corpus_id": "atlas-state",
+  "display_name": "Atlas explicit cross-document updates",
+  "vault_root": "notes",
+  "include": [
+    "atlas-vault/*.md",
+    "atlas-updates/*.md"
+  ],
+  "database": "index.sqlite3",
+  "allow_symlinks": false,
+  "max_source_bytes": 5000000,
+  "seed_entities": [
+    {
+      "entity_id": "atlas",
+      "name": "Atlas",
+      "entity_type": "project",
+      "aliases": []
+    },
+    {
+      "entity_id": "security-review",
+      "name": "Security Review",
+      "entity_type": "workstream",
+      "aliases": []
+    },
+    {
+      "entity_id": "audit-trail",
+      "name": "Audit Trail",
+      "entity_type": "system",
+      "aliases": []
+    },
+    {
+      "entity_id": "priya",
+      "name": "Priya",
+      "entity_type": "person",
+      "aliases": []
+    },
+    {
+      "entity_id": "morgan",
+      "name": "Morgan",
+      "entity_type": "person",
+      "aliases": []
+    },
+    {
+      "entity_id": "atlascope",
+      "name": "Atlascope",
+      "entity_type": "project",
+      "aliases": []
+    }
+  ],
+  "metadata_fields": {
+    "event_time": "date"
+  }
+}

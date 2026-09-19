@@ -1,0 +1,1519 @@
+{
+  "corpus_id": "atlas-state",
+  "run_id": "905d4a61-4bdc-4ca1-8811-f44a19be9a1c",
+  "added": 12,
+  "changed": 0,
+  "unchanged": 0,
+  "missing": 0,
+  "failed": 0,
+  "errors": [],
+  "report_version": "1",
+  "configured_entities": [
+    {
+      "entity_id": "atlas",
+      "name": "Atlas",
+      "entity_type": "project",
+      "aliases": []
+    },
+    {
+      "entity_id": "atlascope",
+      "name": "Atlascope",
+      "entity_type": "project",
+      "aliases": []
+    },
+    {
+      "entity_id": "audit-trail",
+      "name": "Audit Trail",
+      "entity_type": "system",
+      "aliases": []
+    },
+    {
+      "entity_id": "morgan",
+      "name": "Morgan",
+      "entity_type": "person",
+      "aliases": []
+    },
+    {
+      "entity_id": "priya",
+      "name": "Priya",
+      "entity_type": "person",
+      "aliases": []
+    },
+    {
+      "entity_id": "security-review",
+      "name": "Security Review",
+      "entity_type": "workstream",
+      "aliases": []
+    }
+  ],
+  "documents": [
+    {
+      "source_path": "atlas-updates/11-review-completion.md",
+      "outcome": "added",
+      "reasons": [
+        "new_document",
+        "new_revision"
+      ],
+      "document_id": "03189b20-ed31-5118-b70c-6a33d00f789d",
+      "source_revision_id": "1f42c7d674d6cdb1c0256ecc1904a011d960a36e8b1608636ae722f4a44ce31e",
+      "revision_state": "new",
+      "records_rebuilt": true,
+      "active": true,
+      "counts": {
+        "anchors": 4,
+        "passages": 4,
+        "mentions": 1,
+        "relationships": 0,
+        "actions": 1,
+        "decisions": 0,
+        "blockers": 0,
+        "conflicts": 0
+      },
+      "anchors": [
+        {
+          "passage_id": "cf22c6f1fd9f08665e78c56bf12c70f8f66ed28e101e61bce4b5c92134b29592",
+          "anchor_id": "f0003cda5311e582a4eb15c2c74c756bfddf0d22a8bf9026c03f846a7112cfca",
+          "anchor_kind": "heading",
+          "heading_path": [
+            "Review completion record"
+          ],
+          "start_offset": 58,
+          "end_offset": 84
+        },
+        {
+          "passage_id": "9888292fa43b1eb831ea580b773da73dda213635f5214de72535f552acdbe40f",
+          "anchor_id": "35f8dd0b6cf6ce8ad243bba145601ce78f6fe9c3f021a9ae633867acc17432d0",
+          "anchor_kind": "paragraph",
+          "heading_path": [
+            "Review completion record"
+          ],
+          "start_offset": 86,
+          "end_offset": 179
+        },
+        {
+          "passage_id": "f838699f19fc96910a6afcef7c6cebd13f450c6714d44403af084b44b7fb0847",
+          "anchor_id": "ebb0c1e447126d0ea99d4383cd9a7d73b037a4455739f281d41f96d63af70c01",
+          "anchor_kind": "heading",
+          "heading_path": [
+            "Review completion record",
+            "Actions"
+          ],
+          "start_offset": 181,
+          "end_offset": 191
+        },
+        {
+          "passage_id": "eca52623187bb42822ba088d80a55a97a088a86869eb85b470b7d5e0786ee26e",
+          "anchor_id": "d4f96b8e27ecbe9ce02bca200ffc57dabfa6fba3bf35b5b776d3e07760eb9f5d",
+          "anchor_kind": "task",
+          "heading_path": [
+            "Review completion record",
+            "Actions"
+          ],
+          "start_offset": 193,
+          "end_offset": 292
+        }
+      ],
+      "anchors_truncated": false,
+      "mentioned_entities": [
+        {
+          "entity_id": "priya",
+          "name": "Priya",
+          "entity_type": "person",
+          "mention_count": 1,
+          "anchor_ids": [
+            "d4f96b8e27ecbe9ce02bca200ffc57dabfa6fba3bf35b5b776d3e07760eb9f5d"
+          ]
+        }
+      ],
+      "details": [
+        {
+          "record_id": "d3c7939153c6ebeefb3a47deda09cf0b4c6b7fad61ecc7681edfc68f0b320b00",
+          "record_type": "action",
+          "rule": "checkbox_task",
+          "anchor_id": "d4f96b8e27ecbe9ce02bca200ffc57dabfa6fba3bf35b5b776d3e07760eb9f5d",
+          "heading_path": [
+            "Review completion record",
+            "Actions"
+          ],
+          "start_offset": 193,
+          "end_offset": 292,
+          "status": "completed",
+          "owner": "Priya",
+          "record_key": "review-date-v2",
+          "supersedes_key": "review-date-v1"
+        }
+      ],
+      "details_total": 1,
+      "details_truncated": false
+    },
+    {
+      "source_path": "atlas-updates/12-launch-rescheduling.md",
+      "outcome": "added",
+      "reasons": [
+        "new_document",
+        "new_revision"
+      ],
+      "document_id": "09b93374-bda5-555f-93d6-806f691e6d84",
+      "source_revision_id": "2783e31ebffc0663114c6574860f94b69c144dbec29fc5481f72a0738d796100",
+      "revision_state": "new",
+      "records_rebuilt": true,
+      "active": true,
+      "counts": {
+        "anchors": 3,
+        "passages": 3,
+        "mentions": 0,
+        "relationships": 0,
+        "actions": 0,
+        "decisions": 1,
+        "blockers": 0,
+        "conflicts": 0
+      },
+      "anchors": [
+        {
+          "passage_id": "b9bef421a57ffa05d3c30935e62f6bb8f3c0ee936a56aee566d06f8e419a1681",
+          "anchor_id": "c02036174b0123902d7c81e403d501934fde8a6f3005119b54f50a52ea14b6f8",
+          "anchor_kind": "heading",
+          "heading_path": [
+            "Launch rescheduling decision"
+          ],
+          "start_offset": 62,
+          "end_offset": 92
+        },
+        {
+          "passage_id": "cb75b96e8de0e7375eb32e6be85f3fbe1630b8bc1f0a184b810a5e9d12f96201",
+          "anchor_id": "321cd9f28b8fc9825fea08151aab7dac899bb2d007c06ac61eea6b95b1b4bf3e",
+          "anchor_kind": "heading",
+          "heading_path": [
+            "Launch rescheduling decision",
+            "Decisions"
+          ],
+          "start_offset": 94,
+          "end_offset": 106
+        },
+        {
+          "passage_id": "85e8acdc94baea1e265c2fcc8bca9cb94ed68fc61be4f29d65b9a2d0cf848e89",
+          "anchor_id": "2700603797f756ab7e91104b9683afe0f94741558f295412f56ca1b2c283e4d8",
+          "anchor_kind": "list_item",
+          "heading_path": [
+            "Launch rescheduling decision",
+            "Decisions"
+          ],
+          "start_offset": 108,
+          "end_offset": 253
+        }
+      ],
+      "anchors_truncated": false,
+      "mentioned_entities": [],
+      "details": [
+        {
+          "record_id": "3719c2e172c0b47f6c4fa4555af2ab3e4ff40096579b2f848dbfb4f1054e0534",
+          "record_type": "decision",
+          "rule": "decision_heading",
+          "anchor_id": "2700603797f756ab7e91104b9683afe0f94741558f295412f56ca1b2c283e4d8",
+          "heading_path": [
+            "Launch rescheduling decision",
+            "Decisions"
+          ],
+          "start_offset": 108,
+          "end_offset": 253,
+          "record_key": "launch-oct15",
+          "supersedes_key": "launch-oct8"
+        }
+      ],
+      "details_total": 1,
+      "details_truncated": false
+    },
+    {
+      "source_path": "atlas-vault/01-planning-meeting.md",
+      "outcome": "added",
+      "reasons": [
+        "new_document",
+        "new_revision"
+      ],
+      "document_id": "baa886f5-a265-5d98-9ac2-1247791eece9",
+      "source_revision_id": "5d22d01a4d3a6eac41591c6a0b4b8145230ac13f780808228268651edc6108a0",
+      "revision_state": "new",
+      "records_rebuilt": true,
+      "active": true,
+      "counts": {
+        "anchors": 8,
+        "passages": 8,
+        "mentions": 7,
+        "relationships": 1,
+        "actions": 1,
+        "decisions": 1,
+        "blockers": 1,
+        "conflicts": 0
+      },
+      "anchors": [
+        {
+          "passage_id": "6d3215a903034b68c39cf49648e480dd5ec7121cb9e32ea2fe54d96e3fe4a2a2",
+          "anchor_id": "306ab304edf45628a47f161322d8f596eecf6b078e6f5d0bff1b586d05a3d1c0",
+          "anchor_kind": "heading",
+          "heading_path": [
+            "Atlas launch planning"
+          ],
+          "start_offset": 55,
+          "end_offset": 78
+        },
+        {
+          "passage_id": "76f1d8f54c9983339262e4325853679a0644c83f60e10486788eacdd97a757e0",
+          "anchor_id": "81e144325c0d88eb59af78faf6c25e8dc5ea46707ef9a40ca3ccec1c23373b62",
+          "anchor_kind": "paragraph",
+          "heading_path": [
+            "Atlas launch planning"
+          ],
+          "start_offset": 80,
+          "end_offset": 140
+        },
+        {
+          "passage_id": "05bd0f73d2a99059dd86ff7723f0ad5efefaf626fd6d7095cec15e973cccaf00",
+          "anchor_id": "3495844b1df6a1f9b9bc298702fa89d41cba61375f28ed9ee629a0aece3d9406",
+          "anchor_kind": "heading",
+          "heading_path": [
+            "Atlas launch planning",
+            "Decisions"
+          ],
+          "start_offset": 142,
+          "end_offset": 154
+        },
+        {
+          "passage_id": "cb8574f9ccdb5a69f78d69894c512d31261a5898791e1d4c330df679a3332dc8",
+          "anchor_id": "0b4f1789b9f1dc99529116642cfda2d2804e808e37d1ba270bc6216943774954",
+          "anchor_kind": "list_item",
+          "heading_path": [
+            "Atlas launch planning",
+            "Decisions"
+          ],
+          "start_offset": 156,
+          "end_offset": 216
+        },
+        {
+          "passage_id": "2f1fe55fa5cd4d58a19eecde2b0958d77dea96b2c277ca92b5f60acb17f8325b",
+          "anchor_id": "6e4a8a0c3b4e82ce35847bde9e92d913888d3ca40769314ef9f48ccd675cac52",
+          "anchor_kind": "heading",
+          "heading_path": [
+            "Atlas launch planning",
+            "Actions"
+          ],
+          "start_offset": 218,
+          "end_offset": 228
+        },
+        {
+          "passage_id": "0422bf88d086aecd789c67e920f9df650fd232210149efa5c75cce578a60c2c5",
+          "anchor_id": "5186d0a5e4654c8931bb3db4b4f103e53941c98b2ca546bdd963de608b69e7e6",
+          "anchor_kind": "task",
+          "heading_path": [
+            "Atlas launch planning",
+            "Actions"
+          ],
+          "start_offset": 230,
+          "end_offset": 318
+        },
+        {
+          "passage_id": "320025129154dad62eabfbf5eaec8c5c5e1e1c95d47c997bb030b238bcd994df",
+          "anchor_id": "9d1171d2979f081a4e63f1e9c8495c0413edcca8e5146bac907626a5f81fa71e",
+          "anchor_kind": "heading",
+          "heading_path": [
+            "Atlas launch planning",
+            "Blockers"
+          ],
+          "start_offset": 320,
+          "end_offset": 331
+        },
+        {
+          "passage_id": "146840aef9926b1be5c6c554c5d8aa0aca1220533cd4bc92269c1b105423b8e4",
+          "anchor_id": "d56397867414d9a800aed7f42838033d5161d9a538f958c269b1187cb54d38b9",
+          "anchor_kind": "list_item",
+          "heading_path": [
+            "Atlas launch planning",
+            "Blockers"
+          ],
+          "start_offset": 333,
+          "end_offset": 384
+        }
+      ],
+      "anchors_truncated": false,
+      "mentioned_entities": [
+        {
+          "entity_id": "atlas",
+          "name": "Atlas",
+          "entity_type": "project",
+          "mention_count": 4,
+          "anchor_ids": [
+            "306ab304edf45628a47f161322d8f596eecf6b078e6f5d0bff1b586d05a3d1c0",
+            "81e144325c0d88eb59af78faf6c25e8dc5ea46707ef9a40ca3ccec1c23373b62",
+            "0b4f1789b9f1dc99529116642cfda2d2804e808e37d1ba270bc6216943774954",
+            "d56397867414d9a800aed7f42838033d5161d9a538f958c269b1187cb54d38b9"
+          ]
+        },
+        {
+          "entity_id": "priya",
+          "name": "Priya",
+          "entity_type": "person",
+          "mention_count": 1,
+          "anchor_ids": [
+            "5186d0a5e4654c8931bb3db4b4f103e53941c98b2ca546bdd963de608b69e7e6"
+          ]
+        },
+        {
+          "entity_id": "security-review",
+          "name": "Security Review",
+          "entity_type": "workstream",
+          "mention_count": 2,
+          "anchor_ids": [
+            "81e144325c0d88eb59af78faf6c25e8dc5ea46707ef9a40ca3ccec1c23373b62",
+            "0b4f1789b9f1dc99529116642cfda2d2804e808e37d1ba270bc6216943774954"
+          ]
+        }
+      ],
+      "details": [
+        {
+          "record_id": "d1fcc518ec01ea7681eccc2829a35f9b9a871f6c2e3dbc577690d4ceb0ac8db5",
+          "record_type": "relationship",
+          "rule": "explicit_wikilink",
+          "anchor_id": "81e144325c0d88eb59af78faf6c25e8dc5ea46707ef9a40ca3ccec1c23373b62",
+          "heading_path": [
+            "Atlas launch planning"
+          ],
+          "start_offset": 80,
+          "end_offset": 140,
+          "source_entity_id": "atlas",
+          "target_entity_id": "security-review"
+        },
+        {
+          "record_id": "4658cd5db01a8af454d667f5976da79ce4f5f02948357cc5460ae592c03e0e24",
+          "record_type": "decision",
+          "rule": "decision_heading",
+          "anchor_id": "0b4f1789b9f1dc99529116642cfda2d2804e808e37d1ba270bc6216943774954",
+          "heading_path": [
+            "Atlas launch planning",
+            "Decisions"
+          ],
+          "start_offset": 156,
+          "end_offset": 216
+        },
+        {
+          "record_id": "8fca041daa6d980ed9bd11b66a5e19b8d6c7228d75f5309951f426db7e7b1228",
+          "record_type": "action",
+          "rule": "checkbox_task",
+          "anchor_id": "5186d0a5e4654c8931bb3db4b4f103e53941c98b2ca546bdd963de608b69e7e6",
+          "heading_path": [
+            "Atlas launch planning",
+            "Actions"
+          ],
+          "start_offset": 230,
+          "end_offset": 318,
+          "status": "open",
+          "owner": "Priya",
+          "due_date": "2026-09-23",
+          "record_key": "review-date-v1"
+        },
+        {
+          "record_id": "486f5ca335244561c67f5eb8cb58ef82454c4066447faf3de2e20c5e91cf14ad",
+          "record_type": "blocker",
+          "rule": "blocker_heading",
+          "anchor_id": "d56397867414d9a800aed7f42838033d5161d9a538f958c269b1187cb54d38b9",
+          "heading_path": [
+            "Atlas launch planning",
+            "Blockers"
+          ],
+          "start_offset": 333,
+          "end_offset": 384
+        }
+      ],
+      "details_total": 4,
+      "details_truncated": false
+    },
+    {
+      "source_path": "atlas-vault/02-follow-up-email.md",
+      "outcome": "added",
+      "reasons": [
+        "new_document",
+        "new_revision"
+      ],
+      "document_id": "11eac7b8-fde8-543e-9c62-8bd8e3b45327",
+      "source_revision_id": "61d28fa5707ca75fbaa99a36418d7bbefa50f4372ef5314dbcd93897e60e6308",
+      "revision_state": "new",
+      "records_rebuilt": true,
+      "active": true,
+      "counts": {
+        "anchors": 4,
+        "passages": 4,
+        "mentions": 5,
+        "relationships": 0,
+        "actions": 0,
+        "decisions": 0,
+        "blockers": 0,
+        "conflicts": 0
+      },
+      "anchors": [
+        {
+          "passage_id": "39a27608eb030cdaf0eadc3340d72cce92e99768dbb2d51d6b88fdf769afd7cf",
+          "anchor_id": "d86ea993b47dd389a157ffa54c89c71beff9e154f8e16717b6f247e3021e09c1",
+          "anchor_kind": "heading",
+          "heading_path": [
+            "Atlas review follow-up"
+          ],
+          "start_offset": 85,
+          "end_offset": 109
+        },
+        {
+          "passage_id": "c9050e6739853db3621b5e456b39aab7a518ecd7ce45fe0dbd775596e85965dd",
+          "anchor_id": "80d46b296c9a597c1dc19a38864f346275d7440a5da64f1d435a30871f16e44e",
+          "anchor_kind": "paragraph",
+          "heading_path": [
+            "Atlas review follow-up"
+          ],
+          "start_offset": 111,
+          "end_offset": 162
+        },
+        {
+          "passage_id": "f3f56ec62ec65d2b60e218d265bc8d89f4b7475575d100e20358e4323532e77a",
+          "anchor_id": "e50364ae0eeeda477a72c227f2ed4cfd336313e311a420157ad80e7b23e86d89",
+          "anchor_kind": "paragraph",
+          "heading_path": [
+            "Atlas review follow-up"
+          ],
+          "start_offset": 164,
+          "end_offset": 260
+        },
+        {
+          "passage_id": "27c05320d777154eccd210a4e32e33e69ab6c0947d155e1d7899078caf4c996c",
+          "anchor_id": "ee5b4adf2faf1562c7d02a7ac46923a935a7f068c9bbbd508ff421c25c45dc04",
+          "anchor_kind": "paragraph",
+          "heading_path": [
+            "Atlas review follow-up"
+          ],
+          "start_offset": 262,
+          "end_offset": 390
+        }
+      ],
+      "anchors_truncated": false,
+      "mentioned_entities": [
+        {
+          "entity_id": "atlas",
+          "name": "Atlas",
+          "entity_type": "project",
+          "mention_count": 2,
+          "anchor_ids": [
+            "d86ea993b47dd389a157ffa54c89c71beff9e154f8e16717b6f247e3021e09c1",
+            "80d46b296c9a597c1dc19a38864f346275d7440a5da64f1d435a30871f16e44e"
+          ]
+        },
+        {
+          "entity_id": "morgan",
+          "name": "Morgan",
+          "entity_type": "person",
+          "mention_count": 1,
+          "anchor_ids": [
+            "e50364ae0eeeda477a72c227f2ed4cfd336313e311a420157ad80e7b23e86d89"
+          ]
+        },
+        {
+          "entity_id": "priya",
+          "name": "Priya",
+          "entity_type": "person",
+          "mention_count": 1,
+          "anchor_ids": [
+            "e50364ae0eeeda477a72c227f2ed4cfd336313e311a420157ad80e7b23e86d89"
+          ]
+        },
+        {
+          "entity_id": "security-review",
+          "name": "Security Review",
+          "entity_type": "workstream",
+          "mention_count": 1,
+          "anchor_ids": [
+            "ee5b4adf2faf1562c7d02a7ac46923a935a7f068c9bbbd508ff421c25c45dc04"
+          ]
+        }
+      ],
+      "details": [],
+      "details_total": 0,
+      "details_truncated": false
+    },
+    {
+      "source_path": "atlas-vault/03-security-review.md",
+      "outcome": "added",
+      "reasons": [
+        "new_document",
+        "new_revision"
+      ],
+      "document_id": "a6e00ac1-ebe2-5340-9a69-dd3d39d6ed66",
+      "source_revision_id": "caa0d36872ef9c579679ce4b8fce304efe6eef08c50c8546cf551024cb5daf81",
+      "revision_state": "new",
+      "records_rebuilt": true,
+      "active": true,
+      "counts": {
+        "anchors": 6,
+        "passages": 6,
+        "mentions": 4,
+        "relationships": 1,
+        "actions": 1,
+        "decisions": 1,
+        "blockers": 0,
+        "conflicts": 0
+      },
+      "anchors": [
+        {
+          "passage_id": "b528ee0c6752933978f145c0d7a1ea9243d3272832e7f3a26bc46ad239aa74f3",
+          "anchor_id": "d4c2aecb04bc55129297891999d18cca25829072cd953be9aa36995804946b75",
+          "anchor_kind": "heading",
+          "heading_path": [
+            "Security Review evidence meeting"
+          ],
+          "start_offset": 66,
+          "end_offset": 100
+        },
+        {
+          "passage_id": "56d6d4a0147dc0ecb2f497193c3f451e325f21525db5128cb55b39504026120b",
+          "anchor_id": "20e09a9b75bcde40701b980c8a9d9bcdb07fda4b805cc40fb669a6bfea0024a9",
+          "anchor_kind": "paragraph",
+          "heading_path": [
+            "Security Review evidence meeting"
+          ],
+          "start_offset": 102,
+          "end_offset": 156
+        },
+        {
+          "passage_id": "7a431b3c62945e0e9189e2eb3831aaa78042e3336486facbf17de535679e9cdf",
+          "anchor_id": "1b09ae0431cb41013f51b540a3509f7218a51e38e14f8c906e45a661ddb22acf",
+          "anchor_kind": "heading",
+          "heading_path": [
+            "Security Review evidence meeting",
+            "Decisions"
+          ],
+          "start_offset": 158,
+          "end_offset": 170
+        },
+        {
+          "passage_id": "631eaf96ccbf50a3ba82d6df64651e57fb5eed04e1139e3a754bc30e5b803e94",
+          "anchor_id": "ef96873e741dad01ec4c49841af4c4eef3233ae2691171352009ba3ca5ecc83f",
+          "anchor_kind": "list_item",
+          "heading_path": [
+            "Security Review evidence meeting",
+            "Decisions"
+          ],
+          "start_offset": 172,
+          "end_offset": 227
+        },
+        {
+          "passage_id": "d0c0ffc2a2e6e7ed37ee3284cf55a337c089996406c3143c04230df7282d553d",
+          "anchor_id": "61c7f53db23015d3bfeecb66ada243d7e7cdd24dcb6c743ae1b0205a530d98e1",
+          "anchor_kind": "heading",
+          "heading_path": [
+            "Security Review evidence meeting",
+            "Actions"
+          ],
+          "start_offset": 229,
+          "end_offset": 239
+        },
+        {
+          "passage_id": "aee5290d2b967907ecdd5d7218cda5fbfd02c397432e2304cbe6077249941fa1",
+          "anchor_id": "e7b9efa8ded1a987dd36a3c704b9083c6a852aa097fab0cfb0ee13e90d18f06b",
+          "anchor_kind": "task",
+          "heading_path": [
+            "Security Review evidence meeting",
+            "Actions"
+          ],
+          "start_offset": 241,
+          "end_offset": 307
+        }
+      ],
+      "anchors_truncated": false,
+      "mentioned_entities": [
+        {
+          "entity_id": "audit-trail",
+          "name": "Audit Trail",
+          "entity_type": "system",
+          "mention_count": 1,
+          "anchor_ids": [
+            "20e09a9b75bcde40701b980c8a9d9bcdb07fda4b805cc40fb669a6bfea0024a9"
+          ]
+        },
+        {
+          "entity_id": "morgan",
+          "name": "Morgan",
+          "entity_type": "person",
+          "mention_count": 1,
+          "anchor_ids": [
+            "e7b9efa8ded1a987dd36a3c704b9083c6a852aa097fab0cfb0ee13e90d18f06b"
+          ]
+        },
+        {
+          "entity_id": "security-review",
+          "name": "Security Review",
+          "entity_type": "workstream",
+          "mention_count": 2,
+          "anchor_ids": [
+            "d4c2aecb04bc55129297891999d18cca25829072cd953be9aa36995804946b75",
+            "20e09a9b75bcde40701b980c8a9d9bcdb07fda4b805cc40fb669a6bfea0024a9"
+          ]
+        }
+      ],
+      "details": [
+        {
+          "record_id": "f0d27a4130cff30e0ac93b80fd4b407b2dd041ad66fa9d086e3f51368bbf8008",
+          "record_type": "relationship",
+          "rule": "explicit_wikilink",
+          "anchor_id": "20e09a9b75bcde40701b980c8a9d9bcdb07fda4b805cc40fb669a6bfea0024a9",
+          "heading_path": [
+            "Security Review evidence meeting"
+          ],
+          "start_offset": 102,
+          "end_offset": 156,
+          "source_entity_id": "security-review",
+          "target_entity_id": "audit-trail"
+        },
+        {
+          "record_id": "0b1f23286764a8d9bc0e7227b98168edf04502a7aa330a96670dcd9b4bd1eab1",
+          "record_type": "decision",
+          "rule": "decision_heading",
+          "anchor_id": "ef96873e741dad01ec4c49841af4c4eef3233ae2691171352009ba3ca5ecc83f",
+          "heading_path": [
+            "Security Review evidence meeting",
+            "Decisions"
+          ],
+          "start_offset": 172,
+          "end_offset": 227
+        },
+        {
+          "record_id": "2e8464355d7bf3c0772c00ab7ac100740b81b8c5c42c9f632bb0f0f9006fd973",
+          "record_type": "action",
+          "rule": "checkbox_task",
+          "anchor_id": "e7b9efa8ded1a987dd36a3c704b9083c6a852aa097fab0cfb0ee13e90d18f06b",
+          "heading_path": [
+            "Security Review evidence meeting",
+            "Actions"
+          ],
+          "start_offset": 241,
+          "end_offset": 307,
+          "status": "open",
+          "owner": "Morgan",
+          "due_date": "2026-09-24"
+        }
+      ],
+      "details_total": 3,
+      "details_truncated": false
+    },
+    {
+      "source_path": "atlas-vault/04-audit-trail.md",
+      "outcome": "added",
+      "reasons": [
+        "new_document",
+        "new_revision"
+      ],
+      "document_id": "a4d38986-db28-5daf-bb40-0a5751d1ba18",
+      "source_revision_id": "98d17dfb2ae22e728738be0360b3573a5736e58ef2cb9cceb22477feb3df24eb",
+      "revision_state": "new",
+      "records_rebuilt": true,
+      "active": true,
+      "counts": {
+        "anchors": 4,
+        "passages": 4,
+        "mentions": 1,
+        "relationships": 0,
+        "actions": 0,
+        "decisions": 0,
+        "blockers": 1,
+        "conflicts": 0
+      },
+      "anchors": [
+        {
+          "passage_id": "bf380cdb26ed3bed09f38247d3f909f34c784a127ffe3f5c17ecbede621f8a61",
+          "anchor_id": "504189b7295c28b2037c18f92dcb20096d55dfcbf6ae5405abf304ac9ecd4f6b",
+          "anchor_kind": "heading",
+          "heading_path": [
+            "Audit Trail readiness"
+          ],
+          "start_offset": 55,
+          "end_offset": 78
+        },
+        {
+          "passage_id": "a27863a77ea77a6e112aa528863b1aaf5b19b7f43806b5f1f75b0e8524a52fa9",
+          "anchor_id": "841c6ee79fa53fb8b73ad6e9fb9f92e69cb770d6561f3eb5e1cd7c23cc719a75",
+          "anchor_kind": "paragraph",
+          "heading_path": [
+            "Audit Trail readiness"
+          ],
+          "start_offset": 80,
+          "end_offset": 140
+        },
+        {
+          "passage_id": "35470804ea32f969a548b30563a77f5651dd7c41caf57f1a91195e7091a0d968",
+          "anchor_id": "5e8d3d4385fe1b4fc6d96fe552a9c365ffe5c19cb03bf506748a3a63295baf54",
+          "anchor_kind": "heading",
+          "heading_path": [
+            "Audit Trail readiness",
+            "Blockers"
+          ],
+          "start_offset": 142,
+          "end_offset": 153
+        },
+        {
+          "passage_id": "24d84386152e5b908c0f805ebb16d7cf40f4e8dc5829759fad21c0a06a13a9b9",
+          "anchor_id": "ab580e1d9f186f2efad4ddff1f66a4b6f2e645548fb7c5f2340472b921dd4ffb",
+          "anchor_kind": "list_item",
+          "heading_path": [
+            "Audit Trail readiness",
+            "Blockers"
+          ],
+          "start_offset": 155,
+          "end_offset": 204
+        }
+      ],
+      "anchors_truncated": false,
+      "mentioned_entities": [
+        {
+          "entity_id": "audit-trail",
+          "name": "Audit Trail",
+          "entity_type": "system",
+          "mention_count": 1,
+          "anchor_ids": [
+            "504189b7295c28b2037c18f92dcb20096d55dfcbf6ae5405abf304ac9ecd4f6b"
+          ]
+        }
+      ],
+      "details": [
+        {
+          "record_id": "585cda51f1799a7369c54ad2fecadedf4f9e7a3f9f69267829c79eee8fcc55e9",
+          "record_type": "blocker",
+          "rule": "blocker_heading",
+          "anchor_id": "ab580e1d9f186f2efad4ddff1f66a4b6f2e645548fb7c5f2340472b921dd4ffb",
+          "heading_path": [
+            "Audit Trail readiness",
+            "Blockers"
+          ],
+          "start_offset": 155,
+          "end_offset": 204
+        }
+      ],
+      "details_total": 1,
+      "details_truncated": false
+    },
+    {
+      "source_path": "atlas-vault/05-atlascope-planning.md",
+      "outcome": "added",
+      "reasons": [
+        "new_document",
+        "new_revision"
+      ],
+      "document_id": "5c8d251f-539d-56cf-82f1-eb8d3fedb046",
+      "source_revision_id": "6f1f4f94ccf19234d80bb9b86aea79fb225cd54aa4c8ac675e7f3201856d33bf",
+      "revision_state": "new",
+      "records_rebuilt": true,
+      "active": true,
+      "counts": {
+        "anchors": 8,
+        "passages": 8,
+        "mentions": 2,
+        "relationships": 0,
+        "actions": 1,
+        "decisions": 1,
+        "blockers": 1,
+        "conflicts": 0
+      },
+      "anchors": [
+        {
+          "passage_id": "b315c79c06c816d0228ca02eb071955185c7ce68da4754220ab87ae64198134f",
+          "anchor_id": "32d70db14a12d1c3af91fea3b965c9fbe7327b9b041eb4ddc4e7b1fb085e0e64",
+          "anchor_kind": "heading",
+          "heading_path": [
+            "Atlascope migration planning"
+          ],
+          "start_offset": 62,
+          "end_offset": 92
+        },
+        {
+          "passage_id": "6dd92bdf40c69e6fc614c84753408a254d86da522058acc709938de2bb7d0092",
+          "anchor_id": "9062d1594d21dca3d01e64e336c84988075dd10b8bb07b6fc29572f6f63750fe",
+          "anchor_kind": "paragraph",
+          "heading_path": [
+            "Atlascope migration planning"
+          ],
+          "start_offset": 94,
+          "end_offset": 158
+        },
+        {
+          "passage_id": "00f7d07f49556caf293674737efdcb0916dbd4c4430b5d832615fb66dff90dab",
+          "anchor_id": "21949ffa2cac51f9ae7467b956b527d5d2f265014ed56e598fbff47b25fbdbb2",
+          "anchor_kind": "heading",
+          "heading_path": [
+            "Atlascope migration planning",
+            "Decisions"
+          ],
+          "start_offset": 160,
+          "end_offset": 172
+        },
+        {
+          "passage_id": "5dd60fe334c44c9021e5731a479cdcb71160143123145091e67387df26431fbf",
+          "anchor_id": "e12e0a71eccf5ad3a8c718a69eeacb773c8f5d71c0d42a1d8cb04d0c266c6533",
+          "anchor_kind": "list_item",
+          "heading_path": [
+            "Atlascope migration planning",
+            "Decisions"
+          ],
+          "start_offset": 174,
+          "end_offset": 211
+        },
+        {
+          "passage_id": "21a4b0446e9f4be70aabf75e7a41908e2b8dabe7f2264630a1da373fe257309f",
+          "anchor_id": "80b22c14ed71caf7a8b75ccb0f60c2f4b64b9d09e935239db158252b9eaf684e",
+          "anchor_kind": "heading",
+          "heading_path": [
+            "Atlascope migration planning",
+            "Actions"
+          ],
+          "start_offset": 213,
+          "end_offset": 223
+        },
+        {
+          "passage_id": "f0dbdeb0bc33b9d4c249060c353da1ce98eb9b8456e99255d9cd5f0d81a87fa1",
+          "anchor_id": "78f30a4d12e8b181a2872c8661e3d810d37299f31a2876499886c7a5aa78e8bf",
+          "anchor_kind": "task",
+          "heading_path": [
+            "Atlascope migration planning",
+            "Actions"
+          ],
+          "start_offset": 225,
+          "end_offset": 302
+        },
+        {
+          "passage_id": "efedc6780cb063a67dc0e7554b1f42b9c30c82d24b345cc3c531285df4153002",
+          "anchor_id": "2d242fc36a8329f4990d26a44570907119434231d2432cabceb86f594549b01b",
+          "anchor_kind": "heading",
+          "heading_path": [
+            "Atlascope migration planning",
+            "Blockers"
+          ],
+          "start_offset": 304,
+          "end_offset": 315
+        },
+        {
+          "passage_id": "b5ea55c767cd303b9202ad3dd99789db18cedb4bdbd15d0b8a594e741261ae88",
+          "anchor_id": "5b73bf65599b7cdd2fd93259a176499de9a25369ef8b7591b59cd014046b7624",
+          "anchor_kind": "list_item",
+          "heading_path": [
+            "Atlascope migration planning",
+            "Blockers"
+          ],
+          "start_offset": 317,
+          "end_offset": 359
+        }
+      ],
+      "anchors_truncated": false,
+      "mentioned_entities": [
+        {
+          "entity_id": "atlascope",
+          "name": "Atlascope",
+          "entity_type": "project",
+          "mention_count": 2,
+          "anchor_ids": [
+            "32d70db14a12d1c3af91fea3b965c9fbe7327b9b041eb4ddc4e7b1fb085e0e64",
+            "9062d1594d21dca3d01e64e336c84988075dd10b8bb07b6fc29572f6f63750fe"
+          ]
+        }
+      ],
+      "details": [
+        {
+          "record_id": "602a46d2d3ac8ce949622a1f9e97d5421da5afd53db00785da90b08a60d358d7",
+          "record_type": "decision",
+          "rule": "decision_heading",
+          "anchor_id": "e12e0a71eccf5ad3a8c718a69eeacb773c8f5d71c0d42a1d8cb04d0c266c6533",
+          "heading_path": [
+            "Atlascope migration planning",
+            "Decisions"
+          ],
+          "start_offset": 174,
+          "end_offset": 211
+        },
+        {
+          "record_id": "23c559c3dfe5268160f8f9cbf0b6aa3ea1b02745e6fdff4a0a238f083097285c",
+          "record_type": "action",
+          "rule": "checkbox_task",
+          "anchor_id": "78f30a4d12e8b181a2872c8661e3d810d37299f31a2876499886c7a5aa78e8bf",
+          "heading_path": [
+            "Atlascope migration planning",
+            "Actions"
+          ],
+          "start_offset": 225,
+          "end_offset": 302,
+          "status": "open",
+          "owner": "Lee",
+          "due_date": "2026-10-02"
+        },
+        {
+          "record_id": "572dbd683ce97224fb2819ab4a5b4dfdd0aa9902cc046420598e93b780ff5b64",
+          "record_type": "blocker",
+          "rule": "blocker_heading",
+          "anchor_id": "5b73bf65599b7cdd2fd93259a176499de9a25369ef8b7591b59cd014046b7624",
+          "heading_path": [
+            "Atlascope migration planning",
+            "Blockers"
+          ],
+          "start_offset": 317,
+          "end_offset": 359
+        }
+      ],
+      "details_total": 3,
+      "details_truncated": false
+    },
+    {
+      "source_path": "atlas-vault/06-integration-notes.md",
+      "outcome": "added",
+      "reasons": [
+        "new_document",
+        "new_revision"
+      ],
+      "document_id": "f20e7868-a11a-5e43-8d7a-83e51ee524a7",
+      "source_revision_id": "87d655cdec333589d26f0da2e0c1edba53a9b19eeb264f3ae6176d4ed9906d8b",
+      "revision_state": "new",
+      "records_rebuilt": true,
+      "active": true,
+      "counts": {
+        "anchors": 4,
+        "passages": 4,
+        "mentions": 1,
+        "relationships": 0,
+        "actions": 0,
+        "decisions": 0,
+        "blockers": 0,
+        "conflicts": 0
+      },
+      "anchors": [
+        {
+          "passage_id": "f3ffc3f031962e66cd5a78398c20652dd80741d035d1f059babbefbf195ec3d9",
+          "anchor_id": "81717f5185ab9032af9e108479f9854ca9ef615ec56a9cabb61dca354f11edc3",
+          "anchor_kind": "heading",
+          "heading_path": [
+            "Atlas integration notes"
+          ],
+          "start_offset": 57,
+          "end_offset": 82
+        },
+        {
+          "passage_id": "e457ad6f2efe17d2656525fd47bd3de842377e649f0705f7080108c399c7cbec",
+          "anchor_id": "1580d785e01d89a312ea130f5b2effa4e6bbab1314cceb78766e9257eb42b522",
+          "anchor_kind": "paragraph",
+          "heading_path": [
+            "Atlas integration notes"
+          ],
+          "start_offset": 84,
+          "end_offset": 193
+        },
+        {
+          "passage_id": "fa926885072c5d71964ac470d7aabff98a38e690d20bc7bafb6d93c7e0a41a52",
+          "anchor_id": "770ae0fa7702463e721360187ff0a7dc7d1a41de3de2c755a6e16aad58fb32e8",
+          "anchor_kind": "list_item",
+          "heading_path": [
+            "Atlas integration notes"
+          ],
+          "start_offset": 195,
+          "end_offset": 376
+        },
+        {
+          "passage_id": "0ab239debb605ee38a20035262d7b67c5ba3d525197ad3c25b34a431f551a165",
+          "anchor_id": "a1ed49edcd24571d0275c80d254e222fb57c69c8511c130993b25af320da1c6a",
+          "anchor_kind": "paragraph",
+          "heading_path": [
+            "Atlas integration notes"
+          ],
+          "start_offset": 378,
+          "end_offset": 436
+        }
+      ],
+      "anchors_truncated": false,
+      "mentioned_entities": [
+        {
+          "entity_id": "atlas",
+          "name": "Atlas",
+          "entity_type": "project",
+          "mention_count": 1,
+          "anchor_ids": [
+            "81717f5185ab9032af9e108479f9854ca9ef615ec56a9cabb61dca354f11edc3"
+          ]
+        }
+      ],
+      "details": [],
+      "details_total": 0,
+      "details_truncated": false
+    },
+    {
+      "source_path": "atlas-vault/07-launch-date-decision.md",
+      "outcome": "added",
+      "reasons": [
+        "new_document",
+        "new_revision"
+      ],
+      "document_id": "6536a7c5-2617-50b5-b7a8-3d516365782b",
+      "source_revision_id": "e3d1ad8a8f2820812ce4ef374a56b223c71aeca9dd84b119bded1fbb89984bf5",
+      "revision_state": "new",
+      "records_rebuilt": true,
+      "active": true,
+      "counts": {
+        "anchors": 5,
+        "passages": 5,
+        "mentions": 3,
+        "relationships": 0,
+        "actions": 1,
+        "decisions": 1,
+        "blockers": 0,
+        "conflicts": 0
+      },
+      "anchors": [
+        {
+          "passage_id": "5874663b0e0f1c34ee5f03300067a4c7161c66dfd8637b3656bc730479644943",
+          "anchor_id": "ef8d52e4f2b35c83680ec2e637763c00987ae6f1488558f1ecfe7854032c5e85",
+          "anchor_kind": "heading",
+          "heading_path": [
+            "Atlas launch date decision"
+          ],
+          "start_offset": 60,
+          "end_offset": 88
+        },
+        {
+          "passage_id": "196d026d24596b2f9eef34ea098336c5adce61a4e927de2aace470bdf3d96806",
+          "anchor_id": "3e025182b9aa32ac93387465d4e51db9ac2c6294799adc676febb1b013e83aed",
+          "anchor_kind": "heading",
+          "heading_path": [
+            "Atlas launch date decision",
+            "Decisions"
+          ],
+          "start_offset": 90,
+          "end_offset": 102
+        },
+        {
+          "passage_id": "66dcbadb2fd365d0228cacc9c27824a6cd2d6601cea221aa7ffcf8bef7033640",
+          "anchor_id": "98982a116ef476bd0cd9ce091041af7d4b0a4ee3d9d109790c68bb1b983e4b15",
+          "anchor_kind": "list_item",
+          "heading_path": [
+            "Atlas launch date decision",
+            "Decisions"
+          ],
+          "start_offset": 104,
+          "end_offset": 244
+        },
+        {
+          "passage_id": "296c9fbd189126662d1da95af466877b57da115734102105a53e137316ee8a5c",
+          "anchor_id": "2cf07067eddf67fe7eff10ecc18036546706182895e0e46d46d2a2f6ada553f3",
+          "anchor_kind": "heading",
+          "heading_path": [
+            "Atlas launch date decision",
+            "Actions"
+          ],
+          "start_offset": 246,
+          "end_offset": 256
+        },
+        {
+          "passage_id": "fc9c15dc4fc9f5e09379594bf9915984f4244ae2c138ae2b26a62603598174ba",
+          "anchor_id": "d001011b9a552e5d18096bb8aa6921622667094bdfe89646789b0ef4f3110dbd",
+          "anchor_kind": "task",
+          "heading_path": [
+            "Atlas launch date decision",
+            "Actions"
+          ],
+          "start_offset": 258,
+          "end_offset": 327
+        }
+      ],
+      "anchors_truncated": false,
+      "mentioned_entities": [
+        {
+          "entity_id": "atlas",
+          "name": "Atlas",
+          "entity_type": "project",
+          "mention_count": 2,
+          "anchor_ids": [
+            "ef8d52e4f2b35c83680ec2e637763c00987ae6f1488558f1ecfe7854032c5e85",
+            "98982a116ef476bd0cd9ce091041af7d4b0a4ee3d9d109790c68bb1b983e4b15"
+          ]
+        },
+        {
+          "entity_id": "morgan",
+          "name": "Morgan",
+          "entity_type": "person",
+          "mention_count": 1,
+          "anchor_ids": [
+            "d001011b9a552e5d18096bb8aa6921622667094bdfe89646789b0ef4f3110dbd"
+          ]
+        }
+      ],
+      "details": [
+        {
+          "record_id": "ea8f6bc51c075a38396d1f551b6d12c63d57bb8d6b0d98156071c6e573346a46",
+          "record_type": "decision",
+          "rule": "decision_heading",
+          "anchor_id": "98982a116ef476bd0cd9ce091041af7d4b0a4ee3d9d109790c68bb1b983e4b15",
+          "heading_path": [
+            "Atlas launch date decision",
+            "Decisions"
+          ],
+          "start_offset": 104,
+          "end_offset": 244,
+          "record_key": "launch-oct8"
+        },
+        {
+          "record_id": "a61e2b5da7f1e1b24f7dfd6aeb7cc3e828c7932ebb6c15087f42bfc91fe19dcd",
+          "record_type": "action",
+          "rule": "checkbox_task",
+          "anchor_id": "d001011b9a552e5d18096bb8aa6921622667094bdfe89646789b0ef4f3110dbd",
+          "heading_path": [
+            "Atlas launch date decision",
+            "Actions"
+          ],
+          "start_offset": 258,
+          "end_offset": 327,
+          "status": "open",
+          "owner": "Morgan",
+          "due_date": "2026-09-25"
+        }
+      ],
+      "details_total": 2,
+      "details_truncated": false
+    },
+    {
+      "source_path": "atlas-vault/08-calendar-discrepancy.md",
+      "outcome": "added",
+      "reasons": [
+        "new_document",
+        "new_revision"
+      ],
+      "document_id": "80ad6f5a-a5c1-5fd3-a609-b72aa8d8ed93",
+      "source_revision_id": "a10fd10515ef31be41279bc64cf1ffee142f40565a1473fdaba578fd2f700709",
+      "revision_state": "new",
+      "records_rebuilt": true,
+      "active": true,
+      "counts": {
+        "anchors": 3,
+        "passages": 3,
+        "mentions": 2,
+        "relationships": 0,
+        "actions": 0,
+        "decisions": 0,
+        "blockers": 0,
+        "conflicts": 1
+      },
+      "anchors": [
+        {
+          "passage_id": "88fccca5bc0acfce2ee57b7fc18b850c77db582d95bf74209066625b99362eb4",
+          "anchor_id": "82007a55ec1a865ba1fb96902e9690e17e612803f09060cd3b5f08ecbf16e45c",
+          "anchor_kind": "heading",
+          "heading_path": [
+            "Atlas calendar discrepancy"
+          ],
+          "start_offset": 60,
+          "end_offset": 88
+        },
+        {
+          "passage_id": "aa5af9e6a88d2d591312ed1fccfa2aaa8d9148ad6451f643dbed82ab29401e94",
+          "anchor_id": "af332d3cad8bc996ac24a8b965307d64304dd8b59fcf01355c25a13dcc885ecb",
+          "anchor_kind": "heading",
+          "heading_path": [
+            "Atlas calendar discrepancy",
+            "Conflicts"
+          ],
+          "start_offset": 90,
+          "end_offset": 102
+        },
+        {
+          "passage_id": "86f4fd9c805efb698b3041cf0ac7bd0e9779ff48776eb5bc4f2e3fa7105e5ae0",
+          "anchor_id": "2dea9cb051f4a82bb491163d6e262cd30368cb1f5272a903a498c500394e4475",
+          "anchor_kind": "list_item",
+          "heading_path": [
+            "Atlas calendar discrepancy",
+            "Conflicts"
+          ],
+          "start_offset": 104,
+          "end_offset": 243
+        }
+      ],
+      "anchors_truncated": false,
+      "mentioned_entities": [
+        {
+          "entity_id": "atlas",
+          "name": "Atlas",
+          "entity_type": "project",
+          "mention_count": 2,
+          "anchor_ids": [
+            "82007a55ec1a865ba1fb96902e9690e17e612803f09060cd3b5f08ecbf16e45c",
+            "2dea9cb051f4a82bb491163d6e262cd30368cb1f5272a903a498c500394e4475"
+          ]
+        }
+      ],
+      "details": [
+        {
+          "record_id": "1e5f57320a569caf6e8e54a0d7188fb9f51170fe6fd15141faa3d1ae7bce1f4b",
+          "record_type": "conflict",
+          "rule": "conflict_heading",
+          "anchor_id": "2dea9cb051f4a82bb491163d6e262cd30368cb1f5272a903a498c500394e4475",
+          "heading_path": [
+            "Atlas calendar discrepancy",
+            "Conflicts"
+          ],
+          "start_offset": 104,
+          "end_offset": 243
+        }
+      ],
+      "details_total": 1,
+      "details_truncated": false
+    },
+    {
+      "source_path": "atlas-vault/09-completion-email.md",
+      "outcome": "added",
+      "reasons": [
+        "new_document",
+        "new_revision"
+      ],
+      "document_id": "dec3b5a6-2577-57a8-8cc5-5434944a67e4",
+      "source_revision_id": "6dfff430876f8c8a016d5202937c9c84db339803b8419d42b033409b7d723979",
+      "revision_state": "new",
+      "records_rebuilt": true,
+      "active": true,
+      "counts": {
+        "anchors": 3,
+        "passages": 3,
+        "mentions": 2,
+        "relationships": 0,
+        "actions": 0,
+        "decisions": 0,
+        "blockers": 0,
+        "conflicts": 0
+      },
+      "anchors": [
+        {
+          "passage_id": "591d5622233e58ef942184b451318c969b5ae0a4be999e941ebfe70dec400dce",
+          "anchor_id": "a25cdda8c76474d2012c33c2487c2a9f260bd231e332e8a148aec02c696a9ad6",
+          "anchor_kind": "heading",
+          "heading_path": [
+            "Atlas review date confirmed"
+          ],
+          "start_offset": 73,
+          "end_offset": 102
+        },
+        {
+          "passage_id": "e177ffc25aabbacc6264393845a84869c17c642d52b35a2e9661c49134190770",
+          "anchor_id": "5bf36861bdbb09b61cd9aee5cd89e97708293f6db1a2a6d49b88265b63e7bc7a",
+          "anchor_kind": "paragraph",
+          "heading_path": [
+            "Atlas review date confirmed"
+          ],
+          "start_offset": 104,
+          "end_offset": 213
+        },
+        {
+          "passage_id": "42df6e1f87fb06756e028c96444120e135ad2bff2e674d6ee90b4f89ecbf053e",
+          "anchor_id": "1d78b56784bc0e825b89432998bc21e1ba725aef57e86a9a3902ffa322d4cd70",
+          "anchor_kind": "paragraph",
+          "heading_path": [
+            "Atlas review date confirmed"
+          ],
+          "start_offset": 215,
+          "end_offset": 327
+        }
+      ],
+      "anchors_truncated": false,
+      "mentioned_entities": [
+        {
+          "entity_id": "atlas",
+          "name": "Atlas",
+          "entity_type": "project",
+          "mention_count": 1,
+          "anchor_ids": [
+            "a25cdda8c76474d2012c33c2487c2a9f260bd231e332e8a148aec02c696a9ad6"
+          ]
+        },
+        {
+          "entity_id": "priya",
+          "name": "Priya",
+          "entity_type": "person",
+          "mention_count": 1,
+          "anchor_ids": [
+            "5bf36861bdbb09b61cd9aee5cd89e97708293f6db1a2a6d49b88265b63e7bc7a"
+          ]
+        }
+      ],
+      "details": [],
+      "details_total": 0,
+      "details_truncated": false
+    },
+    {
+      "source_path": "atlas-vault/10-meeting-agenda.md",
+      "outcome": "added",
+      "reasons": [
+        "new_document",
+        "new_revision"
+      ],
+      "document_id": "b3803555-2122-5d23-af42-e5692f3cf271",
+      "source_revision_id": "2b7db8e6d069cfbe39bd3d1d583db5675bfa06e4f4df57bb9f8f403419249535",
+      "revision_state": "new",
+      "records_rebuilt": true,
+      "active": true,
+      "counts": {
+        "anchors": 7,
+        "passages": 7,
+        "mentions": 1,
+        "relationships": 0,
+        "actions": 0,
+        "decisions": 0,
+        "blockers": 0,
+        "conflicts": 0
+      },
+      "anchors": [
+        {
+          "passage_id": "68534e7473aff9a820e5177fb57964e324ebc2a2c23b33aac1e607ffc22dba21",
+          "anchor_id": "b4eaafe0512a7e1161408c3cf55292a0bc17ea782e5869f8778cf39c25c53da1",
+          "anchor_kind": "heading",
+          "heading_path": [
+            "Atlas review agenda"
+          ],
+          "start_offset": 53,
+          "end_offset": 74
+        },
+        {
+          "passage_id": "eae61c9af7fa7eb388c158d1a5a91255b5347c71fa3d177b74066060d3c0d462",
+          "anchor_id": "7d7aa2633cced08b60eab301a0eea703b3ab34bfc01b3cd574d080d16dc5df1d",
+          "anchor_kind": "heading",
+          "heading_path": [
+            "Atlas review agenda",
+            "Questions to prepare"
+          ],
+          "start_offset": 76,
+          "end_offset": 99
+        },
+        {
+          "passage_id": "9bbf0a25e0f04d3d581a1e932a777696e424ed53429ecbed14112bc573915836",
+          "anchor_id": "fd9c68a13282191a14559842a43b1b0c73fcd455f901ba3811daa82ac6836fa9",
+          "anchor_kind": "list_item",
+          "heading_path": [
+            "Atlas review agenda",
+            "Questions to prepare"
+          ],
+          "start_offset": 101,
+          "end_offset": 145
+        },
+        {
+          "passage_id": "fafd8f03c79afdd4249eb90ca0e237a0348d240dcc6db210e921baa94a36234a",
+          "anchor_id": "4e008a00d77a87582c228ad08948e7dfabb903f7bf2e756e86b38d3f26595688",
+          "anchor_kind": "list_item",
+          "heading_path": [
+            "Atlas review agenda",
+            "Questions to prepare"
+          ],
+          "start_offset": 146,
+          "end_offset": 185
+        },
+        {
+          "passage_id": "03b267c62f515375e2fac99402e631c3728778efde868ed75264edd59bce3e5a",
+          "anchor_id": "2191a9f8cf69e369a28cdf8a9100652c4aca2c41b83958dfe9335b4729dcba83",
+          "anchor_kind": "list_item",
+          "heading_path": [
+            "Atlas review agenda",
+            "Questions to prepare"
+          ],
+          "start_offset": 186,
+          "end_offset": 255
+        },
+        {
+          "passage_id": "bf9f50ddf9ede549d672f58ae96ffc272774bec3ba92e197da4c7d5d7b3e4077",
+          "anchor_id": "ce0cb13bbcfd11654ac481f232c60940c824f323ea478253c5cce1a380aa486b",
+          "anchor_kind": "list_item",
+          "heading_path": [
+            "Atlas review agenda",
+            "Questions to prepare"
+          ],
+          "start_offset": 256,
+          "end_offset": 303
+        },
+        {
+          "passage_id": "d1e143ff2da0b95d7f649b7dbfc307440c829da085a472620f95de9e4444ed42",
+          "anchor_id": "af09016418a142ebe08c80289eed5ae866e0db7bf13109f4c455b48c773eda4e",
+          "anchor_kind": "paragraph",
+          "heading_path": [
+            "Atlas review agenda",
+            "Questions to prepare"
+          ],
+          "start_offset": 305,
+          "end_offset": 397
+        }
+      ],
+      "anchors_truncated": false,
+      "mentioned_entities": [
+        {
+          "entity_id": "atlas",
+          "name": "Atlas",
+          "entity_type": "project",
+          "mention_count": 1,
+          "anchor_ids": [
+            "b4eaafe0512a7e1161408c3cf55292a0bc17ea782e5869f8778cf39c25c53da1"
+          ]
+        }
+      ],
+      "details": [],
+      "details_total": 0,
+      "details_truncated": false
+    }
+  ],
+  "unmatched_patterns": [],
+  "include_quotes": false,
+  "detail_limit": 50,
+  "record_state": {
+    "report_version": "1",
+    "corpus_id": "atlas-state",
+    "supersessions": [
+      {
+        "source": {
+          "record_id": "d3c7939153c6ebeefb3a47deda09cf0b4c6b7fad61ecc7681edfc68f0b320b00",
+          "record_type": "action",
+          "key": "review-date-v2",
+          "source_path": "atlas-updates/11-review-completion.md",
+          "source_revision_id": "1f42c7d674d6cdb1c0256ecc1904a011d960a36e8b1608636ae722f4a44ce31e",
+          "anchor_id": "d4f96b8e27ecbe9ce02bca200ffc57dabfa6fba3bf35b5b776d3e07760eb9f5d"
+        },
+        "target_key": "review-date-v1",
+        "target": {
+          "record_id": "8fca041daa6d980ed9bd11b66a5e19b8d6c7228d75f5309951f426db7e7b1228",
+          "record_type": "action",
+          "key": "review-date-v1",
+          "source_path": "atlas-vault/01-planning-meeting.md",
+          "source_revision_id": "5d22d01a4d3a6eac41591c6a0b4b8145230ac13f780808228268651edc6108a0",
+          "anchor_id": "5186d0a5e4654c8931bb3db4b4f103e53941c98b2ca546bdd963de608b69e7e6"
+        },
+        "candidates": [],
+        "conflicting_sources": [],
+        "effective_record_id": "d3c7939153c6ebeefb3a47deda09cf0b4c6b7fad61ecc7681edfc68f0b320b00",
+        "resolution": "applied"
+      },
+      {
+        "source": {
+          "record_id": "3719c2e172c0b47f6c4fa4555af2ab3e4ff40096579b2f848dbfb4f1054e0534",
+          "record_type": "decision",
+          "key": "launch-oct15",
+          "source_path": "atlas-updates/12-launch-rescheduling.md",
+          "source_revision_id": "2783e31ebffc0663114c6574860f94b69c144dbec29fc5481f72a0738d796100",
+          "anchor_id": "2700603797f756ab7e91104b9683afe0f94741558f295412f56ca1b2c283e4d8"
+        },
+        "target_key": "launch-oct8",
+        "target": {
+          "record_id": "ea8f6bc51c075a38396d1f551b6d12c63d57bb8d6b0d98156071c6e573346a46",
+          "record_type": "decision",
+          "key": "launch-oct8",
+          "source_path": "atlas-vault/07-launch-date-decision.md",
+          "source_revision_id": "e3d1ad8a8f2820812ce4ef374a56b223c71aeca9dd84b119bded1fbb89984bf5",
+          "anchor_id": "98982a116ef476bd0cd9ce091041af7d4b0a4ee3d9d109790c68bb1b983e4b15"
+        },
+        "candidates": [],
+        "conflicting_sources": [],
+        "effective_record_id": "3719c2e172c0b47f6c4fa4555af2ab3e4ff40096579b2f848dbfb4f1054e0534",
+        "resolution": "applied"
+      }
+    ],
+    "supersessions_total": 2,
+    "truncated": false,
+    "warnings": [],
+    "superseded_record_ids": [
+      "8fca041daa6d980ed9bd11b66a5e19b8d6c7228d75f5309951f426db7e7b1228",
+      "ea8f6bc51c075a38396d1f551b6d12c63d57bb8d6b0d98156071c6e573346a46"
+    ]
+  }
+}

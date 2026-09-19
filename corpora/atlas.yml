@@ -1,0 +1,27 @@
+corpus_id: atlas-walkthrough
+display_name: Atlas incremental work knowledge
+vault_root: fixtures/atlas-vault
+database: ../.kg/atlas.sqlite3
+include:
+  - "*.md"
+seed_entities:
+  - entity_id: atlas
+    name: Atlas
+    entity_type: project
+  - entity_id: security-review
+    name: Security Review
+    entity_type: workstream
+  - entity_id: audit-trail
+    name: Audit Trail
+    entity_type: system
+  - entity_id: priya
+    name: Priya
+    entity_type: person
+  - entity_id: morgan
+    name: Morgan
+    entity_type: person
+  - entity_id: atlascope
+    name: Atlascope
+    entity_type: project
+metadata_fields:
+  event_time: date

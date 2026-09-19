@@ -1,0 +1,34 @@
+corpus: ../atlas.yml
+cases:
+  - id: numbered-security-action
+    command: actions
+    subject: Security Review
+    status: open
+    expected_quotes:
+      - "- [ ] Confirm the review date. [owner:: Priya] [due:: 2026-09-23] [key:: review-date-v1]"
+      - "1. [ ] Upload access evidence. [owner:: Morgan] [due:: 2026-09-24]"
+      - "- [ ] Update the launch calendar. [owner:: Morgan] [due:: 2026-09-25]"
+  - id: two-hop-blocker
+    command: search
+    subject: Atlas
+    query: archive signing certificate
+    expected_quotes:
+      - "- The archive signing certificate is unavailable."
+  - id: unrelated-similar-project
+    command: search
+    subject: Atlas
+    query: separate
+    expected_quotes: []
+  - id: ordinary-email-promise
+    command: search
+    subject: Atlas
+    query: agreed confirm
+    expected_quotes:
+      - "Priya agreed to confirm the review date, and Morgan will upload access evidence by September 24."
+  - id: source-context-for-numbered-action
+    command: source-context
+    subject: Atlas
+    query: upload access evidence
+    expected_quotes:
+      - "## Actions"
+      - "1. [ ] Upload access evidence. [owner:: Morgan] [due:: 2026-09-24]"

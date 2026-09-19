@@ -17,6 +17,7 @@ import sqlite_vec  # type: ignore[import-untyped]
 
 from kg.db import Database
 from kg.models.contracts import DenseIndexResult, SearchResult
+from kg.retrieval.context import CONTEXTUAL_SOURCE_TEXT_VERSION, contextual_passage_text
 from kg.retrieval.service import RetrievalService, SearchQueryError
 
 SOURCE_TEXT_VERSION = "passage-text-v1"
@@ -211,13 +212,19 @@ class DenseRetrievalService:
         projection_path: Path | None = None,
         provider: EmbeddingProvider | None = None,
         profile: EmbeddingProfile = DEFAULT_EMBEDDING_PROFILE,
+        contextual: bool = False,
     ) -> None:
         self.database = database
         self.corpus_id = corpus_id
         self.profile = profile
+        self.contextual = contextual
+        self.source_text_version = (
+            CONTEXTUAL_SOURCE_TEXT_VERSION if contextual else SOURCE_TEXT_VERSION
+        )
         self.projection_path = projection_path or _default_projection_path(
             database.path,
             profile,
+            contextual=contextual,
         )
         self.retrieval = RetrievalService(database, corpus_id)
         self._embedding_provider = provider
@@ -242,6 +249,7 @@ class DenseRetrievalService:
             self.corpus_id,
             embedding_provider,
             source_fingerprint,
+            source_text_version=self.source_text_version,
         )
         started = time.perf_counter()
         try:
@@ -284,7 +292,12 @@ class DenseRetrievalService:
         if self.retrieval.index_fingerprint() != source_fingerprint:
             raise DenseIndexError("Corpus changed while passages were being selected")
         vectors: list[list[float]] = []
-        texts = [passage.quote for passage in passages]
+        texts = [
+            contextual_passage_text(passage.quote, passage.title, passage.heading_path)
+            if self.contextual
+            else passage.quote
+            for passage in passages
+        ]
         for start in range(0, len(texts), batch_size):
             batch = embedding_provider.encode_documents(
                 texts[start : start + batch_size],
@@ -355,7 +368,7 @@ class DenseRetrievalService:
                                 embedding_provider.pipeline_version,
                                 embedding_provider.dimensions,
                                 embedding_provider.normalization,
-                                SOURCE_TEXT_VERSION,
+                                self.source_text_version,
                                 embedding_provider.context_behavior,
                                 embedding_provider.query_encoding,
                                 embedding_provider.document_encoding,
@@ -434,6 +447,7 @@ class DenseRetrievalService:
                 self.corpus_id,
                 embedding_provider,
                 current_fingerprint,
+                source_text_version=self.source_text_version,
             )
             projection = connection.execute(
                 """
@@ -448,7 +462,9 @@ class DenseRetrievalService:
                     connection,
                     current_fingerprint,
                 )
-            _validate_projection_model(projection, embedding_provider)
+            _validate_projection_model(
+                projection, embedding_provider, source_text_version=self.source_text_version
+            )
             query_vector = _validate_vector(
                 embedding_provider.encode_query(query),
                 embedding_provider.dimensions,
@@ -532,6 +548,10 @@ class DenseRetrievalService:
             raise DenseIndexError("Corpus changed while dense search was running")
         return results
 
+    def _index_command(self) -> str:
+        contextual = " --contextual" if self.contextual else ""
+        return f"kg dense-index --embedding-profile {self.profile.value}{contextual}"
+
     def _raise_unavailable_projection(
         self,
         connection: sqlite3.Connection,
@@ -548,8 +568,7 @@ class DenseRetrievalService:
         if not projections:
             raise DenseIndexError(
                 f"No dense projection is available for embedding profile "
-                f"{self.profile.value!r}; run 'kg dense-index --embedding-profile "
-                f"{self.profile.value}' first."
+                f"{self.profile.value!r}; run '{self._index_command()}' first."
             )
         matching_profile = [
             projection
@@ -559,8 +578,7 @@ class DenseRetrievalService:
         if not matching_profile:
             raise DenseIndexError(
                 f"The dense projection database was built for another embedding "
-                f"profile; run 'kg dense-index --embedding-profile "
-                f"{self.profile.value}'."
+                f"profile; run '{self._index_command()}'."
             )
         if all(
             projection["source_fingerprint"] != current_fingerprint
@@ -568,12 +586,11 @@ class DenseRetrievalService:
         ):
             raise DenseIndexError(
                 f"The dense projection for embedding profile {self.profile.value!r} "
-                "is stale; run 'kg dense-index' again."
+                f"is stale; run '{self._index_command()}' again."
             )
         raise DenseIndexError(
             f"The dense projection is incompatible with embedding profile "
-            f"{self.profile.value!r}; run 'kg dense-index --embedding-profile "
-            f"{self.profile.value}'."
+            f"{self.profile.value!r}; run '{self._index_command()}'."
         )
 
     def warmup(self) -> None:
@@ -600,7 +617,7 @@ class DenseRetrievalService:
     ) -> Iterator[sqlite3.Connection]:
         if read_only and not self.projection_path.exists():
             raise DenseIndexError(
-                "No dense projection is available; run 'kg dense-index' first."
+                f"No dense projection is available; run '{self._index_command()}' first."
             )
         try:
             connection = sqlite3.connect(self.projection_path)
@@ -651,6 +668,7 @@ class DenseRetrievalService:
             ) from exc
         return DenseIndexResult(
             corpus_id=self.corpus_id,
+            contextual=self.contextual,
             projection_id=projection_id,
             model_name=provider.name,
             model_revision=provider.revision,
@@ -829,16 +847,21 @@ def _migrate_projection_schema_v2(connection: sqlite3.Connection) -> None:
 def _default_projection_path(
     database_path: Path,
     profile: EmbeddingProfile,
+    *,
+    contextual: bool = False,
 ) -> Path:
-    return database_path.with_name(
+    path = database_path.with_name(
         f"{database_path.stem}{EMBEDDING_PROFILES[profile].projection_suffix}"
     )
+    return path.with_stem(f"{path.stem}.contextual") if contextual else path
 
 
 def _projection_id(
     corpus_id: str,
     provider: EmbeddingProvider,
     source_fingerprint: str,
+    *,
+    source_text_version: str = SOURCE_TEXT_VERSION,
 ) -> str:
     return _projection_id_values(
         corpus_id=corpus_id,
@@ -848,7 +871,7 @@ def _projection_id(
         pipeline_version=provider.pipeline_version,
         dimensions=provider.dimensions,
         normalization=provider.normalization,
-        source_text_version=SOURCE_TEXT_VERSION,
+        source_text_version=source_text_version,
         context_behavior=provider.context_behavior,
         query_encoding=provider.query_encoding,
         document_encoding=provider.document_encoding,
@@ -947,6 +970,8 @@ def _checked_vector_table(value: object) -> str:
 def _validate_projection_model(
     projection: sqlite3.Row,
     provider: EmbeddingProvider,
+    *,
+    source_text_version: str = SOURCE_TEXT_VERSION,
 ) -> None:
     actual = (
         projection["model_name"],
@@ -968,15 +993,18 @@ def _validate_projection_model(
         provider.pipeline_version,
         provider.dimensions,
         provider.normalization,
-        SOURCE_TEXT_VERSION,
+        source_text_version,
         provider.context_behavior,
         provider.query_encoding,
         provider.document_encoding,
         provider.profile.value,
     )
     if actual != expected:
+        contextual = (
+            " --contextual" if source_text_version == CONTEXTUAL_SOURCE_TEXT_VERSION else ""
+        )
         raise DenseIndexError(
             f"The dense projection is incompatible with embedding profile "
             f"{provider.profile.value!r}; run 'kg dense-index --embedding-profile "
-            f"{provider.profile.value}'."
+            f"{provider.profile.value}{contextual}'."
         )

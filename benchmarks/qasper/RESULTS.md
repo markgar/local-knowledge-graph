@@ -64,6 +64,11 @@ decision and a dedicated in-domain evaluation set.
 
 ## Results
 
+Contextual retrieval (`--contextual`) is implemented but not yet measured in
+this ledger. All E0-E5 and E1-S1 numbers below retain their original
+passage-only semantic representation. The new mode must be evaluated
+separately; it does not supersede any recorded result or acceptance gate.
+
 ### E0: FTS5 lexical baseline
 
 Commit: `e68c1ff`

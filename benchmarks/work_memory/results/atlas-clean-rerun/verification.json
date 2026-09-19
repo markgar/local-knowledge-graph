@@ -1,0 +1,76 @@
+{
+  "host_response_checks": [
+    {
+      "host_call_id": "call_KQ0cpCoDAiAx9DwyNQSrWPxd",
+      "request_id": "37265699-6166-44ff-a6ab-1485c12fede4",
+      "full_json_payload_matched": true
+    },
+    {
+      "host_call_id": "call_iYz9hzurss4Sz7wGcmHqpC4F",
+      "request_id": "425e3800-86bf-4366-a13f-4e2da5d2e272",
+      "full_json_payload_matched": true
+    },
+    {
+      "host_call_id": "call_auZUyE47j86BHZZFXgM0NolH",
+      "request_id": "51d8b650-3316-4f72-bc7a-c98f849e3c10",
+      "full_json_payload_matched": true
+    },
+    {
+      "host_call_id": "call_0RcmIMD6K0pYC4bddjZz3dqC",
+      "request_id": "ba0f30e8-cdfa-469d-bf6f-3921d9cfbfb1",
+      "full_json_payload_matched": true
+    },
+    {
+      "host_call_id": "call_ISiJm8DMi3ynP1b8YH2H1URS",
+      "request_id": "003f866d-8ed0-4e90-b764-1c5595593921",
+      "full_json_payload_matched": true
+    },
+    {
+      "host_call_id": "call_IkW36TBlY4x3LChvKAbsFcCU",
+      "request_id": "1a650903-dc99-41b8-920d-d682c300a9ef",
+      "full_json_payload_matched": true
+    },
+    {
+      "host_call_id": "call_cH6XDlhzcTXZQXSvAP7Wq9F6",
+      "request_id": "218d1a4d-9f77-49a9-be2e-f5e488b7aee7",
+      "full_json_payload_matched": true
+    },
+    {
+      "host_call_id": "call_pZwiK8eMqqzHN8dLhnmmnGVc",
+      "request_id": "9b439cbd-63d5-45f3-8cb6-df2f72ff61d4",
+      "full_json_payload_matched": true
+    },
+    {
+      "host_call_id": "call_oSn0GsjuProLYR5TelFvNyjN",
+      "request_id": "4c37b286-5667-469f-bb88-39158dc72732",
+      "full_json_payload_matched": true
+    },
+    {
+      "host_call_id": "call_74oQFy32VCyLM0dtTvo7E6vr",
+      "request_id": "cf0a6a2b-c128-473d-94c7-457b2b4a3402",
+      "full_json_payload_matched": true
+    },
+    {
+      "host_call_id": "call_THZlvS29kfgB1QPttExVPDm5",
+      "request_id": "dadd7289-2c31-4a05-8f4c-3852e5235bf2",
+      "full_json_payload_matched": true
+    }
+  ],
+  "output_spills": 0,
+  "process_failures": 0,
+  "delivery_failures": 0,
+  "host_recorded_models": {
+    "kg": [
+      "gpt-6-astra"
+    ],
+    "markdown": [
+      "gpt-6-astra"
+    ]
+  },
+  "manual_claim_review": {
+    "reviewer": "parent agent, not blinded",
+    "kg_unsupported_or_stale_claims": [],
+    "markdown_unsupported_or_stale_claims": []
+  },
+  "limit": "Host-returned payload is verified; subsequent model context assembly and token counts are not observed."
+}

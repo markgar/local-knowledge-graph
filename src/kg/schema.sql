@@ -34,6 +34,23 @@ CREATE TABLE IF NOT EXISTS source_anchor (
     UNIQUE (revision_id, structural_path, start_offset, end_offset)
 );
 
+CREATE TABLE IF NOT EXISTS revision_activation (
+    activation_id INTEGER PRIMARY KEY AUTOINCREMENT,
+    document_id TEXT NOT NULL REFERENCES source_document(document_id),
+    revision_id TEXT NOT NULL REFERENCES source_revision(revision_id),
+    previous_revision_id TEXT REFERENCES source_revision(revision_id),
+    activated_at TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS revision_activation_document_idx
+ON revision_activation(document_id, activation_id);
+
+CREATE TABLE IF NOT EXISTS lexical_projection (
+    corpus_id TEXT PRIMARY KEY,
+    source_fingerprint TEXT NOT NULL,
+    version TEXT NOT NULL
+);
+
 CREATE TABLE IF NOT EXISTS ingest_run (
     run_id TEXT PRIMARY KEY,
     corpus_id TEXT NOT NULL,
@@ -108,6 +125,17 @@ CREATE TABLE IF NOT EXISTS conflict (
     text TEXT NOT NULL,
     event_time TEXT
 );
+
+CREATE TABLE IF NOT EXISTS record_binding (
+    record_id TEXT PRIMARY KEY,
+    anchor_id TEXT NOT NULL REFERENCES source_anchor(anchor_id),
+    record_type TEXT NOT NULL CHECK (record_type IN ('action', 'decision')),
+    record_key TEXT,
+    supersedes_key TEXT,
+    CHECK (record_key IS NOT NULL OR supersedes_key IS NOT NULL)
+);
+
+CREATE INDEX IF NOT EXISTS record_binding_anchor_idx ON record_binding(anchor_id);
 
 CREATE TABLE IF NOT EXISTS passage (
     passage_id TEXT PRIMARY KEY,
