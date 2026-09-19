@@ -25,6 +25,7 @@ agent-useful retrieval. Statuses describe the repository as of 2026-09-18:
 | Generic corpus manifest and source selection | Implemented | Corpora, paths, aliases, and metadata mappings are configuration data. |
 | Immutable revisions and exact source anchors | Implemented | Historical revisions remain retrievable while current-state queries use only the active revision. |
 | Idempotent ingestion | Implemented | Unchanged sources do not create new revisions or mutate document state. |
+| Ingestion explanations | Implemented | Opt-in per-document outcomes, stored counts, extraction rules, and evidence IDs; source quotes require separate opt-in. |
 | Markdown headings, paragraphs, lists, tasks, and wikilinks | Implemented | CommonMark block maps preserve exact source ranges while fenced code is excluded from structural classification. |
 | Rebuildable SQLite schema | Implemented | The packaged schema initializes new indexes; pre-alpha schema changes require rebuilding generated databases. |
 | FTS5 passage search | Implemented | Queries are corpus-scoped and limited to current active revisions, with strict and natural BM25-ranked modes. |
@@ -136,6 +137,38 @@ The indexer must extract:
 The indexer must not use an LLM to infer entities, relationships, decisions, or
 tasks in Version 1.
 
+#### Explicit record state
+
+Actions and decisions can declare `[key:: version-key]` and
+`[supersedes:: earlier-version-key]`. Keys are corpus-scoped and case-sensitive.
+The engine persists these declarations against their source anchors in
+`record_binding`; it does not mutate the earlier source. Resolution uses only
+active current source revisions, independent of ingestion order.
+
+A unique, same-kind, non-cyclic, uncontested reference suppresses the earlier
+record from effective actions/decisions/status queries. Chains resolve to their
+current endpoint and inherit subject scope from predecessors. Date/status/source
+filters apply to the effective record; this is not historical as-of evaluation.
+Source evidence search and citation resolution retain superseded assertions.
+
+Missing or duplicate target keys, type mismatches, self-references, cycles,
+and competing updates must be explicit diagnostics, never implicit last-write
+or latest-date selection. Syntax errors fail the source savepoint. Unresolved
+references leave source records indexed; plain ingestion reports additional
+`state_warnings`, and status surfaces corpus-level warnings as evidence gaps.
+Removing or editing an update removes its former effect.
+
+`record-state` / `RetrievalService.record_state()` and ingestion explanations
+expose the actual resolver outcomes, source/target identities, ambiguous
+candidates, conflicting sources, effective record IDs, and suppressed IDs.
+Trace reads are transaction-consistent, and quotes remain opt-in. Display
+limits do not alter state resolution. Inline-code examples and child-list
+metadata must not create state declarations on a parent record.
+
+Checkboxes in both bulleted and CommonMark ordered lists produce tasks.
+Numbered decisions, blockers, and conflicts omit list markers from summaries
+while preserving their exact source quotes.
+
 ### Revision and Provenance
 
 Each logical document has a stable identifier. Each distinct content version
@@ -159,6 +192,13 @@ The MVP must support:
 
 Current-state output is a derived view over evidence, not an independent source
 of truth.
+
+Subject matching in titles, headings, and record text uses case-insensitive,
+literal name boundaries consistent with approved-alias mention extraction.
+A substring inside another name is not a match (for example, Atlas does not
+match Atlascope). This applies to lexical retrieval, dense candidate filtering,
+actions, explicit records, and status. It does not remove existing document-wide
+scope inheritance or bounded two-hop graph expansion.
 
 ### Structured Output
 
@@ -199,6 +239,65 @@ Responsibilities:
 - Parse deterministic structure.
 - Update full-text indexes and explicit relationships.
 - Report added, changed, unchanged, missing, and failed sources.
+
+#### Ingestion explanation contract
+
+`kg ingest --explain [--include-quotes] [--explain-limit 50] --format json`
+returns an `IngestReport` with `report_version: "1"` in addition to the existing
+run counts. Without `--explain`, the `IngestResult` JSON shape is unchanged.
+`IngestService.ingest` accepts the corresponding `explain`, `include_quotes`,
+and `detail_limit` keyword arguments. This is real ingestion, not a dry run.
+
+The report includes configured entities, unmatched include patterns, and
+source-path-ordered document reports. Each document reports its outcome,
+machine-readable reasons, identity, current/stored and previous revision IDs,
+previous path on moves, revision state (`new`, `reused`, `unchanged`, or
+`unavailable`), active state, and whether derived records were rebuilt.
+Parser/configuration rebuilds do not claim new content revisions. Failed
+sources and newly deactivated sources are explicit; retained evidence for
+those inactive sources is not presented as current indexed content.
+
+Successful documents include stored counts, configured entities actually
+mentioned and their anchor IDs, indexed source anchors/passages, and explained
+structured records. These are current-revision totals, not per-run insertion
+counts. The anchor count includes all immutable anchors retained for that
+revision; the indexed anchor list follows current passages, which can be fewer
+after a parser upgrade. Mention counts count stored mention records, including
+overlapping structural anchors, not necessarily distinct source occurrences.
+
+Record rules are `explicit_wikilink`, `checkbox_task`, `decision_heading`,
+`blocker_heading`, and `conflict_heading`. Wikilink edges connect a mentioned
+configured source entity to a configured wikilink target in the same anchor;
+these are not inferred semantic dependencies. Owners remain action metadata,
+not inferred assignment edges. Entity mentions use approved names/aliases;
+source anchors follow parsed CommonMark blocks, not inferred facts.
+
+The anchor and structured-record lists are independently limited to 50 entries
+per document by default (allowed range 1..200), ordered by source offsets with
+stable identity tie-breaks. Each list has an explicit truncation flag; counts
+and entity-mention summaries remain complete. Entries retain exact offsets,
+heading paths, anchor IDs, and passage/record IDs for evidence lookup.
+Source quotes appear in CLI JSON only with `--include-quotes`; using that flag
+without `--explain` fails before ingestion. Other metadata is not anonymized.
+
+Report reads use the ingestion transaction. Failure to construct a report
+aborts the run rather than treating a reporting defect as a bad source.
+Reports and quotes are never added to persisted `ingest_run.counts_json` or
+operational logs. YAML source-error diagnostics omit source snippets.
+
+#### Query execution telemetry
+
+`search --explain [--include-quotes]` returns a typed lexical search explanation
+instead of changing the normal search-result contract. It exposes the executed
+FTS expression, filters, corpus fingerprint, actual ranks, matched subject
+predicates, document inheritance, and up-to-two-hop graph paths with supporting
+edge IDs. Scores are ranking statistics, not confidence. Quotes are opt-in.
+
+The trace supports strict and natural modes. Unsupported semantic modes fail
+explicitly before model work. Concurrent database commits invalidate the trace
+and require retry, rather than permitting mixed-state attribution.
+`supersession_filter_applied: false` makes clear that source search retains
+superseded assertions; effective actions and decisions use the state resolver.
 
 ### Status
 
@@ -247,6 +346,28 @@ kg source-range <anchor-id> --manifest <corpus.yml> --format json
 Returns the immutable source range identified by an anchor, including its
 revision, structural path, offsets, exact quote, and quote hash.
 
+### Source Context
+
+```bash
+kg source-context <anchor-id> --manifest <corpus.yml> --format json
+```
+
+Returns a `SourceContextResult`: `selected` (the exact source range),
+`section_heading` (nullable), `anchors` (source-ordered exact ranges),
+`total_anchors`, and `truncated`. Expansion is corpus-scoped and bound to the
+selected anchor's immutable revision, not to the current source file.
+
+The nearest containing heading starts the section. Its subsections are
+included until the next sibling or ancestor heading, determined by source
+position and heading depth rather than heading names. Preamble anchors are
+separate from the first headed section; a headingless document is one section.
+`--max-anchors` defaults to 50 and accepts 1 through 200. Oversized sections
+return a window centered on the selected anchor, adjusted at section edges,
+and report truncation explicitly. The selected anchor is always in the window;
+the section heading is also returned separately. Only indexed anchors are
+returned, not a reconstructed full-text section; code blocks may be absent
+and nested list anchors may overlap.
+
 ### Revisions
 
 ```bash
@@ -258,6 +379,15 @@ Lists immutable document revisions and compares exact added, removed,
 modified, and unchanged source ranges. The comparison defaults to the current
 revision and its immediate predecessor; callers may supply explicit `--from`
 and `--to` revision IDs.
+
+An append-only activation log records predecessor transitions independently
+of content revisions. Reverting to known content reuses its revision ID,
+counts as changed ingestion, and records a new activation. The default
+predecessor is that of the latest activation of the selected target revision.
+Revision listings still contain unique content revisions in original ingestion
+order. Legacy databases have no reliable activation history: ingestion starts
+the log at their current state and warns that earlier transitions are unknown.
+Comparisons without a recorded predecessor require explicit revision IDs.
 
 ### Search
 
@@ -279,6 +409,9 @@ source anchors.
   - Immutable content hash, observed modification time, and ingestion time.
 - `source_anchor`
   - Heading path, structural path, offsets, exact quote, and quote hash.
+- `revision_activation`
+  - Ordered document-state transitions referencing immutable content revisions
+    and their immediately preceding revisions.
 - `ingest_run`
   - Parser and schema versions, timestamps, status, and counts.
 
@@ -303,7 +436,12 @@ source anchors.
 - `passage`
   - Searchable source text associated with an anchor.
 - `passage_fts`
-  - FTS5 index over titles, headings, aliases, and passage text.
+  - Retained revision-level retrieval text, including titles, headings,
+    aliases, and passages. Not used directly for BM25 ranking.
+- `lexical_projection` and corpus-specific `current_fts_<hash>` tables
+  - Current active passage text only, with isolated FTS5 corpus statistics.
+    Refreshed atomically with ingestion when the canonical corpus fingerprint
+    changes; unchanged ingestions do not rebuild them.
 
 ## Identity Rules
 
@@ -318,6 +456,10 @@ record_id = hash(anchor_id + normalized record type + normalized value)
 
 Entities may have manually approved aliases supplied by configuration or
 recorded review decisions. The MVP must not automatically merge similar names.
+
+Path-based UUIDs are used only when unoccupied. If a path is reused after its
+document moved elsewhere, a deterministic unused generation UUID is allocated;
+the moved document's identity and revisions must never be overwritten.
 
 ## Implementation Shape
 
@@ -524,6 +666,20 @@ canonical evidence and immutable provenance remain in SQLite. CUDA and Apple
 MPS may be used when available, but CPU remains a supported local fallback.
 
 #### Experimental discipline
+
+An opt-in contextual retrieval mode adds source titles and heading paths to
+the text sent to the existing embedding and reranking models. The format is
+`Title: <title>`, `Heading: <path joined by / >`, and the untouched quote,
+separated by blank lines; absent metadata fields are omitted. It does not
+change canonical anchors, lexical retrieval, queries, model profiles, or
+fusion settings. Use `--contextual` for dense indexing and semantic search.
+
+The `title-heading-passage-v1` source-text version participates in projection
+identity and compatibility. Contextual projections have separate
+`.contextual.sqlite3` paths; original `passage-text-v1` projections and default
+behavior remain unchanged. Dense-index JSON reports the `contextual` mode.
+The QASPER evaluator accepts the same flag and labels its output. This is an
+implemented experiment, not a measured improvement or a passed acceptance gate.
 
 Retrieval work proceeds one measurable feature at a time:
 

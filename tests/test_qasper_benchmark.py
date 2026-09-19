@@ -90,9 +90,11 @@ def test_qasper_fixture_prepares_and_evaluates_exact_evidence(tmp_path: Path) ->
     assert result["metrics"]["anchor_integrity"] == 1.0
 
 
+@pytest.mark.parametrize("use_context", [False, True])
 def test_qasper_fixture_evaluates_hybrid_strategy(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
+    use_context: bool,
 ) -> None:
     prepare = _load_benchmark_module("prepare")
     evaluate = _load_benchmark_module("evaluate")
@@ -111,8 +113,10 @@ def test_qasper_fixture_evaluates_hybrid_strategy(
             corpus_id: str,
             *,
             embedding_profile: EmbeddingProfile,
+            contextual: bool,
         ) -> None:
             assert embedding_profile is EmbeddingProfile.qwen3_embedding_06b
+            assert contextual is use_context
             self.retrieval = RetrievalService(database, corpus_id)
 
         def warmup(self) -> None:
@@ -145,16 +149,20 @@ def test_qasper_fixture_evaluates_hybrid_strategy(
         tmp_path / "gold.json",
         strategy="hybrid",
         embedding_profile=EmbeddingProfile.qwen3_embedding_06b,
+        contextual=use_context,
     )
 
     assert result["query_strategy"] == "hybrid"
+    assert result["contextual"] is use_context
     assert result["metrics"]["evidence_recall_at_1"] == 1.0
     assert result["metrics"]["anchor_integrity"] == 1.0
 
 
+@pytest.mark.parametrize("use_context", [False, True])
 def test_qasper_fixture_evaluates_reranked_strategy(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
+    use_context: bool,
 ) -> None:
     prepare = _load_benchmark_module("prepare")
     evaluate = _load_benchmark_module("evaluate")
@@ -173,8 +181,10 @@ def test_qasper_fixture_evaluates_reranked_strategy(
             corpus_id: str,
             *,
             embedding_profile: EmbeddingProfile,
+            contextual: bool,
         ) -> None:
             assert embedding_profile is EmbeddingProfile.qwen3_embedding_06b
+            assert contextual is use_context
             self.retrieval = RetrievalService(database, corpus_id)
 
         def warmup(self) -> None:
@@ -207,9 +217,11 @@ def test_qasper_fixture_evaluates_reranked_strategy(
         tmp_path / "gold.json",
         strategy="reranked",
         embedding_profile=EmbeddingProfile.qwen3_embedding_06b,
+        contextual=use_context,
     )
 
     assert result["query_strategy"] == "reranked"
+    assert result["contextual"] is use_context
     assert result["embedding_profile"] == "qwen3-embedding-0.6b"
     assert result["metrics"]["evidence_recall_at_1"] == 1.0
     assert result["metrics"]["anchor_integrity"] == 1.0

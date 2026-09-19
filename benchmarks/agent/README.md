@@ -14,6 +14,7 @@ The stable command set is:
 | Discover interface capabilities | `kg capabilities --format json` |
 | Search for evidence | `kg search ... --format json` |
 | Read an exact source range | `kg source-range <anchor-id> ... --format json` |
+| Read surrounding anchored context | `kg source-context <anchor-id> ... --format json` |
 | List source revisions | `kg revisions <source-path> ... --format json` |
 | Compare revisions | `kg compare-revisions <source-path> ... --format json` |
 | Resolve a citation | `kg evidence <record-id> ... --format json` |
@@ -32,3 +33,9 @@ uv run python benchmarks/agent/evaluate.py \
 
 The evaluator creates an isolated temporary corpus and invokes the CLI in a
 subprocess for every operation. Generated results are not committed.
+
+`source-context` is an additive operation covered by the source-context CLI
+tests and reviewed corpus acceptance cases, not by the original seven E5
+workflows. It returns bounded context from the selected revision and reports
+truncation explicitly. The optional `--contextual` semantic search mode is
+measured separately through QASPER; E5 continues to use natural BM25.

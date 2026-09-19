@@ -75,6 +75,67 @@ def _manifest(tmp_path: Path) -> Path:
     return path
 
 
+@pytest.mark.parametrize("profile", list(EmbeddingProfile))
+def test_contextual_index_is_separate_and_preserves_evidence(
+    tmp_path: Path, profile: EmbeddingProfile,
+) -> None:
+    manifest = load_manifest(_manifest(tmp_path))
+    (manifest.vault_root / "storage.md").write_text(
+        "# Storage\n\n## Database\n\nIt keeps the canonical evidence.\n", encoding="utf-8"
+    )
+    database = Database(manifest.database)
+    IngestService(database).ingest(manifest)
+    captured: list[str] = []
+
+    class RecordingProvider(FakeEmbeddingProvider):
+        def encode_documents(
+            self, texts: Sequence[str], *, batch_size: int,
+        ) -> list[list[float]]:
+            captured.extend(texts)
+            return super().encode_documents(texts, batch_size=batch_size)
+
+    provider = RecordingProvider()
+    provider.profile = profile
+    plain = DenseRetrievalService(database, manifest.corpus_id, provider=provider, profile=profile)
+    contextual = DenseRetrievalService(
+        database, manifest.corpus_id, provider=provider, profile=profile, contextual=True
+    )
+    plain_index = plain.build_index()
+    assert "It keeps the canonical evidence." in captured
+    assert not any(text.startswith("Title:") for text in captured)
+    captured.clear()
+    with pytest.raises(DenseIndexError, match="--contextual"):
+        contextual.search("database")
+    contextual_index = contextual.build_index()
+    assert (
+        "Title: Storage\n\nHeading: Storage / Database\n\nIt keeps the canonical evidence."
+        in captured
+    )
+    assert contextual_index.contextual is True
+    assert plain_index.contextual is False
+    assert contextual_index.projection_id != plain_index.projection_id
+    assert contextual_index.index_path != plain_index.index_path
+    assert not contextual.build_index().built
+    assert not plain.build_index().built
+    for service in (plain, contextual):
+        for result in service.search("database", limit=10):
+            assert result.quote == service.retrieval.source_range(result.anchor_id).quote
+
+    wrong_mode = DenseRetrievalService(
+        database, manifest.corpus_id, provider=provider, profile=profile,
+        projection_path=plain.projection_path, contextual=True,
+    )
+    with pytest.raises(DenseIndexError, match="incompatible"):
+        wrong_mode.search("database")
+
+    (manifest.vault_root / "storage.md").write_text(
+        "# Changed\n\nNew evidence.\n", encoding="utf-8"
+    )
+    IngestService(database).ingest(manifest)
+    with pytest.raises(DenseIndexError, match="stale"):
+        contextual.search("database")
+
+
 def test_embedding_profile_parsing_is_exact() -> None:
     assert EmbeddingProfile("gte-modernbert") is EmbeddingProfile.gte_modernbert
     assert (

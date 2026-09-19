@@ -118,6 +118,30 @@ without adding embeddings or answer generation.
 
 ## Completed experiment sequence
 
+### Pending contextual retrieval comparison
+
+The opt-in `--contextual` mode supplies titles and heading paths to the
+embedding and reranking stages without changing exact evidence quotes or
+evaluation metrics. It is one source-text representation experiment, not a
+new model or chunking strategy. To compare against the unchanged baseline:
+
+```bash
+uv run kg dense-index --manifest benchmarks/qasper/data/corpus.yml --contextual
+uv run python benchmarks/qasper/evaluate.py --strategy reranked --contextual
+uv run python benchmarks/qasper/evaluate.py --strategy reranked
+```
+
+Both projections coexist. Contextual evaluator output records
+`"contextual": true` and defaults to a filename ending in `-contextual.json`,
+so it does not overwrite baseline output. Both commands accept
+`--embedding-profile` to select the same alternate profile for comparison.
+Repeat both full runs and record metrics, latency, index time, and index size
+in `RESULTS.md` before claiming a quality improvement. `source-context` is
+a separate evidence-reading operation and does not inflate top-k recall
+with expanded passages.
+
+### Recorded experiments
+
 The benchmark was used to evaluate these retrieval stages:
 
 1. A versioned dense embedding index whose rows retain canonical `anchor_id`

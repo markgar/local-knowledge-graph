@@ -7,7 +7,43 @@ stable release. Pre-1.0 releases may contain breaking changes.
 
 ## Unreleased
 
+### Fixed
+
+- Numbered checkboxes omitted from actions and numbered decisions retaining
+  their list markers in summaries.
+- Subject filters matching unrelated longer names such as Atlascope for Atlas;
+  metadata filtering now shares ingestion's literal alias-boundary matching.
+- Document identity collisions when reusing the original path of a moved source.
+- Parent task owners and due dates overwritten by nested tasks or code examples.
+- Fenced and indented code inside list items creating semantic relationships.
+- Source offsets corrupted by Unicode separators and non-LF newlines.
+- Cross-corpus and historical-document contamination of BM25 ranking statistics.
+- Historical record citations displaying the current document title.
+- Reverted content reported as unchanged and compared against the wrong state.
+  An activation log now tracks transitions separately from immutable revisions.
+
 ### Added
+
+- A frozen ten-question work-memory comparison for actual KG-versus-Markdown
+  agent answers, with withheld gold, exact-citation scoring, identical source
+  snapshots, and request/result journals for measured tool effort.
+- Machine-readable strict/natural search telemetry through `search --explain`,
+  with executed lexical expressions, filters, ranks, subject-scope predicates,
+  graph evidence paths, opt-in quotes, and concurrent-change detection.
+- Generic, explicitly keyed task/decision supersession across documents, with
+  preserved citations, subject inheritance, and safe unresolved-reference
+  diagnostics. Ingestion telemetry and `record-state` expose the resolver's
+  actual decisions; a separate Atlas fixture exercises the feature.
+- A ten-document Atlas corpus with staged ingestion expectations, two-hop
+  evidence retrieval, similar-name isolation, prose-only negative cases,
+  exact-citation checks, and task edit/revert coverage.
+- Opt-in `ingest --explain` text/JSON reports with document outcomes, stored
+  record counts, extraction rules, source anchors, and evidence IDs. Quotes
+  require `--include-quotes`; detailed lists have explicit limits.
+- Opt-in title/heading-aware embeddings and reranking with isolated contextual
+  projections, unchanged exact evidence, and QASPER comparison support.
+- A bounded `source-context` CLI and API operation for reading surrounding
+  section anchors from the selected immutable revision.
 
 - Initial Python package, SQLite schema, Markdown ingestion, FTS5 retrieval,
   evidence lookup, task queries, and CLI.

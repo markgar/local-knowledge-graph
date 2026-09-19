@@ -1,0 +1,574 @@
+{
+  "version": 1,
+  "scoring_notes": [
+    "These expectations are frozen before agent runs. This is a synthetic pilot, not an independent real-world benchmark.",
+    "Score exact canonical facts, abstention, valid source excerpts, and coverage of the required evidence separately.",
+    "An evidence rule passes when at least one exact citation from an allowed source contains every required substring. Matching is case-insensitive, but citation validity requires an exact source substring.",
+    "Review natural-language answers separately for contradictions or unsupported extra claims. Deterministic fact scoring is not a semantic judge.",
+    "Calendar-update confirmation and final-approval confirmation are absent; do not interpret this as proof of the actual live calendar or approval system state.",
+    "Expanded gold is authored with the fixture before runs, not derived from KG output. The original twelve documents are unchanged; current launch and open-work answers include the added focal chains. launch-history is explicitly scoped to September 19–26."
+  ],
+  "answers": {
+    "current-launch": {
+      "facts": {
+        "date": "2026-11-12"
+      },
+      "abstains": false,
+      "evidence": [
+        {
+          "sources": [
+            "history/atlas/launch-03.md"
+          ],
+          "contains": [
+            "November 12, 2026",
+            "expanded-launch-nov5"
+          ]
+        }
+      ]
+    },
+    "open-work": {
+      "facts": {
+        "actions": [
+          {
+            "task": "Reconcile the historical permission ledger.",
+            "owner": "Lena",
+            "due": "2026-10-09"
+          },
+          {
+            "task": "Update the launch calendar.",
+            "owner": "Morgan",
+            "due": "2026-09-25"
+          },
+          {
+            "task": "Upload access evidence.",
+            "owner": "Morgan",
+            "due": "2026-09-24"
+          }
+        ]
+      },
+      "abstains": false,
+      "evidence": [
+        {
+          "sources": [
+            "atlas-vault/03-security-review.md"
+          ],
+          "contains": [
+            "Upload access evidence.",
+            "Morgan",
+            "2026-09-24"
+          ]
+        },
+        {
+          "sources": [
+            "atlas-vault/07-launch-date-decision.md"
+          ],
+          "contains": [
+            "Update the launch calendar.",
+            "Morgan",
+            "2026-09-25"
+          ]
+        },
+        {
+          "sources": [
+            "history/atlas/36-working-record.md"
+          ],
+          "contains": [
+            "Reconcile the historical permission ledger.",
+            "[ ]",
+            "Lena",
+            "2026-10-09",
+            "expanded-ledger-v4"
+          ]
+        }
+      ]
+    },
+    "review-confirmed": {
+      "facts": {
+        "completed": true,
+        "owner": "Priya",
+        "review_date": "2026-09-25",
+        "review_time": "10:00"
+      },
+      "abstains": false,
+      "evidence": [
+        {
+          "sources": [
+            "atlas-updates/11-review-completion.md"
+          ],
+          "contains": [
+            "[x]",
+            "Priya"
+          ]
+        },
+        {
+          "sources": [
+            "atlas-vault/09-completion-email.md",
+            "atlas-updates/11-review-completion.md"
+          ],
+          "contains": [
+            "September 25",
+            "10:00"
+          ]
+        }
+      ]
+    },
+    "approval-evidence": {
+      "facts": {
+        "required_artifacts": [
+          "signed access inventory"
+        ]
+      },
+      "abstains": false,
+      "evidence": [
+        {
+          "sources": [
+            "atlas-vault/03-security-review.md"
+          ],
+          "contains": [
+            "signed access inventory",
+            "before approval"
+          ]
+        }
+      ]
+    },
+    "downstream-blocker": {
+      "facts": {
+        "system": "Audit Trail",
+        "blocker": "The archive signing certificate is unavailable.",
+        "path": [
+          "Atlas",
+          "Security Review",
+          "Audit Trail"
+        ]
+      },
+      "abstains": false,
+      "evidence": [
+        {
+          "sources": [
+            "atlas-vault/01-planning-meeting.md"
+          ],
+          "contains": [
+            "Atlas needs approval from [[Security Review]]"
+          ]
+        },
+        {
+          "sources": [
+            "atlas-vault/03-security-review.md"
+          ],
+          "contains": [
+            "Security Review needs the export from [[Audit Trail]]"
+          ]
+        },
+        {
+          "sources": [
+            "atlas-vault/04-audit-trail.md"
+          ],
+          "contains": [
+            "archive signing certificate is unavailable"
+          ]
+        }
+      ]
+    },
+    "calendar-state": {
+      "facts": {
+        "calendar_date": "2026-10-01",
+        "conflicting_decision_date": "2026-10-08",
+        "current_target": "2026-11-12",
+        "calendar_update_confirmed": false
+      },
+      "abstains": false,
+      "evidence": [
+        {
+          "sources": [
+            "atlas-vault/08-calendar-discrepancy.md"
+          ],
+          "contains": [
+            "October 1",
+            "October 8",
+            "not yet been updated"
+          ]
+        },
+        {
+          "sources": [
+            "history/atlas/launch-03.md"
+          ],
+          "contains": [
+            "November 12, 2026",
+            "expanded-launch-nov5"
+          ]
+        }
+      ]
+    },
+    "project-isolation": {
+      "facts": {
+        "belongs_to_atlas": false,
+        "project": "Atlascope"
+      },
+      "abstains": false,
+      "evidence": [
+        {
+          "sources": [
+            "atlas-vault/05-atlascope-planning.md"
+          ],
+          "contains": [
+            "Atlascope is a separate project"
+          ]
+        },
+        {
+          "sources": [
+            "atlas-vault/05-atlascope-planning.md"
+          ],
+          "contains": [
+            "cluster quota is exhausted"
+          ]
+        }
+      ]
+    },
+    "literal-examples": {
+      "facts": {
+        "live_dependency": false,
+        "live_task": false
+      },
+      "abstains": false,
+      "evidence": [
+        {
+          "sources": [
+            "atlas-vault/06-integration-notes.md"
+          ],
+          "contains": [
+            "illustrative, not a live dependency or task"
+          ]
+        }
+      ]
+    },
+    "unknown-approval": {
+      "facts": {
+        "approval_confirmed": false,
+        "approver": null
+      },
+      "abstains": true,
+      "evidence": [
+        {
+          "sources": [
+            "atlas-vault/01-planning-meeting.md"
+          ],
+          "contains": [
+            "security approval for Atlas is still pending"
+          ]
+        }
+      ]
+    },
+    "launch-history": {
+      "facts": {
+        "target_history": [
+          "2026-10-01",
+          "2026-10-08",
+          "2026-10-15"
+        ],
+        "current_target": "2026-10-15"
+      },
+      "abstains": false,
+      "evidence": [
+        {
+          "sources": [
+            "atlas-vault/02-follow-up-email.md"
+          ],
+          "contains": [
+            "tentative Atlas launch date is October 1, 2026"
+          ]
+        },
+        {
+          "sources": [
+            "atlas-vault/07-launch-date-decision.md"
+          ],
+          "contains": [
+            "October 8, 2026"
+          ]
+        },
+        {
+          "sources": [
+            "atlas-updates/12-launch-rescheduling.md"
+          ],
+          "contains": [
+            "October 15, 2026",
+            "supersedes:: launch-oct8"
+          ]
+        }
+      ]
+    },
+    "ledger-lifecycle": {
+      "facts": {
+        "versions": [
+          {
+            "date": "2026-01-05",
+            "owner": "Priya",
+            "status": "open",
+            "due": "2026-02-06"
+          },
+          {
+            "date": "2026-03-02",
+            "owner": "Priya",
+            "status": "completed",
+            "due": "2026-03-02"
+          },
+          {
+            "date": "2026-04-27",
+            "owner": "Morgan",
+            "status": "open",
+            "due": "2026-06-12"
+          },
+          {
+            "date": "2026-06-22",
+            "owner": "Lena",
+            "status": "open",
+            "due": "2026-08-14"
+          },
+          {
+            "date": "2026-09-07",
+            "owner": "Lena",
+            "status": "open",
+            "due": "2026-10-09"
+          }
+        ],
+        "current_owner": "Lena"
+      },
+      "abstains": false,
+      "evidence": [
+        {
+          "sources": [
+            "history/atlas/01-working-record.md"
+          ],
+          "contains": [
+            "Reconcile the historical permission ledger.",
+            "[owner:: Priya]",
+            "[due:: 2026-02-06]",
+            "[ ]",
+            "[key:: expanded-ledger-v1]"
+          ]
+        },
+        {
+          "sources": [
+            "history/atlas/09-working-record.md"
+          ],
+          "contains": [
+            "Reconcile the historical permission ledger.",
+            "[owner:: Priya]",
+            "[due:: 2026-03-02]",
+            "[x]",
+            "[key:: expanded-ledger-v2]"
+          ]
+        },
+        {
+          "sources": [
+            "history/atlas/17-working-record.md"
+          ],
+          "contains": [
+            "Reconcile the historical permission ledger.",
+            "[owner:: Morgan]",
+            "[due:: 2026-06-12]",
+            "[ ]",
+            "[key:: expanded-ledger-v3]"
+          ]
+        },
+        {
+          "sources": [
+            "history/atlas/25-working-record.md"
+          ],
+          "contains": [
+            "Reconcile the historical permission ledger.",
+            "[owner:: Lena]",
+            "[due:: 2026-08-14]",
+            "[ ]",
+            "[key:: expanded-ledger-v4]"
+          ]
+        },
+        {
+          "sources": [
+            "history/atlas/36-working-record.md"
+          ],
+          "contains": [
+            "Reconcile the historical permission ledger.",
+            "[owner:: Lena]",
+            "[due:: 2026-10-09]",
+            "[ ]",
+            "[key:: expanded-ledger-v5]"
+          ]
+        },
+        {
+          "sources": [
+            "history/atlas/01-working-record.md"
+          ],
+          "contains": [
+            "date: 2026-01-05"
+          ]
+        },
+        {
+          "sources": [
+            "history/atlas/09-working-record.md"
+          ],
+          "contains": [
+            "date: 2026-03-02"
+          ]
+        },
+        {
+          "sources": [
+            "history/atlas/17-working-record.md"
+          ],
+          "contains": [
+            "date: 2026-04-27"
+          ]
+        },
+        {
+          "sources": [
+            "history/atlas/25-working-record.md"
+          ],
+          "contains": [
+            "date: 2026-06-22"
+          ]
+        },
+        {
+          "sources": [
+            "history/atlas/36-working-record.md"
+          ],
+          "contains": [
+            "date: 2026-09-07"
+          ]
+        }
+      ]
+    },
+    "extended-launch-history": {
+      "facts": {
+        "target_history": [
+          "2026-10-01",
+          "2026-10-08",
+          "2026-10-15",
+          "2026-10-22",
+          "2026-11-05",
+          "2026-11-12"
+        ],
+        "current_target": "2026-11-12",
+        "last_reason": "The repeat rehearsal is scheduled after the maintenance window."
+      },
+      "abstains": false,
+      "evidence": [
+        {
+          "sources": [
+            "atlas-vault/02-follow-up-email.md"
+          ],
+          "contains": [
+            "tentative Atlas launch date is October 1, 2026"
+          ]
+        },
+        {
+          "sources": [
+            "atlas-vault/07-launch-date-decision.md"
+          ],
+          "contains": [
+            "October 8, 2026"
+          ]
+        },
+        {
+          "sources": [
+            "atlas-updates/12-launch-rescheduling.md"
+          ],
+          "contains": [
+            "October 15, 2026",
+            "supersedes:: launch-oct8"
+          ]
+        },
+        {
+          "sources": [
+            "history/atlas/launch-01.md"
+          ],
+          "contains": [
+            "October 22, 2026",
+            "supersedes:: launch-oct15"
+          ]
+        },
+        {
+          "sources": [
+            "history/atlas/launch-02.md"
+          ],
+          "contains": [
+            "November 5, 2026",
+            "supersedes:: expanded-launch-oct22"
+          ]
+        },
+        {
+          "sources": [
+            "history/atlas/launch-03.md"
+          ],
+          "contains": [
+            "November 12, 2026",
+            "supersedes:: expanded-launch-nov5"
+          ]
+        },
+        {
+          "sources": [
+            "history/atlas/launch-03.md"
+          ],
+          "contains": [
+            "The repeat rehearsal is scheduled after the maintenance window."
+          ]
+        }
+      ]
+    },
+    "ledger-replay-comparison": {
+      "facts": {
+        "sampled_accounts": [
+          120,
+          120
+        ],
+        "missing_accounts": [
+          18,
+          3
+        ],
+        "omissions_removed": 15,
+        "completed": false
+      },
+      "abstains": false,
+      "evidence": [
+        {
+          "sources": [
+            "history/atlas/13-working-record.md"
+          ],
+          "contains": [
+            "March 30",
+            "120 accounts",
+            "18 accounts",
+            "display name"
+          ]
+        },
+        {
+          "sources": [
+            "history/atlas/31-working-record.md"
+          ],
+          "contains": [
+            "August 3",
+            "120 accounts",
+            "3 accounts",
+            "removed 15 omissions",
+            "not a task completion"
+          ]
+        }
+      ]
+    },
+    "unknown-production-serial": {
+      "facts": {
+        "recorded": false,
+        "serial_number": null
+      },
+      "abstains": true,
+      "evidence": [
+        {
+          "sources": [
+            "history/atlas/launch-03.md"
+          ],
+          "contains": [
+            "No production certificate serial number was recorded"
+          ]
+        }
+      ]
+    }
+  }
+}

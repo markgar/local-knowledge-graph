@@ -7,6 +7,8 @@ from contextlib import contextmanager
 from importlib import resources
 from pathlib import Path
 
+from kg.aliases import matches_alias
+
 LOGGER = logging.getLogger(__name__)
 
 
@@ -18,6 +20,7 @@ class Database:
         self.path.parent.mkdir(parents=True, exist_ok=True)
         connection = sqlite3.connect(self.path)
         connection.row_factory = sqlite3.Row
+        connection.create_function("kg_matches_alias", 2, matches_alias, deterministic=True)
         connection.execute("PRAGMA foreign_keys = ON")
         connection.execute("PRAGMA journal_mode = WAL")
         connection.execute("PRAGMA busy_timeout = 5000")

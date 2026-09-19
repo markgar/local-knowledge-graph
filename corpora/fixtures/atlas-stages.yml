@@ -1,0 +1,33 @@
+# Reviewed expectations, declared before ingestion; counts are per document.
+# Missing keys mean zero structured records, not untested extraction.
+stages:
+  - source: 01-planning-meeting.md
+    records: {relationships: 1, actions: 1, decisions: 1, blockers: 1}
+    purpose: Baseline explicit extraction and exact evidence.
+  - source: 02-follow-up-email.md
+    records: {}
+    purpose: Ordinary email prose is searchable but does not invent tasks.
+  - source: 03-security-review.md
+    records: {relationships: 1, actions: 1, decisions: 1}
+    purpose: Numbered decisions and checkboxes; second edge in a two-hop chain.
+  - source: 04-audit-trail.md
+    records: {blockers: 1}
+    purpose: Retrieve a blocker two hops away without mentioning Atlas in this document.
+  - source: 05-atlascope-planning.md
+    records: {actions: 1, decisions: 1, blockers: 1}
+    purpose: Similar project name must not contaminate Atlas results.
+  - source: 06-integration-notes.md
+    records: {}
+    purpose: Code examples must not create live tasks, entity mentions, or edges.
+  - source: 07-launch-date-decision.md
+    records: {actions: 1, decisions: 1}
+    purpose: Dated evidence for a changed decision, without erasing older sources.
+  - source: 08-calendar-discrepancy.md
+    records: {conflicts: 1}
+    purpose: Explicit discrepancy, distinct from automatic contradiction inference.
+  - source: 09-completion-email.md
+    records: {}
+    purpose: Completion prose must not invent a task or silently rewrite another source.
+  - source: 10-meeting-agenda.md
+    records: {}
+    purpose: Questions are retrievable material, not assertions or new task records.

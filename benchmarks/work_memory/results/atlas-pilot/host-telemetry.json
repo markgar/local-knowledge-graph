@@ -1,0 +1,679 @@
+{
+  "version": 1,
+  "source": "Actual tool.execution_start/tool.execution_complete host events",
+  "calls": [
+    {
+      "call_id": "call_xYtGnyYLlbVfkKOm5ZfJF3SO",
+      "parent_call_id": "call_i66YJOqJdHKOvpVhSiOXXpeB",
+      "start_event_id": "dde378dd-50f7-488b-b706-29627a015189",
+      "complete_event_id": "58a342a5-d8da-42fc-afba-5c4de34f0a46",
+      "start_event_line": 3333,
+      "complete_event_line": 3342,
+      "started_at": "2026-09-19T19:20:27.358Z",
+      "completed_at": "2026-09-19T19:20:27.543Z",
+      "host_recorded_model": "gpt-6-astra",
+      "invocations": [
+        {
+          "arm": "markdown",
+          "arguments": [
+            "info"
+          ],
+          "journal_matches": [
+            {
+              "journal": "tools-markdown.jsonl",
+              "line": 1,
+              "request_id": null,
+              "run_id": null,
+              "wrapper_success": true,
+              "operation_success": null,
+              "delivery_success": null,
+              "delivery_error": null,
+              "native_cli_exit_code": null,
+              "serialized_response_bytes": 5163,
+              "response_shape": null
+            }
+          ],
+          "correlation": "matched"
+        }
+      ],
+      "command": "uv run python benchmarks/work_memory/evaluate.py tool --run <RUN> --arm markdown -- info",
+      "host_tool_success": true,
+      "process_exit_code": 0,
+      "shell_id": "77",
+      "host_content_utf8_bytes": 5204,
+      "host_content_sha256": "29f415605b13f6db5e40f5c36e8d5a35f52de832aaa3debc5a97010e1bdeb0b7",
+      "host_output_spill": null,
+      "delivery_observation": "inline_response",
+      "process_diagnostic": null
+    },
+    {
+      "call_id": "call_Nqg6AUEIoxMhgshj2sx7PEY4",
+      "parent_call_id": "call_MNA1iwgK1BjDCJM4Yhp4cuU6",
+      "start_event_id": "f574f320-ac8e-45b4-92db-c0fcc9f81d2a",
+      "complete_event_id": "7722027c-5289-4a9a-a4ad-ec7eceb5c648",
+      "start_event_line": 3337,
+      "complete_event_line": 3347,
+      "started_at": "2026-09-19T19:20:27.413Z",
+      "completed_at": "2026-09-19T19:20:27.571Z",
+      "host_recorded_model": "gpt-6-astra",
+      "invocations": [
+        {
+          "arm": "kg",
+          "arguments": [
+            "info"
+          ],
+          "journal_matches": [
+            {
+              "journal": "tools-kg.jsonl",
+              "line": 1,
+              "request_id": null,
+              "run_id": null,
+              "wrapper_success": true,
+              "operation_success": null,
+              "delivery_success": null,
+              "delivery_error": null,
+              "native_cli_exit_code": null,
+              "serialized_response_bytes": 5353,
+              "response_shape": null
+            }
+          ],
+          "correlation": "matched"
+        }
+      ],
+      "command": "uv run python benchmarks/work_memory/evaluate.py tool --run <RUN> --arm kg -- info",
+      "host_tool_success": true,
+      "process_exit_code": 0,
+      "shell_id": "78",
+      "host_content_utf8_bytes": 5394,
+      "host_content_sha256": "d140e5136e22951b82aeaeb335899fc6687902371733a2eaa012b1b81c2d4ee3",
+      "host_output_spill": null,
+      "delivery_observation": "inline_response",
+      "process_diagnostic": null
+    },
+    {
+      "call_id": "call_MPw6V4vxlo6NmSF3m3KQOro7",
+      "parent_call_id": "call_i66YJOqJdHKOvpVhSiOXXpeB",
+      "start_event_id": "0f954a18-0be9-4ce6-a848-a44fbc8f3c23",
+      "complete_event_id": "07d5c8fd-a4f0-4633-82d7-03b5b76c3b53",
+      "start_event_line": 3351,
+      "complete_event_line": 3356,
+      "started_at": "2026-09-19T19:20:32.372Z",
+      "completed_at": "2026-09-19T19:20:32.550Z",
+      "host_recorded_model": "gpt-6-astra",
+      "invocations": [
+        {
+          "arm": "markdown",
+          "arguments": [
+            "read",
+            "atlas-updates/11-review-completion.md",
+            "atlas-updates/12-launch-rescheduling.md",
+            "atlas-vault/01-planning-meeting.md",
+            "atlas-vault/02-follow-up-email.md",
+            "atlas-vault/03-security-review.md",
+            "atlas-vault/04-audit-trail.md",
+            "atlas-vault/05-atlascope-planning.md",
+            "atlas-vault/06-integration-notes.md",
+            "atlas-vault/07-launch-date-decision.md",
+            "atlas-vault/08-calendar-discrepancy.md",
+            "atlas-vault/09-completion-email.md",
+            "atlas-vault/10-meeting-agenda.md"
+          ],
+          "journal_matches": [
+            {
+              "journal": "tools-markdown.jsonl",
+              "line": 2,
+              "request_id": null,
+              "run_id": null,
+              "wrapper_success": true,
+              "operation_success": null,
+              "delivery_success": null,
+              "delivery_error": null,
+              "native_cli_exit_code": null,
+              "serialized_response_bytes": 4931,
+              "response_shape": null
+            }
+          ],
+          "correlation": "matched"
+        }
+      ],
+      "command": "uv run python benchmarks/work_memory/evaluate.py tool --run <RUN> --arm markdown -- read atlas-updates/11-review-completion.md atlas-updates/12-launch-rescheduling.md atlas-vault/01-planning-meeting.md atlas-vault/02-follow-up-email.md atlas-vault/03-security-review.md atlas-vault/04-audit-trail.md atlas-vault/05-atlascope-planning.md atlas-vault/06-integration-notes.md atlas-vault/07-launch-date-decision.md atlas-vault/08-calendar-discrepancy.md atlas-vault/09-completion-email.md atlas-vault/10-meeting-agenda.md",
+      "host_tool_success": true,
+      "process_exit_code": 0,
+      "shell_id": "79",
+      "host_content_utf8_bytes": 4972,
+      "host_content_sha256": "e1942953108c91d3eb1735600fef5c02415b0220217d24301ad877103fe0c015",
+      "host_output_spill": null,
+      "delivery_observation": "inline_response",
+      "process_diagnostic": null
+    },
+    {
+      "call_id": "call_WKQQfln3mQKV2twalOWv87TX",
+      "parent_call_id": "call_MNA1iwgK1BjDCJM4Yhp4cuU6",
+      "start_event_id": "ecd46e39-4623-454e-b6a9-8b73f7e8fdf5",
+      "complete_event_id": "55376bac-4d79-496c-bd7e-63689e5e82ab",
+      "start_event_line": 3360,
+      "complete_event_line": 3371,
+      "started_at": "2026-09-19T19:20:32.703Z",
+      "completed_at": "2026-09-19T19:20:34.033Z",
+      "host_recorded_model": "gpt-6-astra",
+      "invocations": [
+        {
+          "arm": "kg",
+          "arguments": [
+            "status",
+            "Atlas"
+          ],
+          "journal_matches": [
+            {
+              "journal": "tools-kg.jsonl",
+              "line": 2,
+              "request_id": null,
+              "run_id": null,
+              "wrapper_success": true,
+              "operation_success": null,
+              "delivery_success": null,
+              "delivery_error": null,
+              "native_cli_exit_code": null,
+              "serialized_response_bytes": 19431,
+              "response_shape": null
+            }
+          ],
+          "correlation": "matched"
+        },
+        {
+          "arm": "kg",
+          "arguments": [
+            "actions",
+            "Atlas"
+          ],
+          "journal_matches": [
+            {
+              "journal": "tools-kg.jsonl",
+              "line": 3,
+              "request_id": null,
+              "run_id": null,
+              "wrapper_success": true,
+              "operation_success": null,
+              "delivery_success": null,
+              "delivery_error": null,
+              "native_cli_exit_code": null,
+              "serialized_response_bytes": 2066,
+              "response_shape": null
+            }
+          ],
+          "correlation": "matched"
+        },
+        {
+          "arm": "kg",
+          "arguments": [
+            "record-state",
+            "--include-quotes"
+          ],
+          "journal_matches": [
+            {
+              "journal": "tools-kg.jsonl",
+              "line": 4,
+              "request_id": null,
+              "run_id": null,
+              "wrapper_success": true,
+              "operation_success": null,
+              "delivery_success": null,
+              "delivery_error": null,
+              "native_cli_exit_code": null,
+              "serialized_response_bytes": 2685,
+              "response_shape": null
+            }
+          ],
+          "correlation": "matched"
+        }
+      ],
+      "command": "uv run python benchmarks/work_memory/evaluate.py tool --run <RUN> --arm kg -- status Atlas && uv run python benchmarks/work_memory/evaluate.py tool --run <RUN> --arm kg -- actions Atlas && uv run python benchmarks/work_memory/evaluate.py tool --run <RUN> --arm kg -- record-state --include-quotes",
+      "host_tool_success": true,
+      "process_exit_code": 0,
+      "shell_id": "80",
+      "host_content_utf8_bytes": 932,
+      "host_content_sha256": "f05d9d0a82778493ada57fb91ae5d0647eb8b7a9b54c51d4ae3baa6eaf3b1973",
+      "host_output_spill": {
+        "reported_size": "23.6 KB",
+        "filename": "1789845633560-copilot-tool-output-24294-7ead651e-9c5c-40d2-a21e-6111f34e2460.txt",
+        "full_content_delivered_inline": false
+      },
+      "delivery_observation": "spill_notice_and_preview",
+      "process_diagnostic": null
+    },
+    {
+      "call_id": "call_X2MlUa1JlWa9fXKgDv4RPVOE",
+      "parent_call_id": "call_MNA1iwgK1BjDCJM4Yhp4cuU6",
+      "start_event_id": "5ec72434-eef0-4a8d-af67-639c86eef5f1",
+      "complete_event_id": "e4b31887-79a6-4213-b72f-bb154f6ae183",
+      "start_event_line": 3375,
+      "complete_event_line": 3380,
+      "started_at": "2026-09-19T19:20:37.986Z",
+      "completed_at": "2026-09-19T19:20:38.398Z",
+      "host_recorded_model": "gpt-6-astra",
+      "invocations": [
+        {
+          "arm": "kg",
+          "arguments": [
+            "status",
+            "Atlas"
+          ],
+          "journal_matches": [
+            {
+              "journal": "tools-kg.jsonl",
+              "line": 5,
+              "request_id": null,
+              "run_id": null,
+              "wrapper_success": true,
+              "operation_success": null,
+              "delivery_success": null,
+              "delivery_error": null,
+              "native_cli_exit_code": null,
+              "serialized_response_bytes": 19431,
+              "response_shape": null
+            }
+          ],
+          "correlation": "matched"
+        }
+      ],
+      "command": "uv run python benchmarks/work_memory/evaluate.py tool --run <RUN> --arm kg -- status Atlas | python -c 'import json,sys; d=json.load(sys.stdin); print(json.dumps(d,indent=2))'",
+      "host_tool_success": true,
+      "process_exit_code": 127,
+      "shell_id": "82",
+      "host_content_utf8_bytes": 517,
+      "host_content_sha256": "9fbc89d667e08ff8ba87ef2202b58327527ee780f6280e04e1f54bfea09b2141",
+      "host_output_spill": null,
+      "delivery_observation": "inline_response",
+      "process_diagnostic": "/bin/bash: python: command not found\nTraceback (most recent call last):\n  File \"<REPO>/benchmarks/work_memory/evaluate.py\", line 374, in <module>\n    main()\n  File \"<REPO>/benchmarks/work_memory/evaluate.py\", line 368, in main\n    print(json.dumps(result, ensure_ascii=False))\nBrokenPipeError: [Errno 32] Broken pipe\n<shellId: 82 completed with exit code 127>"
+    },
+    {
+      "call_id": "call_3cY4MbaLtW4Ysaly7KdNmf1J",
+      "parent_call_id": "call_MNA1iwgK1BjDCJM4Yhp4cuU6",
+      "start_event_id": "a752fedf-d90e-40c6-a769-7f3e0c7b7740",
+      "complete_event_id": "b09f2c01-7f4c-4641-b4fe-5b6f5231bae5",
+      "start_event_line": 3384,
+      "complete_event_line": 3389,
+      "started_at": "2026-09-19T19:20:41.507Z",
+      "completed_at": "2026-09-19T19:20:41.982Z",
+      "host_recorded_model": "gpt-6-astra",
+      "invocations": [
+        {
+          "arm": "kg",
+          "arguments": [
+            "status",
+            "Atlas"
+          ],
+          "journal_matches": [
+            {
+              "journal": "tools-kg.jsonl",
+              "line": 6,
+              "request_id": null,
+              "run_id": null,
+              "wrapper_success": true,
+              "operation_success": null,
+              "delivery_success": null,
+              "delivery_error": null,
+              "native_cli_exit_code": null,
+              "serialized_response_bytes": 19431,
+              "response_shape": null
+            }
+          ],
+          "correlation": "matched"
+        }
+      ],
+      "command": "uv run python benchmarks/work_memory/evaluate.py tool --run <RUN> --arm kg -- status Atlas",
+      "host_tool_success": true,
+      "process_exit_code": 0,
+      "shell_id": "83",
+      "host_content_utf8_bytes": 19472,
+      "host_content_sha256": "ca0450055fd96d74ad29772bba058f174635b2b3e5947762db3d561c79451cc3",
+      "host_output_spill": null,
+      "delivery_observation": "inline_response",
+      "process_diagnostic": null
+    },
+    {
+      "call_id": "call_7YeETLEZokd4P3YVoexvqJsR",
+      "parent_call_id": "call_MNA1iwgK1BjDCJM4Yhp4cuU6",
+      "start_event_id": "94edb19e-f095-43b4-b50c-8ef5d4edb065",
+      "complete_event_id": "10f6ddf2-8c40-48c3-bae8-58c29a6b0d87",
+      "start_event_line": 3393,
+      "complete_event_line": 3398,
+      "started_at": "2026-09-19T19:20:45.972Z",
+      "completed_at": "2026-09-19T19:20:46.721Z",
+      "host_recorded_model": "gpt-6-astra",
+      "invocations": [
+        {
+          "arm": "kg",
+          "arguments": [
+            "source-context",
+            "1580d785e01d89a312ea130f5b2effa4e6bbab1314cceb78766e9257eb42b522"
+          ],
+          "journal_matches": [
+            {
+              "journal": "tools-kg.jsonl",
+              "line": 7,
+              "request_id": null,
+              "run_id": null,
+              "wrapper_success": true,
+              "operation_success": null,
+              "delivery_success": null,
+              "delivery_error": null,
+              "native_cli_exit_code": null,
+              "serialized_response_bytes": 4008,
+              "response_shape": null
+            }
+          ],
+          "correlation": "matched"
+        },
+        {
+          "arm": "kg",
+          "arguments": [
+            "status",
+            "Atlascope"
+          ],
+          "journal_matches": [
+            {
+              "journal": "tools-kg.jsonl",
+              "line": 8,
+              "request_id": null,
+              "run_id": null,
+              "wrapper_success": true,
+              "operation_success": null,
+              "delivery_success": null,
+              "delivery_error": null,
+              "native_cli_exit_code": null,
+              "serialized_response_bytes": 6687,
+              "response_shape": null
+            }
+          ],
+          "correlation": "matched"
+        }
+      ],
+      "command": "uv run python benchmarks/work_memory/evaluate.py tool --run <RUN> --arm kg -- source-context 1580d785e01d89a312ea130f5b2effa4e6bbab1314cceb78766e9257eb42b522 && uv run python benchmarks/work_memory/evaluate.py tool --run <RUN> --arm kg -- status Atlascope",
+      "host_tool_success": true,
+      "process_exit_code": 0,
+      "shell_id": "84",
+      "host_content_utf8_bytes": 10737,
+      "host_content_sha256": "5eac6988d9aa889e91b24bf94fa6d04c6de6c8b33d53a4f8894583a46b983a5a",
+      "host_output_spill": null,
+      "delivery_observation": "inline_response",
+      "process_diagnostic": null
+    },
+    {
+      "call_id": "call_Vi3tGmBYSbjQ65aUZrEadxIO",
+      "parent_call_id": "call_MNA1iwgK1BjDCJM4Yhp4cuU6",
+      "start_event_id": "0b654d96-a36a-42fe-9cba-8c77a92485ce",
+      "complete_event_id": "29ad3c4d-ca5c-4525-9b15-18e5aa5283f3",
+      "start_event_line": 3413,
+      "complete_event_line": 3418,
+      "started_at": "2026-09-19T19:20:52.044Z",
+      "completed_at": "2026-09-19T19:20:53.234Z",
+      "host_recorded_model": "gpt-6-astra",
+      "invocations": [
+        {
+          "arm": "kg",
+          "arguments": [
+            "search",
+            "production approval",
+            "--subject",
+            "Atlas"
+          ],
+          "journal_matches": [
+            {
+              "journal": "tools-kg.jsonl",
+              "line": 9,
+              "request_id": null,
+              "run_id": null,
+              "wrapper_success": true,
+              "operation_success": null,
+              "delivery_success": null,
+              "delivery_error": null,
+              "native_cli_exit_code": null,
+              "serialized_response_bytes": 2,
+              "response_shape": null
+            }
+          ],
+          "correlation": "matched"
+        },
+        {
+          "arm": "kg",
+          "arguments": [
+            "search",
+            "tentative",
+            "--subject",
+            "Atlas"
+          ],
+          "journal_matches": [
+            {
+              "journal": "tools-kg.jsonl",
+              "line": 10,
+              "request_id": null,
+              "run_id": null,
+              "wrapper_success": true,
+              "operation_success": null,
+              "delivery_success": null,
+              "delivery_error": null,
+              "native_cli_exit_code": null,
+              "serialized_response_bytes": 1317,
+              "response_shape": null
+            }
+          ],
+          "correlation": "matched"
+        },
+        {
+          "arm": "kg",
+          "arguments": [
+            "record-state",
+            "--include-quotes"
+          ],
+          "journal_matches": [
+            {
+              "journal": "tools-kg.jsonl",
+              "line": 11,
+              "request_id": null,
+              "run_id": null,
+              "wrapper_success": true,
+              "operation_success": null,
+              "delivery_success": null,
+              "delivery_error": null,
+              "native_cli_exit_code": null,
+              "serialized_response_bytes": 2685,
+              "response_shape": null
+            }
+          ],
+          "correlation": "matched"
+        }
+      ],
+      "command": "uv run python benchmarks/work_memory/evaluate.py tool --run <RUN> --arm kg -- search 'production approval' --subject Atlas && uv run python benchmarks/work_memory/evaluate.py tool --run <RUN> --arm kg -- search 'tentative' --subject Atlas && uv run python benchmarks/work_memory/evaluate.py tool --run <RUN> --arm kg -- record-state --include-quotes",
+      "host_tool_success": true,
+      "process_exit_code": 0,
+      "shell_id": "85",
+      "host_content_utf8_bytes": 4047,
+      "host_content_sha256": "0430e4ba697cd24b4ab46ad171bbba199a531660d28dc56da89c841c8cbe05ee",
+      "host_output_spill": null,
+      "delivery_observation": "inline_response",
+      "process_diagnostic": null
+    },
+    {
+      "call_id": "call_55iFBXavAsVewwS28XWzr8rp",
+      "parent_call_id": "call_MNA1iwgK1BjDCJM4Yhp4cuU6",
+      "start_event_id": "11734668-5ee7-4057-b439-889377ef4568",
+      "complete_event_id": "af5acf41-c5cf-4d2c-a095-95dc01205ce2",
+      "start_event_line": 3422,
+      "complete_event_line": 3427,
+      "started_at": "2026-09-19T19:20:59.156Z",
+      "completed_at": "2026-09-19T19:20:59.980Z",
+      "host_recorded_model": "gpt-6-astra",
+      "invocations": [
+        {
+          "arm": "kg",
+          "arguments": [
+            "search",
+            "approval"
+          ],
+          "journal_matches": [
+            {
+              "journal": "tools-kg.jsonl",
+              "line": 12,
+              "request_id": null,
+              "run_id": null,
+              "wrapper_success": true,
+              "operation_success": null,
+              "delivery_success": null,
+              "delivery_error": null,
+              "native_cli_exit_code": null,
+              "serialized_response_bytes": 2461,
+              "response_shape": null
+            }
+          ],
+          "correlation": "matched"
+        },
+        {
+          "arm": "kg",
+          "arguments": [
+            "source-context",
+            "2700603797f756ab7e91104b9683afe0f94741558f295412f56ca1b2c283e4d8"
+          ],
+          "journal_matches": [
+            {
+              "journal": "tools-kg.jsonl",
+              "line": 13,
+              "request_id": null,
+              "run_id": null,
+              "wrapper_success": true,
+              "operation_success": null,
+              "delivery_success": null,
+              "delivery_error": null,
+              "native_cli_exit_code": null,
+              "serialized_response_bytes": 2832,
+              "response_shape": null
+            }
+          ],
+          "correlation": "matched"
+        }
+      ],
+      "command": "uv run python benchmarks/work_memory/evaluate.py tool --run <RUN> --arm kg -- search approval && uv run python benchmarks/work_memory/evaluate.py tool --run <RUN> --arm kg -- source-context 2700603797f756ab7e91104b9683afe0f94741558f295412f56ca1b2c283e4d8",
+      "host_tool_success": true,
+      "process_exit_code": 0,
+      "shell_id": "86",
+      "host_content_utf8_bytes": 5335,
+      "host_content_sha256": "e56151c35de0a699d02fbdb95f8762481e0bada0d8793f268779fade7a90a256",
+      "host_output_spill": null,
+      "delivery_observation": "inline_response",
+      "process_diagnostic": null
+    },
+    {
+      "call_id": "call_9Ua8KbhKCPOasKXbEKbxxMqT",
+      "parent_call_id": "call_i66YJOqJdHKOvpVhSiOXXpeB",
+      "start_event_id": "70e42eab-686b-4db5-92cb-23f247c58eb6",
+      "complete_event_id": "5050206e-e261-4bd5-bfee-7aa7c2dcb160",
+      "start_event_line": 3440,
+      "complete_event_line": 3445,
+      "started_at": "2026-09-19T19:21:07.992Z",
+      "completed_at": "2026-09-19T19:21:08.255Z",
+      "host_recorded_model": "gpt-6-astra",
+      "invocations": [
+        {
+          "arm": "markdown",
+          "arguments": [
+            "submit"
+          ],
+          "journal_matches": [
+            {
+              "journal": "tools-markdown.jsonl",
+              "line": 3,
+              "request_id": null,
+              "run_id": null,
+              "wrapper_success": true,
+              "operation_success": null,
+              "delivery_success": null,
+              "delivery_error": null,
+              "native_cli_exit_code": null,
+              "serialized_response_bytes": 157,
+              "response_shape": null
+            }
+          ],
+          "correlation": "matched"
+        }
+      ],
+      "command": "uv run python benchmarks/work_memory/evaluate.py tool --run <RUN> --arm markdown -- submit",
+      "host_tool_success": true,
+      "process_exit_code": 0,
+      "shell_id": "87",
+      "host_content_utf8_bytes": 198,
+      "host_content_sha256": "6436ab8706127debfefd9b395017b09463135c0cc7232cba4411fc2e8fa973d8",
+      "host_output_spill": null,
+      "delivery_observation": "inline_response",
+      "process_diagnostic": null
+    },
+    {
+      "call_id": "call_Dvi3YCuYJRkeAKbgiGiYgf8Y",
+      "parent_call_id": "call_MNA1iwgK1BjDCJM4Yhp4cuU6",
+      "start_event_id": "ccee1bf4-69a2-4bc5-a413-f9c4aa1144a4",
+      "complete_event_id": "a38fe125-146a-4e68-a0ce-42afaf309fb6",
+      "start_event_line": 3465,
+      "complete_event_line": 3470,
+      "started_at": "2026-09-19T19:21:30.933Z",
+      "completed_at": "2026-09-19T19:21:31.106Z",
+      "host_recorded_model": "gpt-6-astra",
+      "invocations": [
+        {
+          "arm": "kg",
+          "arguments": [
+            "submit"
+          ],
+          "journal_matches": [
+            {
+              "journal": "tools-kg.jsonl",
+              "line": 14,
+              "request_id": null,
+              "run_id": null,
+              "wrapper_success": true,
+              "operation_success": null,
+              "delivery_success": null,
+              "delivery_error": null,
+              "native_cli_exit_code": null,
+              "serialized_response_bytes": 157,
+              "response_shape": null
+            }
+          ],
+          "correlation": "matched"
+        }
+      ],
+      "command": "uv run python benchmarks/work_memory/evaluate.py tool --run <RUN> --arm kg -- submit",
+      "host_tool_success": true,
+      "process_exit_code": 0,
+      "shell_id": "88",
+      "host_content_utf8_bytes": 198,
+      "host_content_sha256": "4d58fc3aa70ab4fcb30968d1e43584b16ae4edbef8d713a4a2b5f983efd39c6b",
+      "host_output_spill": null,
+      "delivery_observation": "inline_response",
+      "process_diagnostic": null
+    }
+  ],
+  "collection_warnings": [],
+  "summary": {
+    "host_calls": 11,
+    "wrapper_invocations": 17,
+    "nonzero_process_exits": 1,
+    "output_spills": 1,
+    "unobserved_completions": 0,
+    "correlated_invocations": 17,
+    "host_recorded_models": {
+      "kg": [
+        "gpt-6-astra"
+      ],
+      "markdown": [
+        "gpt-6-astra"
+      ]
+    }
+  },
+  "limitations": [
+    "Host-tool success is not process success or successful evidence delivery.",
+    "An absent process exit code is unknown, not success.",
+    "Host-returned content is observable; later model context assembly and token use are not.",
+    "Only matching wrapper invocations with a literal run path are collected.",
+    "Journal correlation requires exact arguments, the same arm, and timestamps inside the host call; missing or ambiguous matches remain explicit.",
+    "No assistant reasoning, prompts, or unrelated session events are exported."
+  ]
+}

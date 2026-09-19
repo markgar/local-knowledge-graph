@@ -1,0 +1,112 @@
+{
+  "answers": [
+    {
+      "id": "current-launch",
+      "answer": "The latest explicitly selected Atlas launch target is October 15, 2026, superseding October 8.",
+      "facts": {"date": "2026-10-15"},
+      "abstains": false,
+      "citations": [
+        {"source_path": "atlas-updates/12-launch-rescheduling.md", "quote": "- Move the launch target to October 15, 2026, to allow another week for certificate provisioning. [key:: launch-oct15] [supersedes:: launch-oct8]"}
+      ]
+    },
+    {
+      "id": "open-work",
+      "answer": "Morgan owns both open actions: Update the launch calendar, due September 25, 2026; and Upload access evidence, due September 24, 2026. Confirm the review date is explicitly completed.",
+      "facts": {
+        "actions": [
+          {"task": "Update the launch calendar.", "owner": "Morgan", "due": "2026-09-25"},
+          {"task": "Upload access evidence.", "owner": "Morgan", "due": "2026-09-24"}
+        ]
+      },
+      "abstains": false,
+      "citations": [
+        {"source_path": "atlas-vault/07-launch-date-decision.md", "quote": "- [ ] Update the launch calendar. [owner:: Morgan] [due:: 2026-09-25]"},
+        {"source_path": "atlas-vault/03-security-review.md", "quote": "1. [ ] Upload access evidence. [owner:: Morgan] [due:: 2026-09-24]"},
+        {"source_path": "atlas-updates/11-review-completion.md", "quote": "- [x] Confirm the review date. [owner:: Priya] [key:: review-date-v2] [supersedes:: review-date-v1]"}
+      ]
+    },
+    {
+      "id": "review-confirmed",
+      "answer": "Yes. Priya's review-date task is explicitly completed, replacing the earlier open record. The documented review is September 25, 2026, at 10:00.",
+      "facts": {"completed": true, "owner": "Priya", "review_date": "2026-09-25", "review_time": "10:00"},
+      "abstains": false,
+      "citations": [
+        {"source_path": "atlas-updates/11-review-completion.md", "quote": "- [x] Confirm the review date. [owner:: Priya] [key:: review-date-v2] [supersedes:: review-date-v1]"},
+        {"source_path": "atlas-vault/09-completion-email.md", "quote": "Priya confirmed the review date with the reviewers. The review is scheduled for September 25, 2026, at 10:00."}
+      ]
+    },
+    {
+      "id": "approval-evidence",
+      "answer": "Security Review explicitly requires the signed access inventory before approval.",
+      "facts": {"required_artifacts": ["signed access inventory"]},
+      "abstains": false,
+      "citations": [
+        {"source_path": "atlas-vault/03-security-review.md", "quote": "1. Require the signed access inventory before approval."}
+      ]
+    },
+    {
+      "id": "downstream-blocker",
+      "answer": "Audit Trail has the blocker: the archive signing certificate is unavailable. Atlas needs Security Review approval, and Security Review needs Audit Trail's export.",
+      "facts": {"system": "Audit Trail", "blocker": "The archive signing certificate is unavailable.", "path": ["Atlas", "Security Review", "Audit Trail"]},
+      "abstains": false,
+      "citations": [
+        {"source_path": "atlas-vault/01-planning-meeting.md", "quote": "Atlas needs approval from [[Security Review]] before launch."},
+        {"source_path": "atlas-vault/03-security-review.md", "quote": "Security Review needs the export from [[Audit Trail]]."},
+        {"source_path": "atlas-vault/04-audit-trail.md", "quote": "- The archive signing certificate is unavailable."}
+      ]
+    },
+    {
+      "id": "calendar-state",
+      "answer": "The reported discrepancy was October 1 on the shared calendar versus the September 23 decision selecting October 8. The latest target is October 15, 2026. The records do not confirm a calendar correction.",
+      "facts": {"calendar_date": "2026-10-01", "conflicting_decision_date": "2026-10-08", "current_target": "2026-10-15", "calendar_update_confirmed": false},
+      "abstains": false,
+      "citations": [
+        {"source_path": "atlas-vault/08-calendar-discrepancy.md", "quote": "- The shared calendar still lists October 1 for Atlas, but the September 23 decision sets October 8. The calendar has not yet been updated."},
+        {"source_path": "atlas-updates/12-launch-rescheduling.md", "quote": "- Move the launch target to October 15, 2026, to allow another week for certificate provisioning. [key:: launch-oct15] [supersedes:: launch-oct8]"},
+        {"source_path": "atlas-vault/07-launch-date-decision.md", "quote": "- [ ] Update the launch calendar. [owner:: Morgan] [due:: 2026-09-25]"}
+      ]
+    },
+    {
+      "id": "project-isolation",
+      "answer": "No. The exhausted separate reporting-cluster quota belongs to Atlascope, a separate project.",
+      "facts": {"belongs_to_atlas": false, "project": "Atlascope"},
+      "abstains": false,
+      "citations": [
+        {"source_path": "atlas-vault/05-atlascope-planning.md", "quote": "Atlascope is a separate project migrating the reporting service."},
+        {"source_path": "atlas-vault/05-atlascope-planning.md", "quote": "- Use the separate reporting cluster."},
+        {"source_path": "atlas-vault/05-atlascope-planning.md", "quote": "- The separate cluster quota is exhausted."}
+      ]
+    },
+    {
+      "id": "literal-examples",
+      "answer": "No. The Atlascope reference and sample-database deletion are illustrative code examples, not a live dependency or task.",
+      "facts": {"live_dependency": false, "live_task": false},
+      "abstains": false,
+      "citations": [
+        {"source_path": "atlas-vault/06-integration-notes.md", "quote": "The access inventory is exported as JSON. Use `[[Atlascope]]` only as a literal example in the documentation."},
+        {"source_path": "atlas-vault/06-integration-notes.md", "quote": "- The following template is illustrative, not a live dependency or task:\n\n  ```markdown\n  Atlas depends on [[Atlascope]].\n  - [ ] Delete the sample database. [owner:: Example]\n  ```"}
+      ]
+    },
+    {
+      "id": "unknown-approval",
+      "answer": "The supplied records do not confirm final production approval or identify an approver. The earlier planning record reports security approval as pending.",
+      "facts": {"approval_confirmed": false, "approver": null},
+      "abstains": true,
+      "citations": [
+        {"source_path": "atlas-vault/01-planning-meeting.md", "quote": "- The security approval for Atlas is still pending."},
+        {"source_path": "atlas-vault/03-security-review.md", "quote": "1. Require the signed access inventory before approval."}
+      ]
+    },
+    {
+      "id": "launch-history",
+      "answer": "The September 19 email tentatively proposed October 1, 2026. The September 23 decision replaced it with October 8. The September 26 decision superseded October 8 with October 15, the current target.",
+      "facts": {"target_history": ["2026-10-01", "2026-10-08", "2026-10-15"], "current_target": "2026-10-15"},
+      "abstains": false,
+      "citations": [
+        {"source_path": "atlas-vault/02-follow-up-email.md", "quote": "The tentative Atlas launch date is October 1, 2026."},
+        {"source_path": "atlas-vault/07-launch-date-decision.md", "quote": "- Move the Atlas launch target to October 8, 2026. This replaces the tentative October 1 date in the September 19 email. [key:: launch-oct8]"},
+        {"source_path": "atlas-updates/12-launch-rescheduling.md", "quote": "- Move the launch target to October 15, 2026, to allow another week for certificate provisioning. [key:: launch-oct15] [supersedes:: launch-oct8]"}
+      ]
+    }
+  ]
+}
