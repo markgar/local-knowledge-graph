@@ -35,7 +35,7 @@ agent-useful retrieval. Statuses describe the repository as of 2026-09-18:
 | Event-date filtering | Implemented | Configured document dates and revision timestamps support bounded retrieval. |
 | `ingest`, `status`, `actions`, `evidence`, and `search` CLI | Implemented | Commands expose text and JSON output over reusable services. |
 | Decisions, blockers, and conflicts | Implemented | Explicit structural sections produce cited records; contradiction inference remains a non-goal. |
-| Evidence gaps and abstention | Partial | Unknown configured subjects abstain deterministically, but natural-language answerability is not calibrated. |
+| Evidence gaps and abstention | Partial | Unknown configured subjects abstain deterministically; E4 evaluated and rejected a top-reranker-score threshold for natural-language answerability. |
 | Reviewed acceptance datasets | Implemented | Synthetic corpora verify contracts; QASPER measures real-world evidence retrieval and exposes current limitations. |
 | Second-corpus generalization proof | Implemented | A separate research corpus uses the same parser, schema, ingestion, and retrieval services. |
 | External client integration | Implemented | A subprocess client handles JSON errors and renders cited status output. |
@@ -237,6 +237,27 @@ kg evidence <record-id> --manifest <corpus.yml> --format json
 
 Returns every source anchor supporting the selected record, including exact
 quotes and Obsidian-openable paths.
+
+### Source Range
+
+```bash
+kg source-range <anchor-id> --manifest <corpus.yml> --format json
+```
+
+Returns the immutable source range identified by an anchor, including its
+revision, structural path, offsets, exact quote, and quote hash.
+
+### Revisions
+
+```bash
+kg revisions <source-path> --manifest <corpus.yml> --format json
+kg compare-revisions <source-path> --manifest <corpus.yml> --format json
+```
+
+Lists immutable document revisions and compares exact added, removed,
+modified, and unchanged source ranges. The comparison defaults to the current
+revision and its immediate predecessor; callers may supply explicit `--from`
+and `--to` revision IDs.
 
 ### Search
 
@@ -443,9 +464,9 @@ semantic extraction, another source connector, embeddings, or a review UI.
 - [x] Rerank the strongest candidates with a local cross-encoder.
 - [ ] Calibrate answerability so unsupported questions abstain or request
   clarification.
-- [ ] Add an agent-oriented evaluation set covering paraphrases, revisions,
+- [x] Add an agent-oriented evaluation set covering paraphrases, revisions,
   ambiguity, conflicts, multi-document synthesis, and unsupported questions.
-- [ ] Expose agent-facing evidence search, source-range reads, revision
+- [x] Expose agent-facing evidence search, source-range reads, revision
   comparison, and citation resolution through a stable tool interface.
 
 The canonical SQLite database remains the evidence and provenance store.

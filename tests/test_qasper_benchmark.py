@@ -213,6 +213,64 @@ def test_qasper_fixture_evaluates_reranked_strategy(
     assert result["embedding_profile"] == "qwen3-embedding-0.6b"
     assert result["metrics"]["evidence_recall_at_1"] == 1.0
     assert result["metrics"]["anchor_integrity"] == 1.0
+    assert result["question_results"][0]["top_score"] is not None
+    assert result["question_results"][0]["recall_at_1"] == 1.0
+    assert result["question_results"][0]["reciprocal_rank"] == 1.0
+
+
+def test_qasper_e4_calibrates_paper_grouped_answerability() -> None:
+    calibrate = _load_benchmark_module("calibrate")
+    questions = []
+    for index in range(20):
+        answerable = index % 2 == 0
+        questions.append(
+            {
+                "paper_id": f"paper-{index}",
+                "question_id": f"question-{index}",
+                "answerable": answerable,
+                "returned": 10,
+                "record_ids": [f"record-{index}"],
+                "top_score": 0.9 if answerable else 0.1,
+                "recall_at_1": 1.0 if answerable else 0.0,
+                "recall_at_5": 1.0 if answerable else 0.0,
+                "recall_at_10": 1.0 if answerable else 0.0,
+                "reciprocal_rank": 1.0 if answerable else 0.0,
+                "evidence_f1_at_10": 1.0 if answerable else 0.0,
+            }
+        )
+
+    result = calibrate.calibrate(
+        {
+            "dataset": "QASPER",
+            "dataset_version": "0.3",
+            "query_strategy": "reranked",
+            "embedding_profile": "gte-modernbert",
+            "question_results": questions,
+        },
+        folds=2,
+    )
+
+    assert result["experiment"] == "E4"
+    assert result["metrics"]["answerability_balanced_accuracy"] == 1.0
+    assert result["metrics"]["answerable_coverage"] == 1.0
+    assert result["metrics"]["unanswerable_false_evidence_rate"] == 0.0
+    assert result["metrics"]["evidence_recall_at_10"] == 1.0
+    assert {item["calibration_fold"] for item in result["question_results"]} == {
+        0,
+        1,
+    }
+
+
+def test_qasper_e4_requires_unmodified_e3_result_fields() -> None:
+    calibrate = _load_benchmark_module("calibrate")
+
+    with pytest.raises(ValueError, match="requires E3 reranked results"):
+        calibrate.calibrate(
+            {
+                "query_strategy": "hybrid",
+                "question_results": [{"question_id": "question"}],
+            }
+        )
 
 
 def test_qasper_fixture_refuses_unowned_markdown(tmp_path: Path) -> None:

@@ -93,6 +93,8 @@ uv run python benchmarks/qasper/evaluate.py --strategy hybrid --embedding-profil
 uv run python benchmarks/qasper/evaluate.py --strategy hybrid --embedding-profile qwen3-embedding-0.6b --output benchmarks/qasper/data/results-hybrid-qwen.json
 uv run python benchmarks/qasper/evaluate.py --strategy reranked --embedding-profile gte-modernbert --output benchmarks/qasper/data/results-reranked-gte.json
 uv run python benchmarks/qasper/evaluate.py --strategy reranked --embedding-profile qwen3-embedding-0.6b --output benchmarks/qasper/data/results-reranked-qwen.json
+uv run python benchmarks/qasper/calibrate.py --input benchmarks/qasper/data/results-reranked-gte.json --output benchmarks/qasper/data/results-selective-gte.json
+uv run python benchmarks/qasper/calibrate.py --input benchmarks/qasper/data/results-reranked-qwen.json --output benchmarks/qasper/data/results-selective-qwen.json
 uv run python benchmarks/qasper/evaluate.py
 ```
 
@@ -124,6 +126,14 @@ The benchmark now gates the next retrieval milestones:
 3. Combine their candidates using deterministic reciprocal-rank fusion.
 4. Rerank the top candidates with a local cross-encoder.
 5. Calibrate an answerability decision independently from passage relevance.
+
+E4 uses the unchanged E3 top reranker score as its only answerability feature.
+`calibrate.py` assigns whole papers to deterministic folds, learns the
+balanced-accuracy threshold on the other folds, and reports out-of-fold
+selective metrics. Grouping by paper prevents questions about the same source
+from appearing in both a fold's calibration and evaluation data. The output
+also records a full-sample deployment threshold separately from the
+out-of-fold experiment metrics.
 
 Target measurements are:
 

@@ -4,7 +4,11 @@ from kg.models.contracts import (
     ErrorResult,
     EvidenceResult,
     IngestResult,
+    RevisionComparisonResult,
+    RevisionRangeChange,
+    RevisionResult,
     SearchResult,
+    SourceRangeResult,
     StatusResult,
 )
 from kg.models.manifest import CorpusManifest, SeedEntity
@@ -16,7 +20,11 @@ __all__ = [
     "ErrorResult",
     "EvidenceResult",
     "IngestResult",
+    "RevisionComparisonResult",
+    "RevisionRangeChange",
+    "RevisionResult",
     "SearchResult",
     "SeedEntity",
+    "SourceRangeResult",
     "StatusResult",
 ]
