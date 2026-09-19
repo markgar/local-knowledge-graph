@@ -534,7 +534,9 @@ Retrieval work proceeds one measurable feature at a time:
 3. Sparse/dense fusion without changing either underlying retriever.
 4. Cross-encoder reranking without changing candidate generation.
 5. Answerability calibration without changing retrieval.
-6. Agent-tool integration after retrieval and abstention pass their gates.
+6. Agent-tool integration after retrieval and abstention have been measured,
+   without treating a successful interface evaluation as evidence that failed
+   retrieval or abstention gates have passed.
 
 Each step must preserve the corpus selection, questions, gold evidence, metric
 implementation, and prior configuration. Its aggregate result and delta must

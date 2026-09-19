@@ -231,8 +231,8 @@ downloader, deterministic paper IDs, Markdown converter, evaluator, and
 aggregate baseline results without redistributing the source papers.
 
 [`benchmarks/qasper/RESULTS.md`](benchmarks/qasper/RESULTS.md) preserves the
-baseline and records future experiments one feature at a time, including their
-metric delta, configuration, latency, and index cost.
+baseline and the completed experiment history one feature at a time, including
+each metric delta, configuration, latency, and index cost.
 
 The benchmark currently shows that the evidence substrate is reliable but the
 retrieval layer is not yet agent-ready:

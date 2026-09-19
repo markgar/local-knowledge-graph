@@ -3,6 +3,9 @@
 E5 treats the existing `kg` executable and its JSON output as the agent tool
 boundary. No agent SDK or MCP dependency is required. A future protocol adapter
 can call the same reusable retrieval services without changing the contracts.
+The reviewed workflows use natural BM25 search so this benchmark measures the
+agent-facing command, JSON, provenance, and revision contracts independently
+from the E3 retrieval-quality and E4 answerability gates.
 
 The stable command set is:
 

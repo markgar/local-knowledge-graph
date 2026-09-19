@@ -92,17 +92,17 @@ Interpretation:
 - Top-rank quality is too low for autonomous agent use.
 - The system has no calibrated answerability decision.
 
-## Planned experiments
+## Experiment sequence and outcomes
 
-Each experiment begins only after the previous result is recorded.
+Each experiment was run only after the previous result was recorded.
 
-| ID | Single feature under test | Comparison |
+| ID | Single feature under test | Outcome |
 | --- | --- | --- |
 | E1 | Dense retrieval over the existing canonical anchors | Complete: dense versus E0 natural lexical retrieval |
 | E2 | Reciprocal-rank fusion of unchanged E0 lexical and E1 dense rankings | Hybrid versus the better of E0 and E1 |
 | E3 | Cross-encoder reranking of the unchanged E2 candidate set | Reranked hybrid versus E2 |
 | E4 | Calibrated answerability and abstention over unchanged E3 retrieval | Complete: selective answering versus E3 |
-| E5 | Agent-facing tool interface over the accepted retrieval pipeline | Complete: JSON CLI workflows versus direct retrieval |
+| E5 | Agent-facing tool interface over the existing retrieval and provenance services | Complete: JSON CLI workflows versus direct service use |
 
 Chunking changes, alternate embedding models, and alternate rerankers are
 separate experiments. They do not silently replace E1 or E3 configurations.
@@ -352,6 +352,10 @@ The reviewed `benchmarks/agent/tasks.json` fixture exercises seven workflows:
 paraphrase retrieval, multi-document synthesis, explicit conflict reporting,
 ambiguous cross-source results, unsupported-subject abstention, citation
 round-tripping, and revision comparison.
+
+The workflow fixture uses natural BM25 search. E5 evaluates the command, JSON,
+provenance, and revision contracts; it does not reclassify the E3 reranker or
+the rejected E4 threshold as an accepted agent-ready retrieval pipeline.
 
 | Metric | Result |
 | --- | ---: |

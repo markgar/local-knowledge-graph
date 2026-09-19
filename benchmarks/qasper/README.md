@@ -116,16 +116,16 @@ This baseline is intentionally not presented as a solved benchmark. It creates
 a stable, public regression target for better lexical ranking and abstention
 without adding embeddings or answer generation.
 
-## Improvement plan
+## Completed experiment sequence
 
-The benchmark now gates the next retrieval milestones:
+The benchmark was used to evaluate these retrieval stages:
 
-1. Add a versioned dense embedding index whose rows retain canonical
-   `anchor_id` and `revision_id` values.
-2. Evaluate lexical and dense retrieval independently.
-3. Combine their candidates using deterministic reciprocal-rank fusion.
-4. Rerank the top candidates with a local cross-encoder.
-5. Calibrate an answerability decision independently from passage relevance.
+1. A versioned dense embedding index whose rows retain canonical `anchor_id`
+   and `revision_id` values.
+2. Independent lexical and dense retrieval measurements.
+3. Deterministic reciprocal-rank fusion of lexical and dense candidates.
+4. Local cross-encoder reranking of the fused candidates.
+5. Answerability calibration independent from passage relevance.
 
 E4 uses the unchanged E3 top reranker score as its only answerability feature.
 `calibrate.py` assigns whole papers to deterministic folds, learns the
@@ -133,7 +133,8 @@ balanced-accuracy threshold on the other folds, and reports out-of-fold
 selective metrics. Grouping by paper prevents questions about the same source
 from appearing in both a fold's calibration and evaluation data. The output
 also records a full-sample deployment threshold separately from the
-out-of-fold experiment metrics.
+out-of-fold experiment metrics. The measured E4 result did not pass the
+answerability gate and is retained as a negative result.
 
 Target measurements are:
 
@@ -144,10 +145,10 @@ Target measurements are:
 
 Every stage must retain 100% anchor integrity and publish its results
 separately. Model-card or external benchmark scores are only selection inputs;
-changes are accepted based on this fixture and the later agent-oriented
-evaluation set.
+retrieval quality is assessed using this fixture, while the agent-oriented
+evaluation separately checks deterministic tool and provenance workflows.
 
-Experiments are deliberately sequential:
+The experiments were deliberately sequential:
 
 1. Dense retrieval only.
 2. Sparse/dense fusion without changing either retriever.
