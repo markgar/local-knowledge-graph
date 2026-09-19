@@ -14,6 +14,7 @@ from kg.db import Database
 from kg.ingest import IngestService
 from kg.models.contracts import SearchResult
 from kg.retrieval import RetrievalService
+from kg.retrieval.dense import EmbeddingProfile
 
 
 def _load_benchmark_module(name: str) -> ModuleType:
@@ -104,7 +105,14 @@ def test_qasper_fixture_evaluates_hybrid_strategy(
     IngestService(Database(manifest.database)).ingest(manifest)
 
     class StubHybridRetrievalService:
-        def __init__(self, database: Database, corpus_id: str) -> None:
+        def __init__(
+            self,
+            database: Database,
+            corpus_id: str,
+            *,
+            embedding_profile: EmbeddingProfile,
+        ) -> None:
+            assert embedding_profile is EmbeddingProfile.qwen3_embedding_06b
             self.retrieval = RetrievalService(database, corpus_id)
 
         def warmup(self) -> None:
@@ -136,6 +144,7 @@ def test_qasper_fixture_evaluates_hybrid_strategy(
         tmp_path / "corpus.yml",
         tmp_path / "gold.json",
         strategy="hybrid",
+        embedding_profile=EmbeddingProfile.qwen3_embedding_06b,
     )
 
     assert result["query_strategy"] == "hybrid"
@@ -158,7 +167,14 @@ def test_qasper_fixture_evaluates_reranked_strategy(
     IngestService(Database(manifest.database)).ingest(manifest)
 
     class StubRerankedRetrievalService:
-        def __init__(self, database: Database, corpus_id: str) -> None:
+        def __init__(
+            self,
+            database: Database,
+            corpus_id: str,
+            *,
+            embedding_profile: EmbeddingProfile,
+        ) -> None:
+            assert embedding_profile is EmbeddingProfile.qwen3_embedding_06b
             self.retrieval = RetrievalService(database, corpus_id)
 
         def warmup(self) -> None:
@@ -190,9 +206,11 @@ def test_qasper_fixture_evaluates_reranked_strategy(
         tmp_path / "corpus.yml",
         tmp_path / "gold.json",
         strategy="reranked",
+        embedding_profile=EmbeddingProfile.qwen3_embedding_06b,
     )
 
     assert result["query_strategy"] == "reranked"
+    assert result["embedding_profile"] == "qwen3-embedding-0.6b"
     assert result["metrics"]["evidence_recall_at_1"] == 1.0
     assert result["metrics"]["anchor_integrity"] == 1.0
 

@@ -8,7 +8,7 @@ from typer.testing import CliRunner
 
 from kg.cli import app
 from kg.models.contracts import DenseIndexResult, SearchResult
-from kg.retrieval.dense import DenseIndexError
+from kg.retrieval.dense import DenseIndexError, EmbeddingProfile
 
 RUNNER = CliRunner()
 
@@ -208,19 +208,31 @@ def test_dense_commands_are_available_through_cli(
     )
 
     class StubDenseRetrievalService:
-        def __init__(self, database: object, corpus_id: str) -> None:
+        def __init__(
+            self,
+            database: object,
+            corpus_id: str,
+            *,
+            profile: EmbeddingProfile,
+        ) -> None:
             assert corpus_id == "test"
+            assert profile is EmbeddingProfile.qwen3_embedding_06b
 
         def build_index(self, *, batch_size: int) -> DenseIndexResult:
             assert batch_size == 16
             return DenseIndexResult(
                 corpus_id="test",
+                embedding_profile=EmbeddingProfile.qwen3_embedding_06b.value,
                 projection_id="projection",
                 model_name="test/model",
                 model_revision="v1",
                 model_license="MIT",
                 pipeline_version="test-pipeline-v1",
                 dimensions=2,
+                normalization="l2",
+                context_behavior="test-context",
+                query_encoding="test-query",
+                document_encoding="test-document",
                 passage_count=1,
                 built=True,
                 duration_ms=1.0,
@@ -253,6 +265,8 @@ def test_dense_commands_are_available_through_cli(
             str(manifest),
             "--batch-size",
             "16",
+            "--embedding-profile",
+            "qwen3-embedding-0.6b",
             "--format",
             "json",
         ],
@@ -264,6 +278,8 @@ def test_dense_commands_are_available_through_cli(
             "semantic question",
             "--query-mode",
             "dense",
+            "--embedding-profile",
+            "qwen3-embedding-0.6b",
             "--manifest",
             str(manifest),
             "--format",
@@ -294,7 +310,13 @@ def test_dense_encode_error_is_machine_readable(
     )
 
     class StubDenseRetrievalService:
-        def __init__(self, database: object, corpus_id: str) -> None:
+        def __init__(
+            self,
+            database: object,
+            corpus_id: str,
+            *,
+            profile: EmbeddingProfile,
+        ) -> None:
             pass
 
         def search(self, query: str, **kwargs: object) -> list[SearchResult]:
@@ -341,8 +363,15 @@ def test_hybrid_query_mode_is_available_through_cli(
     )
 
     class StubHybridRetrievalService:
-        def __init__(self, database: object, corpus_id: str) -> None:
+        def __init__(
+            self,
+            database: object,
+            corpus_id: str,
+            *,
+            embedding_profile: EmbeddingProfile,
+        ) -> None:
             assert corpus_id == "test"
+            assert embedding_profile is EmbeddingProfile.qwen3_embedding_06b
 
         def search(self, query: str, **kwargs: object) -> list[SearchResult]:
             assert query == "hybrid question"
@@ -370,6 +399,8 @@ def test_hybrid_query_mode_is_available_through_cli(
             "hybrid question",
             "--query-mode",
             "hybrid",
+            "--embedding-profile",
+            "qwen3-embedding-0.6b",
             "--manifest",
             str(manifest),
             "--format",
@@ -398,8 +429,15 @@ def test_reranked_query_mode_is_available_through_cli(
     )
 
     class StubRerankedRetrievalService:
-        def __init__(self, database: object, corpus_id: str) -> None:
+        def __init__(
+            self,
+            database: object,
+            corpus_id: str,
+            *,
+            embedding_profile: EmbeddingProfile,
+        ) -> None:
             assert corpus_id == "test"
+            assert embedding_profile is EmbeddingProfile.qwen3_embedding_06b
 
         def search(self, query: str, **kwargs: object) -> list[SearchResult]:
             assert query == "reranked question"
@@ -427,6 +465,8 @@ def test_reranked_query_mode_is_available_through_cli(
             "reranked question",
             "--query-mode",
             "reranked",
+            "--embedding-profile",
+            "qwen3-embedding-0.6b",
             "--manifest",
             str(manifest),
             "--format",

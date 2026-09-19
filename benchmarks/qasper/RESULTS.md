@@ -269,3 +269,114 @@ Interpretation:
   agent-useful retrieval.
 - The 100% false-evidence rate is unchanged because answerability remains the
   separately scoped E4 experiment.
+
+## E1-S1: GTE versus Qwen embedding substitution
+
+This model-substitution experiment changes only the local single-vector
+embedding profile. The QASPER archive, 50 papers, 3,599 passages, 179
+questions, gold evidence, source filters, E2 weights and candidate counts, E3
+reranker and scoring, answerability behavior, and metric code remain
+unchanged. GTE remains the CLI default.
+
+Profile configuration:
+
+| Property | GTE ModernBERT | Qwen3-Embedding-0.6B |
+| --- | --- | --- |
+| Profile | `gte-modernbert` | `qwen3-embedding-0.6b` |
+| Model | `Alibaba-NLP/gte-modernbert-base` | `Qwen/Qwen3-Embedding-0.6B` |
+| Revision | `752e76f479f37e13f5e956c0a277bd7ccea80714` | `97b0c614be4d77ee51c0cef4e5f07c00f9eb65b3` |
+| License | Apache-2.0 | Apache-2.0 |
+| Parameters | 149,014,272 | 595,776,512 |
+| Dimensions | 768 | 1,024 |
+| Context behavior | Model-native truncation | Model-native 32K context with truncation |
+| Query encoding | Plain text | Official `query` prompt: `Instruct: Given a web search query, retrieve relevant passages that answer the query` followed by `Query:` |
+| Document encoding | Plain text | Plain text with no instruction |
+| Pooling | Model Sentence Transformers configuration | Last-token pooling from the pinned model configuration |
+| Normalization | L2 | L2 |
+| Index | sqlite-vec 0.1.9 cosine distance | sqlite-vec 0.1.9 cosine distance |
+
+Measured runtime:
+
+- Sentence Transformers 5.7.0, Transformers 5.17.0, PyTorch 2.14.0.
+- Apple M4 Pro with 24 GiB RAM on macOS 26.6.2.
+- Automatic local backend selection chose MPS. GTE used `torch.float16`; Qwen
+  used `torch.bfloat16`. CPU remains a supported fallback, and device plus
+  dtype are included in projection compatibility.
+- E2 remains 50 natural-BM25 and 50 dense candidates, RRF `k = 20`, lexical
+  weight `1.0`, and dense weight `0.5`.
+- E3 remains the pinned
+  `cross-encoder/ms-marco-MiniLM-L6-v2` revision
+  `233902d25c440f23af6f7d6e94d2946bac0bee0a`, 50 candidates, and batch size
+  32.
+
+Cost:
+
+| Measurement | GTE | Qwen | Qwen delta |
+| --- | ---: | ---: | ---: |
+| Indexing time | 71.4 s | 259.9 s | +188.5 s / 3.6x |
+| Model cache size | 287.7 MiB | 1,151.6 MiB | +863.9 MiB / 4.0x |
+| Derived-index size | 152.3 MiB | 202.4 MiB | +50.0 MiB / 32.8% |
+
+Dense retrieval:
+
+| Metric | GTE | Qwen | Delta |
+| --- | ---: | ---: | ---: |
+| Evidence Recall@1 | 10.0% | 11.1% | +1.2 pp |
+| Evidence Recall@5 | 29.1% | 43.8% | +14.7 pp |
+| Evidence Recall@10 | 42.7% | 64.2% | +21.5 pp |
+| Mean reciprocal rank | 0.264 | 0.327 | +0.063 |
+| Evidence-set F1@10 | 11.2% | 15.9% | +4.7 pp |
+| Unanswerable false-evidence rate | 100.0% | 100.0% | 0.0 pp |
+| Anchor integrity | 100.0% | 100.0% | 0.0 pp |
+| Median query latency | 74.3 ms | 94.0-94.9 ms | +19.7-20.6 ms |
+| p95 query latency | 93.3 ms | 122.2-151.9 ms | +28.9-58.6 ms |
+
+Hybrid retrieval with unchanged E2:
+
+| Metric | GTE | Qwen | Delta |
+| --- | ---: | ---: | ---: |
+| Evidence Recall@1 | 15.2% | 17.8% | +2.6 pp |
+| Evidence Recall@5 | 41.6% | 46.6% | +5.0 pp |
+| Evidence Recall@10 | 60.9% | 62.5% | +1.5 pp |
+| Mean reciprocal rank | 0.334 | 0.373 | +0.039 |
+| Evidence-set F1@10 | 14.6% | 15.0% | +0.4 pp |
+| Unanswerable false-evidence rate | 100.0% | 100.0% | 0.0 pp |
+| Anchor integrity | 100.0% | 100.0% | 0.0 pp |
+| Median query latency | 109.3 ms | 131.8-136.1 ms | +22.5-26.8 ms |
+| p95 query latency | 132.5 ms | 158.6-228.8 ms | +26.1-96.4 ms |
+
+Reranked retrieval with unchanged E3:
+
+| Metric | GTE | Qwen | Delta |
+| --- | ---: | ---: | ---: |
+| Evidence Recall@1 | 22.9% | 22.9% | 0.0 pp |
+| Evidence Recall@5 | 58.5% | 58.5% | 0.0 pp |
+| Evidence Recall@10 | 72.2% | 71.6% | -0.6 pp |
+| Mean reciprocal rank | 0.446 | 0.445 | -0.001 |
+| Evidence-set F1@10 | 17.4% | 17.3% | -0.1 pp |
+| Unanswerable false-evidence rate | 100.0% | 100.0% | 0.0 pp |
+| Anchor integrity | 100.0% | 100.0% | 0.0 pp |
+| Median query latency | 200.6 ms | 218.6-221.3 ms | +18.0-20.7 ms |
+| p95 query latency | 256.1 ms | 277.5-280.4 ms | +21.4-24.3 ms |
+
+Both complete Qwen runs produced identical ranked passage IDs and identical
+logical metrics for dense, hybrid, and reranked retrieval. Latency varied as
+expected. Both profile projections remained on disk simultaneously, no vector
+spaces or rankings were combined outside the unchanged E2 fusion, and every
+returned item retained exact canonical evidence.
+
+Interpretation:
+
+- Qwen is substantially stronger as a dense retriever on this fixture.
+- The unchanged E2 fusion captures only a modest part of that gain because
+  Qwen dense and natural BM25 contribute different ranking interactions under
+  the frozen weights.
+- The unchanged E3 reranker removes the apparent Qwen advantage and produces
+  essentially equal final quality, with slightly lower Qwen Recall@10 and F1.
+- Qwen costs materially more disk, cache, indexing time, and query latency, so
+  this experiment does not justify changing the compatibility default.
+- The 100% unanswerable false-evidence rate is unchanged because answerability
+  remains outside this model-substitution experiment.
+- QASPER is one scientific-paper regression dataset. It is not the sole basis
+  for selecting a general-purpose embedding model; agent-oriented and
+  note/email/meeting-style evaluations remain necessary.

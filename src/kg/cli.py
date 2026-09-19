@@ -15,7 +15,12 @@ from kg.db import Database
 from kg.ingest import IngestService
 from kg.models.contracts import ErrorResult
 from kg.models.manifest import CorpusManifest
-from kg.retrieval.dense import DenseIndexError, DenseRetrievalService
+from kg.retrieval.dense import (
+    DEFAULT_EMBEDDING_PROFILE,
+    DenseIndexError,
+    DenseRetrievalService,
+    EmbeddingProfile,
+)
 from kg.retrieval.hybrid import HybridRetrievalService
 from kg.retrieval.rerank import RerankedRetrievalService, RerankerError
 from kg.retrieval.service import RecordNotFoundError, RetrievalService, SearchQueryError
@@ -74,6 +79,10 @@ def dense_index(
     manifest: ManifestOption,
     output_format: FormatOption = OutputFormat.text,
     batch_size: Annotated[int, typer.Option(min=1)] = 32,
+    embedding_profile: Annotated[
+        EmbeddingProfile,
+        typer.Option(help="Local single-vector embedding profile."),
+    ] = DEFAULT_EMBEDDING_PROFILE,
 ) -> None:
     """Build the versioned dense projection for a corpus."""
     corpus = _load_manifest_or_exit(manifest, output_format)
@@ -81,6 +90,7 @@ def dense_index(
         result = DenseRetrievalService(
             Database(corpus.database),
             corpus.corpus_id,
+            profile=embedding_profile,
         ).build_index(batch_size=batch_size)
     except (DenseIndexError, ValueError) as exc:
         _fail("dense_index_failed", str(exc), output_format)
@@ -105,6 +115,10 @@ def search(
             )
         ),
     ] = QueryMode.strict,
+    embedding_profile: Annotated[
+        EmbeddingProfile,
+        typer.Option(help="Embedding profile for dense, hybrid, and reranked search."),
+    ] = DEFAULT_EMBEDDING_PROFILE,
 ) -> None:
     """Search indexed evidence."""
     corpus = _load_manifest_or_exit(manifest, output_format)
@@ -112,7 +126,11 @@ def search(
         cutoff = _parse_since(since) if since else None
         database = Database(corpus.database)
         if query_mode is QueryMode.reranked:
-            results = RerankedRetrievalService(database, corpus.corpus_id).search(
+            results = RerankedRetrievalService(
+                database,
+                corpus.corpus_id,
+                embedding_profile=embedding_profile,
+            ).search(
                 query=query,
                 subject=subject,
                 limit=limit,
@@ -120,7 +138,11 @@ def search(
                 source_path=source,
             )
         elif query_mode is QueryMode.hybrid:
-            results = HybridRetrievalService(database, corpus.corpus_id).search(
+            results = HybridRetrievalService(
+                database,
+                corpus.corpus_id,
+                embedding_profile=embedding_profile,
+            ).search(
                 query=query,
                 subject=subject,
                 limit=limit,
@@ -128,7 +150,11 @@ def search(
                 source_path=source,
             )
         elif query_mode is QueryMode.dense:
-            results = DenseRetrievalService(database, corpus.corpus_id).search(
+            results = DenseRetrievalService(
+                database,
+                corpus.corpus_id,
+                profile=embedding_profile,
+            ).search(
                 query=query,
                 subject=subject,
                 limit=limit,

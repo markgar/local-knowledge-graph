@@ -20,12 +20,17 @@ class IngestResult(ContractModel):
 
 class DenseIndexResult(ContractModel):
     corpus_id: str
+    embedding_profile: str
     projection_id: str
     model_name: str
     model_revision: str
     model_license: str
     pipeline_version: str
     dimensions: int
+    normalization: str
+    context_behavior: str
+    query_encoding: str
+    document_encoding: str
     passage_count: int
     built: bool
     duration_ms: float

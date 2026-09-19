@@ -8,6 +8,7 @@ from typing import Protocol
 
 from kg.db import Database
 from kg.models.contracts import SearchResult
+from kg.retrieval.dense import DEFAULT_EMBEDDING_PROFILE, EmbeddingProfile
 from kg.retrieval.hybrid import HybridRetrievalService
 from kg.retrieval.service import RetrievalService, SearchQueryError
 
@@ -110,6 +111,7 @@ class RerankedRetrievalService:
         reranker: RerankerProvider | None = None,
         candidate_limit: int = DEFAULT_CANDIDATE_LIMIT,
         batch_size: int = DEFAULT_BATCH_SIZE,
+        embedding_profile: EmbeddingProfile = DEFAULT_EMBEDDING_PROFILE,
     ) -> None:
         if candidate_limit < 1:
             raise ValueError("candidate_limit must be at least 1")
@@ -119,6 +121,7 @@ class RerankedRetrievalService:
         self.hybrid_retrieval = hybrid_retrieval or HybridRetrievalService(
             database,
             corpus_id,
+            embedding_profile=embedding_profile,
         )
         self._reranker = reranker
         self.candidate_limit = candidate_limit
