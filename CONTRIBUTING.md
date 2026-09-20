@@ -19,7 +19,7 @@ use a package index approved for your environment. Never change feeds or bypass
 organizational controls to evade a blocked download. Report the blocked host and
 use cached/local or otherwise approved dependencies and models.
 
-Before opening a pull request, run:
+For code-affecting changes, run these checks before opening a pull request:
 
 ```bash
 uv run pytest
@@ -28,10 +28,25 @@ uv run mypy
 uv build
 ```
 
-CI is manually dispatched, not triggered automatically by pushes or pull
-requests. Run the **CI** workflow in GitHub Actions for the branch under review,
-or use `gh workflow run ci.yml --ref <branch>`, and inspect its Python
-3.12/3.13/3.14 results before merging.
+CI remains **manual-only**, not triggered by pushes or pull requests. Dispatch
+the **CI** workflow only for code-affecting changes, using GitHub Actions or
+`gh workflow run ci.yml --ref <branch>`, and inspect its Python 3.12/3.13/3.14
+results before merging. Code-affecting changes include source, tests, source
+fixtures (including Markdown input documents), executable scripts, dependencies,
+build/package configuration and CI configuration.
+
+For documentation-, skill-text-, instruction- or issue-template-only changes,
+review the diff and relevant links/examples instead. Do **not** dispatch CI or
+run the full Python suite merely to merge those changes.
+
+The workflow also guards the Python matrix: a lightweight change check runs
+before dependency installation. It compares feature branches against their
+merge base with the default branch; on the default branch it checks the latest
+commit against its first parent. Documentation-only or empty changes skip the
+matrix, even if manually dispatched. Unknown paths conservatively require CI;
+failure to determine the changed files fails the check rather than claiming a
+documentation-only change. Classification lives in
+[ci_scope.py](.github/scripts/ci_scope.py).
 
 ## Repository layout
 
