@@ -6,6 +6,10 @@ benchmark labels remain unchanged. The product specification remains
 "specified, not implemented" until combined acceptance, including all eight real
 model combinations.
 
+The [2026-09-20 real-model run](RESULTS.md) passed all eight combinations.
+The complete [machine-readable report](results-2026-09-20.json) preserves the
+actual outputs, configuration, and provenance.
+
 ## Run the real matrix
 
 From the repository root with the normal approved dependency/model caches:
