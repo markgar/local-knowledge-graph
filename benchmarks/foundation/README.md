@@ -11,16 +11,21 @@ The importable `workload()` returns the full deterministic operation/document
 input and `serialized()` returns canonical UTF-8 JSON bytes (sorted keys, compact
 separators, trailing LF). This prints metadata, not a benchmark score. It requires
 no models, network, service, or random library. Seed 1729 is a formula input;
-version `foundation-workload/1` freezes that formula and serialization.
+version `foundation-workload/2` freezes that formula and serialization.
+Version 2 fixes the pre-merge version-1 soft-line-break-only workload: long
+documents now have 40 separate paragraphs after their introductory block (41
+source anchors). Structural tests run the real Markdown parser to pin this.
+It also names both distinct Sam entities for the ambiguity scenario. There are
+no historical performance measurements being replaced by this correction.
 
 | Property | Exact value |
 | --- | --- |
 | Documents | 1,000: work=800, isolated=200 |
 | Source namespaces | markdown=500, email=500; both occur in each corpus |
 | Text mix | 800 small notes, 200 forty-paragraph documents; all include CRLF, combining accent and non-BMP character |
-| UTF-8 source bytes | 266,840 |
-| Canonical workload bytes | 512,100 |
-| SHA-256 | `ae51bd8b5eb6c2ce3c8a1318c029d4eeed0bd1fc021b0d16f72b51094fcb20f8` |
+| UTF-8 source bytes | 283,240 |
+| Canonical workload bytes | 544,977 |
+| SHA-256 | `d627ee88e0d5d5fa7ef1a5babea74ffb611a7865a4ff1c37095b49072d022ef0` |
 | Task selection | 240 work tasks, 216 visible to allowed-only access; display limit=20 |
 | Mutations | 1,000 creates; 100 identical retries; 100 edits; 50 remove/restore pairs; 25 metadata updates; 25 stale writes; 25-document failed enumeration |
 | Queries | 100 each structured, graph, search, count; ambiguity variant with distinct Sam identities |

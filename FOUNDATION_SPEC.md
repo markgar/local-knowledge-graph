@@ -247,6 +247,11 @@ ranked candidates; interrupted or budget-limited counts are not labeled exact.
 `QueryRequest` uses topologically ordered steps: `search`, `resolve`, `records`,
 `count`, `paths`, `evidence`. Records/paths depend on an earlier resolve; count
 depends on an exhaustive records selection, never a ranked/search result. The
+resolve selector is exactly one of `name` or `entity_id`; exact ID lookup remains
+scoped and cannot return a different entity or ambiguity. Named resolution may
+be ambiguous only on the selected output's dependency chain; a completed resolve
+has exactly one candidate. Returned records match the selected record type and
+paths cannot exceed the requested hop limit. The
 initial vocabulary deliberately does not support arbitrary graph-to-record joins;
 Q2 must extend/version the contract before advertising them. `output_step` names
 the result. Ambiguous resolution stops dependent execution without guessing.
@@ -261,6 +266,7 @@ must be checked before returning data and cannot be overridden by a snapshot.
 budgets, output kind and aggregate-support step; models cannot prove actual
 snapshot isolation, authorization, exhaustive selection, or time enforcement.
 Aggregate support is inspectable via its records step in the retained result set;
+aggregate results therefore require a non-null `result_set_id`.
 Q1/Q2 must supply this mechanism, not just return an unresolvable label.
 
 Source activation, indexing readiness, and enrichment progress are separate

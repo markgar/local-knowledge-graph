@@ -460,3 +460,105 @@ def test_total_evidence_limit_counts_occurrences() -> None:
     })
     with pytest.raises(ValidationError, match="total evidence"):
         parse_request(request)
+
+
+def test_ambiguity_must_belong_to_output_dependency_chain() -> None:
+    request = query()
+    request["steps"].append({"operation": "search", "step_id": "search", "text": "Sam"})
+    request["output_step"] = "search"
+    result = query_result()
+    result.update(outcome="ambiguous", data={"kind": "entities", "entity_ids": ["sam-a", "sam-b"]})
+    with pytest.raises(ValueError, match="output dependency chain"):
+        QueryResult.model_validate_json(json.dumps(result)).validate_for(
+            QueryRequest.model_validate_json(json.dumps(request))
+        )
+    request["steps"] = request["steps"][-1:]
+    result["operations_executed"] = 1
+    with pytest.raises(ValueError, match="output dependency chain"):
+        QueryResult.model_validate_json(json.dumps(result)).validate_for(
+            QueryRequest.model_validate_json(json.dumps(request))
+        )
+    ambiguous = QueryRequest.model_validate_json((FIXTURES / "query-ambiguous.json").read_text())
+    result["request_id"] = ambiguous.request_id
+    QueryResult.model_validate_json(json.dumps(result)).validate_for(ambiguous)
+
+
+@pytest.mark.parametrize("entity_ids", [[], ["sam-a", "sam-b"]])
+def test_complete_resolution_requires_one_candidate(entity_ids) -> None:
+    request = query()
+    request["steps"] = [{"operation": "resolve", "step_id": "sam", "name": "Sam"}]
+    request["output_step"] = "sam"
+    result = query_result()
+    result.update(operations_executed=1, data={"kind": "entities", "entity_ids": entity_ids})
+    with pytest.raises(ValueError, match="exactly one"):
+        QueryResult.model_validate_json(json.dumps(result)).validate_for(
+            QueryRequest.model_validate_json(json.dumps(request))
+        )
+
+
+def test_exact_entity_selection_is_executable_and_unambiguous() -> None:
+    request = query()
+    request["steps"] = request["steps"][:1]
+    request["output_step"] = "sam"
+    parsed = QueryRequest.model_validate_json(json.dumps(request))
+    result = query_result()
+    result.update(operations_executed=1,
+                  data={"kind": "entities", "entity_ids": ["sam-primary"]})
+    QueryResult.model_validate_json(json.dumps(result)).validate_for(parsed)
+    result["data"]["entity_ids"] = ["sam-alternative"]
+    with pytest.raises(ValueError, match="requested entity"):
+        QueryResult.model_validate_json(json.dumps(result)).validate_for(parsed)
+    result.update(outcome="ambiguous",
+                  data={"kind": "entities", "entity_ids": ["sam-primary", "sam-alternative"]})
+    with pytest.raises(ValueError, match="name resolution"):
+        QueryResult.model_validate_json(json.dumps(result)).validate_for(parsed)
+    request["steps"][0]["name"] = "Sam"
+    with pytest.raises(ValueError, match="exactly one"):
+        QueryRequest.model_validate_json(json.dumps(request))
+    del request["steps"][0]["name"], request["steps"][0]["entity_id"]
+    with pytest.raises(ValueError, match="exactly one"):
+        QueryRequest.model_validate_json(json.dumps(request))
+
+
+def test_record_selection_and_path_hop_constraints() -> None:
+    request = query()
+    request["steps"] = request["steps"][:2]
+    request["output_step"] = "tasks"
+    support = enrichment()["payload"]["changes"][0]["support"]
+    result = query_result()
+    result.update(operations_executed=2, data={
+        "kind": "records",
+        "records": [{"record_id": "r1", "record_type": "decision", "support": support}],
+    })
+    with pytest.raises(ValueError, match="record type"):
+        QueryResult.model_validate_json(json.dumps(result)).validate_for(
+            QueryRequest.model_validate_json(json.dumps(request))
+        )
+    result["data"]["records"][0]["record_type"] = "action"
+    QueryResult.model_validate_json(json.dumps(result)).validate_for(
+        QueryRequest.model_validate_json(json.dumps(request))
+    )
+    request["steps"][1] = {
+        "operation": "paths", "step_id": "paths", "entity_step": "sam",
+        "predicate": "work:owns", "max_hops": 1,
+    }
+    request["output_step"] = "paths"
+    result["data"] = {"kind": "paths", "paths": [{
+        "entity_ids": ["a", "b", "c", "d"], "assertion_ids": ["ab", "bc", "cd"],
+        "support": support,
+    }]}
+    with pytest.raises(ValueError, match="hop limit"):
+        QueryResult.model_validate_json(json.dumps(result)).validate_for(
+            QueryRequest.model_validate_json(json.dumps(request))
+        )
+    request["steps"][1]["max_hops"] = 3
+    QueryResult.model_validate_json(json.dumps(result)).validate_for(
+        QueryRequest.model_validate_json(json.dumps(request))
+    )
+
+
+def test_aggregate_support_requires_retained_selection_identity() -> None:
+    result = query_result()
+    result["result_set_id"] = None
+    with pytest.raises(ValueError, match="retained result set"):
+        QueryResult.model_validate_json(json.dumps(result))

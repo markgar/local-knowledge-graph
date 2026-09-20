@@ -1,6 +1,6 @@
 {
   "contract_version": "foundation/1",
-  "request_id": "count-1",
+  "request_id": "ambiguous-count-1",
   "scope": {
     "corpus_id": "work",
     "access": {
@@ -10,9 +10,8 @@
       "grants": ["read"]
     }
   },
-  "budget": {"max_operations": 16, "max_records": 10000, "max_milliseconds": 5000},
   "steps": [
-    {"operation": "resolve", "step_id": "sam", "entity_id": "sam-primary"},
+    {"operation": "resolve", "step_id": "sam", "name": "Sam"},
     {"operation": "records", "step_id": "tasks", "entity_step": "sam", "record_type": "action", "status": "open"},
     {"operation": "count", "step_id": "total", "records_step": "tasks"}
   ],

@@ -2,7 +2,8 @@
 
 These are synthetic contract fixtures, not permission to connect to any source.
 `enrichment.json` is an executable multi-document request; `query.json` is an
-executable resolve/records/count plan. Contract tests parse, reject mutations and
+executable exact-ID resolve/records/count plan; `query-ambiguous.json` uses the
+same plan with a name selector over the two distinct Sam entities. Contract tests parse, reject mutations and
 round-trip these values. They do **not** commit or execute them.
 
 The generator in `benchmarks/foundation/workload.py` supplies 1,000 deterministic
@@ -24,7 +25,7 @@ passing mock substitutes here.
 | A08 | Index 0: original s1/r1, edit s2/r2, deactivate s3, restore s4/r1; submit enrichment expecting s1. | Conflict despite reused r1; no stale enrichment committed or automatically revived. |
 | A09 | Create two distinct Sam entities; add a passage mentioning both, then explicit/inferred competing `work:owns` assertions. | Separate identities and contributions; mention creates no factual edge; no write-order truth winner. |
 | A10 | Deny workload access group `denied`, then revoke email access; exercise evidence/history/alias/path/count/diagnostics and continuation. | No unauthorized content, identifiers or totals; conjunctive contribution hidden if any support denied. |
-| A11 | All 240 workload tasks belong to work; 24 are denied, leaving 216, search limit 20. Resolve a unique owner via exact ID fixture variant; separately present two Sams. Insert an update between resolve and count. | Count 216, not 20; inspect complete eligible support; ambiguous variant stops; interleaved execution observes one state or returns state_changed without data. |
+| A11 | All 240 workload tasks belong to work; 24 are denied, leaving 216, search limit 20. Execute `query.json` selecting `sam-primary` by ID; `query-ambiguous.json` selects name Sam over both generated Sam entities. Insert an update between resolve and count. | Count 216, not 20; inspect complete eligible support; ambiguous variant stops; interleaved execution observes one state or returns state_changed without data. |
 | A12 | Commit 0 before enrichment; interrupt index/enrichment jobs, update source, restart old jobs. | Independent index readiness; stale jobs never mark new state ready; retry converges without duplicate knowledge. |
 | A13 | Page all tied workload task results with limit 20; repeat cursor, expire it, change data, revoke access. | No duplicate/omitted records in supported result set; explicit invalidation/expiry; candidate-pool exhaustion distinguished from eligible-set exhaustion. |
 | A14 | Purge 0 while job/retry/continuation data exist; restart/retry and simulate a failed derived-store purge. | Enumerated managed stores cannot disclose or resurrect content; explicit recoverable failure, never a secure-erasure claim. |

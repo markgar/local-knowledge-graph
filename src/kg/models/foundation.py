@@ -552,7 +552,14 @@ class SearchStep(Value):
 class ResolveStep(Value):
     operation: Literal["resolve"]
     step_id: Token
-    name: Label
+    name: Label | None = None
+    entity_id: Token | None = None
+
+    @model_validator(mode="after")
+    def one_selector(self) -> Self:
+        if (self.name is None) == (self.entity_id is None):
+            raise ValueError("resolve requires exactly one name or entity ID")
+        return self
 
 
 class RecordsStep(Value):
@@ -678,6 +685,12 @@ class EntitiesResult(Value):
     kind: Literal["entities"]
     entity_ids: tuple[Token, ...] = Field(max_length=1000)
 
+    @model_validator(mode="after")
+    def unique_entities(self) -> Self:
+        if len(set(self.entity_ids)) != len(self.entity_ids):
+            raise ValueError("duplicate entity candidates")
+        return self
+
 
 QueryData = Annotated[
     RankedResult | RecordsResult | PathsResult | AggregateResult | EntitiesResult,
@@ -714,6 +727,8 @@ class QueryResult(Versioned):
             raise ValueError("query data requires a coherent read state and no error")
         if self.continuation is not None and self.result_set_id is None:
             raise ValueError("continuation requires a result set")
+        if isinstance(self.data, AggregateResult) and self.result_set_id is None:
+            raise ValueError("aggregate support requires a retained result set")
         if isinstance(self.data, AggregateResult) and self.data.exact:
             if self.outcome not in {"complete", "empty"} or self.truncated:
                 raise ValueError("partial/truncated aggregates cannot be exact")
@@ -760,15 +775,47 @@ class QueryResult(Versioned):
         if self.data is None:
             return
         output = next(step for step in request.steps if step.step_id == request.output_step)
+        steps = {step.step_id: step for step in request.steps}
+        resolution: ResolveStep | None = None
+        dependency = output
+        while True:
+            if isinstance(dependency, ResolveStep):
+                resolution = dependency
+                break
+            if isinstance(dependency, (RecordsStep, PathsStep)):
+                dependency = steps[dependency.entity_step]
+            elif isinstance(dependency, CountStep):
+                dependency = steps[dependency.records_step]
+            else:
+                break
         kinds = {
             "search": "ranked", "resolve": "entities", "records": "records",
             "count": "aggregate", "paths": "paths", "evidence": "records",
         }
         # An ambiguous dependency stops the plan before its requested output.
         if self.outcome == "ambiguous":
+            if resolution is None or resolution.entity_id is not None:
+                raise ValueError(
+                    "ambiguity requires a name resolution in the output dependency chain"
+                )
             return
         if self.data.kind != kinds[output.operation]:
             raise ValueError("query output kind disagrees with plan")
+        if isinstance(output, ResolveStep) and isinstance(self.data, EntitiesResult):
+            if self.outcome == "complete" and len(self.data.entity_ids) != 1:
+                raise ValueError("complete resolution requires exactly one entity")
+            if output.entity_id is not None and any(
+                entity_id != output.entity_id for entity_id in self.data.entity_ids
+            ):
+                raise ValueError("exact resolution must return the requested entity")
+        if isinstance(output, RecordsStep) and isinstance(self.data, RecordsResult) and any(
+            record.record_type != output.record_type for record in self.data.records
+        ):
+            raise ValueError("record type disagrees with requested selection")
+        if isinstance(output, PathsStep) and isinstance(self.data, PathsResult) and any(
+            len(path.assertion_ids) > output.max_hops for path in self.data.paths
+        ):
+            raise ValueError("path exceeds requested hop limit")
         if isinstance(output, CountStep) and isinstance(self.data, AggregateResult):
             if self.data.supporting_records_step != output.records_step:
                 raise ValueError("aggregate support must name its records selection")

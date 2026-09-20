@@ -6,7 +6,7 @@ import hashlib
 import json
 from collections import Counter
 
-VERSION = "foundation-workload/1"
+VERSION = "foundation-workload/2"
 SEED = 1729
 
 
@@ -23,8 +23,9 @@ def documents() -> list[dict[str, object]]:
         )
         text += "Cafe\u0301 \U0001f680\r\n"
         if index % 5 == 0:
-            text += "\r\n".join(f"Paragraph {part}: reference {(index + SEED) % 17}."
-                                for part in range(40))
+            text += "\r\n\r\n" + "\r\n\r\n".join(
+                f"Paragraph {part}: reference {(index + SEED) % 17}." for part in range(40)
+            )
         result.append({
             "corpus_id": corpus,
             "source_namespace": namespace,
@@ -56,6 +57,7 @@ def workload() -> dict[str, object]:
         "search_limit": 20,
         "ambiguity": ["Sam", "Sam Example"],
         "graph": {
+            "entity_names": {"sam-primary": "Sam", "sam-alternative": "Sam", "atlas": "Atlas"},
             "entities": ["sam-primary", "sam-alternative", "atlas"]
             + [f"task-{index}" for index in range(240)],
             "edges": [
