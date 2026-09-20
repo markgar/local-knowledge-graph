@@ -10,6 +10,13 @@ tags:
 
 # Knowledge Graph Software MVP
 
+> **Next product direction:** [`ROADMAP.md`](ROADMAP.md) defines the generic
+> knowledge engine target, including natural-language query planning and
+> generic text ingestion and agent-assisted graph enrichment. It takes precedence over
+> future-direction statements here where they differ. This specification
+> retains existing implementation contracts and historical experiment details;
+> roadmap capabilities are not implied to be implemented.
+
 ## Implementation Status
 
 This document is both the evidence-MVP product contract and the roadmap toward

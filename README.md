@@ -520,25 +520,28 @@ does not establish general superiority over Markdown or replace QASPER.
 
 ## Roadmap
 
-The next phase keeps SQLite as the canonical evidence store while adding
-replaceable retrieval projections:
+The next product direction is a generic knowledge engine with extensible
+ingestion and a unified natural-language query service. The query service will
+select and sequence structured queries, keyword search, semantic search, and
+graph traversal; the calling agent remains responsible for the final narrative
+answer.
 
-1. Improve answerability beyond the rejected E4 top-score threshold.
-2. Expand agent evaluation beyond the initial stable JSON CLI workflows.
+[`ROADMAP.md`](ROADMAP.md) records the responsibility boundaries, current
+implementation gaps, the full core build map, and open decisions. Query
+planning and the generic ingestion plugin interface are **not built yet**.
+The roadmap describes target capabilities, not current functionality.
+The ingestion target separates mechanical text storage/indexing from subsequent
+agent-assisted graph enrichment. Source-specific plugins remain separate work.
 
-The project will integrate established embedding models, vector indexes, and
-rerankers rather than inventing them. Its responsibility remains immutable
-provenance, exact citations, explicit records, deterministic rebuilding, and
-measured retrieval quality. Detailed acceptance gates are recorded in
-[`SPEC.md`](SPEC.md#milestone-5-agent-useful-retrieval).
+The first planned change is defined in
+[`PRODUCTIZATION_SPEC.md`](PRODUCTIZATION_SPEC.md): preserve fixtures and
+ingestion while making normal search use the full existing retrieval pipeline
+and retiring experiment-stage product organization. This is not implemented yet.
 
-The first candidates are
-[Sentence Transformers](https://www.sbert.net/) with a permissively licensed
-retrieval model, [sqlite-vec](https://github.com/asg017/sqlite-vec) for a
-minimum-change local experiment, or
-[LanceDB](https://github.com/lancedb/lancedb) if the derived retrieval index
-needs stronger hybrid-search support. These components remain replaceable;
-canonical evidence stays in SQLite.
+Existing provenance, retrieval implementations, and benchmarks remain useful
+foundations. Historical experiment details and acceptance gates remain in
+[`SPEC.md`](SPEC.md#milestone-5-agent-useful-retrieval); the roadmap defines the
+next product direction.
 
 ## License
 
