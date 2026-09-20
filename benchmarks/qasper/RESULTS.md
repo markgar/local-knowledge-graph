@@ -64,10 +64,10 @@ decision and a dedicated in-domain evaluation set.
 
 ## Results
 
-Contextual retrieval (`--contextual`) is implemented but not yet measured in
-this ledger. All E0-E5 and E1-S1 numbers below retain their original
-passage-only semantic representation. The new mode must be evaluated
-separately; it does not supersede any recorded result or acceptance gate.
+Contextual retrieval (`--contextual`) is measured in the E3-C1 comparison below.
+All E0-E5 and E1-S1 numbers retain their original passage-only semantic
+representation. The contextual result does not supersede any recorded result
+or acceptance gate.
 
 ### E0: FTS5 lexical baseline
 
@@ -490,3 +490,55 @@ Interpretation:
 - QASPER is one scientific-paper regression dataset. It is not the sole basis
   for selecting a general-purpose embedding model; agent-oriented and
   note/email/meeting-style evaluations remain necessary.
+
+## E3-C1: Contextual representation on current code
+
+Exploratory rerun on 2026-09-19 at code commit
+`d4c675a9dccd070bee54c199f3b221b5cd5c99cc`. This measures the existing contextual
+implementation, not a new retrieval-code change. No new independent code review
+was performed for this rerun.
+
+The fixed QASPER 0.3 archive and selected 50 development papers produced the
+same 179 questions (167 answerable, 12 unanswerable) and 3,599 canonical
+passages. The archive checksum matched the pinned value. Generated `gold.json`
+SHA-256: `1dcf34271f3b39a598dc90d0f5ed08923adf60e7cb1244ccd4da29e2346c5e03`.
+
+Both arms use the E1 GTE model and pinned revision, normalized 768-dimensional
+vectors in sqlite-vec, unchanged E2 fusion, and the E3 pinned MiniLM reranker
+over 50 candidates, returning ten passages. The sole experimental change is
+adding document titles and heading paths to embedding and reranking input.
+Canonical source quotes and evaluation rules are unchanged.
+
+Runtime: Python 3.12.13, macOS 27.0 arm64, MPS embedding device with float16,
+Sentence Transformers 5.7.0, Transformers 5.17.0, PyTorch 2.14.0, sqlite-vec
+0.1.9. Models were loaded from the local cache with network access disabled.
+The four evaluations ran sequentially, twice per arm.
+
+| Metric | Current passage-only | Contextual | Delta |
+| --- | ---: | ---: | ---: |
+| Evidence Recall@1 | 22.9% | 25.0% | +2.1 pp |
+| Evidence Recall@5 | 58.5% | 61.8% | +3.3 pp |
+| Evidence Recall@10 | 72.2% | 75.2% | +3.0 pp |
+| Mean reciprocal rank | 0.446 | 0.461 | +0.015 |
+| Evidence-set F1@10 | 17.4% | 18.3% | +0.9 pp |
+| Unanswerable false-evidence rate | 100.0% | 100.0% | 0.0 pp |
+| Anchor integrity | 100.0% | 100.0% | 0.0 pp |
+| Warm-query median latency | 190.9-191.8 ms | 206.2-207.2 ms | |
+| Warm-query p95 latency | 240.5-243.1 ms | 251.1-252.1 ms | |
+| Index build time | 69.1 s | 82.1 s | +13.1 s |
+| Derived-index size per projection | 159,739,904 bytes | 159,739,904 bytes | 0 |
+
+Each arm reproduced identical per-question ranked record IDs, top scores, and
+logical metrics across its two runs. The current passage-only aggregate quality
+matches the recorded E3 result. Detailed local outputs are
+`data/results-current-reranked-{1,2}.json` and
+`data/results-current-contextual-{1,2}.json`; dataset-derived details remain
+ignored rather than redistributed.
+
+Contextual Recall@10 improved for 12 answerable questions, worsened for five,
+and was unchanged for 150. This is a modest aggregate gain, not a universal
+improvement or a statistical significance claim. It still misses the reranked
+acceptance gates of 70% Recall@5, 80% Recall@10, and 0.55 MRR. All twelve
+unanswerable questions still return passages; this experiment does not solve
+answerability or measure generated-answer quality. Contextual mode remains
+opt-in.

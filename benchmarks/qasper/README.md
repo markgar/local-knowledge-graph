@@ -118,7 +118,7 @@ without adding embeddings or answer generation.
 
 ## Completed experiment sequence
 
-### Pending contextual retrieval comparison
+### Contextual retrieval comparison
 
 The opt-in `--contextual` mode supplies titles and heading paths to the
 embedding and reranking stages without changing exact evidence quotes or
@@ -139,6 +139,12 @@ Repeat both full runs and record metrics, latency, index time, and index size
 in `RESULTS.md` before claiming a quality improvement. `source-context` is
 a separate evidence-reading operation and does not inflate top-k recall
 with expanded passages.
+
+The recorded E3-C1 comparison in [`RESULTS.md`](RESULTS.md#e3-c1-contextual-representation-on-current-code)
+reruns both modes twice on current code. Contextual reranking improves Recall@5
+from 58.5% to 61.8% and Recall@10 from 72.2% to 75.2%, retaining 100% anchor
+integrity. It remains below the reranked acceptance gates and does not improve
+answerability.
 
 ### Recorded experiments
 
