@@ -8,6 +8,7 @@ from typing import Protocol
 
 from kg.db import Database
 from kg.models.contracts import SearchResult
+from kg.retrieval._telemetry import execution_trace
 from kg.retrieval.context import contextual_passage_text
 from kg.retrieval.dense import DEFAULT_EMBEDDING_PROFILE, EmbeddingProfile
 from kg.retrieval.hybrid import HybridRetrievalService
@@ -147,6 +148,9 @@ class RerankedRetrievalService:
 
         source_fingerprint = self.retrieval.index_fingerprint()
         candidate_limit = max(limit, self.candidate_limit)
+        trace = execution_trace.get()
+        if trace is not None:
+            trace.reranker_candidate_limit = candidate_limit
         candidates = self.hybrid_retrieval.search(
             query,
             subject=subject,
@@ -179,6 +183,10 @@ class RerankedRetrievalService:
             zip(candidates, scores, strict=True),
             key=lambda item: (-_validate_score(item[1]), item[0].record_id),
         )
+        if trace is not None:
+            trace.reranked = [
+                candidate.model_copy(update={"rank": score}) for candidate, score in ranked
+            ]
         return [
             candidate.model_copy(update={"rank": score})
             for candidate, score in ranked[:limit]
