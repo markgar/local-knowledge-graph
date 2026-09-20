@@ -1,0 +1,11 @@
+{
+  "recorded_at": "2026-09-19T22:20:35.186330+00:00",
+  "replicate": 1,
+  "agents": {
+    "markdown": "806345dc-424c-45b8-9919-c8aa585d9c96",
+    "index": "3c36f67b-58af-4343-b471-21c9f6ab0ecf",
+    "kg": "d62434db-3291-4c73-8174-fbbe2229f9a8"
+  },
+  "policy": "Identical prompt template apart from arm and run path. No score or correctness feedback before all agents submit. Every arm retains read/grep/catalog. Fresh context per agent.",
+  "coordinator_notes": []
+}

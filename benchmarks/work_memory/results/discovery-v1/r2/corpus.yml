@@ -1,0 +1,206 @@
+{
+  "corpus_id": "work-memory-interleaved",
+  "display_name": "Mixed personal work history",
+  "vault_root": "notes",
+  "include": [
+    "**/*.md"
+  ],
+  "database": "index.sqlite3",
+  "allow_symlinks": false,
+  "max_source_bytes": 5000000,
+  "seed_entities": [
+    {
+      "entity_id": "project-0",
+      "name": "Aster",
+      "entity_type": "project",
+      "aliases": [
+        "appointment pilot"
+      ]
+    },
+    {
+      "entity_id": "project-1",
+      "name": "Beacon",
+      "entity_type": "project",
+      "aliases": [
+        "billing bridge"
+      ]
+    },
+    {
+      "entity_id": "project-2",
+      "name": "Cedar",
+      "entity_type": "project",
+      "aliases": [
+        "delegated access cleanup"
+      ]
+    },
+    {
+      "entity_id": "project-3",
+      "name": "Drift",
+      "entity_type": "project",
+      "aliases": [
+        "offline intake"
+      ]
+    },
+    {
+      "entity_id": "project-4",
+      "name": "Ember",
+      "entity_type": "project",
+      "aliases": [
+        "receipt archive"
+      ]
+    },
+    {
+      "entity_id": "project-5",
+      "name": "Fjord",
+      "entity_type": "project",
+      "aliases": [
+        "cold export"
+      ]
+    },
+    {
+      "entity_id": "project-6",
+      "name": "Grove",
+      "entity_type": "project",
+      "aliases": [
+        "partner directory"
+      ]
+    },
+    {
+      "entity_id": "project-7",
+      "name": "Harbor",
+      "entity_type": "project",
+      "aliases": [
+        "terminal rollout"
+      ]
+    },
+    {
+      "entity_id": "project-8",
+      "name": "Harborview",
+      "entity_type": "project",
+      "aliases": [
+        "visitor dashboard"
+      ]
+    },
+    {
+      "entity_id": "project-9",
+      "name": "Iris",
+      "entity_type": "project",
+      "aliases": [
+        "consent refresh"
+      ]
+    },
+    {
+      "entity_id": "project-10",
+      "name": "Juniper",
+      "entity_type": "project",
+      "aliases": [
+        "weekend support trial"
+      ]
+    },
+    {
+      "entity_id": "project-11",
+      "name": "Kite",
+      "entity_type": "project",
+      "aliases": [
+        "mobile demo"
+      ]
+    },
+    {
+      "entity_id": "project-12",
+      "name": "Lumen",
+      "entity_type": "project",
+      "aliases": [
+        "screen reader pass"
+      ]
+    },
+    {
+      "entity_id": "project-13",
+      "name": "Nova",
+      "entity_type": "project",
+      "aliases": [
+        "invoice import"
+      ]
+    },
+    {
+      "entity_id": "project-14",
+      "name": "NovaOps",
+      "entity_type": "project",
+      "aliases": [
+        "operator console"
+      ]
+    },
+    {
+      "entity_id": "project-15",
+      "name": "Orion",
+      "entity_type": "project",
+      "aliases": [
+        "partner release"
+      ]
+    },
+    {
+      "entity_id": "project-16",
+      "name": "Pine",
+      "entity_type": "project",
+      "aliases": [
+        "refund letters"
+      ]
+    },
+    {
+      "entity_id": "person-0",
+      "name": "Jamie",
+      "entity_type": "person",
+      "aliases": []
+    },
+    {
+      "entity_id": "person-1",
+      "name": "Maya",
+      "entity_type": "person",
+      "aliases": []
+    },
+    {
+      "entity_id": "person-2",
+      "name": "Alex",
+      "entity_type": "person",
+      "aliases": []
+    },
+    {
+      "entity_id": "person-3",
+      "name": "Rina",
+      "entity_type": "person",
+      "aliases": []
+    },
+    {
+      "entity_id": "person-4",
+      "name": "Sam",
+      "entity_type": "person",
+      "aliases": []
+    },
+    {
+      "entity_id": "person-5",
+      "name": "Noor",
+      "entity_type": "person",
+      "aliases": []
+    },
+    {
+      "entity_id": "system-0",
+      "name": "Relay",
+      "entity_type": "system",
+      "aliases": []
+    },
+    {
+      "entity_id": "system-1",
+      "name": "Ledger",
+      "entity_type": "system",
+      "aliases": []
+    },
+    {
+      "entity_id": "system-2",
+      "name": "Vault",
+      "entity_type": "system",
+      "aliases": []
+    }
+  ],
+  "metadata_fields": {
+    "event_time": "date"
+  }
+}

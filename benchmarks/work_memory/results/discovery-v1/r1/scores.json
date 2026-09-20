@@ -1,0 +1,606 @@
+{
+  "benchmark_version": 3,
+  "response_limit_bytes": 12000,
+  "run": ".",
+  "source_documents": 2078,
+  "source_bytes": 1798437,
+  "questions_sha256": "7a2d8650582caf0de5be6578989e7961f96e3dfd010f53d2d79ac8113de38b82",
+  "gold_sha256": "cf7d6c54f06b554cdaac8f147bc0a709552d7e3ee870f72cec00b0e42d63a7e7",
+  "replicates_per_arm": 1,
+  "configured_arms": [
+    "markdown",
+    "index",
+    "kg"
+  ],
+  "replicate": 1,
+  "retrieval": "lexical",
+  "shared_document_access": true,
+  "agent_configuration": "general-purpose agent type and runtime defaults in every arm; model IDs not independently verified by this harness",
+  "limitations": [
+    "Synthetic corpus; correlated questions; one observation per arm in this run.",
+    "Lexical retrieval only: no embeddings, paraphrase ranking, or semantic-search claim.",
+    "Optional benchmark response paging is shared by both arms, not a native KG feature.",
+    "Tool elapsed time excludes model reasoning; response bytes are not token usage.",
+    "Response bytes count complete serialized payloads, not successful stdout delivery or model-visible context; tool hosts can still truncate successful stdout writes.",
+    "Data tool metrics exclude initial info/submission calls and shared index setup. Paging info counts as data calls; interpret that common setup cost separately.",
+    "Source restrictions are agent protocol instructions, not a filesystem sandbox.",
+    "Natural-language answers require separate review for unsupported extra claims."
+  ],
+  "setup": {
+    "ingestion_ms": 48984.203749998414,
+    "included_in_query_tool_metrics": false,
+    "used_by_arms": [
+      "index",
+      "kg"
+    ],
+    "note": "One shared corpus build; not charged independently to each indexed arm."
+  },
+  "arms": {
+    "markdown": {
+      "questions": 10,
+      "passed": 10,
+      "facts_correct": 10,
+      "valid_citations": 10,
+      "abstention_correct": 10,
+      "data_tool_calls": 11,
+      "failed_data_tool_calls": 0,
+      "observed_delivery_failures": 0,
+      "data_response_utf8_bytes": 34499,
+      "data_tool_elapsed_ms": 8131.545416996232,
+      "operations": {
+        "grep": 8,
+        "read": 3
+      },
+      "scores": [
+        {
+          "id": "q01",
+          "facts_correct": true,
+          "abstention_correct": true,
+          "citations_valid": true,
+          "evidence_rules_covered": 1,
+          "evidence_rules_total": 1,
+          "missing_evidence_rules": [],
+          "invalid_citations": [],
+          "passed": true,
+          "expected_facts": {
+            "project": "Nova"
+          },
+          "actual_facts": {
+            "project": "Nova"
+          }
+        },
+        {
+          "id": "q02",
+          "facts_correct": true,
+          "abstention_correct": true,
+          "citations_valid": true,
+          "evidence_rules_covered": 2,
+          "evidence_rules_total": 2,
+          "missing_evidence_rules": [],
+          "invalid_citations": [],
+          "passed": true,
+          "expected_facts": {
+            "project": "Cedar"
+          },
+          "actual_facts": {
+            "project": "Cedar"
+          }
+        },
+        {
+          "id": "q03",
+          "facts_correct": true,
+          "abstention_correct": true,
+          "citations_valid": true,
+          "evidence_rules_covered": 2,
+          "evidence_rules_total": 2,
+          "missing_evidence_rules": [],
+          "invalid_citations": [],
+          "passed": true,
+          "expected_facts": {
+            "project": "Harborview"
+          },
+          "actual_facts": {
+            "project": "Harborview"
+          }
+        },
+        {
+          "id": "q04",
+          "facts_correct": true,
+          "abstention_correct": true,
+          "citations_valid": true,
+          "evidence_rules_covered": 1,
+          "evidence_rules_total": 1,
+          "missing_evidence_rules": [],
+          "invalid_citations": [],
+          "passed": true,
+          "expected_facts": {
+            "project": "Ember"
+          },
+          "actual_facts": {
+            "project": "Ember"
+          }
+        },
+        {
+          "id": "q05",
+          "facts_correct": true,
+          "abstention_correct": true,
+          "citations_valid": true,
+          "evidence_rules_covered": 1,
+          "evidence_rules_total": 1,
+          "missing_evidence_rules": [],
+          "invalid_citations": [],
+          "passed": true,
+          "expected_facts": {
+            "project": "Drift"
+          },
+          "actual_facts": {
+            "project": "Drift"
+          }
+        },
+        {
+          "id": "q06",
+          "facts_correct": true,
+          "abstention_correct": true,
+          "citations_valid": true,
+          "evidence_rules_covered": 1,
+          "evidence_rules_total": 1,
+          "missing_evidence_rules": [],
+          "invalid_citations": [],
+          "passed": true,
+          "expected_facts": {
+            "project": "Lumen"
+          },
+          "actual_facts": {
+            "project": "Lumen"
+          }
+        },
+        {
+          "id": "q07",
+          "facts_correct": true,
+          "abstention_correct": true,
+          "citations_valid": true,
+          "evidence_rules_covered": 1,
+          "evidence_rules_total": 1,
+          "missing_evidence_rules": [],
+          "invalid_citations": [],
+          "passed": true,
+          "expected_facts": {
+            "project": "Iris"
+          },
+          "actual_facts": {
+            "project": "Iris"
+          }
+        },
+        {
+          "id": "q08",
+          "facts_correct": true,
+          "abstention_correct": true,
+          "citations_valid": true,
+          "evidence_rules_covered": 2,
+          "evidence_rules_total": 2,
+          "missing_evidence_rules": [],
+          "invalid_citations": [],
+          "passed": true,
+          "expected_facts": {
+            "project": "Aster"
+          },
+          "actual_facts": {
+            "project": "Aster"
+          }
+        },
+        {
+          "id": "q09",
+          "facts_correct": true,
+          "abstention_correct": true,
+          "citations_valid": true,
+          "evidence_rules_covered": 1,
+          "evidence_rules_total": 1,
+          "missing_evidence_rules": [],
+          "invalid_citations": [],
+          "passed": true,
+          "expected_facts": {
+            "project": "Fjord"
+          },
+          "actual_facts": {
+            "project": "Fjord"
+          }
+        },
+        {
+          "id": "q10",
+          "facts_correct": true,
+          "abstention_correct": true,
+          "citations_valid": true,
+          "evidence_rules_covered": 2,
+          "evidence_rules_total": 2,
+          "missing_evidence_rules": [],
+          "invalid_citations": [],
+          "passed": true,
+          "expected_facts": {
+            "project": null
+          },
+          "actual_facts": {
+            "project": null
+          }
+        }
+      ]
+    },
+    "index": {
+      "questions": 10,
+      "passed": 10,
+      "facts_correct": 10,
+      "valid_citations": 10,
+      "abstention_correct": 10,
+      "data_tool_calls": 17,
+      "failed_data_tool_calls": 0,
+      "observed_delivery_failures": 0,
+      "data_response_utf8_bytes": 58096,
+      "data_tool_elapsed_ms": 12475.457831998938,
+      "operations": {
+        "search": 10,
+        "grep": 5,
+        "read": 2
+      },
+      "scores": [
+        {
+          "id": "q01",
+          "facts_correct": true,
+          "abstention_correct": true,
+          "citations_valid": true,
+          "evidence_rules_covered": 1,
+          "evidence_rules_total": 1,
+          "missing_evidence_rules": [],
+          "invalid_citations": [],
+          "passed": true,
+          "expected_facts": {
+            "project": "Nova"
+          },
+          "actual_facts": {
+            "project": "Nova"
+          }
+        },
+        {
+          "id": "q02",
+          "facts_correct": true,
+          "abstention_correct": true,
+          "citations_valid": true,
+          "evidence_rules_covered": 2,
+          "evidence_rules_total": 2,
+          "missing_evidence_rules": [],
+          "invalid_citations": [],
+          "passed": true,
+          "expected_facts": {
+            "project": "Cedar"
+          },
+          "actual_facts": {
+            "project": "Cedar"
+          }
+        },
+        {
+          "id": "q03",
+          "facts_correct": true,
+          "abstention_correct": true,
+          "citations_valid": true,
+          "evidence_rules_covered": 2,
+          "evidence_rules_total": 2,
+          "missing_evidence_rules": [],
+          "invalid_citations": [],
+          "passed": true,
+          "expected_facts": {
+            "project": "Harborview"
+          },
+          "actual_facts": {
+            "project": "Harborview"
+          }
+        },
+        {
+          "id": "q04",
+          "facts_correct": true,
+          "abstention_correct": true,
+          "citations_valid": true,
+          "evidence_rules_covered": 1,
+          "evidence_rules_total": 1,
+          "missing_evidence_rules": [],
+          "invalid_citations": [],
+          "passed": true,
+          "expected_facts": {
+            "project": "Ember"
+          },
+          "actual_facts": {
+            "project": "Ember"
+          }
+        },
+        {
+          "id": "q05",
+          "facts_correct": true,
+          "abstention_correct": true,
+          "citations_valid": true,
+          "evidence_rules_covered": 1,
+          "evidence_rules_total": 1,
+          "missing_evidence_rules": [],
+          "invalid_citations": [],
+          "passed": true,
+          "expected_facts": {
+            "project": "Drift"
+          },
+          "actual_facts": {
+            "project": "Drift"
+          }
+        },
+        {
+          "id": "q06",
+          "facts_correct": true,
+          "abstention_correct": true,
+          "citations_valid": true,
+          "evidence_rules_covered": 1,
+          "evidence_rules_total": 1,
+          "missing_evidence_rules": [],
+          "invalid_citations": [],
+          "passed": true,
+          "expected_facts": {
+            "project": "Lumen"
+          },
+          "actual_facts": {
+            "project": "Lumen"
+          }
+        },
+        {
+          "id": "q07",
+          "facts_correct": true,
+          "abstention_correct": true,
+          "citations_valid": true,
+          "evidence_rules_covered": 1,
+          "evidence_rules_total": 1,
+          "missing_evidence_rules": [],
+          "invalid_citations": [],
+          "passed": true,
+          "expected_facts": {
+            "project": "Iris"
+          },
+          "actual_facts": {
+            "project": "Iris"
+          }
+        },
+        {
+          "id": "q08",
+          "facts_correct": true,
+          "abstention_correct": true,
+          "citations_valid": true,
+          "evidence_rules_covered": 2,
+          "evidence_rules_total": 2,
+          "missing_evidence_rules": [],
+          "invalid_citations": [],
+          "passed": true,
+          "expected_facts": {
+            "project": "Aster"
+          },
+          "actual_facts": {
+            "project": "Aster"
+          }
+        },
+        {
+          "id": "q09",
+          "facts_correct": true,
+          "abstention_correct": true,
+          "citations_valid": true,
+          "evidence_rules_covered": 1,
+          "evidence_rules_total": 1,
+          "missing_evidence_rules": [],
+          "invalid_citations": [],
+          "passed": true,
+          "expected_facts": {
+            "project": "Fjord"
+          },
+          "actual_facts": {
+            "project": "Fjord"
+          }
+        },
+        {
+          "id": "q10",
+          "facts_correct": true,
+          "abstention_correct": true,
+          "citations_valid": true,
+          "evidence_rules_covered": 2,
+          "evidence_rules_total": 2,
+          "missing_evidence_rules": [],
+          "invalid_citations": [],
+          "passed": true,
+          "expected_facts": {
+            "project": null
+          },
+          "actual_facts": {
+            "project": null
+          }
+        }
+      ]
+    },
+    "kg": {
+      "questions": 10,
+      "passed": 10,
+      "facts_correct": 10,
+      "valid_citations": 10,
+      "abstention_correct": 10,
+      "data_tool_calls": 17,
+      "failed_data_tool_calls": 0,
+      "observed_delivery_failures": 0,
+      "data_response_utf8_bytes": 64830,
+      "data_tool_elapsed_ms": 16052.320836006402,
+      "operations": {
+        "search": 8,
+        "read": 4,
+        "grep": 5
+      },
+      "scores": [
+        {
+          "id": "q01",
+          "facts_correct": true,
+          "abstention_correct": true,
+          "citations_valid": true,
+          "evidence_rules_covered": 1,
+          "evidence_rules_total": 1,
+          "missing_evidence_rules": [],
+          "invalid_citations": [],
+          "passed": true,
+          "expected_facts": {
+            "project": "Nova"
+          },
+          "actual_facts": {
+            "project": "Nova"
+          }
+        },
+        {
+          "id": "q02",
+          "facts_correct": true,
+          "abstention_correct": true,
+          "citations_valid": true,
+          "evidence_rules_covered": 2,
+          "evidence_rules_total": 2,
+          "missing_evidence_rules": [],
+          "invalid_citations": [],
+          "passed": true,
+          "expected_facts": {
+            "project": "Cedar"
+          },
+          "actual_facts": {
+            "project": "Cedar"
+          }
+        },
+        {
+          "id": "q03",
+          "facts_correct": true,
+          "abstention_correct": true,
+          "citations_valid": true,
+          "evidence_rules_covered": 2,
+          "evidence_rules_total": 2,
+          "missing_evidence_rules": [],
+          "invalid_citations": [],
+          "passed": true,
+          "expected_facts": {
+            "project": "Harborview"
+          },
+          "actual_facts": {
+            "project": "Harborview"
+          }
+        },
+        {
+          "id": "q04",
+          "facts_correct": true,
+          "abstention_correct": true,
+          "citations_valid": true,
+          "evidence_rules_covered": 1,
+          "evidence_rules_total": 1,
+          "missing_evidence_rules": [],
+          "invalid_citations": [],
+          "passed": true,
+          "expected_facts": {
+            "project": "Ember"
+          },
+          "actual_facts": {
+            "project": "Ember"
+          }
+        },
+        {
+          "id": "q05",
+          "facts_correct": true,
+          "abstention_correct": true,
+          "citations_valid": true,
+          "evidence_rules_covered": 1,
+          "evidence_rules_total": 1,
+          "missing_evidence_rules": [],
+          "invalid_citations": [],
+          "passed": true,
+          "expected_facts": {
+            "project": "Drift"
+          },
+          "actual_facts": {
+            "project": "Drift"
+          }
+        },
+        {
+          "id": "q06",
+          "facts_correct": true,
+          "abstention_correct": true,
+          "citations_valid": true,
+          "evidence_rules_covered": 1,
+          "evidence_rules_total": 1,
+          "missing_evidence_rules": [],
+          "invalid_citations": [],
+          "passed": true,
+          "expected_facts": {
+            "project": "Lumen"
+          },
+          "actual_facts": {
+            "project": "Lumen"
+          }
+        },
+        {
+          "id": "q07",
+          "facts_correct": true,
+          "abstention_correct": true,
+          "citations_valid": true,
+          "evidence_rules_covered": 1,
+          "evidence_rules_total": 1,
+          "missing_evidence_rules": [],
+          "invalid_citations": [],
+          "passed": true,
+          "expected_facts": {
+            "project": "Iris"
+          },
+          "actual_facts": {
+            "project": "Iris"
+          }
+        },
+        {
+          "id": "q08",
+          "facts_correct": true,
+          "abstention_correct": true,
+          "citations_valid": true,
+          "evidence_rules_covered": 2,
+          "evidence_rules_total": 2,
+          "missing_evidence_rules": [],
+          "invalid_citations": [],
+          "passed": true,
+          "expected_facts": {
+            "project": "Aster"
+          },
+          "actual_facts": {
+            "project": "Aster"
+          }
+        },
+        {
+          "id": "q09",
+          "facts_correct": true,
+          "abstention_correct": true,
+          "citations_valid": true,
+          "evidence_rules_covered": 1,
+          "evidence_rules_total": 1,
+          "missing_evidence_rules": [],
+          "invalid_citations": [],
+          "passed": true,
+          "expected_facts": {
+            "project": "Fjord"
+          },
+          "actual_facts": {
+            "project": "Fjord"
+          }
+        },
+        {
+          "id": "q10",
+          "facts_correct": true,
+          "abstention_correct": true,
+          "citations_valid": true,
+          "evidence_rules_covered": 2,
+          "evidence_rules_total": 2,
+          "missing_evidence_rules": [],
+          "invalid_citations": [],
+          "passed": true,
+          "expected_facts": {
+            "project": null
+          },
+          "actual_facts": {
+            "project": null
+          }
+        }
+      ]
+    }
+  }
+}

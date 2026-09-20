@@ -1,0 +1,22 @@
+{
+  "run_id": "6a4fe1b8-60e9-486a-bd92-07026e0b2d09",
+  "payload": "evidence.tar.gz",
+  "payload_sha256": "7977eb7e7a579d7d1a4f736f3c5cb3d3c65410bcebc682a72e95522197b57a8f",
+  "payload_files": 2081,
+  "source_documents": 2078,
+  "extract_into": "this directory to restore notes/, responses/ and ingestion.json",
+  "redactions": [
+    "Native interpreter replaced with <PYTHON> and run paths with <RUN> in execution.argv.",
+    "scores.json run path normalized to a dot."
+  ],
+  "unchanged": [
+    "Frozen source/question/gold bytes",
+    "Submitted answers",
+    "Results, response hashes, measured counts and timings",
+    "Complete cached responses and ingestion report"
+  ],
+  "excluded": [
+    "Rebuildable SQLite index",
+    "Unrelated host events and assistant reasoning"
+  ]
+}

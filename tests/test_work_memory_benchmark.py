@@ -282,3 +282,187 @@ def test_large_field_catalog_is_bounded(evaluator: ModuleType, tmp_path: Path) -
         run, "kg", ["response-fields", envelope["response_id"], "--limit", "2"],
     )
     assert success and page["items"] == list(result)[:2] and page["next_offset"] == 2
+
+
+def test_three_arms_share_document_tools(evaluator: ModuleType, run: Path) -> None:
+    snapshot = evaluator.verify_snapshot(run)
+    assert snapshot["version"] == 3
+    assert snapshot["arms"] == ["markdown", "index", "kg"]
+    path = "atlas-vault/01-planning-meeting.md"
+    results = {}
+    for arm in evaluator.ARMS:
+        info, success = evaluator.tool(run, arm, ["info"])
+        assert success
+        assert any(tool.startswith("read ") for tool in info["shared_tools"])
+        assert any(tool.startswith("grep ") for tool in info["shared_tools"])
+        read, success = evaluator.tool(run, arm, ["read", path])
+        assert success
+        matches, success = evaluator.tool(run, arm, ["grep", "approval"])
+        assert success
+        results[arm] = (read, matches)
+    assert results["markdown"] == results["index"] == results["kg"]
+    lexical, success = evaluator.tool(run, "index", ["search", "approval"])
+    assert success and lexical
+    same, success = evaluator.tool(run, "kg", ["search", "approval"])
+    assert success and same == lexical
+    contextual, success = evaluator.tool(
+        run, "index", ["source-context", lexical[0]["anchor_id"]],
+    )
+    assert success and contextual
+
+
+@pytest.mark.parametrize("arguments", [
+    ["status", "Atlas"], ["actions", "Atlas"], ["record-state"],
+    ["search", "approval", "--subject", "Atlas"],
+    ["search", "approval", "--subject=Atlas"],
+    ["search", "approval", "--explain"],
+    ["search", "approval", "--query-mode", "hybrid"],
+    ["search", "approval", "--since", "7d"],
+])
+def test_index_arm_cannot_gain_graph_or_unfrozen_modes(
+    evaluator: ModuleType, run: Path, arguments: list[str], monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def forbidden(*args: object, **kwargs: object) -> None:
+        pytest.fail("Forbidden operation reached native CLI")
+
+    monkeypatch.setattr(evaluator.subprocess, "run", forbidden)
+    result, success = evaluator.tool(run, "index", arguments)
+    assert not success and result["error"] == "ValueError"
+
+
+def test_selected_arms_and_old_two_arm_scores(
+    evaluator: ModuleType, tmp_path: Path,
+) -> None:
+    selected = tmp_path / "selected"
+    evaluator.prepare(selected, arms=("markdown", "index"))
+    failure, success = evaluator.tool(selected, "kg", ["status", "Atlas"])
+    assert not success and "not configured" in failure["message"]
+    legacy = tmp_path / "legacy"
+    evaluator.prepare(legacy)
+    snapshot = json.loads((legacy / "snapshot.json").read_text())
+    snapshot["version"] = 2
+    snapshot.pop("arms")
+    snapshot.pop("shared_document_access")
+    (legacy / "snapshot.json").write_text(json.dumps(snapshot))
+    assert evaluator.run_arms(snapshot) == evaluator.LEGACY_ARMS
+    failure, success = evaluator.tool(legacy, "kg", ["read", "atlas-vault/01-planning-meeting.md"])
+    assert not success and "Legacy" in failure["message"]
+    perfect = _perfect_answers(evaluator, legacy)
+    for arm in evaluator.LEGACY_ARMS:
+        (legacy / f"answers-{arm}.json").write_text(json.dumps(perfect))
+        assert evaluator.tool(legacy, arm, ["submit"])[1]
+    scores = evaluator.score(legacy)
+    assert set(scores["arms"]) == set(evaluator.LEGACY_ARMS)
+    assert all(arm["passed"] == 10 for arm in scores["arms"].values())
+    assert not scores["shared_document_access"]
+
+
+def test_replicate_summary_validates_inputs_and_submissions(
+    evaluator: ModuleType, tmp_path: Path,
+) -> None:
+    runs = [tmp_path / f"run-{index}" for index in (1, 2)]
+    for index, run in enumerate(runs, 1):
+        evaluator.prepare(run, replicate=index)
+        answers = _perfect_answers(evaluator, run)
+        for arm in evaluator.ARMS:
+            (run / f"answers-{arm}.json").write_text(json.dumps(answers))
+            assert evaluator.tool(run, arm, ["submit"])[1]
+    summary = evaluator.summarize(runs)
+    assert summary["replicates_per_arm"] == 2
+    assert summary["arms"]["index"]["passed"] == {
+        "observations": [10, 10], "mean": 10, "median": 10,
+    }
+    assert not any((run / "scores.json").exists() for run in runs)
+    with pytest.raises(ValueError, match="same run"):
+        evaluator.summarize([runs[0], runs[0]])
+    changed = json.loads((runs[1] / "snapshot.json").read_text())
+    changed["response_limit_bytes"] = 12000
+    (runs[1] / "snapshot.json").write_text(json.dumps(changed))
+    with pytest.raises(ValueError, match="identical"):
+        evaluator.summarize(runs)
+    changed["response_limit_bytes"] = None
+    (runs[1] / "snapshot.json").write_text(json.dumps(changed))
+    (runs[1] / "answers-index.json").write_text(
+        (runs[1] / "answers-index.json").read_text() + "\n",
+    )
+    with pytest.raises(ValueError, match="changed after submission"):
+        evaluator.summarize(runs)
+
+
+def test_document_tools_and_scoring_preserve_exact_newlines(
+    evaluator: ModuleType, tmp_path: Path,
+) -> None:
+    inputs = tmp_path / "inputs"
+    inputs.mkdir()
+    raw = "# Note\r\n\r\nFirst\u2028second.\r\nNext line.\r\n"
+    (inputs / "note.md").write_bytes(raw.encode())
+    (inputs / "corpus.yml").write_text(json.dumps({
+        "corpus_id": "newlines", "display_name": "Newlines",
+        "vault_root": ".", "database": "index.sqlite3", "include": ["*.md"],
+    }))
+    (inputs / "questions.json").write_text(json.dumps({
+        "questions": [{"id": "q1", "question": "Read the note"}],
+    }))
+    (inputs / "gold.json").write_text(json.dumps({
+        "answers": {"q1": {"facts": {"read": True}, "abstains": False,
+                           "evidence": [{"sources": ["note.md"], "contains": ["First"]}]}},
+    }))
+    run = tmp_path / "run"
+    evaluator.prepare(run, inputs / "corpus.yml", inputs / "questions.json", inputs / "gold.json")
+    for arm in evaluator.ARMS:
+        read, success = evaluator.tool(run, arm, ["read", "note.md"])
+        assert success and read["documents"][0]["text"] == raw
+        matches, success = evaluator.tool(run, arm, ["grep", "First\u2028second"])
+        assert success and len(matches["matches"]) == 1
+        match = matches["matches"][0]
+        assert match["start_line"] == 2 and match["end_line"] == 4
+        assert match["text"] in raw and "\r\n" in match["text"]
+        answers = {"answers": [{
+            "id": "q1", "answer": "Read.", "facts": {"read": True}, "abstains": False,
+            "citations": [{"source_path": "note.md", "quote": raw}],
+        }]}
+        (run / f"answers-{arm}.json").write_text(json.dumps(answers))
+        assert evaluator.tool(run, arm, ["submit"])[1]
+    assert all(arm["passed"] == 1 for arm in evaluator.score(run)["arms"].values())
+
+
+def test_administrative_cli_returns_summaries_not_full_snapshots_or_gold(
+    evaluator: ModuleType, tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    run = tmp_path / "cli-run"
+    monkeypatch.setattr(evaluator.sys, "argv", [
+        "evaluate.py", "prepare", "--output", str(run),
+        "--arms", "index", "kg", "--replicate", "2",
+    ])
+    evaluator.main()
+    prepared = json.loads(capsys.readouterr().out)
+    assert prepared["arms"] == ["index", "kg"] and prepared["replicate"] == 2
+    assert prepared["documents"] == 12 and "sources" not in prepared
+    answers = _perfect_answers(evaluator, run)
+    for arm in prepared["arms"]:
+        (run / f"answers-{arm}.json").write_text(json.dumps(answers))
+        assert evaluator.tool(run, arm, ["submit"])[1]
+    monkeypatch.setattr(evaluator.sys, "argv", ["evaluate.py", "score", "--run", str(run)])
+    evaluator.main()
+    scored = json.loads(capsys.readouterr().out)
+    assert all(arm["passed"] == 10 and "scores" not in arm for arm in scored["arms"].values())
+    assert "expected_facts" not in json.dumps(scored)
+    assert Path(scored["scores_file"]).is_file()
+
+
+@pytest.mark.parametrize(
+    ("field", "value"),
+    [("arms", None), ("shared_document_access", False), ("retrieval", "hybrid"), ("replicate", 0)],
+)
+def test_invalid_v3_policy_is_not_silently_treated_as_legacy(
+    evaluator: ModuleType, run: Path, field: str, value: object,
+) -> None:
+    snapshot = json.loads((run / "snapshot.json").read_text())
+    if field == "arms":
+        del snapshot[field]
+    else:
+        snapshot[field] = value
+    (run / "snapshot.json").write_text(json.dumps(snapshot))
+    with pytest.raises(ValueError):
+        evaluator.verify_snapshot(run)

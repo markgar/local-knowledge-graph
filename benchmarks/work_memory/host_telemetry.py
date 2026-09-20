@@ -13,6 +13,7 @@ EXIT_RE = re.compile(r"<shellId: (?P<shell>[^ ]+) completed with exit code (?P<c
 SPILL_RE = re.compile(
     r"\AOutput too large to read at once \((?P<size>[^)]+)\)\. Saved to: (?P<path>[^\n]+)"
 )
+ARMS = ("kg", "markdown", "index")
 
 
 def _timestamp(value: object) -> datetime | None:
@@ -29,13 +30,13 @@ def _correlate(
     calls: list[dict[str, Any]], run: Path,
 ) -> None:
     journals = {}
-    for arm in ("kg", "markdown"):
+    for arm in ARMS:
         path = run / f"tools-{arm}.jsonl"
         if path.is_file():
-            journals[arm] = [
-                (number, json.loads(line))
-                for number, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1)
-            ]
+            with path.open(encoding="utf-8") as stream:
+                journals[arm] = [
+                    (number, json.loads(line)) for number, line in enumerate(stream, 1)
+                ]
     for call in calls:
         started = _timestamp(call["started_at"])
         completed = _timestamp(call["completed_at"])
@@ -95,7 +96,7 @@ def _invocations(command: str, run: Path) -> list[dict[str, Any]]:
                     options[name] = args[position + 1]
                 elif arg.startswith(f"--{name}="):
                     options[name] = arg.split("=", 1)[1]
-        if options.get("run") != str(run) or options.get("arm") not in {"kg", "markdown"}:
+        if options.get("run") != str(run) or options.get("arm") not in ARMS:
             continue
         separator = args.index("--") if "--" in args else None
         invocations.append({
@@ -109,6 +110,16 @@ def collect(events_path: Path, run: Path) -> dict[str, Any]:
     starts = {}
     completes = {}
     warnings = []
+    snapshot_path = run / "snapshot.json"
+    configured = (
+        json.loads(snapshot_path.read_text(encoding="utf-8")).get("arms", ["kg", "markdown"])
+        if snapshot_path.is_file() else ["kg", "markdown"]
+    )
+    if (
+        not isinstance(configured, list) or not configured
+        or any(arm not in ARMS for arm in configured) or len(set(configured)) != len(configured)
+    ):
+        raise ValueError("Invalid configured arms in run snapshot")
     repository = str(Path(__file__).resolve().parents[2])
     with events_path.open(encoding="utf-8") as stream:
         for number, line in enumerate(stream, 1):
@@ -188,6 +199,7 @@ def collect(events_path: Path, run: Path) -> dict[str, Any]:
         "calls": calls,
         "collection_warnings": warnings,
         "summary": {
+            "configured_arms": configured,
             "host_calls": len(calls),
             "wrapper_invocations": sum(len(call["invocations"]) for call in calls),
             "nonzero_process_exits": sum(
@@ -199,13 +211,20 @@ def collect(events_path: Path, run: Path) -> dict[str, Any]:
                 invocation["correlation"] == "matched"
                 for call in calls for invocation in call["invocations"]
             ),
+            "unconfigured_arm_invocations": sum(
+                invocation["arm"] not in configured
+                for call in calls for invocation in call["invocations"]
+            ),
             "host_recorded_models": {
                 arm: sorted({
                     call["host_recorded_model"] for call in calls
                     if any(item["arm"] == arm for item in call["invocations"])
                     and isinstance(call["host_recorded_model"], str)
                 })
-                for arm in ("kg", "markdown")
+                for arm in ARMS
+                if arm in configured or any(
+                    item["arm"] == arm for call in calls for item in call["invocations"]
+                )
             },
         },
         "limitations": [

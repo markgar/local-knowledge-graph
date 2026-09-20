@@ -1,0 +1,101 @@
+{
+  "version": 1,
+  "reference_date": "2026-09-18",
+  "scenario": "Recall work from partial memories. The frozen reference date is 2026-09-18; never use the actual current date. Identify one primary project per question using the supplied records and the shared approved entity catalog.",
+  "conventions": [
+    "Last week means the previous Monday through Sunday; earlier this week means Monday through the frozen reference date. Late last month means its final third. A couple of weeks ago is approximate, roughly one to three weeks earlier.",
+    "People's remembered timing can be wrong. Treat all time hints as soft clues, not hard filters; widen the search when the activity fits a different date.",
+    "For every question, use null for project and abstains=true when the evidence does not identify one project. Explain competing possibilities with citations rather than guessing. Otherwise use the canonical project name and abstains=false.",
+    "Recognize the work, not every follow-up detail. Do not calculate results or reconstruct owners, deadlines or full histories unless needed to explain identity."
+  ],
+  "answer_format": {
+    "answers": [
+      {
+        "id": "Question ID",
+        "answer": "Brief explanation of the identification or uncertainty.",
+        "facts": {
+          "project": "Canonical project name as a string, or null."
+        },
+        "abstains": "Boolean: true if one project cannot be identified.",
+        "citations": [
+          {
+            "source_path": "Exact source path returned by tools",
+            "quote": "Exact contiguous source excerpt"
+          }
+        ]
+      }
+    ]
+  },
+  "questions": [
+    {
+      "id": "q01",
+      "question": "Didn't Maya have some work last week with bills that still couldn't be matched back to suppliers after a fix? What project was that?",
+      "facts_schema": {
+        "project": "Canonical project name as a string, or null."
+      }
+    },
+    {
+      "id": "q02",
+      "question": "I remember a permissions check Jamie had finished, then we had to redo it because the input left out groups inside other groups. Maybe that was last week? Which project am I remembering?",
+      "facts_schema": {
+        "project": "Canonical project name as a string, or null."
+      }
+    },
+    {
+      "id": "q03",
+      "question": "Alex sent over numbers for how many people came in, broken down by entrance and hour, earlier this week. It wasn't a list of staff. What was that work?",
+      "facts_schema": {
+        "project": "Canonical project name as a string, or null."
+      }
+    },
+    {
+      "id": "q04",
+      "question": "Wasn't there some work with Rina a couple of weeks ago where we had to keep customers' old proof of purchase longer because they had more time to challenge a charge? Which project was that?",
+      "facts_schema": {
+        "project": "Canonical project name as a string, or null."
+      }
+    },
+    {
+      "id": "q05",
+      "question": "What was the work where a phone came back online and we checked forms we'd saved while disconnected against what actually arrived? I remember talking through that a while back.",
+      "facts_schema": {
+        "project": "Canonical project name as a string, or null."
+      }
+    },
+    {
+      "id": "q06",
+      "question": "Sam wanted more testing time for work where one person listens while someone else drives a phone. I think this was being arranged late last month. Which team's work needed that extra time?",
+      "facts_schema": {
+        "project": "Canonical project name as a string, or null."
+      }
+    },
+    {
+      "id": "q07",
+      "question": "Noor said we'd finally agreed what the cards should say, so the practice session could happen. That was late last month, I think. What was the work?",
+      "facts_schema": {
+        "project": "Canonical project name as a string, or null."
+      }
+    },
+    {
+      "id": "q08",
+      "question": "I remember Jamie pushing back a small tryout because volunteers found a way to undo something we hadn't checked. Was that last week? What project was it?",
+      "facts_schema": {
+        "project": "Canonical project name as a string, or null."
+      }
+    },
+    {
+      "id": "q09",
+      "question": "We were trying to shrink files to make a run cheaper, rather than stopping repeats. I remember a note earlier this week about rerunning the same set. Which project was that?",
+      "facts_schema": {
+        "project": "Canonical project name as a string, or null."
+      }
+    },
+    {
+      "id": "q10",
+      "question": "Didn't Alex agree with Jamie earlier this week to move a small-room session to another day and bring paper copies? Which project was that for?",
+      "facts_schema": {
+        "project": "Canonical project name as a string, or null."
+      }
+    }
+  ]
+}
