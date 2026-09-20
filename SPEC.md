@@ -1,8 +1,9 @@
 # Local Knowledge Graph: current contracts
 
 Status: implemented capabilities in a **pre-alpha** package. Productization
-acceptance is recorded after final combined validation and review under
-[`PRODUCTIZATION_SPEC.md`](PRODUCTIZATION_SPEC.md). Interface changes are not a
+acceptance is recorded in the
+[final integrated validation and review](benchmarks/productization/final-integrated-2026-09-20/README.md).
+Interface changes are not a
 claim of production readiness, improved relevance, or calibrated answerability.
 
 This document describes current behavior. [`ROADMAP.md`](ROADMAP.md) describes

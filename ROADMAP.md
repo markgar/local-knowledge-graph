@@ -265,23 +265,22 @@ tools. Concrete email, meeting-notes, and Teams adapters are not prerequisites
 for a source-independent ingestion core. Preserve the existing evidence and
 retrieval foundations while replacing Markdown-specific coupling.
 
-The first implementation workstream is specified in
-[`PRODUCTIZATION_SPEC.md`](PRODUCTIZATION_SPEC.md): preserve fixtures and
-ingestion, retire E-stage product organization, and make normal search use the
-complete existing reranked hybrid pipeline. Later implementation sequencing and
-release boundaries remain to be planned. The full scope above is unchanged.
-The productization transition is accepted after final combined validation and
-review, recorded in the specification. It does not deliver the query planner.
+The initial productization workstream is complete: fixtures and ingestion are
+preserved, E-stage product organization is retired, and normal search uses the
+complete existing reranked hybrid pipeline. Acceptance is recorded in the
+[final integrated validation and review](benchmarks/productization/final-integrated-2026-09-20/README.md);
+[`SPEC.md`](SPEC.md) defines the delivered contracts. Future implementation
+sequencing and release boundaries remain to be planned. The full scope above is
+unchanged; the transition does not deliver the query planner.
 
 ## Productization: one KG, not a sequence of experiments
 
-Productization is required work across the core build map, not a cosmetic rename
-or a final documentation task. Users and plugin authors should understand and
-operate the KG without knowing what E0, E1, or any later experiment meant.
-The immediate implementation contract is
-[`PRODUCTIZATION_SPEC.md`](PRODUCTIZATION_SPEC.md). It deliberately changes the
-public search default while preserving component behavior and fixture coverage;
-it does not implement the future query planner or generic ingestion core.
+The completed interface transition establishes the following principles for
+future capabilities across the core build map. Users and plugin authors should
+understand and operate the KG without knowing what E0, E1, or any later experiment
+meant. Preserve the current contracts in [`SPEC.md`](SPEC.md), component behavior,
+and fixture coverage while extending the product; the query planner and generic
+ingestion core remain future work.
 
 ### Product organization and supported workflows
 
@@ -304,12 +303,12 @@ it does not implement the future query planner or generic ingestion core.
 
 ### Documentation and historical results
 
-- Rewrite the README around the KG's purpose, supported capabilities, setup,
+- Keep the README organized around the KG's purpose, supported capabilities, setup,
   workflows, and limitations as those capabilities are delivered.
-- Evolve `SPEC.md` into the current product contract organized by subsystem.
+- Maintain `SPEC.md` as the current product contract organized by subsystem.
   Preserve past experiment designs and measured results in clearly historical
   benchmark documentation, separate from current behavior and the roadmap.
-- Remove E-stage sequencing as a prerequisite for product development. In
+- Keep E-stage sequencing out of prerequisites for product development. In
   particular, the older requirement to finish and record each experiment before
   starting the next feature is not the governing development workflow.
 - Describe capabilities as supported, planned, deprecated, or explicitly
@@ -331,9 +330,9 @@ it does not implement the future query planner or generic ingestion core.
 - Separate routine product tests from expensive model evaluations, while
   retaining both with documented execution and release responsibilities.
 
-Productization is complete when normal setup and use require no knowledge of
-the E-series, current documentation describes the delivered KG rather than its
-research history, and tests and release criteria map to supported capabilities.
+As capabilities evolve, normal setup and use must require no knowledge of the
+E-series, current documentation must describe the delivered KG rather than its
+research history, and tests and release criteria must map to supported capabilities.
 Historical experiment identifiers may remain in archived results for traceability.
 
 ## Core acceptance requirements

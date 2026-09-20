@@ -342,8 +342,7 @@ separately labeled integration evidence, not improved relevance or new gold.
 
 [ROADMAP.md](ROADMAP.md) covers unimplemented generic text ingestion, source
 plugins, agent-authored enrichment, identity reconciliation, query planning and
-continuation. [PRODUCTIZATION_SPEC.md](PRODUCTIZATION_SPEC.md) remains the
-accepted implementation checklist for this interface transition.
+continuation. [SPEC.md](SPEC.md) defines the current product contracts.
 
 Report security issues under [SECURITY.md](SECURITY.md).
 Released under the [MIT License](LICENSE).
