@@ -50,6 +50,9 @@ configuration; no stage may be bypassed or silently degraded. Use
 
 Routine tests inject controlled providers at the existing embedding/reranker
 factory seams. Do not download or run real models for ordinary unit/CLI tests.
+Shared controlled product providers and script-loading helpers live in
+`tests/support/`; import them there rather than from collected test modules.
+Keep component-specific fakes and authored fixture/gold semantics distinct.
 For a CLI change, first run:
 
 ```bash

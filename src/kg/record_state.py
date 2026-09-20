@@ -3,25 +3,26 @@ from __future__ import annotations
 import re
 import sqlite3
 from collections import defaultdict
+from collections.abc import Mapping
 from dataclasses import dataclass
 from functools import cached_property
 from typing import Literal
 
-from kg.markdown import ParsedAnchor
-from kg.markdown.parser import INLINE_FIELD_RE
 from kg.models.contracts import RecordStateReport, StateEvidence, SupersessionExplanation
 
 KEY_RE = re.compile(r"[A-Za-z0-9][A-Za-z0-9._:-]{0,127}\Z")
 
 
-def validate_state_fields(anchor: ParsedAnchor) -> None:
+def validate_state_fields(
+    metadata: Mapping[str, str], *, is_action: bool, record_type: str | None,
+) -> None:
     fields = {
-        name: value for name, value in anchor.metadata.items() if name in {"key", "supersedes"}
+        name: value for name, value in metadata.items() if name in {"key", "supersedes"}
     }
     if not fields:
         return
-    if (anchor.task is None and anchor.record_type != "decision") or (
-        anchor.task is not None and anchor.record_type is not None
+    if (not is_action and record_type != "decision") or (
+        is_action and record_type is not None
     ):
         raise ValueError("State fields require an action or decision, not an ambiguous record kind")
     for name, value in fields.items():
@@ -34,13 +35,13 @@ def validate_state_fields(anchor: ParsedAnchor) -> None:
 
 def bind_record(
     connection: sqlite3.Connection,
-    anchor: ParsedAnchor,
+    metadata: Mapping[str, str],
     anchor_id: str,
     record_id: str,
     record_type: Literal["action", "decision"],
 ) -> None:
-    key = anchor.metadata.get("key")
-    supersedes = anchor.metadata.get("supersedes")
+    key = metadata.get("key")
+    supersedes = metadata.get("supersedes")
     if key is not None or supersedes is not None:
         connection.execute(
             """
@@ -50,17 +51,6 @@ def bind_record(
             """,
             (record_id, anchor_id, record_type, key, supersedes),
         )
-
-
-def without_state_fields(anchor: ParsedAnchor) -> str:
-    parts = []
-    offset = 0
-    for match in INLINE_FIELD_RE.finditer(anchor.semantic_quote):
-        if match.group(1).casefold() in {"key", "supersedes"}:
-            parts.append(anchor.quote[offset:match.start()])
-            offset = match.end()
-    parts.append(anchor.quote[offset:])
-    return "".join(parts)
 
 
 @dataclass(frozen=True)

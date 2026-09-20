@@ -2,7 +2,7 @@
 
 This is integration parity, **not new relevance gold or a quality improvement
 claim**. Historical datasets, measurements, thresholds, model pins, and lexical
-benchmark labels remain unchanged. The product specification is implemented and
+benchmark labels remain unchanged. The interface transition is implemented and
 accepted after [final combined validation and review](final-integrated-2026-09-20/README.md),
 including all eight real-model combinations at the integrated code tip.
 

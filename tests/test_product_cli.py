@@ -8,8 +8,8 @@ from typing import Any
 
 import pytest
 import yaml
-from test_benchmark_continuity import module
-from test_product_search import Embeddings, Reranker, providers
+from support.modules import module
+from support.providers import Embeddings, Reranker, providers
 from typer.testing import CliRunner
 
 from kg.cli import app
