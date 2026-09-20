@@ -117,8 +117,9 @@ issue/artifact reference, review state and blockers concisely.
 Only after an explicit instruction to implement the approved slice, hand off its
 issue, approved artifact, inspected baseline, acceptance criteria and stopping
 point. Reconcile changes on main first. Follow `CONTRIBUTING.md` for tests,
-independent complete-diff review, fix review and merge checks. Update package
-progress after each delivered slice; close only on actual acceptance evidence
+independent complete-diff review, fix review and merge checks. Dispatch CI only
+for code-affecting changes, not documentation, skill text or instructions alone.
+Update package progress after each delivered slice; close only on actual acceptance evidence
 and update the tracker. Do not infer merge or issue-closure authority from a
 design-only request.
 
