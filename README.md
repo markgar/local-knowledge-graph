@@ -342,7 +342,9 @@ separately labeled integration evidence, not improved relevance or new gold.
 
 [ROADMAP.md](ROADMAP.md) covers unimplemented generic text ingestion, source
 plugins, agent-authored enrichment, identity reconciliation, query planning and
-continuation. [SPEC.md](SPEC.md) defines the current product contracts.
+continuation. [IMPLEMENTATION_PLAN.md](IMPLEMENTATION_PLAN.md) organizes the full
+roadmap into dependent work packages, parallel lanes, and acceptance gates.
+[SPEC.md](SPEC.md) defines the current product contracts.
 
 Report security issues under [SECURITY.md](SECURITY.md).
 Released under the [MIT License](LICENSE).
