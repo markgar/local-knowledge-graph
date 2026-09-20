@@ -1,10 +1,11 @@
 # Foundation acceptance inputs
 
 These are synthetic contract fixtures, not permission to connect to any source.
-`enrichment.json` is an executable multi-document request; `query.json` is an
-executable exact-ID resolve/records/count plan; `query-ambiguous.json` uses the
-same plan with a name selector over the two distinct Sam entities. Contract tests parse, reject mutations and
-round-trip these values. They do **not** commit or execute them.
+`enrichment.json` is a multi-document request value; `query.json` is an
+exact-ID resolve/records/count plan value; `query-ambiguous.json` uses the same
+plan with a name selector over two distinct Sam entities. Contract tests parse,
+reject mutations and round-trip these values. They do **not** commit or execute
+them; no generic write service or query executor is implemented.
 
 The generator in `benchmarks/foundation/workload.py` supplies 1,000 deterministic
 documents and operation selections. Index below means zero-based generator index.

@@ -1,19 +1,36 @@
 # Generic knowledge engine roadmap
 
-Status: target product direction, not implemented functionality.
-Recorded: 2026-09-20.
+Status: Markdown retrieval and F0/V0 validation foundation implemented;
+generic services and source integrations remain planned.
+Updated: 2026-09-20.
 
 This roadmap captures the target query capabilities and the full core build map
 for generic text ingestion and agent-assisted graph enrichment. It is not an MVP
-or first-slice plan. Source-specific connector design remains separate; detailed
-contracts and implementation choices are still open.
+or first-slice plan. Initial shared contracts are implemented as validation-only
+values; service implementations and source-specific connector designs remain open.
 
 [`IMPLEMENTATION_PLAN.md`](IMPLEMENTATION_PLAN.md) organizes delivery of this
 full scope into work packages, dependencies, parallel lanes, and acceptance gates.
-It records implementation order, not additional completed capabilities.
-Initial first-step contracts and acceptance cases are in
+It records package status, implementation order and acceptance requirements.
+The shared contracts and acceptance cases are in
 [`FOUNDATION_SPEC.md`](FOUNDATION_SPEC.md). Validation models and synthetic inputs
 are implemented; generic storage, authorization and execution are not.
+
+## Current position
+
+| Area | Status |
+| --- | --- |
+| Markdown ingestion, exact evidence/history, structured reads and reranked hybrid search | Implemented; [SPEC.md](SPEC.md) defines supported behavior and limitations. |
+| Internal intake/writer separation | Implemented private boundary, not a generic write API. |
+| F0: shared contracts | Complete for `foundation/1` validation/serialization and initial compatibility semantics. |
+| V0: acceptance inputs | Complete for A01-A17 recipes, contract fixtures, deterministic workload and initial numeric targets; integrated outcomes are pending. |
+| E1 / K1 / Q1 | Next: generic evidence storage/intake, contribution storage/writes and deterministic query execution. None has started. |
+| Remaining systems and connectors | Planned under their dependencies; full core and live-workflow acceptance remain pending. |
+
+The implementation plan tracks **2 complete and 21 remaining packages**.
+This counts the new build plan, not the capabilities already supplied by the
+Markdown product. Contract validation does not imply working storage, retries,
+authorization, query execution, or measured quality/performance.
 
 ## Product goal
 
@@ -26,16 +43,13 @@ relationships; the broader system also includes source evidence, structured
 records, text indexes, and vector indexes. Multi-method retrieval is an
 architectural capability, not a separate product name.
 
-Move from an experiment-led Markdown index to a usable knowledge engine.
-Retain useful implementation and regression coverage rather than rewrite
-everything. Benchmarks support product development; they do not define the
+Extend the current Markdown engine without rewriting its evidence and retrieval
+foundations. Benchmarks support product development; they do not define the
 product or its supported source formats.
 
-This document defines the next product direction. `SPEC.md` retains the existing
-implementation contracts; [benchmark history](benchmarks/history/evidence-mvp.md)
-retains the original experiment details. Where its future
-direction conflicts with this roadmap, this roadmap takes precedence; existing
-behavior is not changed merely by documenting a target.
+This document defines targets and remaining gaps. [SPEC.md](SPEC.md) defines
+implemented behavior; the roadmap does not change that behavior merely by
+documenting a target.
 
 ## Responsibility boundaries
 
@@ -77,12 +91,12 @@ has been established. Existing retrieval acceptance gates remain unmet.
 | Graph retrieval | Limited: explicit relationships and bounded two-hop subject expansion. | Add typed, question-driven relationship and path operations. |
 | Structured retrieval | Limited: dedicated tasks, decisions, blockers, conflicts, and status operations. | Add supported exact lookups, filters, counts, and aggregations. |
 | Automatic retrieval routing | Not built; product search always runs reranked hybrid retrieval with no mode selector. | Choose suitable operations from query intent and constraints, including structured/graph execution. |
-| Query plan generation and execution | Not built. | Translate natural language into a validated sequence of supported operations and execute dependencies. |
+| Query plan generation and execution | Typed plan/result validation exists; planning and execution do not. | Implement coherent dependent execution (Q1), richer graph/structured operators (Q2) and natural-language planning (Q3). |
 | Query entity resolution | Known subjects and aliases exist, but no general question-to-entity stage. | Resolve candidate identities and report ambiguity rather than guess. |
 | Pagination | Result limits exist; continuation cursors do not. | Add stable continuation with explicit result-set boundaries. |
-| Generic ingestion interface | Current ingestion is configured Markdown parsing. | Define source-independent, versioned write contracts. |
-| Plugin ecosystem | No generic ingestion plugin contract. | Support independently developed source adapters and agent guidance. |
-| Agent-authored knowledge | Current extraction requires explicit Markdown structure. | Support validated entity, relationship, and assertion writes with evidence. |
+| Generic ingestion interface | Markdown ingestion runs today; `foundation/1` validates source-independent write descriptions without persisting them. | Implement generic intake/storage and adapt Markdown (E1/E2). |
+| Plugin ecosystem | Shared values exist, but plugin packaging, tools and invocation do not. | Support independently developed source adapters and agent guidance (I1/I2). |
+| Agent-authored knowledge | Bounded enrichment change-set validation exists; current stored extraction still requires explicit Markdown structure. | Implement entity/contribution storage, validated writes and agent tools (K1/K2). |
 | Cross-source identity reconciliation | Seed entities and approved aliases exist. | Add candidate lookup and auditable identity link/merge/correction operations. |
 
 ## Query requirements
@@ -198,23 +212,26 @@ sequence. The query work recorded above remains part of this same roadmap.
 
 | Area | Current implementation | Gap to target |
 | --- | --- | --- |
-| Document intake | Manifest-selected local Markdown files. | Generic text/metadata ingestion interface and external identities. |
+| Document intake | Manifest-selected local Markdown files; generic write values validate only. | Implement text/metadata intake, external identity mapping and persistence. |
 | Evidence | Immutable revision identities and exact parsed source anchors. | Complete supplied-text retention and source-independent evidence addressing. |
 | Indexing | Keyword refresh during ingestion; a separate command builds embeddings. | Generic passage processing and coordinated index lifecycle/status. |
-| Enrichment handles | IDs exist in storage and ingestion reports. | Stable agent-facing ingestion response and enrichment status contract. |
+| Enrichment handles | IDs exist in storage/ingestion reports; foundation receipt/progress values validate only. | Return real durable identities and processing status from generic services. |
 | Entity discovery | Manifest seed entities and exact alias matching. | Agent-facing candidate lookup and identity reconciliation tools. |
-| Graph writes | Importer directly creates mentions and generic wikilink edges. | Validated agent-authored entities, typed relationships, assertions, and evidence links. |
-| Interpretation provenance | Existing edges reference source anchors. | Agent attribution, explicit-versus-inferred assertions, and enrichment history. |
+| Graph writes | Importer creates mentions/wikilink edges; generic change sets are descriptions, not writes. | Persist agent-authored entities, typed relationships, assertions and evidence links. |
+| Interpretation provenance | Stored edges reference anchors; foundation values describe attribution/support. | Persist agent attribution, explicit-versus-inferred assertions and enrichment history. |
 | Reprocessing | Source revision handling and explicit task/decision replacements. | General graph idempotency, completion tracking, correction, and stale-evidence handling. |
 
-Remove the manifest's exclusive authority over entity lifecycle: current
-ingestion deactivates corpus entities and reactivates configured seeds. That
-behavior must not deactivate agent-created entities. Preserve explicit entity
-ownership/lifecycle rules while adapting the existing Markdown importer.
+Current ingestion has corpus-wide authority over seed activation, alias deletion
+and unselected-document deactivation; re-extraction replaces mentions and
+relationships. Before enabling another writer, E1/K1 must owner-scope these
+mutations or explicitly reject mixed-writer storage. E2 must implement actual
+coexistence under the foundation's document and contribution ownership rules.
 
 ### Shared write and lifecycle contracts
 
-Define a versioned contract that can represent:
+The foundation defines initial identities, offsets, ownership, bounded change
+sets, conjunctive support, retry policy and coherent-query-state semantics.
+The remaining service work must persist and enforce:
 
 - Source identity, complete supplied text and supporting evidence, source location,
   revision, event time, and source metadata.
@@ -226,17 +243,17 @@ Define a versioned contract that can represent:
 - Corrections, supersession, source removal, and deletion, with explicit
   current-state and historical behavior.
 
-The core validates writes and maintains integrity across plugins. Identity
-matching must support candidate lookup and explicit, auditable, correctable
+Service implementations must validate stored references and maintain integrity
+across plugins. Identity matching must support candidate lookup and explicit, auditable, correctable
 decisions; similar names must not trigger silent merges.
 
 Conflicting source assertions must be representable without choosing an
 unsupported winner. Generalize the existing explicit state-resolution machinery
 where useful rather than discarding evidence history.
 
-Keep corpus isolation. Define permission handling before connecting sources
-with differing access rules. Define the distinction between deactivating a
-source while retaining history and actually purging retained content.
+Keep corpus isolation. Implement and approve permission handling before connecting
+sources with differing access rules. Enforce the specified distinction between
+deactivating a source while retaining history and actually purging retained content.
 
 Text and vector indexes remain derived from canonical knowledge and evidence.
 Expose index freshness and rebuild behavior so ingestion updates cannot silently
@@ -260,7 +277,7 @@ Plugins own source-specific access and synchronization, not separate graph,
 search, or answer engines. Define how agent instructions and executable adapter
 tools are packaged before calling the plugin interface stable.
 
-## Build dependencies, not a first-slice plan
+## Remaining delivery sequence
 
 Generic intake and evidence identities underpin both indexing and graph writes.
 The knowledge model and identity contracts underpin agent tools and enrichment
@@ -272,77 +289,24 @@ tools. Concrete email, meeting-notes, and Teams adapters are not prerequisites
 for a source-independent ingestion core. Preserve the existing evidence and
 retrieval foundations while replacing Markdown-specific coupling.
 
-The initial productization workstream is complete: fixtures and ingestion are
-preserved, E-stage product organization is retired, and normal search uses the
-complete existing reranked hybrid pipeline. Acceptance is recorded in the
-[final integrated validation and review](benchmarks/productization/final-integrated-2026-09-20/README.md);
-[`SPEC.md`](SPEC.md) defines the delivered contracts.
-[`IMPLEMENTATION_PLAN.md`](IMPLEMENTATION_PLAN.md) records the proposed sequence,
-parallel work, and decision gates; concrete release boundaries remain to be
-decided. The full scope above is unchanged; the transition does not deliver the
-query planner.
+1. **Next: E1/K1/Q1.** Implement evidence intake/storage, knowledge contributions,
+   and deterministic execution using the delivered foundation contracts.
+2. **Dependent capabilities.** Add Markdown adaptation, passage/index lifecycle,
+   processing recovery, graph tools, identity/correction behavior, richer query
+   operators and continuation as their prerequisites become available.
+3. **Agent and planner integration.** Connect enrichment, independently packaged
+   plugins and bounded natural-language planning. Access/retention and evaluation
+   run alongside the lanes, not only at the end.
+4. **Core and live acceptance.** Accept integrated core capabilities separately
+   from permission-approved email, meeting and Teams workflows. Full roadmap
+   acceptance requires both; fixture-only adapters do not establish live readiness.
 
-## Productization: one KG, not a sequence of experiments
-
-The completed interface transition establishes the following principles for
-future capabilities across the core build map. Users and plugin authors should
-understand and operate the KG without knowing what E0, E1, or any later experiment
-meant. Preserve the current contracts in [`SPEC.md`](SPEC.md), component behavior,
-and fixture coverage while extending the product; the query planner and generic
-ingestion core remain future work.
-
-### Product organization and supported workflows
-
-- Organize production interfaces, code, documentation, and tests around
-  capabilities: ingestion, evidence, indexing, identity, graph enrichment, and
-  query execution. Experiment IDs must not define public contracts or required
-  user workflows.
-- Document a coherent path to install, configure, ingest, inspect processing
-  status, enrich knowledge, query, and maintain the system. Examples should
-  demonstrate supported behavior rather than a sequence of research stages.
-- Provide supported defaults and configuration with clear compatibility and
-  lifecycle rules. Ordinary callers should not need to choose an experiment or
-  manually assemble retrieval stages. Retain meaningful advanced controls and
-  diagnostics, not competing experimental product paths.
-- Review existing commands, flags, fixtures, and implementation scaffolding.
-  Retain or generalize useful capabilities; retire obsolete experiment-only
-  machinery with explicit migration or deprecation where consumers are affected.
-  Do not assume an implementation is disposable merely because it began as an
-  experiment.
-
-### Documentation and historical results
-
-- Keep the README organized around the KG's purpose, supported capabilities, setup,
-  workflows, and limitations as those capabilities are delivered.
-- Maintain `SPEC.md` as the current product contract organized by subsystem.
-  Preserve past experiment designs and measured results in clearly historical
-  benchmark documentation, separate from current behavior and the roadmap.
-- Keep E-stage sequencing out of prerequisites for product development. In
-  particular, the older requirement to finish and record each experiment before
-  starting the next feature is not the governing development workflow.
-- Describe capabilities as supported, planned, deprecated, or explicitly
-  experimental where that distinction is real. Do not relabel unfinished work
-  as production-ready or erase known quality limitations.
-
-### Product testing and release criteria
-
-- Convert useful E-stage checks into capability-based regression coverage:
-  storage/provenance integrity, indexing, retrieval, graph writes, identity,
-  lifecycle, query plans, and end-to-end contracts.
-- Preserve benchmark datasets, reproducible configurations, and historical
-  scores. Benchmarks measure product behavior; they are not the product's
-  architecture or a series of releases users must navigate.
-- Gate releases on documented supported workflows, correctness, evidence
-  integrity, retrieval quality, reliability, latency, and resource cost.
-  Establish replacement criteria explicitly rather than silently lowering or
-  deleting an unmet experimental threshold.
-- Separate routine product tests from expensive model evaluations, while
-  retaining both with documented execution and release responsibilities.
-
-As capabilities evolve, normal setup and use must require no knowledge of the
-E-series, current documentation must describe the delivered KG rather than its
-research history, and tests and release criteria must map to supported capabilities.
-Historical experiment identifiers may remain in archived results for traceability.
+The [implementation plan](IMPLEMENTATION_PLAN.md) owns the detailed package graph.
+Product interfaces stay capability-based; package IDs are coordination labels,
+not CLI modes or user prerequisites. Preserve exact evidence, reviewed gold and
+benchmark results. Maintain current behavior in `SPEC.md`, require explicit
+compatibility handling for public changes, and keep routine controlled-provider
+tests separate from real-model evaluations.
 
 ## Core acceptance requirements
 
@@ -369,14 +333,12 @@ Historical experiment identifiers may remain in archived results for traceabilit
 - Versioned contracts can be exercised by independent source adapters without
   source-specific changes to core parsing or query logic. Actual connector
   implementation is tracked separately.
-- Public workflows and current product documentation stand on their own without
-  E-stage terminology or sequencing. Useful experimental checks survive as
-  product regression/evaluation coverage, with migration paths for changed
-  public interfaces.
+- Public workflows and documentation describe supported capabilities directly,
+  with regression/evaluation coverage and migration paths for changed interfaces.
 - A representative, permission-approved usage set measures evidence quality,
-  structured-query correctness, latency, and resource cost. Set concrete budgets
-  before claiming the release is ready; existing benchmark results alone are not
-  proof of real-world usefulness.
+  structured-query correctness, latency, and resource cost against the
+  [initial targets](benchmarks/foundation/README.md). Targets and synthetic
+  contract checks alone are not proof of real-world usefulness.
 
 ## Decisions still open
 

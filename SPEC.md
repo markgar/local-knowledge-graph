@@ -1,16 +1,13 @@
 # Local Knowledge Graph: current contracts
 
-Status: implemented capabilities in a **pre-alpha** package. Productization
-acceptance is recorded in the
-[final integrated validation and review](benchmarks/productization/final-integrated-2026-09-20/README.md).
-Interface changes are not a
-claim of production readiness, improved relevance, or calibrated answerability.
+Status: implemented capabilities in a **pre-alpha** package. Retrieval-quality
+and answerability requirements are not met; this is not a production-ready
+question-answering system.
 
 This document describes current behavior. [`ROADMAP.md`](ROADMAP.md) describes
 future query planning, generic ingestion, and agent-authored enrichment; those
-capabilities are not implemented. The original implementation ledger and research
-sequence are preserved in [benchmark history](benchmarks/history/evidence-mvp.md).
-Historical stages are not prerequisites for developing product features.
+capabilities are not implemented. [FOUNDATION_SPEC.md](FOUNDATION_SPEC.md)
+describes the validation-only values and future service obligations separately.
 
 ## Boundaries and invariants
 
@@ -70,7 +67,7 @@ These are internal boundaries, not a generic ingestion API or a new source forma
 ### Ingestion diagnostics
 
 `ingest --explain [--include-quotes] [--explain-limit 50] --format json` returns
-`IngestReport` with `report_version: "1"`; ordinary `IngestResult` is unchanged.
+`IngestReport` with `report_version: "1"`; ordinary ingestion returns `IngestResult`.
 This performs ingestion, not a dry run. Python uses `explain`, `include_quotes`,
 and `detail_limit`.
 
@@ -168,7 +165,7 @@ Ordinary JSON is still `list[SearchResult]`: record identity/type, title, summar
 status, event time, source path/revision, anchor, heading path, exact quote,
 related entities, and `rank`. Returned list order is authoritative: raw
 cross-encoder score **descending**, then record ID for ties. Scores are not
-confidence, not comparable across queries/models, and not historical BM25 scores.
+confidence, not comparable across queries/models, and not BM25 scores.
 Consumers must not re-sort ascending or apply a former BM25 threshold.
 
 ### Execution explanations
@@ -208,7 +205,7 @@ corpus writes in the same database may also conservatively invalidate a call.
 ## Structured state and evidence reads
 
 These operations use `RetrievalService`, not semantic search, and require no
-vector index or model initialization. Their signatures and payloads are unchanged.
+vector index or model initialization.
 
 | CLI operation | Contract |
 | --- | --- |
@@ -263,12 +260,12 @@ unknown transition order is not invented.
 ## CLI versions, errors, and compatibility
 
 `kg capabilities --format json` advertises **interface_version `"2"`** and search
-configuration, score, readiness, explanation, and migration guidance. Search
-report version advances to `"2"`; unrelated payload/report versions do not change.
+configuration, score, readiness, explanation, and unsupported-option guidance.
+Search explanation report version is `"2"`; ingestion report version is `"1"`.
 
-`--query-mode` is removed. Every former value, **including `reranked`**, fails
-with migration guidance (`invalid_query` for JSON). Omit the flag and prepare
-the matching projection. It is not an ignored alias or a hidden lexical route.
+`--query-mode` is unsupported. Every value, **including `reranked`**, fails
+with guidance (`invalid_query` for JSON). Omit the flag and prepare the matching
+projection. It is not an ignored alias or a hidden lexical route.
 
 Domain errors are emitted on stderr as `{"error": "...", "message": "..."}` with
 exit code 2 and no success payload. Dense readiness maps to
@@ -278,13 +275,16 @@ Other `SearchExplanationError.code` values survive. Invalid search semantics or
 configuration use `invalid_query`; manifest errors use `invalid_manifest`.
 Typer's option grammar/range errors retain its usage-error format, even when
 JSON was requested. `dense-index` failures retain `dense_index_failed`.
-Other operation-specific error mappings are unchanged.
+Evidence/context/history lookups use operation-specific not-found errors;
+invalid revision selections use `invalid_revision_comparison`. Invalid task status
+uses `invalid_status`; malformed time windows on structured commands use
+`invalid_since`. Failed ingestion sources produce a report and exit code 1.
 
-Existing `RetrievalService.search()` (strict/natural lexical), lexical
+`RetrievalService.search()` (strict/natural lexical), lexical
 `SearchExplanation`, `DenseRetrievalService`, `HybridRetrievalService`, and
 `RerankedRetrievalService` remain low-level Python composition/evaluation APIs.
 They are not alternate public product modes and do not inherit stricter product
-readiness or concurrency semantics. Legacy lexical explanations remain version 1.
+readiness or concurrency semantics. Lexical explanations use version 1.
 
 ## Storage, maintenance, and validation
 
@@ -302,8 +302,8 @@ request/result correlation. `FoundationCapabilities` explicitly says
 
 These models are **not** callable ingestion/query services or enforcement of
 database integrity, authorization, atomicity, idempotency or read isolation.
-An access context is trusted-boundary input, not proof of permission. No schema,
-existing command/result, source fixture or authored gold changes accompany them.
+An access context is trusted-boundary input, not proof of permission. The canonical
+schema and existing CLI/services do not consume these values.
 The shared semantics, compatibility/migration duties and pending integration gates
 are in [FOUNDATION_SPEC.md](FOUNDATION_SPEC.md). Representative contract fixtures
 and the synthetic workload/budget protocol complete F0/V0, not E1/K1/Q1.
@@ -326,10 +326,8 @@ and history. Lexical expected lists remain component assertions, not semantic
 gold. Separate product tests cover the entire pipeline and CLI with controlled
 providers; routine tests do not download models.
 
-[QASPER results](benchmarks/qasper/RESULTS.md) preserve measured relevance,
-latency, cost, and the rejected answerability threshold. Existing
-[retrieval acceptance gates](benchmarks/history/evidence-mvp.md#retrieval-acceptance-gates)
-remain unmet and unchanged. Productization parity does not satisfy those gates.
-The [real-model productization matrix](benchmarks/productization/README.md)
-and its durable results are integration evidence, not new relevance gold.
+The [QASPER evaluation](benchmarks/qasper/README.md) measures component retrieval
+and answerability; current relevance and answerability gates remain unmet.
+The [real-model product search matrix](benchmarks/productization/README.md)
+checks integration parity, not relevance or production readiness.
 See [CONTRIBUTING.md](CONTRIBUTING.md) for validation commands.
