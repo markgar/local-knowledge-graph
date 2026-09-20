@@ -1,6 +1,7 @@
 # Full roadmap implementation plan
 
-Status: planned; implementation of this plan has not started.
+Status: F0/V0 foundation implemented (validation/fixtures/protocol only);
+all downstream packages remain planned.
 Recorded: 2026-09-20.
 Starting baseline: `c4162bac3bc5c5d40006e47ad66678fd44230f73`.
 
@@ -43,6 +44,10 @@ Important constraints for the first work packages:
 - The manifest importer currently controls seed-entity activation. Agent-created
   knowledge needs explicit ownership/lifecycle rules before multiple writers
   coexist; a Markdown ingest must not deactivate another writer's entities.
+  It also deletes corpus-wide aliases and deactivates unselected documents,
+  and re-extraction/config rebuilds replace mentions and relationships.
+  Ownership must cover document synchronization scopes and individual knowledge
+  contributions, not just entities.
 - `ingest/_prepared.py` and `_writer.py` are private implementation boundaries,
   not a validated public write API. Do not expose trusted internal payloads
   directly to agents or external plugins.
@@ -71,6 +76,11 @@ Scope, provenance, and revision preconditions must be present from the start,
 not retrofitted after individual features are built. Define one owner for
 cross-cutting contract and schema decisions. Contracts can evolve through
 coordinated, versioned changes; they are not frozen forever.
+
+The [F0/V0 foundation specification](FOUNDATION_SPEC.md) records initial shared
+semantics, strict versioned models/tests, acceptance inventory and evaluation
+targets. Contract validation is implemented, not generic storage or execution.
+E1/K1/Q1 can use these boundaries; no downstream lane is started by this change.
 
 Create representative acceptance scenarios alongside these contracts.
 No model or real connector is needed to establish deterministic storage and
@@ -108,7 +118,7 @@ capability is finished.
 | ID | Work package and completion boundary | Prerequisites |
 | --- | --- | --- |
 | F0 | Shared versioned contracts and compatibility decisions described above, with executable contract tests and recorded unresolved decisions. | Baseline |
-| V0 | Cross-capability acceptance scenarios: evidence identity, retries, scope, ownership, ambiguity, exact operations, recovery, continuation and purge. | F0 |
+| V0 | Cross-capability acceptance scenarios: evidence identity, retries, scope, ownership, ambiguity, exact operations, recovery, continuation and purge; agreed initial workloads and measurable budgets before parallel implementation. | F0 |
 | E1 | Generic validated text/metadata/batch intake; external identities; complete supplied-content retention; source-neutral references; current/historical reads and legacy migration. | F0 |
 | E2 | Markdown uses the shared intake boundary while retaining its existing extraction, identity and exact-citation behavior. | E1 |
 | E3 | Versioned passage processing and validated supplied boundaries; coordinated lexical/vector indexing, incremental/rebuild behavior and explicit freshness, independent of graph completion. | E1 |
@@ -129,7 +139,7 @@ capability is finished.
 | S2 | Meeting-notes/transcript adapter for text, participants, event times, locations and synchronization; select actual formats/providers separately. | I1 |
 | S3 | Teams-message adapter with stable source references, incremental synchronization and permission handling through the same contracts. | I1 |
 | V1 | Representative, permission-approved evaluation of evidence, retrieval, graph/structured correctness, agents/planning, latency, cost and resource usage against agreed budgets. | V0 |
-| R1 | Complete end-to-end integration, compatibility/migration/recovery validation, packaging/docs, independent combined-diff review and explicit release-gate assessment. | All preceding packages |
+| R1 | Staged core and live-workflow acceptance, compatibility/migration/recovery validation, packaging/docs, independent combined-diff review and explicit release-gate assessment. Full-scope completion still requires all packages. | Core milestone: F0/V0, E/K/Q, X1, I1/I2 and applicable V1; final milestone: all preceding packages |
 
 For E1/K1, the shared evidence reference contract permits parallel development;
 integrated graph writes must still validate actual stored evidence. Q2 does not
@@ -169,6 +179,7 @@ individual branch passed its own tests.
 
 1. **Foundation:** F0 with acceptance-scenario preparation for V0. Resolve the
    cross-lane contracts and preserve the baseline before implementation fans out.
+   Agree initial V0 workloads and numeric quality/operating budgets at this gate.
 2. **First parallel wave:** E1, K1 and Q1. Each lane builds against agreed
    contracts; integrate their evidence and scope boundaries as soon as available.
 3. **Dependent capabilities:** start ready packages rather than waiting for a
@@ -244,14 +255,30 @@ The central integrated scenario is:
 
 Include ambiguity, competing assertions, ownership coexistence, interruption,
 concurrent writers, partial completion and cross-source permissions.
+Ownership coexistence must demonstrate that Markdown synchronization cannot
+deactivate another connector's documents or erase agent-authored aliases, mentions
+or relationships, including during forced parser/config rebuilds. E1/K1 must
+owner-scope those mutations or explicitly reject mixed-writer storage **before**
+enabling new writes; E2 must complete coexistence.
+Partial/failed source enumeration must not be treated as a complete snapshot.
 Exercise an independently packaged adapter without adding source-specific core
 branches. Real-agent/provider and permission-approved usage evaluation must
 remain distinct from deterministic mocks.
 
-Set concrete quality, latency, cost and resource budgets before claiming release
-readiness. Do not silently lower historical unmet thresholds or infer improved
-relevance from additional interfaces. Record code/configuration/model/data
-identities and failures so evaluations are reproducible.
+Set initial representative workloads and concrete quality, latency, cost and
+resource budgets during F0/V0, before the first parallel implementation wave.
+Measure incrementally as capabilities appear and review budget changes explicitly.
+Do not silently lower historical unmet thresholds or infer improved relevance
+from additional interfaces. Record code/configuration/model/data identities and
+failures so evaluations are reproducible.
+
+R1 has separate acceptance milestones, not reduced scope. Core acceptance covers
+the integrated E/K/Q capabilities, X1, plugin/agent integration and applicable
+evaluation using an independently packaged synthetic adapter. It does not wait
+for all live connector providers to be available. Live-workflow acceptance records
+permission-approved S1/S2/S3 results separately. Blocked live workflows remain
+incomplete, and full-scope R1 completion still requires every package. Neither
+milestone by itself converts unmet production-quality gates into passes.
 
 ## Decisions and defaults
 
@@ -262,24 +289,29 @@ scope. Escalate choices that change public behavior, source access or data egres
 | Decision | Recommended starting position | Required before |
 | --- | --- | --- |
 | Storage and deployment | Keep SQLite, Python, current retrieval models and local CLI/JSON transport; introduce no hosted service by default. | F0 |
-| Source identity, offsets, ownership and knowledge schema | Agree explicit, versioned semantics and compatibility with existing evidence; extensibility does not mean unvalidated arbitrary writes. | E1 and K1 integration |
+| Source identity, offsets, ownership and knowledge schema | Agree explicit, versioned semantics including source synchronization and alias/contribution ownership, with compatibility for existing evidence; extensibility does not mean unvalidated arbitrary writes. | F0 exit, before E1/K1/Q1 |
 | Planner strategy | Build deterministic execution first; choose rules/model assistance behind its validated operator boundary. | Q3 |
 | Ingestion-agent host | Publish explicit tools/instructions; keep interpretation outside the core. Choose the actual hosting/invocation integration. | I2 |
 | Model providers and data egress | Preserve local-first, approved cache/download behavior. Hosted inference requires an explicit decision and authorization. | Any new provider integration |
 | Real sources and representative questions | Choose actual email/meeting/Teams providers and a permission-approved workflow; use synthetic conformance fixtures meanwhile. | Live S1/S2/S3 acceptance |
 | Permissions and retention | Define scope in F0; agree concrete source ACL and retention/purge rules before mixing live sources. | X1 and live connector acceptance |
 | Cursor behavior | Agree snapshot identity, expiry and data-change outcomes; distinguish bounded candidate exhaustion from corpus exhaustion. | Q4 |
-| Quality and operating budgets | Choose a representative workload and measurable acceptance thresholds without erasing known limitations. | Final V1/R1 |
+| Quality and operating budgets | Agree initial representative workloads and numeric acceptance thresholds without erasing known limitations; measure incrementally and explicitly review changes. | F0/V0 exit, before parallel implementation |
 
-## Starting in the next session
+## Foundation delivery and next package boundary
 
-Read this plan, [ROADMAP.md](ROADMAP.md), [SPEC.md](SPEC.md), and
+Read this plan, [FOUNDATION_SPEC.md](FOUNDATION_SPEC.md),
+[ROADMAP.md](ROADMAP.md), [SPEC.md](SPEC.md), and
 [CONTRIBUTING.md](CONTRIBUTING.md), then confirm the latest `main` and baseline
-validation. All package IDs above are planned, not implemented by writing this
-document.
+validation. F0 delivers `kg.models.foundation` validation/serialization only.
+V0 delivers `corpora/foundation` scenarios and `benchmarks/foundation` reproducible
+inputs/numeric targets, not integrated behavior or measured service performance.
+All other package IDs remain planned.
 
-Start by turning F0 and V0 into concrete, reviewable contract decisions and
-acceptance cases. Record the decisions and ready dependencies, then launch the
-three implementation lanes on PR-sized work. Do not reopen completed
+Review the settled foundation contract and package-specific acceptance recipes.
+The coordinator owns shared contract/schema decisions; E1 owns migrations,
+K1 owns contribution storage and Q1 owns coherent dependent execution; V1 owns
+measurement. Launch ready lanes only through separately authorized work.
+Do not reopen completed
 productization or structural cleanup, start all packages simultaneously, or
 silently choose unresolved live-source/model policies.

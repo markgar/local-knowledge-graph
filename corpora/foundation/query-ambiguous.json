@@ -1,0 +1,19 @@
+{
+  "contract_version": "foundation/1",
+  "request_id": "ambiguous-count-1",
+  "scope": {
+    "corpus_id": "work",
+    "access": {
+      "principal_id": "synthetic-reader",
+      "policy_version": "policy-1",
+      "namespaces": ["markdown", "email"],
+      "grants": ["read"]
+    }
+  },
+  "steps": [
+    {"operation": "resolve", "step_id": "sam", "name": "Sam"},
+    {"operation": "records", "step_id": "tasks", "entity_step": "sam", "record_type": "action", "status": "open"},
+    {"operation": "count", "step_id": "total", "records_step": "tasks"}
+  ],
+  "output_step": "total"
+}

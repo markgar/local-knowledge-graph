@@ -1,7 +1,9 @@
 include LICENSE README.md SPEC.md CHANGELOG.md CONTRIBUTING.md
+include FOUNDATION_SPEC.md IMPLEMENTATION_PLAN.md ROADMAP.md
 recursive-include src *.py *.pyi *.sql py.typed
 recursive-include tests *.py
 recursive-include corpora *.yml *.yaml *.md
+recursive-include corpora/foundation *.json
 recursive-include benchmarks *.py *.json *.md
 recursive-include examples *.py
 global-exclude __pycache__ *.py[cod] .DS_Store

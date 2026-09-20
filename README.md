@@ -345,6 +345,10 @@ plugins, agent-authored enrichment, identity reconciliation, query planning and
 continuation. [IMPLEMENTATION_PLAN.md](IMPLEMENTATION_PLAN.md) organizes the full
 roadmap into dependent work packages, parallel lanes, and acceptance gates.
 [SPEC.md](SPEC.md) defines the current product contracts.
+The [F0/V0 foundation](FOUNDATION_SPEC.md) adds versioned validation-only Python
+models, synthetic acceptance inputs and initial evaluation targets. It does not
+yet provide generic write/query services, ACL enforcement or durable retries;
+existing commands and result formats are unchanged.
 
 Report security issues under [SECURITY.md](SECURITY.md).
 Released under the [MIT License](LICENSE).
