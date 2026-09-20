@@ -1,0 +1,774 @@
+{
+  "version": 1,
+  "projects": [
+    {"name": "Aster", "aliases": ["appointment pilot"]},
+    {"name": "Beacon", "aliases": ["billing bridge"]},
+    {"name": "Cedar", "aliases": ["delegated access cleanup"]},
+    {"name": "Drift", "aliases": ["offline intake"]},
+    {"name": "Ember", "aliases": ["receipt archive"]},
+    {"name": "Fjord", "aliases": ["cold export"]},
+    {"name": "Grove", "aliases": ["partner directory"]},
+    {"name": "Harbor", "aliases": ["terminal rollout"]},
+    {"name": "Harborview", "aliases": ["visitor dashboard"]},
+    {"name": "Iris", "aliases": ["consent refresh"]},
+    {"name": "Juniper", "aliases": ["weekend support trial"]},
+    {"name": "Kite", "aliases": ["mobile demo"]},
+    {"name": "Lumen", "aliases": ["screen reader pass"]},
+    {"name": "Nova", "aliases": ["invoice import"]},
+    {"name": "NovaOps", "aliases": ["operator console"]},
+    {"name": "Orion", "aliases": ["partner release"]},
+    {"name": "Pine", "aliases": ["refund letters"]}
+  ],
+  "people": ["Jamie", "Maya", "Alex", "Rina", "Sam", "Noor"],
+  "systems": ["Relay", "Ledger", "Vault"],
+  "documents": [
+    {
+      "id": "d001", "channel": "notes", "date": "2026-01-05",
+      "title": "First week back", "projects": ["Aster", "Beacon", "Cedar"],
+      "sender": "Jamie", "recipients": [],
+      "body": "Aster is the appointment pilot, not a replacement for the booking site. The front desk wants fewer duplicate reminder calls; they did not ask for a new calendar. Maya suggested sitting with someone through an entire morning before we choose the fields.\n\nBeacon's billing bridge has a different headache: staff paste the same reference into Ledger and the receipt email. We may be able to borrow its import formatter. Cedar is still looking at delegated access, so don't promise a shared sign-in change to either group yet.\n\nRemember to ask about the printer by the side entrance. Nobody could read the grey examples we brought."
+    },
+    {
+      "id": "d002", "channel": "mail", "date": "2026-01-16",
+      "title": "Can we borrow the room?", "projects": ["Harbor", "Harborview", "Iris"],
+      "sender": "Rina", "recipients": ["Jamie", "Noor"],
+      "body": "The Harbor terminal rollout group only needs the little room for the cable test. Harborview, the visitor dashboard, has booked it for interviews afterwards. Please leave the chairs in a circle rather than putting the table back between sessions.\n\nIris has sent some draft consent cards. They're useful props but not the final wording. If you take photographs of the mock terminal, turn those cards face down first. The room booking email uses 'harbor session' for both meetings, which is why I nearly ordered lunch twice. I'll put the full names on the door, not on the catering order."
+    },
+    {
+      "id": "d003", "channel": "meetings", "date": "2026-02-03",
+      "title": "Tuesday catch-up, kitchen table", "projects": ["Drift", "Ember", "Fjord"],
+      "sender": "Sam", "recipients": ["Alex", "Maya", "Noor"],
+      "body": "Drift's offline intake team tested a whole form on airplane mode. It saved locally, but the page looked frozen while the spinner was up. Alex wants a plain sentence saying the form is on the device.\n\nEmber's receipt archive people brought a stack of faded paper copies. Their search terms are usually shop names, not receipt numbers. Fjord's cold export users instead begin with a month and need a complete bundle.\n\nAll three use Relay somewhere, but that isn't one common customer journey. We spent most of the meeting arguing about the label 'sent'. It can mean sent to the queue, received by the server, or visible to a person."
+    },
+    {
+      "id": "d004", "channel": "mail", "date": "2026-02-19",
+      "title": "Those two spreadsheets", "projects": ["Nova", "NovaOps"],
+      "sender": "Maya", "recipients": ["Jamie", "Sam"],
+      "body": "Nova is the invoice import. NovaOps is the operator console; it doesn't create invoices. They can both show a missing supplier and they both read Ledger, which explains some of yesterday's confusion.\n\nThe console screenshot with 120 rows is from training. The import spreadsheet has 96 rows because it is a different sample. Neither number is a completion total. I have put a blank copy of each in the handout pile so we can scribble on them without changing the files.\n\nCan we use darker borders? The pale cells vanish on the projector. Noor said the projector is being replaced, but I wouldn't design around that promise."
+    },
+    {
+      "id": "d005", "channel": "notes", "date": "2026-03-04",
+      "title": "Wednesday calls", "projects": ["Grove", "Orion", "Pine"],
+      "sender": "Noor", "recipients": [],
+      "body": "Grove is our partner directory work. People search for the name on the shop sign, which often isn't the registered business name. Orion's partner release will eventually need a copy of that directory; the release group asked us not to expose phone numbers in the sample.\n\nPine's refund letters have the opposite problem: enough information exists, but the letter sounds as though the reader already knows our internal terms. Jamie read one aloud and ran out of breath. Try shorter sentences before shrinking the font.\n\nThe calls overran, so I never asked whether the parcel at reception was ours. It was still there when I left."
+    },
+    {
+      "id": "d006", "channel": "meetings", "date": "2026-03-20",
+      "title": "Borrowing devices", "projects": ["Kite", "Lumen", "Juniper"],
+      "sender": "Alex", "recipients": ["Rina", "Sam"],
+      "body": "Kite's mobile demo needs a phone with an old battery as well as the shiny one. Lumen's screen reader pass needs actual headphones; the speaker makes it impossible to hear the focus order when everyone is talking.\n\nJuniper, the weekend support trial, would like both devices after lunch to try the call scripts. This is a loan for the workshop, not an allocation of testing time for the release. We wrote the serial stickers in the paper notebook at reception.\n\nSam will bring a charger. Rina has the adapters. None of us could remember who took the long extension lead home."
+    },
+    {
+      "id": "d007", "channel": "mail", "date": "2026-04-02",
+      "title": "Re: April export count", "projects": ["Nova", "NovaOps", "Fjord"],
+      "sender": "Sam", "recipients": ["Maya", "Noor"],
+      "body": "April's Nova import trial, batch N17, had 120 invoices and 12 missing references before the mapping change, then 4 afterwards. Please leave that worksheet in the April pack; we need it for the training session even though we are not using those rows again.\n\nNovaOps also has an April export, but its rows are operator sessions. Fjord asked for a copy of the formatting macro, not either team's underlying data. I've sent the macro in a separate attachment.\n\nThe totals row prints on a second page unless you change the margins. I lost ten minutes looking for the last eight invoices before noticing that."
+    },
+    {
+      "id": "d008", "channel": "notes", "date": "2026-04-17",
+      "title": "Friday scraps", "projects": ["Aster", "Harbor", "Beacon"],
+      "sender": "Jamie", "recipients": [],
+      "body": "Possible Aster introduction in June if the desk can spare two people. That is a planning idea, not an invitation. Harbor's terminal team offered to lend a folding screen so customers can't see the rehearsal.\n\nBeacon's receipt text is shorter now. We should keep the long version somewhere for the translator rather than overwriting it. Maya asked whether the receipt timestamp should use the shop's time or ours. I said I would bring an example next time, then forgot to take a screenshot.\n\nPersonal reminder: return the borrowed screen before the building inspection. It is blocking the spare chairs."
+    },
+    {
+      "id": "d009", "channel": "mail", "date": "2026-05-06",
+      "title": "Retention slide for the workshop", "projects": ["Cedar", "Ember"],
+      "sender": "Rina", "recipients": ["Alex", "Sam"],
+      "body": "For the workshop I used thirty days in both the Cedar and Ember slides to make the diagrams readable. Those are invented examples, not a retention decision. Cedar's access snapshots and Ember's receipts have different reasons to be kept.\n\nThe screenshots came from an empty Vault workspace. Please use those rather than photographing your own account. If someone asks how long a real receipt remains available, put the question on the parking-lot page instead of quoting this deck.\n\nI've also removed the little padlock icon. People kept reading it as 'approved', when it was only meant to mean 'not public'."
+    },
+    {
+      "id": "d010", "channel": "meetings", "date": "2026-05-21",
+      "title": "Lunch review", "projects": ["Iris", "Juniper", "Pine"],
+      "sender": "Maya", "recipients": ["Jamie", "Noor", "Rina"],
+      "body": "Iris: the consent text is easier to read with the examples on a second page. We still need someone outside this room to try it without a spoken introduction.\n\nJuniper: the practice calls were too friendly. Everyone knew the answer, and nobody interrupted. Noor suggested using a script with a wrong account number and an annoyed caller. Pine can lend us some of the refund scenarios, but we should change the names before printing.\n\nWe used the last of the sticky notes. There is a request for more on the cupboard door; buying a new box is not part of any project's approval checklist."
+    },
+    {
+      "id": "d011", "channel": "mail", "date": "2026-06-08",
+      "title": "We found the cable", "projects": ["Harborview", "Kite", "Lumen"],
+      "sender": "Alex", "recipients": ["Sam", "Jamie"],
+      "body": "The cable was in the Harborview interview bag. Nothing was missing from the Kite equipment case after all. I left both bags under the desk, away from the heater.\n\nFor Lumen, a recording of the screen is not a recording of what the screen reader said. We need the audio track too. Yesterday's clip is still useful for the colour comparison, just not for checking the announced label.\n\nThis afternoon's room is the upstairs one. The calendar invite has the downstairs room because I copied last month's meeting. I've put a sign by the stairs rather than sending everyone yet another invitation."
+    },
+    {
+      "id": "d012", "channel": "notes", "date": "2026-06-25",
+      "title": "Before leaving for the train", "projects": ["Drift", "Fjord", "NovaOps"],
+      "sender": "Sam", "recipients": [],
+      "body": "Drift has a good example of why a retry counter isn't a count of people. One test form retried six times while the phone was underground. Use that in the support workshop.\n\nFjord's June storage estimate mixed compressed and uncompressed sizes. I crossed out the total rather than trying to correct it without the source sheet. NovaOps has a similar-looking chart but measures worker minutes, not bytes.\n\nNeed to ask Alex for the receipts from the device shop. The expense form timed out before I attached them. Also remember that the Friday catch-up is cancelled, not moved to the train."
+    },
+    {
+      "id": "d013", "channel": "mail", "date": "2026-07-09",
+      "title": "Preview link and small print", "projects": ["Orion", "Grove", "Beacon"],
+      "sender": "Noor", "recipients": ["Maya", "Jamie"],
+      "body": "The Orion preview opens without a password on the meeting-room machine because we left that browser signed in. Please don't describe that as anonymous access. The Grove sample in it has invented addresses.\n\nBeacon asked whether the green banner means the sample has been approved. It means the preview build finished. We should change the wording before showing it to visitors; right now it looks much more official than it is.\n\nI'll be out tomorrow morning. If the page freezes, close the tab and open the link again rather than refreshing repeatedly. That seems to leave fewer stray jobs in Relay."
+    },
+    {
+      "id": "d014", "channel": "meetings", "date": "2026-07-23",
+      "title": "End of month roundtable", "projects": ["Cedar", "Ember", "Aster", "Pine"],
+      "sender": "Jamie", "recipients": ["Maya", "Alex", "Rina", "Sam", "Noor"],
+      "body": "We went round the table without slides. Cedar still has awkward nested groups; Ember wants better receipt filenames. The Aster desk asked whether the same phone can be used for practice and live appointments. Nobody wanted to answer until we'd checked the reset procedure.\n\nPine's envelopes arrived in the wrong size. The letters fit if folded twice, but the address no longer sits in the window. Sam took one home to measure against the print layout.\n\nNext month we'll try shorter meetings with a written parking lot. That doesn't mean every item in these notes is an action or that the speaker owns it."
+    },
+    {
+      "id": "d015", "channel": "mail", "date": "2026-08-03",
+      "title": "Pilot date for the desk", "projects": ["Aster", "Beacon"],
+      "sender": "Jamie", "recipients": ["Maya", "Rina"],
+      "body": "Let's pencil in September 10 for Aster's first staffed pilot. That is a target, not permission to turn anything on. We can use the side desk so regular appointments aren't interrupted.\n\nThe pilot needs Beacon's signed reconciliation, not merely a successful import. Maya is checking what the desk actually needs to see on the receipt; the formatting discussion can carry on without holding the room reservation.\n\nPlease keep the public booking page untouched. I'd rather call four volunteers than send a broad invitation and then have to explain why the date moved. Rina, can you keep the borrowed screen nearby?"
+    },
+    {
+      "id": "d016", "channel": "mail", "date": "2026-08-04",
+      "title": "Access sweep after lunch", "projects": ["Cedar", "Grove"],
+      "sender": "Jamie", "recipients": ["Noor", "Maya"],
+      "body": "For Cedar, I promised to reconcile inherited-role entries by August 20. The work item is the inherited-role reconciliation, not the password reset instructions. Those instructions are already on the desk.\n\nGrove's directory export is the input; a screenshot of the group editor won't tell us which inherited rows were omitted. Noor said the file would arrive in Vault so we can keep the exact input beside the reconciliation.\n\nI spent the rest of the afternoon trying to reproduce the disappearing column. It comes back when the window is wider. That is a display nuisance, not evidence that the rows themselves were restored."
+    },
+    {
+      "id": "d017", "channel": "meetings", "date": "2026-08-06",
+      "title": "Exports, a bus journey, and the queue", "projects": ["Drift", "Ember", "Fjord"],
+      "sender": "Alex", "recipients": ["Sam", "Noor", "Maya"],
+      "body": "The phone test was more useful than the slide deck. Drift sends its live intake replay through Relay's east queue. When the phone comes back online, the replay is what lets the desk check the locally saved forms against what arrived.\n\nEmber's search index rebuild also runs on Relay east; the stored receipt files are already in Vault. Fjord's cold export bypasses Relay and reads Vault directly.\n\nWe agreed to stop saying 'exports are down' when only the queue is slow. Noor asked for that distinction in the support script, with a real example rather than another diagram of boxes and arrows."
+    },
+    {
+      "id": "d018", "channel": "mail", "date": "2026-08-07",
+      "title": "Receipt footer and volunteer slots", "projects": ["Beacon", "Aster", "Pine"],
+      "sender": "Maya", "recipients": ["Jamie", "Noor"],
+      "body": "Beacon's signed reconciliation can't be ready before September 17: the final bank feed arrives that morning. I can check the earlier rows in advance, but signing a partial file would not be the thing we promised the desk.\n\nThe Aster volunteers asked whether they should book leave. Please hold off answering until Jamie has looked at the gap. Pine's footer still needs the postal address on one line; I'll send a screenshot, since describing the wrap in email is getting us nowhere.\n\nI have kept the old receipt on the left of the comparison page. It is there to show the difference, not because we intend to print both."
+    },
+    {
+      "id": "d019", "channel": "mail", "date": "2026-08-10",
+      "title": "Re: Pilot date for the desk", "projects": ["Aster"],
+      "sender": "Jamie", "recipients": ["Maya", "Rina"], "reply_to": "d015",
+      "body": "Then let's move the target to September 24 instead. Keep it tentative until we've done the desk exercise. I told the four volunteers not to take leave for the earlier week.\n\nThe side desk is still preferable even if we can get the main room. Customers will otherwise assume we're open and queue behind the volunteers. Can someone bring the plain paper signs rather than the laminated ones? The laminate reflected the overhead lights last time.\n\nI'm answering this thread rather than starting another subject so the room request and the pilot don't drift apart."
+    },
+    {
+      "id": "d020", "channel": "mail", "date": "2026-08-11",
+      "title": "Two uses for Friday's export", "projects": ["Harbor", "Harborview"],
+      "sender": "Noor", "recipients": ["Maya", "Alex", "Rina"],
+      "body": "Harbor needs an operator roster before the terminal training. Maya will deliver that roster on September 22. It needs shift names, not visitor counts, and the terminal group wants a printable copy even if the screen is working.\n\nHarborview needs a visitor-count export for its dashboard review. That is a different file, despite both groups calling their request 'the harbor export'. Alex is arranging the extraction; we'll settle its delivery slot after checking the sample.\n\nRina asked whether a combined CSV would save time. We decided against it because the recipients are different and the roster has names in it."
+    },
+    {
+      "id": "d021", "channel": "mail", "date": "2026-08-12",
+      "title": "Keep the cohort fixed", "projects": ["Nova", "NovaOps"],
+      "sender": "Sam", "recipients": ["Maya", "Jamie"],
+      "body": "For Nova's September comparison, use invoice batch N42: 120 invoices, with the membership frozen before either pass. Don't add new arrivals halfway through and call that a rerun.\n\nNovaOps has its own batch N42 of 120 operator sessions. Its identifier happens to match, but it measures a different thing. Both files can sit in Ledger without being interchangeable.\n\nI'll put the time of the run in each worksheet, since the filenames are otherwise identical. The laptop clock was five minutes fast this morning; that has been corrected, but it doesn't change which invoices are in the frozen cohort."
+    },
+    {
+      "id": "d022", "channel": "mail", "date": "2026-08-13",
+      "title": "Slots are not sign-off", "projects": ["Iris", "Juniper"],
+      "sender": "Rina", "recipients": ["Noor", "Jamie"],
+      "body": "Iris has a room for September 21, but the consent rehearsal still needs the signed wording sheet. A booking is useful for planning; it doesn't settle the wording. Please leave the draft label on the cards until the sheet comes back.\n\nJuniper has the adjacent room for September 22. Its weekend support trial needs an accepted rota, not the consent sheet. We can share chairs, but the two readiness checks are independent.\n\nIf the rooms are merged on the wall calendar again, please don't infer that the sessions merged. The facilities team just ran out of space in that column."
+    },
+    {
+      "id": "d023", "channel": "mail", "date": "2026-08-14",
+      "title": "Device bench arithmetic", "projects": ["Kite", "Lumen"],
+      "sender": "Sam", "recipients": ["Alex", "Rina"],
+      "body": "The staffed device bench has twelve hours in the week starting September 21. This is human testing time; the devices can sit there overnight, but unattended hours don't enlarge the allowance.\n\nInitially Kite gets eight of those hours and Lumen gets four. The mobile demo needs several restarts, while the screen reader pass needs quiet more than a fast machine. Both groups said they could work around lunch.\n\nWe should write the hours on the paper roster as well as in the shared calendar. The calendar rounds half-hour entries differently on the phone. I checked the sum by hand before leaving."
+    },
+    {
+      "id": "d024", "channel": "mail", "date": "2026-08-17",
+      "title": "Packet pieces before the desk visit", "projects": ["Beacon", "Pine"],
+      "sender": "Noor", "recipients": ["Jamie", "Maya", "Sam"],
+      "body": "For the joint Beacon/Pine packet, the work items are 'receipt wording', 'refund appendix', and 'bank totals'. I'm spelling those labels out because the meeting kept calling all three 'the receipt thing'.\n\nJamie will finish receipt wording by September 16. Maya will finish refund appendix by September 17. Sam has bank totals for September 18. The first two go to the people answering letters, and the totals go to the desk manager.\n\nNo need to redesign the cover page. A readable date and a stapled copy would be more useful than another logo treatment. Please keep the rejected wording in your own notes, not in the outgoing packet."
+    },
+    {
+      "id": "d025", "channel": "mail", "date": "2026-08-18",
+      "title": "What stays in the archive?", "projects": ["Cedar", "Ember"],
+      "sender": "Alex", "recipients": ["Rina", "Sam"],
+      "body": "Cedar access snapshots stay in Vault for thirty days. This lets us compare an access review with the previous one without keeping every experiment forever. The support screenshot folder is not the source of that policy.\n\nEmber receipt payloads stay for ninety days because customers can query a receipt long after the shop has balanced its till. We need to distinguish payloads from the little transient files used to build the index.\n\nSam asked whether the storage dashboard can show the two separately. It currently combines them under 'archive', which makes a fall in one look like a change in the other."
+    },
+    {
+      "id": "d026", "channel": "mail", "date": "2026-08-19",
+      "title": "The cut for next week's rehearsal", "projects": ["Grove", "Orion"],
+      "sender": "Noor", "recipients": ["Rina", "Jamie"],
+      "body": "Orion's rehearsal pack needs Grove's redacted directory cut, not the raw export. Please check the personal phone column as well as the contact notes; the notes sometimes repeat the number.\n\nRina will deliver the redacted cut by September 15. That gives the rehearsal team time to print it before walking through the partner calls. A file being delivered is not the final release authorization; the dry run and the authorization sheet are separate steps.\n\nWe should use the real layout even with fewer rows. The tiny sample last time hid the page-break problem and made the rehearsal look much smoother than it was."
+    },
+    {
+      "id": "d027", "channel": "notes", "date": "2026-08-20",
+      "title": "A closed item, at last", "projects": ["Cedar", "Grove"],
+      "sender": "Jamie", "recipients": [],
+      "body": "Finished Cedar's inherited-role reconciliation today and marked the promise closed. The Grove file matched the set I had checked; I left both copies in Vault so someone can repeat the comparison without asking me which download I used.\n\n- [x] Send the reconciliation worksheet to the review group.\n\nThe worksheet doesn't try to fix the cramped column headings. Alex can still improve those without reopening the row comparison. I also moved the printout off the shared desk because people were using the back of it for phone numbers. There should be blank paper there now."
+    },
+    {
+      "id": "d028", "channel": "mail", "date": "2026-08-21",
+      "title": "Metering units for the two trials", "projects": ["Drift", "Fjord"],
+      "sender": "Maya", "recipients": ["Sam", "Alex"],
+      "body": "For the cost comparison, use the August trial batches D8 for Drift and F8 for Fjord. Each batch has one hundred source files, fixed at the start. These are file cohorts, not numbers of customers or days.\n\nRelay's replay worker costs two credits per worker minute. The cold-export worker costs one credit per worker minute. Ledger records both, so please keep the worker type beside the minutes when you paste the numbers.\n\nThis is a comparison of variable worker charges only. We are not allocating the monthly storage subscription or the staffed rehearsal time to these trials."
+    },
+    {
+      "id": "d029", "channel": "mail", "date": "2026-08-24",
+      "title": "Re: Access sweep after lunch", "projects": ["Cedar", "Grove"],
+      "sender": "Noor", "recipients": ["Jamie", "Maya"], "reply_to": "d016",
+      "body": "Please reopen the inherited-role reconciliation. The Grove export dropped nested groups, so the comparison we closed only covered the flattened subset. The two files matching did not establish that the input was complete.\n\nJamie is still carrying it, now for September 8. I'll rerun the directory export before then and send the nested-group count with it. There is no need to repeat the password reset walkthrough.\n\nSorry this came after you sent the worksheet. The missing groups only showed up when someone searched for a partner by its old trading name. I have kept that example with the export settings."
+    },
+    {
+      "id": "d030", "channel": "mail", "date": "2026-08-25",
+      "title": "Can we keep the replay?", "projects": ["Drift", "Ember", "Fjord"],
+      "sender": "Sam", "recipients": ["Alex", "Noor", "Maya"],
+      "body": "Relay east will be paused from September 14 through September 16 for the certificate rotation. We can still inspect existing outputs while it is stopped; the pause is on new queue processing.\n\nFor Drift, move the live replay from September 15 to September 17. The offline walkthrough can remain on the 15th because it doesn't submit forms. Please make that distinction when calling the desk.\n\nEmber and Fjord will check their own runs rather than inheriting the same date change. We used the remaining meeting time to test the new headset. The microphone cable crackles if the laptop is charging."
+    },
+    {
+      "id": "d031", "channel": "mail", "date": "2026-08-26",
+      "title": "Re: Two uses for Friday's export", "projects": ["Harborview"],
+      "sender": "Alex", "recipients": ["Noor", "Rina"], "reply_to": "d020",
+      "body": "For Harborview's visitor-count export, I can do September 18. It will contain totals by entrance and hour, with no roster names. The review group asked for a flat file because they want to draw their own chart.\n\nI have reserved a quiet half-hour for the extraction. The device bench booking is unrelated; we don't need a phone plugged in to generate this file. If anyone asks for the operator shifts, send that request back rather than adding a column here.\n\nThe timestamp headings will be in local time. I'll put that on the first line of the accompanying note so nobody has to guess from the numbers."
+    },
+    {
+      "id": "d032", "channel": "notes", "date": "2026-08-27",
+      "title": "First pass, same folder", "projects": ["Nova", "NovaOps"],
+      "sender": "Maya", "recipients": [],
+      "body": "Nova N42 before the mapping patch: 18 of the 120 invoices have missing supplier references. I counted invoice identifiers, not warning lines. Some invoices generate two warnings, so the orange total in the log is larger.\n\nThe console was open next to it, which made the two worksheets easy to mix up. I closed NovaOps before copying the import result into the meeting notes. Sam suggested a coloured tab, but that wouldn't help anyone printing in black and white.\n\nNext pass must use this frozen invoice list. Don't replace the failed invoices with today's easier ones."
+    },
+    {
+      "id": "d033", "channel": "mail", "date": "2026-08-28",
+      "title": "Re: Slots are not sign-off", "projects": ["Iris"],
+      "sender": "Noor", "recipients": ["Rina", "Jamie"], "reply_to": "d022",
+      "body": "I've signed the Iris wording sheet after reading the paper copy, including the back page. The consent rehearsal can go ahead on September 21. Please use this version of the cards rather than the earlier set with the cramped footer.\n\nThere was a typo in the room sign, which I've fixed by hand. That isn't a change to the consent text. I left the spare signs by the printer and took the rejected cards out of the tray so they don't get mixed back in.\n\nThanks for waiting for the actual sheet instead of treating the room reservation as agreement."
+    },
+    {
+      "id": "d034", "channel": "mail", "date": "2026-08-31",
+      "title": "Re: Device bench arithmetic", "projects": ["Kite", "Lumen"],
+      "sender": "Sam", "recipients": ["Alex", "Rina"], "reply_to": "d023",
+      "body": "Please transfer two of Kite's eight staffed bench hours to Lumen for the week of September 21. That's a reallocation within the twelve hours, not permission to book overtime. The audio focus issue needs another person listening while the driver operates the phone.\n\nKite can do its slide review away from the bench, so the transfer shouldn't turn into two people waiting for a device. Alex offered to collect the spare headset on the way in. It still needs an adapter, though; please don't leave that until the session starts.\n\nI'll erase the old split on the paper roster once everyone has seen this."
+    },
+    {
+      "id": "d035", "channel": "mail", "date": "2026-09-01",
+      "title": "A smaller set for this week's call", "projects": ["Beacon", "Pine"],
+      "sender": "Jamie", "recipients": ["Noor", "Maya", "Sam"], "reply_to": "d024",
+      "body": "Receipt wording is finished and sent to the print tray; please treat that item as closed. I read it aloud once more and removed the repeated apology. The address now fits on one line without shrinking the type.\n\nMaya has the refund appendix draft on paper. She asked me to leave the totals section alone rather than copying provisional numbers into it. That seems sensible; the packet can have a blank space for a day without pretending the arithmetic is final.\n\nI left a stapler beside the tray. The one in the kitchen cupboard jams halfway through a thick packet."
+    },
+    {
+      "id": "d036", "channel": "mail", "date": "2026-09-02",
+      "title": "Re: What stays in the archive?", "projects": ["Ember", "Cedar"],
+      "sender": "Rina", "recipients": ["Alex", "Sam"], "reply_to": "d025",
+      "body": "Change Ember receipt-payload retention to 120 days from today. The customer dispute window was extended, so ninety no longer covers it. This applies to the stored receipts, not every temporary object bearing the archive name.\n\nCedar's access review is on the other agenda page; please don't apply a bulk workspace setting before checking which files it touches. The two sets share Vault storage and a budget line, not a retention rationale.\n\nI put the revised dispute letter beside the policy sheet. It includes a worked example across a month boundary, which should be more useful than arguing about how many weeks we mean."
+    },
+    {
+      "id": "d037", "channel": "notes", "date": "2026-09-03",
+      "title": "First meter readings", "projects": ["Drift", "Fjord"],
+      "sender": "Sam", "recipients": [],
+      "body": "For the unchanged D8 cohort, Drift used 40 replay-worker minutes before the retry fix. This includes the repeated work; removing it from the measurement would hide the thing we're trying to improve.\n\nFor the unchanged F8 cohort, Fjord used 50 cold-export-worker minutes before the compression fix. Both readings are from Ledger's completed runs, not the estimates in the calendar reservation.\n\nThe trials ran at different times of day because the room was occupied. Neither used the staffed device bench, so don't mix the bench-hour discussion into this bill. The storage subscription is recorded on another page."
+    },
+    {
+      "id": "d038", "channel": "meetings", "date": "2026-09-04",
+      "title": "Friday, a shorter agenda than usual", "projects": ["Aster", "Harbor", "Juniper"],
+      "sender": "Rina", "recipients": ["Jamie", "Maya", "Noor"],
+      "body": "Aster's desk exercise has to pass before the staffed pilot. Receipt reconciliation by itself won't show whether someone can undo a mistaken appointment while a customer is waiting.\n\nHarbor's terminal training keeps September 24. We don't need to move it just because it uses the same people for part of the morning. We can lend the folding screen back after lunch.\n\nJuniper's trial still has gaps on the rota. People who offered to watch the practice call have not necessarily agreed to take a weekend shift. Noor will ask them individually rather than counting the meeting invitation as a yes."
+    },
+    {
+      "id": "d039", "channel": "mail", "date": "2026-09-04",
+      "title": "Re: Access sweep after lunch", "projects": ["Cedar"],
+      "sender": "Maya", "recipients": ["Jamie", "Noor"], "reply_to": "d029",
+      "body": "I'll take the inherited-role reconciliation from Jamie. September 18 is the new due date; the September 8 promise isn't realistic with the corrected input arriving next week. Please address questions about the worksheet to me now.\n\nI can reuse the comparison script, but I want to read a few of the awkward rows manually before sending anything. The previous close-out was reasonable for the input we had; let's not silently replace that file and pretend it always contained the nested groups.\n\nJamie can still help explain the column names when back from leave. That isn't a joint ownership arrangement."
+    },
+    {
+      "id": "d040", "channel": "mail", "date": "2026-09-07",
+      "title": "Re: Can we keep the replay?", "projects": ["Ember", "Fjord"],
+      "sender": "Alex", "recipients": ["Sam", "Noor"], "reply_to": "d030",
+      "body": "Ember's September 15 index rebuild will wait until September 17. Existing receipts remain readable from Vault during the pause, so please don't tell the desk that customers have lost their receipts.\n\nFjord's September 15 cold export stays on September 15. It doesn't go through the paused queue. I've checked the scheduled worker rather than relying on the title of the calendar event.\n\nWe can still spend the morning looking at the odd filenames. That discussion doesn't need a fresh index and may be easier without another run landing in the middle of it."
+    },
+    {
+      "id": "d041", "channel": "notes", "date": "2026-09-07",
+      "title": "Monday console figures", "projects": ["NovaOps"],
+      "sender": "Sam", "recipients": [],
+      "body": "NovaOps N42: 120 operator sessions, 18 initially lacking a terminal tag, 2 after the console patch. The patch fills a session tag; it does not reconcile an invoice supplier. The chart looks encouraging, but the session set is quite small.\n\nI am leaving the raw logs in Ledger because the operator who reported the issue was looking at a different hour. That may explain the disagreement without either count being wrong.\n\nThe dashboard also shows a warning total. As usual, one session can produce several warnings, so the row count is the cleaner denominator for the review."
+    },
+    {
+      "id": "d042", "channel": "mail", "date": "2026-09-08",
+      "title": "Re: Pilot date for the desk", "projects": ["Aster"],
+      "sender": "Jamie", "recipients": ["Maya", "Rina"], "reply_to": "d019",
+      "body": "Use October 1 as the target now, in place of the 24th. The desk exercise needs a second morning; the volunteers found an undo path we hadn't tried. This is still a target, not a statement that the gates have passed.\n\nPlease keep the volunteer list to the same four people. Adding more people won't help us finish the exercise, and it would make a date change harder to communicate. We can use the spare morning to check the large-print cards as well.\n\nI'll tell facilities myself. They need the room duration, not a copy of the whole reconciliation discussion."
+    },
+    {
+      "id": "d043", "channel": "mail", "date": "2026-09-08",
+      "title": "Re: Two uses for Friday's export", "projects": ["Harbor"],
+      "sender": "Rina", "recipients": ["Maya", "Noor"], "reply_to": "d020",
+      "body": "I'll take the Harbor operator roster off Maya. I can deliver it on September 23 rather than the 22nd; that leaves a morning for printing before training. Maya, please send me the shift spelling corrections, not a fresh export with the same mistakes.\n\nThe roster remains open until I've checked those corrections against the terminal list. The list on the wall is handy for a conversation but isn't the copy I want printed for the session.\n\nI have enough time to do this if we don't add visitor totals to it. Those belong in the other review file."
+    },
+    {
+      "id": "d044", "channel": "mail", "date": "2026-09-09",
+      "title": "Second pass on the frozen invoices", "projects": ["Nova"],
+      "sender": "Maya", "recipients": ["Sam", "Jamie"], "reply_to": "d021",
+      "body": "Nova N42 after the mapping patch still has 6 invoices with missing supplier references, out of the same 120. No invoices were added or removed between passes. The six need a person to check the source paperwork rather than another retry.\n\nThe import review stays open until those six are reconciled. Fewer orange lines in the log is progress, but it isn't a completed review. I've put the six invoice identifiers in the worksheet and kept their order from the input file.\n\nPlease don't send the worksheet to the shop yet. I'd prefer one clear request for the missing paperwork over a chain of partial emails."
+    },
+    {
+      "id": "d045", "channel": "mail", "date": "2026-09-09",
+      "title": "Re: Slots are not sign-off", "projects": ["Juniper"],
+      "sender": "Noor", "recipients": ["Rina", "Jamie"], "reply_to": "d022",
+      "body": "The Juniper rota has not been accepted; the late shift is still uncovered. Keep September 22 as a room hold, not a confirmed trial. Two people replied about attending the practice call, which doesn't fill the missing shift.\n\nI will ask again after tomorrow's support meeting. Please don't print a rota with someone's name in that cell just because their calendar looks free. They may have another commitment that isn't on our calendar.\n\nWe can still use the room to read the call scripts if the trial doesn't happen. That fallback doesn't authorize the weekend service."
+    },
+    {
+      "id": "d046", "channel": "meetings", "date": "2026-09-10",
+      "title": "Bench plan and the crackling headset", "projects": ["Kite", "Lumen"],
+      "sender": "Alex", "recipients": ["Sam", "Rina"],
+      "body": "Lumen now needs five staffed bench hours to finish its agreed screen reader pass. The adapter problem is fixed, so those hours are for testing rather than setup. Sam will bring the quieter laptop.\n\nKite still needs seven staffed bench hours to cover its agreed mobile demo script. Dropping the slow-device checks would make it fit more easily, but we did not agree to drop them.\n\nThere is no extra staffed bench capacity that week. We can choose which script to shorten later, but today nobody approved a scope reduction. Please keep the need separate from the allocation when explaining the clash."
+    },
+    {
+      "id": "d047", "channel": "mail", "date": "2026-09-10",
+      "title": "Re: Packet pieces before the desk visit", "projects": ["Beacon", "Pine"],
+      "sender": "Alex", "recipients": ["Noor", "Maya", "Sam"], "reply_to": "d024",
+      "body": "I'll take refund appendix from Maya and deliver it September 21. The due date has moved along with the handover; please don't leave her name against the old promise on the printed agenda.\n\nBank totals are still with Sam for September 18. I am not taking on the arithmetic by taking on the appendix. The wording in the appendix can be reviewed before the totals arrive, as long as we leave the worked amount blank.\n\nI collected Maya's handwritten notes and could read all but one word. I'll call about that rather than guessing which fee she meant."
+    },
+    {
+      "id": "d048", "channel": "notes", "date": "2026-09-11",
+      "title": "Friday cleanup, carefully", "projects": ["Cedar", "Ember"],
+      "sender": "Sam", "recipients": [],
+      "body": "I checked the Cedar setting after the archive discussion: its access-snapshot retention remains thirty days. No bulk policy update was applied across Vault. The old training deck is still around, but we shouldn't use it to configure anything.\n\nEmber's disposable index-build scratch files have a seven-day cleanup window. They can be rebuilt from the receipt payloads and aren't a second copy of the customer retention promise.\n\nThere are three sizes on the storage chart now: snapshots, payloads, and scratch. The legend is small, so a screenshot cropped at the bottom is particularly misleading. I left the full chart in the meeting packet."
+    },
+    {
+      "id": "d049", "channel": "mail", "date": "2026-09-11",
+      "title": "Re: The cut for next week's rehearsal", "projects": ["Grove", "Orion"],
+      "sender": "Rina", "recipients": ["Noor", "Jamie"], "reply_to": "d026",
+      "body": "The redaction script missed free-text contact notes. I need to replace the planned cut, so move my delivery promise to September 17. The old file is still useful for testing the page layout, but it must not go in the rehearsal pack.\n\nI'll check the contact notes by hand after the script runs. That is slower than counting columns but necessary here. Noor, please leave space in the pack rather than inserting the raw export as a placeholder.\n\nThe page numbers may shift by one after I remove the long notes. We can pencil them in when we assemble the copies."
+    },
+    {
+      "id": "d050", "channel": "mail", "date": "2026-09-14",
+      "title": "After the two worker fixes", "projects": ["Drift", "Fjord"],
+      "sender": "Sam", "recipients": ["Maya", "Alex"], "reply_to": "d028",
+      "body": "The completed reruns are in Ledger. D8 used 25 replay-worker minutes after Drift's retry fix. F8 used 30 cold-export-worker minutes after Fjord's compression fix. Both kept the original one hundred source files; I checked the manifest before comparing the times.\n\nThe runs completed before the Relay pause started. These are measurements, not a claim that the paused queue is processing new work today. The cheaper result won't change the storage subscription on this month's bill.\n\nI have left the long filenames intact so the saved worksheets still line up with the original inputs."
+    },
+    {
+      "id": "d051", "channel": "mail", "date": "2026-09-14",
+      "title": "Room holds for the two small sessions", "projects": ["Juniper", "Kite"],
+      "sender": "Jamie", "recipients": ["Alex", "Noor"],
+      "body": "Can we move either Juniper's script-reading fallback or Kite's slide-only review to September 23? Both are currently holding the small room on September 22. I haven't chosen which one to move; I need to know which group can make the 23rd.\n\nThese are room holds, not the weekend trial rota or the staffed device bench. Neither session needs the bench. Please name the session when replying, because 'the review' is what both invitations say on my phone.\n\nFacilities wants an answer before lunch tomorrow. If we can't untangle it, I'll keep the existing holds and ask about the upstairs room."
+    },
+    {
+      "id": "d052", "channel": "mail", "date": "2026-09-15",
+      "title": "Re: Room holds for the two small sessions", "projects": ["Juniper", "Kite"],
+      "sender": "Alex", "recipients": ["Jamie", "Noor"], "reply_to": "d051",
+      "body": "Yes, move it to the 23rd. I can bring the printouts, and the smaller room should be fine if we leave the table against the wall.\n\nOn the way out yesterday I noticed the sign still pointed to the downstairs room. I can change that when I come in. Do we need the projector, or is paper enough this time? The adapter in the drawer is the wrong sort for my laptop.\n\nSorry for the short reply. I'm on the train and the connection is dropping between stations."
+    },
+    {
+      "id": "d053", "channel": "mail", "date": "2026-09-15",
+      "title": "Old invitation in the desk packet", "projects": ["Aster", "Harbor"],
+      "sender": "Maya", "recipients": ["Jamie", "Rina"],
+      "body": "The desk packet still has this forwarded Aster invitation at the front:\n\n> Come to the pilot on September 24. We will use the side desk and have the folding screen up before customers arrive.\n\nI checked the shared calendar after reading the newer reply {{ref:d042}}. It still shows September 24 for Aster. The forwarded invitation and the calendar are behind the target decision, so I have not told the volunteers that the 24th is back on.\n\nHarbor's terminal training happens to be on the same old date. Please don't move both calendar entries in one sweep. Their attendees overlap, but they are not the same event."
+    },
+    {
+      "id": "d054", "channel": "mail", "date": "2026-09-15",
+      "title": "The extra cut is in", "projects": ["Cedar", "Grove"],
+      "sender": "Maya", "recipients": ["Jamie", "Noor"], "reply_to": "d039",
+      "body": "The corrected Grove input arrived. The inherited-role reconciliation is still open with me; two nested-group rows need a manual check. I'm keeping the September 18 due date rather than moving it just because the new file is larger.\n\nThe row count now includes the nested groups we missed before. I have not sent a second close-out note. The earlier completed worksheet remains beside this one so we can explain why a closed item came back.\n\nJamie, enjoy the rest of your leave. I can ask Noor about the export settings if anything else looks odd."
+    },
+    {
+      "id": "d055", "channel": "notes", "date": "2026-09-15",
+      "title": "Room check and a delivery", "projects": ["Harbor", "Harborview"],
+      "sender": "Noor", "recipients": [],
+      "body": "Alex delivered Harborview's visitor-count export today, three days before the promise, and I accepted it for the dashboard review. The file opens cleanly with the local-time headings. That delivery item is closed.\n\nThe Harbor operator roster is not in this package. The two delivery threads have different recipients, so I haven't combined their attachments. I put the printed visitor chart in the review tray rather than the terminal training folder on the trolley.\n\nThe upstairs room has six chairs, not eight. We can borrow two from next door if the group is full. Remember to return them; the labels underneath are very specific."
+    },
+    {
+      "id": "d056", "channel": "mail", "date": "2026-09-16",
+      "title": "Re: Packet pieces before the desk visit", "projects": ["Beacon", "Pine"],
+      "sender": "Noor", "recipients": ["Jamie", "Alex", "Sam"], "reply_to": "d047",
+      "body": "Please reopen receipt wording. The letter's translated footer doesn't fit, although the English copy we closed was fine. Rina has agreed to take that item from Jamie and have it ready September 22.\n\nThat is not a request to redo the refund appendix. Alex can carry on with the handover we agreed. We need a printable footer, not a new design for the whole packet; leave the body text alone unless the translator flags an actual error.\n\nI have put the two printouts side by side. On screen they both looked acceptable because the preview silently reduced one to fit."
+    },
+    {
+      "id": "d057", "channel": "mail", "date": "2026-09-16",
+      "title": "Re: Pilot date for the desk", "projects": ["Aster"],
+      "sender": "Rina", "recipients": ["Jamie", "Maya"], "reply_to": "d042",
+      "body": "I'll correct the calendar entry after the desk exercise debrief. I haven't done it yet; I'm waiting for facilities to confirm which room duration they can support. Please use the target in this thread when talking to the volunteers, not the old invitation.\n\nI have the plain signs in my bag. One needs reprinting because the ink rubbed off, but that won't stop the debrief. We should also ask whether the screen needs to stay up during the lunch break.\n\nI'll bring a paper copy of the room plan rather than trying to annotate it on the phone."
+    },
+    {
+      "id": "d058", "channel": "mail", "date": "2026-09-16",
+      "title": "Release wording for the cover", "projects": ["Orion", "Grove"],
+      "sender": "Jamie", "recipients": ["Noor", "Rina"],
+      "body": "For Orion, I've pencilled Noor into the approver box on the draft cover because I think she may be the right person. That is a suggestion, not her signature. Can someone check the authorization sheet before the cover goes out?\n\nThe Grove cut arriving will let us assemble the rehearsal pack, but the cover shouldn't say 'production approved' merely because the file exists. I have left that phrase highlighted in the draft rather than deleting the question where it might be forgotten.\n\nThis is the copy for tomorrow's internal discussion. Please don't forward it to partners with the highlighted text still in place."
+    },
+    {
+      "id": "d059", "channel": "mail", "date": "2026-09-17",
+      "title": "Re: The cut for next week's rehearsal", "projects": ["Grove", "Orion"],
+      "sender": "Rina", "recipients": ["Noor", "Jamie"], "reply_to": "d049",
+      "body": "Delivered the replacement redacted cut this morning; the contact notes were checked as well as the phone column. My directory-cut delivery commitment is complete. I put the file in Vault and left the superseded layout sample beside the printer with a note not to pack it.\n\nThe last page is shorter now. That should leave room for the handwritten observations from the rehearsal. Please don't fill the gap with the raw notes just to make the pages look balanced.\n\nThanks for keeping the empty slot in the pack. It was much easier to replace a blank than to hunt down several printed raw copies."
+    },
+    {
+      "id": "d060", "channel": "meetings", "date": "2026-09-17",
+      "title": "Rehearsal pack handoff", "projects": ["Grove", "Orion", "Iris"],
+      "sender": "Noor", "recipients": ["Jamie", "Rina", "Sam"],
+      "body": "Orion's pack now contains the redacted cut. The partner-call dry run is still outstanding and is scheduled for September 18. Having the directory in hand lets us rehearse; it doesn't show that the call sequence works.\n\nI saw my name pencilled on the draft production-approval cover. I have only accepted the rehearsal pack, not granted production approval; the authorization sheet is still unsigned. Please keep those statements separate when telling the partner group where we are.\n\nIris has lent us spare large-print cards. They are useful for the room signs, but don't put the consent text in this pack."
+    },
+    {
+      "id": "d061", "channel": "mail", "date": "2026-09-17",
+      "title": "Re: Packet pieces before the desk visit", "projects": ["Beacon", "Pine"],
+      "sender": "Sam", "recipients": ["Noor", "Alex", "Rina"], "reply_to": "d056",
+      "body": "Bank totals are done and sent; that item can come off the open list. I checked the arithmetic against the bank feed rather than copying the amount from the letter example. The totals sheet is clipped behind the cover page.\n\nThe packet still needs the reopened footer and Alex's appendix. I won't put a 'ready to send' stamp on the whole bundle just because the arithmetic is complete. Noor can assemble the paper copies once the two remaining pieces arrive.\n\nI used the larger stapler. It goes through the packet without bending the last page into the totals."
+    },
+    {
+      "id": "d062", "channel": "notes", "date": "2026-09-18",
+      "title": "Friday bench check", "projects": ["Kite", "Lumen"],
+      "sender": "Sam", "recipients": [],
+      "body": "The two-hour transfer still stands; no one approved extra staffed bench hours for the week of September 21. The paper roster and the electronic booking now agree. We haven't reduced either test script since the September 10 discussion.\n\nI tested the replacement headset and put the adapter in its case. The crackling came from the charging lead, not the audio file. We can keep the charger off the table during the listening pass and swap batteries at lunch.\n\nThe room itself is available longer than the staffed bench. That spare room time doesn't solve a shortage of someone to operate the devices."
+    },
+    {
+      "id": "d063", "channel": "mail", "date": "2026-08-05",
+      "title": "Another September 24", "projects": ["Lumen", "Pine"],
+      "sender": "Alex", "recipients": ["Rina", "Noor"],
+      "body": "Lumen's public-reading demonstration is pencilled for September 24. It doesn't use the staffed device bench; we just need a printed script and someone to read it without preparation. Please don't copy the device roster into the invitation.\n\nPine can send a letter as sample text once the address is replaced. We don't need the final refund wording for this exercise, because we're testing line length and where the reader pauses. The invitation should say 'reading session', not 'approval review'.\n\nI tried the script on the train. The long sentence near the end is almost impossible to finish in one breath."
+    },
+    {
+      "id": "d064", "channel": "notes", "date": "2026-08-13",
+      "title": "Names on the wall", "projects": ["Cedar", "Harborview"],
+      "sender": "Rina", "recipients": [],
+      "body": "Cedar's password reset instructions are finished. I put Maya's name on the handout because she wrote it, not because she owns every access task. The inherited-role worksheet was not part of today's walkthrough.\n\nHarborview's interview group wants the instructions in larger print, even though visitors won't normally reset an operator password. Their point was about legibility, not a new access requirement. I gave them a blank sample to mark up.\n\nThere are now three different sheets titled 'access' on the wall. That probably explains why people keep asking whether the work is done without saying which piece they mean."
+    },
+    {
+      "id": "d065", "channel": "mail", "date": "2026-08-28",
+      "title": "West queue test complete", "projects": ["Drift", "Ember"],
+      "sender": "Alex", "recipients": ["Sam", "Maya"],
+      "body": "Relay west's certificate test is complete and the synthetic receipts are flowing again. That was the west sandbox, not the east queue used by the September runs. I turned off the repeating sample job so it doesn't keep filling the log over the weekend.\n\nDrift and Ember both used that sandbox in training, which is why both team names appear on the test printout. Nothing in this email changes their scheduled live work. The certificate label on the screenshot begins WEST-TEST; please keep the full screenshot if you paste it anywhere.\n\nI'll return the test phone on Monday."
+    },
+    {
+      "id": "d066", "channel": "mail", "date": "2026-09-02",
+      "title": "Roster accepted, thanks", "projects": ["Harborview"],
+      "sender": "Maya", "recipients": ["Rina", "Noor"],
+      "body": "Harborview's interview-volunteer roster is accepted. Everyone on it has confirmed a time and knows which entrance to use. This is the interview roster for the visitor dashboard, not the visitor-count export or the terminal operator shifts.\n\nI have left the dietary notes off the public copy. The catering request has those separately. We should give reception the names in advance rather than hoping everyone recognises us when we arrive.\n\nThere is no need to print badges for the rehearsal. Plain sticky labels will do, and they are easier to remove from coats afterwards."
+    },
+    {
+      "id": "d067", "channel": "notes", "date": "2026-09-03",
+      "title": "Supplier check on the new arrivals", "projects": ["Nova"],
+      "sender": "Maya", "recipients": [],
+      "body": "Nova N43 has 120 invoices and only 2 missing supplier references after the mapping patch. It contains this week's new arrivals, not the frozen comparison cohort. I am keeping the worksheet separate because the easier mixture of suppliers makes the patch look better than the older set does.\n\nThe two missing references are both handwritten on the paper receipts. I'll ask the desk for a clearer scan instead of attempting to guess the last character. There is no urgency to put these into the presentation; the presentation should compare like with like.\n\nThe scanner lid still doesn't sit flat on folded paper."
+    },
+    {
+      "id": "d068", "channel": "mail", "date": "2026-09-04",
+      "title": "Consent footer looks fine to me", "projects": ["Pine", "Iris"],
+      "sender": "Alex", "recipients": ["Jamie", "Rina"],
+      "body": "Pine's draft envelope consent footer looks fine to me at this size. That's a layout opinion, not a signature on the refund wording or the Iris sheet. I was checking whether the address window covered the last line.\n\nIris lent us the large-print card stock, which is why its name is written on the box. Please return the unused cards. They are expensive and we only needed two for the fold test.\n\nThe envelope works if folded along the printed guide. Folding by eye puts the address slightly too low, especially when there are two pages inside."
+    },
+    {
+      "id": "d069", "channel": "notes", "date": "2026-09-08",
+      "title": "Hours in the room", "projects": ["Kite", "Lumen", "Juniper"],
+      "sender": "Jamie", "recipients": [],
+      "body": "Facilities says the small room is available for twenty hours in the week of September 21. Kite, Lumen and Juniper could all use it for paper reviews, provided they book around the cleaner. This isn't twenty hours of staffed device testing.\n\nThe calendar labels everything 'lab', which is unhelpful. Some bookings need a person driving the test phone, and some just need chairs and a quiet place. I have asked facilities to include the room number, but they can't tell us who will be there to help.\n\nThe whiteboard still has last month's eight/four split on it. Nobody should use a room photograph as the current roster."
+    },
+    {
+      "id": "d070", "channel": "mail", "date": "2026-09-09",
+      "title": "Re: August sample charge", "projects": ["Drift", "Fjord"],
+      "sender": "Maya", "recipients": ["Sam"],
+      "body": "The little D9 sample used 20 replay-worker minutes and the F9 sample used 25 cold-export-worker minutes. Both samples had fifty files, not one hundred. They were useful for checking that the meter was running, not for comparing the two fixes with the full trials.\n\nThe invoice preview adds a storage subscription below those readings. Please don't subtract one full bill from another and attribute the difference to the worker fixes; the preview also contains a credit from July.\n\nI have crossed out the total on my printout to stop myself quoting it on the call."
+    },
+    {
+      "id": "d071", "channel": "mail", "date": "2026-09-10",
+      "title": "Archive cleanup reminder", "projects": ["Ember", "NovaOps"],
+      "sender": "Sam", "recipients": ["Alex", "Rina"],
+      "body": "The thirty-day cleanup in the console reminder applies to NovaOps debug captures. It is not Ember's receipt-payload setting. The captures happen to live in Vault beside some archive test files, so the storage screen gives them a very similar label.\n\nI removed the repeating reminder from the workshop calendar. It was a reminder to check the cleanup job, not a new promise to delete the customer receipts. We still need the debug capture from Tuesday until Alex has looked at the missing terminal tag.\n\nPlease leave the raw capture where it is rather than copying it into the meeting notes."
+    },
+    {
+      "id": "d072", "channel": "mail", "date": "2026-09-11",
+      "title": "Appendix delivered for the rehearsal", "projects": ["Pine", "Orion"],
+      "sender": "Jamie", "recipients": ["Noor", "Alex"],
+      "body": "Pine's training appendix for the partner-call rehearsal is delivered. It has invented refund examples and no bank amounts. This is the rehearsal handout Orion asked to borrow, not the refund appendix for the joint desk packet.\n\nI used a different cover colour, but that won't survive photocopying. Please keep the words 'practice examples' at the top. The actors can scribble on these copies rather than on the real letters.\n\nOne example deliberately uses a wrong address to see whether the reader spots it. Don't fix that before the exercise; it is the reason for including that page."
+    },
+    {
+      "id": "d073", "channel": "notes", "date": "2026-09-14",
+      "title": "September totals, rough page", "projects": ["NovaOps", "Beacon", "Fjord"],
+      "sender": "Sam", "recipients": [],
+      "body": "NovaOps had 120 sessions in its console check. Beacon's receipt print job has 120 pages because there are thirty copies of a four-page packet. Fjord's sample folder has 120 objects only if you count the sidecar files as well as the source files.\n\nThese totals landed on the same page in my notebook because I took three calls in a row. They are not three measurements of the same workload. I'll use separate headings in the slides, and ideally fewer slides.\n\nThe kettle tripped the socket during the last call. The laptop kept running, but I lost the projector and thought the meeting had disconnected."
+    },
+    {
+      "id": "d074", "channel": "mail", "date": "2026-09-15",
+      "title": "Approved for the preview machine", "projects": ["Orion", "NovaOps"],
+      "sender": "Alex", "recipients": ["Jamie", "Noor"],
+      "body": "The Orion preview-machine reset is approved. I am approving the reset of our internal demonstration machine, not the production release. The sign-in prompt has been confusing visitors because it remembers whoever used NovaOps last.\n\nPlease save the practice script before resetting the browser profile. The sample directory is already in Vault, so we won't lose that. We can restore the bookmarks by hand; there are only three that anyone uses.\n\nIf you forward this email, keep the whole first paragraph. 'Approved' on its own is going to be read far more broadly than I intend."
+    },
+    {
+      "id": "d075", "channel": "mail", "date": "2026-09-16",
+      "title": "Re: Reading session", "projects": ["Lumen"],
+      "sender": "Alex", "recipients": ["Rina", "Noor"], "reply_to": "d063",
+      "body": "Yes, move it to the 23rd. The public-reading demonstration is easier for the volunteers a day earlier, and it still doesn't need the device bench. Please send the corrected invitation when you've checked the room.\n\nI will bring the larger printouts. We should leave the small ones in the bag so people don't switch halfway through and change the thing we're trying to observe. It is fine if the script takes longer than expected; that's useful to learn.\n\nThe plain signs from the other rehearsal should work if we cover the old date."
+    },
+    {
+      "id": "d076", "channel": "meetings", "date": "2026-09-17",
+      "title": "Thursday loose ends", "projects": ["Harbor", "Harborview", "Cedar", "Pine"],
+      "sender": "Jamie", "recipients": ["Maya", "Rina", "Sam"],
+      "body": "Harbor's lunch order and Harborview's interview snacks are on one catering sheet. That saved a delivery fee, but please don't use the catering headcount as either project's roster. Two people have ordered food without attending either session.\n\nCedar's password walkthrough got a good response. Someone suggested putting it on the back of Pine's letter, which would be quite a strange place for it. We laughed and agreed to keep the handouts separate.\n\nThere is a box of spare lanyards by reception. Return them after use rather than starting a new order. We spent more time on this than on any of the slides."
+    },
+    {
+      "id": "d077", "channel": "mail", "date": "2026-09-18",
+      "title": "Forwarding the old rehearsal note", "projects": ["Grove", "Orion"],
+      "sender": "Sam", "recipients": ["Jamie", "Noor"],
+      "body": "Someone asked why the first print run has a blank page. This is the old note I used when laying it out:\n\n> Leave a page for the directory cut when it arrives. The page count is not final.\n\nThat explains the blank; it doesn't tell us the current delivery state. I haven't checked the new pack yet. Please use the handoff messages rather than this forwarded layout note if you need to know what is ready.\n\nThe printer also inserted a blank back page because the next section starts on the right. That one was intentional and shouldn't be torn out."
+    },
+    {
+      "id": "d078", "channel": "notes", "date": "2026-09-18",
+      "title": "Finish before leaving", "projects": ["Aster", "Juniper", "Nova"],
+      "sender": "Jamie", "recipients": [],
+      "body": "Aster's volunteer name cards are in the plain envelope. That envelope is not the outgoing invitation; the date field on the cards is deliberately blank so we don't have to reprint a person's name after a schedule change.\n\nJuniper's practice scripts are in the other envelope. I have not checked the room calendar today, so don't read their position on my desk as an update to either booking. Nova's paper invoice scans are on the shelf above them and should not be handed out with the scripts.\n\nWater the plant, return the spare keys, and take the broken charger out of the shared drawer."
+    }
+  ],
+  "questions": [
+    {
+      "id": "pilot-target-and-gates",
+      "question": "As of September 18, trace Aster's August-to-September pilot target changes, give the current target, and explain the two prerequisites and which one caused the last move. Include Beacon's earliest signed-reconciliation date; a target is not a claim that either prerequisite is complete.",
+      "facts_schema": {"target_history": ["ISO dates in source-date order, starting with the August 3 plan"], "current_target": "ISO date", "prerequisites": ["exact prerequisite phrases, alphabetically sorted"], "beacon_earliest_signed_reconciliation": "ISO date", "last_move_reason": "exact explanatory sentence from the last target-changing reply"},
+      "projects": ["Aster", "Beacon"]
+    },
+    {
+      "id": "inherited-role-handoff",
+      "question": "For Cedar's inherited-role reconciliation, reconstruct the promises and state changes from August 4 through September 15. Why did the completed item reopen, and who carries the outstanding work now? Don't substitute the password reset instructions.",
+      "facts_schema": {"history": [{"date": "ISO source date, chronological order", "owner": "name", "status": "open or completed", "due": "ISO date of effective promise"}], "reopen_reason": "exact sentence explaining the defective input", "current_owner": "name", "current_due": "ISO date", "current_status": "open or completed"},
+      "projects": ["Cedar", "Grove"]
+    },
+    {
+      "id": "queue-pause-impact",
+      "question": "What did Relay east's September pause change for Drift, Ember and Fjord? Give the affected work and resulting dates, plus the work or service that can continue. Distinguish the live queue from the west sandbox.",
+      "facts_schema": {"pause_start": "ISO date", "pause_end": "ISO date, inclusive", "projects": [{"project": "canonical name, sorted alphabetically", "work": "exact work label used in the sources: live replay, index rebuild, or cold export", "original_date": "ISO date", "resulting_date": "ISO date", "continued": "offline walkthrough, existing receipt reads, or cold export", "dependency": "Relay east or Vault directly"}]},
+      "projects": ["Drift", "Ember", "Fjord"]
+    },
+    {
+      "id": "two-harbor-deliveries",
+      "question": "As of September 18, distinguish Harbor's operator roster from Harborview's visitor-count export. Who promised each initially, who owns it now, how did the promised date change, and which delivery is closed? Give an actual delivery date only where confirmed.",
+      "facts_schema": {"deliveries": [{"project": "canonical name, sorted alphabetically", "item": "operator roster or visitor-count export", "initial_owner": "name", "initial_due": "ISO date", "current_owner": "name", "current_due": "ISO date of latest promise, even if delivered early", "status": "open or completed", "delivered": "ISO date or null"}]},
+      "projects": ["Harbor", "Harborview"]
+    },
+    {
+      "id": "invoice-cohort-comparison",
+      "question": "For Nova's frozen N42 comparison, how many invoices lacked supplier references before and after the mapping patch, what fraction was affected each time, and how many were fixed? Is its import review closed? Contrast the identically named NovaOps batch so the console result isn't used as the invoice result.",
+      "facts_schema": {"nova": {"batch": "batch label", "unit": "invoices", "size": "integer", "before_missing": "integer", "after_missing": "integer", "before_percent": "number", "after_percent": "number", "fixed": "integer", "review_closed": "boolean"}, "novaops": {"batch": "batch label", "unit": "operator sessions", "size": "integer", "before_missing_terminal_tags": "integer", "after_missing_terminal_tags": "integer"}},
+      "projects": ["Nova", "NovaOps"]
+    },
+    {
+      "id": "rooms-versus-readiness",
+      "question": "Compare Iris's consent rehearsal with Juniper's weekend support trial as of September 18. What was booked, what prerequisite actually mattered for each, and which one is confirmed to proceed rather than merely holding a room?",
+      "facts_schema": {"sessions": [{"project": "canonical name, sorted alphabetically", "room_date": "ISO date", "required": "signed wording sheet or accepted rota", "prerequisite_met": "boolean", "proceed_confirmed": "boolean", "signer": "name or null", "unresolved": "exact unresolved-condition sentence or null"}]},
+      "projects": ["Iris", "Juniper"]
+    },
+    {
+      "id": "bench-reallocation",
+      "question": "For the week beginning September 21, compare Kite and Lumen's staffed device-bench allocation after the transfer with the hours each still needs. Who is short, by how much, and what is the other's spare allocation? Use staffed bench hours, not room availability, and preserve the agreed scope.",
+      "facts_schema": {"week_start": "ISO date", "total_staffed_hours": "integer", "allocations": [{"project": "canonical name, sorted alphabetically", "original_hours": "integer", "current_hours": "integer", "required_hours": "integer", "shortfall_hours": "nonnegative integer", "spare_hours": "nonnegative integer"}], "extra_hours_approved": "boolean"},
+      "projects": ["Kite", "Lumen"]
+    },
+    {
+      "id": "calendar-and-forward",
+      "question": "After the old Aster invitation resurfaced, what date did the shared calendar still show, what target should replace it, and who promised the calendar correction? Do the supplied records confirm the correction was completed? Which date should Harbor's separate terminal training keep?",
+      "facts_schema": {"stale_aster_calendar": "ISO date", "aster_target": "ISO date", "correction_owner": "name", "correction_completed_confirmed": "boolean", "harbor_training": "ISO date", "quoted_invitation_is_current": "boolean"},
+      "projects": ["Aster", "Harbor"]
+    },
+    {
+      "id": "packet-open-work",
+      "question": "As of September 18, which items remain open in the joint Beacon/Pine desk packet, with their current owners and due dates? Which item was closed (give that date) and then reopened, why, and which originally assigned item is now complete? Don't count a practice appendix from another pack.",
+      "facts_schema": {"open_items": [{"item": "exact item label, sorted alphabetically", "owner": "name", "due": "ISO date"}], "reopened_item": "exact item label", "first_closed_date": "ISO date", "reopen_reason": "exact explanatory sentence", "completed_items": ["exact item labels sorted alphabetically"]},
+      "projects": ["Beacon", "Pine"]
+    },
+    {
+      "id": "archive-retention",
+      "question": "As of September 18, what retention applies to Cedar access snapshots, Ember receipt payloads and Ember index-build scratch? Explain the change to receipt retention and why copying the old shared workshop value would be wrong. Give the old receipt value as well as the current values.",
+      "facts_schema": {"retentions": [{"project": "canonical name, sorted by project then material", "material": "access snapshots, index-build scratch, or receipt payloads", "days": "integer"}], "previous_receipt_days": "integer", "change_effective": "ISO date", "change_reason": "exact sentence explaining the extended requirement", "workshop_value_was_policy": "boolean"},
+      "projects": ["Cedar", "Ember"]
+    },
+    {
+      "id": "directory-cut-versus-release",
+      "question": "For the Grove directory cut needed by Orion, trace the delivery promise, why it slipped, and the confirmed delivery. At the September 17 handoff, was the delivery commitment complete, was the partner-call dry run complete, and did accepting the pack authorize production?",
+      "facts_schema": {"artifact": "redacted directory cut", "delivery_owner": "name", "initial_due": "ISO date", "revised_due": "ISO date", "delivered": "ISO date", "delay_reason": "exact explanatory sentence", "delivery_complete": "boolean", "dry_run_complete_at_handoff": "boolean", "dry_run_scheduled": "ISO date", "pack_acceptance_authorized_production": "boolean"},
+      "projects": ["Grove", "Orion"]
+    },
+    {
+      "id": "worker-cost-comparison",
+      "question": "Using only the fixed hundred-file D8 and F8 trials, compare Drift's retry fix with Fjord's compression fix in variable worker credits. Give before/after minutes and charges, savings for each, and which saved more credits. Don't include storage subscriptions or the smaller D9/F9 samples.",
+      "facts_schema": {"trials": [{"project": "canonical name, sorted alphabetically", "batch": "batch label", "files": "integer", "credits_per_minute": "integer", "before_minutes": "integer", "after_minutes": "integer", "before_credits": "integer", "after_credits": "integer", "saved_credits": "integer"}], "larger_saving_project": "canonical name", "saving_difference_credits": "integer"},
+      "projects": ["Drift", "Fjord"]
+    },
+    {
+      "id": "production-approver",
+      "question": "Who actually granted Orion final production approval, and do these records establish that it was granted? A pencilled name, pack acceptance and preview-machine permission are not interchangeable with that approval. Abstain from naming an actual approver if the authorization is unconfirmed.",
+      "facts_schema": {"approval_confirmed": "boolean", "actual_approver": "name or null"},
+      "projects": ["Orion"]
+    },
+    {
+      "id": "which-session-moved",
+      "question": "In Alex's reply to Jamie's September 14 'Room holds for the two small sessions' email, which session did 'move it to the 23rd' select: Juniper's script-reading fallback or Kite's slide-only review? Use that exchange, not a similar reply in another thread. If it doesn't resolve the referent, abstain rather than choosing from the sender alone.",
+      "facts_schema": {"selected_project": "canonical name or null", "selected_session": "script-reading fallback, slide-only review, or null", "selection_confirmed": "boolean"},
+      "projects": ["Juniper", "Kite"]
+    }
+  ],
+  "answers": {
+    "pilot-target-and-gates": {
+      "facts": {"target_history": ["2026-09-10", "2026-09-24", "2026-10-01"], "current_target": "2026-10-01", "prerequisites": ["Beacon's signed reconciliation", "desk exercise"], "beacon_earliest_signed_reconciliation": "2026-09-17", "last_move_reason": "The desk exercise needs a second morning; the volunteers found an undo path we hadn't tried."},
+      "abstains": false,
+      "evidence": [
+        {"sources": ["d015"], "contains": ["September 10", "Aster's first staffed pilot"]},
+        {"sources": ["d015"], "contains": ["The pilot needs Beacon's signed reconciliation"]},
+        {"sources": ["d018"], "contains": ["Beacon's signed reconciliation can't be ready before September 17"]},
+        {"sources": ["d019"], "contains": ["move the target to September 24 instead"]},
+        {"sources": ["d038"], "contains": ["Aster's desk exercise has to pass before the staffed pilot"]},
+        {"sources": ["d042"], "contains": ["Use October 1 as the target now", "The desk exercise needs a second morning"]}
+      ]
+    },
+    "inherited-role-handoff": {
+      "facts": {"history": [{"date": "2026-08-04", "owner": "Jamie", "status": "open", "due": "2026-08-20"}, {"date": "2026-08-20", "owner": "Jamie", "status": "completed", "due": "2026-08-20"}, {"date": "2026-08-24", "owner": "Jamie", "status": "open", "due": "2026-09-08"}, {"date": "2026-09-04", "owner": "Maya", "status": "open", "due": "2026-09-18"}, {"date": "2026-09-15", "owner": "Maya", "status": "open", "due": "2026-09-18"}], "reopen_reason": "The Grove export dropped nested groups, so the comparison we closed only covered the flattened subset.", "current_owner": "Maya", "current_due": "2026-09-18", "current_status": "open"},
+      "abstains": false,
+      "evidence": [
+        {"sources": ["d016"], "contains": ["I promised to reconcile inherited-role entries by August 20"]},
+        {"sources": ["d027"], "contains": ["Finished Cedar's inherited-role reconciliation today and marked the promise closed"]},
+        {"sources": ["d029"], "contains": ["Please reopen the inherited-role reconciliation", "The Grove export dropped nested groups"]},
+        {"sources": ["d029"], "contains": ["Jamie is still carrying it, now for September 8"]},
+        {"sources": ["d039"], "contains": ["I'll take the inherited-role reconciliation from Jamie", "September 18 is the new due date"]},
+        {"sources": ["d054"], "contains": ["still open with me", "September 18 due date"]}
+      ]
+    },
+    "queue-pause-impact": {
+      "facts": {"pause_start": "2026-09-14", "pause_end": "2026-09-16", "projects": [{"project": "Drift", "work": "live replay", "original_date": "2026-09-15", "resulting_date": "2026-09-17", "continued": "offline walkthrough", "dependency": "Relay east"}, {"project": "Ember", "work": "index rebuild", "original_date": "2026-09-15", "resulting_date": "2026-09-17", "continued": "existing receipt reads", "dependency": "Relay east"}, {"project": "Fjord", "work": "cold export", "original_date": "2026-09-15", "resulting_date": "2026-09-15", "continued": "cold export", "dependency": "Vault directly"}]},
+      "abstains": false,
+      "evidence": [
+        {"sources": ["d017"], "contains": ["Drift sends its live intake replay through Relay's east queue"]},
+        {"sources": ["d017"], "contains": ["Ember's search index rebuild also runs on Relay east"]},
+        {"sources": ["d017"], "contains": ["Fjord's cold export bypasses Relay and reads Vault directly"]},
+        {"sources": ["d030"], "contains": ["Relay east will be paused from September 14 through September 16"]},
+        {"sources": ["d030"], "contains": ["move the live replay from September 15 to September 17", "offline walkthrough can remain on the 15th"]},
+        {"sources": ["d040"], "contains": ["Ember's September 15 index rebuild will wait until September 17", "Existing receipts remain readable"]},
+        {"sources": ["d040"], "contains": ["Fjord's September 15 cold export stays on September 15"]}
+      ]
+    },
+    "two-harbor-deliveries": {
+      "facts": {"deliveries": [{"project": "Harbor", "item": "operator roster", "initial_owner": "Maya", "initial_due": "2026-09-22", "current_owner": "Rina", "current_due": "2026-09-23", "status": "open", "delivered": null}, {"project": "Harborview", "item": "visitor-count export", "initial_owner": "Alex", "initial_due": "2026-09-18", "current_owner": "Alex", "current_due": "2026-09-18", "status": "completed", "delivered": "2026-09-15"}]},
+      "abstains": false,
+      "evidence": [
+        {"sources": ["d020"], "contains": ["Harbor needs an operator roster", "Maya will deliver that roster on September 22"]},
+        {"sources": ["d031"], "contains": ["Harborview's visitor-count export, I can do September 18"]},
+        {"sources": ["d043"], "contains": ["I'll take the Harbor operator roster off Maya", "September 23 rather than the 22nd"]},
+        {"sources": ["d043"], "contains": ["The roster remains open"]},
+        {"sources": ["d055"], "contains": ["Alex delivered Harborview's visitor-count export today", "That delivery item is closed"]}
+      ]
+    },
+    "invoice-cohort-comparison": {
+      "facts": {"nova": {"batch": "N42", "unit": "invoices", "size": 120, "before_missing": 18, "after_missing": 6, "before_percent": 15, "after_percent": 5, "fixed": 12, "review_closed": false}, "novaops": {"batch": "N42", "unit": "operator sessions", "size": 120, "before_missing_terminal_tags": 18, "after_missing_terminal_tags": 2}},
+      "abstains": false,
+      "evidence": [
+        {"sources": ["d021", "d032", "d044"], "contains": ["N42", "120", "invoices"]},
+        {"sources": ["d032"], "contains": ["Nova N42 before the mapping patch: 18 of the 120 invoices"]},
+        {"sources": ["d044"], "contains": ["Nova N42 after the mapping patch still has 6 invoices", "same 120"]},
+        {"sources": ["d044"], "contains": ["The import review stays open until those six are reconciled"]},
+        {"sources": ["d041"], "contains": ["NovaOps N42: 120 operator sessions, 18 initially lacking a terminal tag, 2 after the console patch"]}
+      ]
+    },
+    "rooms-versus-readiness": {
+      "facts": {"sessions": [{"project": "Iris", "room_date": "2026-09-21", "required": "signed wording sheet", "prerequisite_met": true, "proceed_confirmed": true, "signer": "Noor", "unresolved": null}, {"project": "Juniper", "room_date": "2026-09-22", "required": "accepted rota", "prerequisite_met": false, "proceed_confirmed": false, "signer": null, "unresolved": "The Juniper rota has not been accepted; the late shift is still uncovered."}]},
+      "abstains": false,
+      "evidence": [
+        {"sources": ["d022"], "contains": ["Iris has a room for September 21", "needs the signed wording sheet"]},
+        {"sources": ["d022"], "contains": ["Juniper has the adjacent room for September 22", "needs an accepted rota"]},
+        {"sources": ["d033"], "contains": ["I've signed the Iris wording sheet", "consent rehearsal can go ahead on September 21"]},
+        {"sources": ["d045"], "contains": ["The Juniper rota has not been accepted; the late shift is still uncovered"]},
+        {"sources": ["d045"], "contains": ["Keep September 22 as a room hold, not a confirmed trial"]}
+      ]
+    },
+    "bench-reallocation": {
+      "facts": {"week_start": "2026-09-21", "total_staffed_hours": 12, "allocations": [{"project": "Kite", "original_hours": 8, "current_hours": 6, "required_hours": 7, "shortfall_hours": 1, "spare_hours": 0}, {"project": "Lumen", "original_hours": 4, "current_hours": 6, "required_hours": 5, "shortfall_hours": 0, "spare_hours": 1}], "extra_hours_approved": false},
+      "abstains": false,
+      "evidence": [
+        {"sources": ["d023"], "contains": ["twelve hours in the week starting September 21"]},
+        {"sources": ["d023"], "contains": ["Initially Kite gets eight of those hours and Lumen gets four"]},
+        {"sources": ["d034"], "contains": ["transfer two of Kite's eight staffed bench hours to Lumen"]},
+        {"sources": ["d046"], "contains": ["Lumen now needs five staffed bench hours"]},
+        {"sources": ["d046"], "contains": ["Kite still needs seven staffed bench hours"]},
+        {"sources": ["d062"], "contains": ["The two-hour transfer still stands", "no one approved extra staffed bench hours"]}
+      ]
+    },
+    "calendar-and-forward": {
+      "facts": {"stale_aster_calendar": "2026-09-24", "aster_target": "2026-10-01", "correction_owner": "Rina", "correction_completed_confirmed": false, "harbor_training": "2026-09-24", "quoted_invitation_is_current": false},
+      "abstains": false,
+      "evidence": [
+        {"sources": ["d053"], "contains": ["It still shows September 24 for Aster"]},
+        {"sources": ["d053"], "contains": ["The forwarded invitation and the calendar are behind the target decision"]},
+        {"sources": ["d042"], "contains": ["Use October 1 as the target now, in place of the 24th"]},
+        {"sources": ["d057"], "contains": ["I'll correct the calendar entry", "I haven't done it yet"]},
+        {"sources": ["d038"], "contains": ["Harbor's terminal training keeps September 24"]}
+      ]
+    },
+    "packet-open-work": {
+      "facts": {"open_items": [{"item": "receipt wording", "owner": "Rina", "due": "2026-09-22"}, {"item": "refund appendix", "owner": "Alex", "due": "2026-09-21"}], "reopened_item": "receipt wording", "first_closed_date": "2026-09-01", "reopen_reason": "The letter's translated footer doesn't fit, although the English copy we closed was fine.", "completed_items": ["bank totals"]},
+      "abstains": false,
+      "evidence": [
+        {"sources": ["d024"], "contains": ["joint Beacon/Pine packet", "'receipt wording', 'refund appendix', and 'bank totals'"]},
+        {"sources": ["d035"], "contains": ["Receipt wording is finished", "treat that item as closed"]},
+        {"sources": ["d047"], "contains": ["I'll take refund appendix from Maya and deliver it September 21"]},
+        {"sources": ["d056"], "contains": ["Please reopen receipt wording", "The letter's translated footer doesn't fit", "Rina", "September 22"]},
+        {"sources": ["d061"], "contains": ["Bank totals are done and sent", "off the open list"]}
+      ]
+    },
+    "archive-retention": {
+      "facts": {"retentions": [{"project": "Cedar", "material": "access snapshots", "days": 30}, {"project": "Ember", "material": "index-build scratch", "days": 7}, {"project": "Ember", "material": "receipt payloads", "days": 120}], "previous_receipt_days": 90, "change_effective": "2026-09-02", "change_reason": "The customer dispute window was extended, so ninety no longer covers it.", "workshop_value_was_policy": false},
+      "abstains": false,
+      "evidence": [
+        {"sources": ["d009"], "contains": ["thirty days in both the Cedar and Ember slides", "invented examples, not a retention decision"]},
+        {"sources": ["d025"], "contains": ["Ember receipt payloads stay for ninety days"]},
+        {"sources": ["d036"], "contains": ["Change Ember receipt-payload retention to 120 days from today", "customer dispute window was extended"]},
+        {"sources": ["d025", "d048"], "contains": ["Cedar", "thirty days"]},
+        {"sources": ["d048"], "contains": ["Ember's disposable index-build scratch files have a seven-day cleanup window"]}
+      ]
+    },
+    "directory-cut-versus-release": {
+      "facts": {"artifact": "redacted directory cut", "delivery_owner": "Rina", "initial_due": "2026-09-15", "revised_due": "2026-09-17", "delivered": "2026-09-17", "delay_reason": "The redaction script missed free-text contact notes.", "delivery_complete": true, "dry_run_complete_at_handoff": false, "dry_run_scheduled": "2026-09-18", "pack_acceptance_authorized_production": false},
+      "abstains": false,
+      "evidence": [
+        {"sources": ["d026"], "contains": ["Orion's rehearsal pack needs Grove's redacted directory cut"]},
+        {"sources": ["d026"], "contains": ["Rina will deliver the redacted cut by September 15"]},
+        {"sources": ["d049"], "contains": ["The redaction script missed free-text contact notes", "delivery promise to September 17"]},
+        {"sources": ["d059"], "contains": ["Delivered the replacement redacted cut this morning", "delivery commitment is complete"]},
+        {"sources": ["d060"], "contains": ["partner-call dry run is still outstanding and is scheduled for September 18"]},
+        {"sources": ["d060"], "contains": ["only accepted the rehearsal pack, not granted production approval"]}
+      ]
+    },
+    "worker-cost-comparison": {
+      "facts": {"trials": [{"project": "Drift", "batch": "D8", "files": 100, "credits_per_minute": 2, "before_minutes": 40, "after_minutes": 25, "before_credits": 80, "after_credits": 50, "saved_credits": 30}, {"project": "Fjord", "batch": "F8", "files": 100, "credits_per_minute": 1, "before_minutes": 50, "after_minutes": 30, "before_credits": 50, "after_credits": 30, "saved_credits": 20}], "larger_saving_project": "Drift", "saving_difference_credits": 10},
+      "abstains": false,
+      "evidence": [
+        {"sources": ["d028"], "contains": ["D8 for Drift and F8 for Fjord", "one hundred source files"]},
+        {"sources": ["d028"], "contains": ["replay worker costs two credits per worker minute", "cold-export worker costs one credit per worker minute"]},
+        {"sources": ["d037"], "contains": ["D8 cohort, Drift used 40 replay-worker minutes"]},
+        {"sources": ["d037"], "contains": ["F8 cohort, Fjord used 50 cold-export-worker minutes"]},
+        {"sources": ["d050"], "contains": ["D8 used 25 replay-worker minutes", "F8 used 30 cold-export-worker minutes"]}
+      ]
+    },
+    "production-approver": {
+      "facts": {"approval_confirmed": false, "actual_approver": null},
+      "abstains": true,
+      "evidence": [
+        {"sources": ["d058"], "contains": ["pencilled Noor into the approver box", "a suggestion, not her signature"]},
+        {"sources": ["d060"], "contains": ["not granted production approval", "authorization sheet is still unsigned"]}
+      ]
+    },
+    "which-session-moved": {
+      "facts": {"selected_project": null, "selected_session": null, "selection_confirmed": false},
+      "abstains": true,
+      "evidence": [
+        {"sources": ["d051"], "contains": ["either Juniper's script-reading fallback or Kite's slide-only review", "I haven't chosen which one to move"]},
+        {"sources": ["d052"], "contains": ["Yes, move it to the 23rd"]}
+      ]
+    }
+  },
+  "near_misses": {
+    "pilot-target-and-gates": ["d063", "d075", "d078"],
+    "inherited-role-handoff": ["d064", "d076"],
+    "queue-pause-impact": ["d065", "d070"],
+    "two-harbor-deliveries": ["d002", "d066", "d076"],
+    "invoice-cohort-comparison": ["d007", "d067", "d073"],
+    "rooms-versus-readiness": ["d010", "d052", "d068"],
+    "bench-reallocation": ["d006", "d063", "d069"],
+    "calendar-and-forward": ["d011", "d063", "d075"],
+    "packet-open-work": ["d068", "d072", "d073"],
+    "archive-retention": ["d071", "d073"],
+    "directory-cut-versus-release": ["d013", "d072", "d074", "d077"],
+    "worker-cost-comparison": ["d012", "d070", "d073"],
+    "production-approver": ["d013", "d074"],
+    "which-session-moved": ["d063", "d069", "d075"]
+  },
+  "design": [
+    "Hand-authored source truth precedes answers. All names, events and messages are fictional; no retrieval system output was used to create the expectations.",
+    "Seventeen concurrent efforts share six people and three systems. Source membership arrays and private IDs are generation metadata, never visible project labels or routing hints. Render documents into opaque date/channel-only paths, without project folders or a published project-to-document index.",
+    "The authored document array deliberately includes late-listed earlier correspondence; presentation order must not act as a recency ranking. Use the explicit dates, not the position in this array, to order events.",
+    "Fourteen questions cover all seventeen projects. Twelve are positive cross-project questions, with five to seven evidence rules each across at least three documents; two contextual abstentions have two rules each. Multiple rules may concern separate claims in one source passage rather than forcing arbitrary citation splitting.",
+    "Ordinary mail headers and dated notes identify speakers and source dates. Reply headers carry thread identity for projectless date changes and first-person handoffs. Resolve {{ref:private-id}} placeholders to public Message-IDs, including in evidence if any are added; never expose private IDs in source text.",
+    "Mixed-topic meetings, shared senders, near-name pairs, reused batch labels, inherited promises, calendar drift, quoted stale dates and projectless replies are intentional. Similar words are not sufficient to establish identity. Normal checkbox syntax occurs incidentally rather than marking all gold tasks.",
+    "Question schemas state exact output labels and ordering where exact fact comparison needs them. Dates are ISO in answers, despite ordinary date phrasing in sources. History arrays follow source chronology; comparison and action arrays use the ordering specified by their own schemas.",
+    "Evidence rules require necessary support, not a complete preferred answer quotation. Allowed source alternatives cover the repeated Cedar retention value and Nova invoice-cohort identity; one valid quotation can satisfy multiple rules. Numerical results are calculated from the stated cohort, unit, rate and before/after observations.",
+    "The ambiguous reply has two named candidates in its parent and chooses neither. Sender identity and a nearly identical reply in another thread cannot resolve it. The production-approval abstention is supported by a proposed signature and a later unsigned authorization sheet, not an omniscient assertion that no answer exists.",
+    "Near misses are ordinary authored records selected for plausible lexical or identity confusion, not text labelled as irrelevant. Some concern completed work in the same project; none changes the answer to the question for which it is listed.",
+    "As-of questions use all supplied records through September 18, 2026. A recorded due date or scheduled event is not evidence of completion. Unconfirmed calendar correction is distinct from asserting what an external live calendar actually shows."
+  ],
+  "limitations": [
+    "This is a hand-authored synthetic personal-work corpus, not consenting users' real mail. Its source distribution, linguistic habits and outcome uncertainty will not match every workplace.",
+    "Seventy-eight substantive records alone are not a large mailbox. The parent generator may add unrelated and closely similar material, but must preserve the authored outcomes, thread identities and genuinely unanswerable cases.",
+    "Some disambiguating prose is more explicit than a naturally accumulated mailbox would be. Many repeated words and IDs are deliberate, but the corpus should not be claimed to measure unrestricted organizational reasoning.",
+    "Evidence whitelists are a practical scoring contract, not an exhaustive semantic judge. Short paraphrastic restatements, broader valid excerpts and alternate combinations of historical evidence can require human review; exact-source support should not be confused with answer quality.",
+    "Relative references such as today and first-person promises require the renderer's visible source date and sender. Reply associations require the renderer to emit the promised Message-ID, In-Reply-To and References headers.",
+    "The provided scenario measures prose and thread reasoning that the current explicit-structure knowledge graph may not extract. No success claim is made for any retrieval, graph, agent or baseline strategy.",
+    "Production dates can lie beyond the source cutoff. An October target is a future commitment recorded before September 18, not a document from the future or evidence that a launch occurred."
+  ]
+}

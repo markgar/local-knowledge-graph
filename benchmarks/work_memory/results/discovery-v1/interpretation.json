@@ -1,0 +1,47 @@
+{
+  "kind": "Two-replicate, three-arm discovery comparison",
+  "documents": 2078,
+  "unique_questions": 10,
+  "fresh_agents": 6,
+  "retrieval": "lexical only",
+  "reference_date": "2026-09-18",
+  "full_passes": {
+    "markdown": [
+      10,
+      10
+    ],
+    "index": [
+      10,
+      10
+    ],
+    "kg": [
+      10,
+      10
+    ]
+  },
+  "data_tool_calls": {
+    "markdown": [
+      11,
+      13
+    ],
+    "index": [
+      17,
+      9
+    ],
+    "kg": [
+      17,
+      9
+    ]
+  },
+  "interpretation": [
+    "All arms solved every question in both replicates with valid supporting evidence and appropriate uncertainty.",
+    "No consistent tool-effort advantage was demonstrated for indexed or KG access.",
+    "KG replicate1 used four subject-filtered searches; neither KG agent used structured-state views.",
+    "All arms received the same descriptive project/alias catalog, so this is not unaided discovery of project organization.",
+    "Source integrity hashing and concurrent execution confound pure latency interpretation; no database-speed or model-token claim.",
+    "Synthetic templated background and ten correlated prompts limit generalization. No semantic embeddings or real personal-work data were evaluated."
+  ],
+  "verified_wrapper_calls": 88,
+  "transport_failures": 0,
+  "original_gold_and_scores_unchanged": true
+}

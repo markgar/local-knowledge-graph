@@ -13,6 +13,7 @@ from collections import Counter
 from collections.abc import Callable
 from datetime import UTC, datetime
 from pathlib import Path
+from statistics import mean, median
 from time import perf_counter
 from typing import Any
 
@@ -26,7 +27,18 @@ KG_COMMANDS = {
     "search", "status", "actions", "evidence", "source-range", "source-context",
     "record-state", "revisions", "compare-revisions",
 }
-ARMS = ("kg", "markdown")
+LEGACY_ARMS = ("kg", "markdown")
+ARMS = ("markdown", "index", "kg")
+INDEX_COMMANDS = {"search", "source-range", "source-context"}
+
+
+def run_arms(snapshot: dict[str, Any]) -> tuple[str, ...]:
+    if snapshot.get("version", 1) >= 3 and "arms" not in snapshot:
+        raise ValueError("Version-3 runs require an explicit frozen arm list")
+    arms = tuple(snapshot.get("arms", LEGACY_ARMS))
+    if not arms or len(set(arms)) != len(arms) or any(arm not in ARMS for arm in arms):
+        raise ValueError("Run arms must be unique, nonempty, and supported")
+    return arms
 
 
 def _json(path: Path) -> Any:
@@ -48,7 +60,12 @@ def prepare(
     gold_path: Path = HERE / "gold.json",
     *,
     response_limit_bytes: int | None = None,
+    arms: tuple[str, ...] = ARMS,
+    replicate: int = 1,
 ) -> dict[str, Any]:
+    arms = run_arms({"arms": arms})
+    if replicate < 1:
+        raise ValueError("Replicate must be positive")
     if response_limit_bytes is not None and response_limit_bytes < 4000:
         raise ValueError("Response limit must be at least 4000 bytes")
     questions = _json(questions_path)["questions"]
@@ -76,7 +93,11 @@ def prepare(
     manifest["database"] = "index.sqlite3"
     _write_json(output / "corpus.yml", manifest)
     snapshot = {
-        "version": 2,
+        "version": 3,
+        "arms": list(arms),
+        "replicate": replicate,
+        "retrieval": "lexical",
+        "shared_document_access": True,
         "run_id": str(uuid.uuid4()),
         "created_at": datetime.now(UTC).isoformat(),
         "sources": sources,
@@ -85,8 +106,10 @@ def prepare(
         "gold_file": "gold.json",
         "response_limit_bytes": response_limit_bytes,
         "manifest_sha256": _hash(output / "corpus.yml"),
-        "protocol": "Two fresh general-purpose agents using the same runtime defaults; "
-                    "different data tools only. Protocol restriction, not a security sandbox.",
+        "protocol": "One fresh general-purpose agent per arm and replicate, same runtime defaults. "
+                    "All arms retain document read/grep; index adds lexical passage retrieval; "
+                    "KG adds graph/structured-state tools. No model overrides or prior answers. "
+                    "Protocol restriction, not a security sandbox.",
     }
     _write_json(output / "snapshot.json", snapshot)
     corpus = load_manifest(output / "corpus.yml")
@@ -98,12 +121,22 @@ def prepare(
     _write_json(output / "setup.json", {
         "ingestion_ms": (perf_counter() - started) * 1000,
         "included_in_query_tool_metrics": False,
+        "used_by_arms": [arm for arm in arms if arm != "markdown"],
+        "note": "One shared corpus build; not charged independently to each indexed arm.",
     })
     return snapshot
 
 
 def verify_snapshot(run: Path) -> dict[str, Any]:
     snapshot = _json(run / "snapshot.json")
+    run_arms(snapshot)
+    if snapshot.get("version", 1) >= 3 and (
+        snapshot.get("retrieval") != "lexical"
+        or snapshot.get("shared_document_access") is not True
+        or not isinstance(snapshot.get("replicate"), int)
+        or snapshot["replicate"] < 1
+    ):
+        raise ValueError("Invalid version-3 retrieval/access/replicate policy")
     for relative, expected in snapshot["sources"].items():
         if _hash(run / "notes" / relative) != expected["sha256"]:
             raise ValueError(f"Frozen source changed: {relative}")
@@ -253,6 +286,39 @@ def _perform(
         page_size = 20 if snapshot.get("response_limit_bytes") else max(
             len(source_paths), len(entities)
         )
+        shared_access = snapshot.get("version", 1) >= 3
+        tools = [
+            "catalog sources|entities [REGEX] [--offset N] [--limit N]",
+            "response ID [--field /JSON/POINTER] [--offset N] [--limit N]",
+            "response-fields ID [--field /JSON/POINTER] [--offset N] [--limit N]",
+        ]
+        if shared_access:
+            tools += [
+                "read PATH [PATH ...] (identical batch document reads in every arm)",
+                "grep REGEX (identical case-insensitive content search in every arm)",
+            ]
+        arm_tools = {
+            "markdown": [
+                "read PATH [PATH ...]",
+                "search REGEX (alias for grep; not ranked index retrieval)",
+            ],
+            "index": [
+                "search QUERY [--query-mode strict|natural] [--limit N] [--source PATH]",
+                "source-range ANCHOR_ID",
+                "source-context ANCHOR_ID",
+            ],
+            "kg": [
+                "status SUBJECT (explicit records and recent passages; not all prose commitments)",
+                "actions SUBJECT [--status open|completed] "
+                "(explicit checkboxes, not inferred promises)",
+                "search QUERY [--subject SUBJECT] [--query-mode strict|natural]",
+                "search QUERY --explain [--include-quotes] (diagnostic trace)",
+                "evidence RECORD_ID",
+                "source-range ANCHOR_ID",
+                "source-context ANCHOR_ID",
+                "record-state [--include-quotes] (current record supersession audit)",
+            ],
+        }
         return {
             **_json(run / "questions.json"),
             "source_paths": source_paths[:page_size],
@@ -260,33 +326,18 @@ def _perform(
             "seed_entities": entities[:page_size],
             "seed_entity_count": len(entities),
             "catalogs_complete": len(source_paths) <= page_size and len(entities) <= page_size,
-            "shared_tools": [
-                "catalog sources|entities [REGEX] [--offset N] [--limit N]",
-                "response ID [--field /JSON/POINTER] [--offset N] [--limit N]",
-                "response-fields ID [--field /JSON/POINTER] [--offset N] [--limit N]",
-            ],
+            "shared_tools": tools,
+            "retrieval": snapshot.get("retrieval", "lexical"),
             "response_limit_bytes": snapshot.get("response_limit_bytes"),
             "arm": arm,
             "execution_rules": [
                 "Run one wrapper invocation per tool call; do not chain commands or pipe stdout.",
                 "This avoids combined-output truncation and makes delivery failures observable.",
                 "Do not rerun a successful query just to reformat its output.",
+                "For relative-time questions use the question pack's frozen reference date. "
+                "In new runs, live-clock --since filters are disabled.",
             ],
-            "tools": (
-                [
-                    "status SUBJECT",
-                    "actions SUBJECT [--status open|completed]",
-                    "search QUERY [--subject SUBJECT] [--query-mode strict|natural]",
-                    "search QUERY --explain [--include-quotes] (diagnostic trace)",
-                    "evidence RECORD_ID",
-                    "source-range ANCHOR_ID",
-                    "source-context ANCHOR_ID",
-                    "record-state [--include-quotes] (current record supersession audit)",
-                ] if arm == "kg" else [
-                    "read PATH [PATH ...] (batch reading all documents is allowed)",
-                    "search REGEX (case-insensitive, with one line of surrounding context)",
-                ]
-            ),
+            "tools": arm_tools[arm],
             "submission": f"Write answers-{arm}.json in the run directory, then call submit. "
                           "No gold feedback is returned. Do not read files outside these tools.",
         }
@@ -294,13 +345,30 @@ def _perform(
         answers = _answers(run, arm)
         return {
             "submitted": len(answers), "answers_sha256": _hash(run / f"answers-{arm}.json"),
-            "scoring": "withheld until both arms have submitted",
+            "scoring": "withheld until all configured arms have submitted",
         }
-    if arm == "kg":
-        if command not in KG_COMMANDS or any(
+    if (
+        arm == "kg" and snapshot.get("version", 1) < 3
+        and command in {"read", "grep"}
+    ):
+        raise ValueError("Legacy KG-only runs do not include document tools")
+    if arm in {"kg", "index"} and command not in {"read", "grep"}:
+        allowed = KG_COMMANDS if arm == "kg" else INDEX_COMMANDS
+        if command not in allowed or any(
             arg.split("=")[0] in {"--manifest", "--format"} for arg in rest
         ):
-            raise ValueError("Only the frozen corpus and read-only KG commands are allowed")
+            raise ValueError(f"Only the frozen corpus and allowed {arm} commands are available")
+        if arm == "index" and any(
+            arg.split("=")[0] in {"--subject", "--explain", "--include-quotes"} for arg in rest
+        ):
+            raise ValueError("Index-only arm cannot use graph subject scope or query explanations")
+        if snapshot.get("version", 1) >= 3 and any(
+            arg.split("=")[0] == "--since" for arg in rest
+        ):
+            raise ValueError(
+                "Live-clock --since filters are disabled; interpret dated evidence using "
+                "the question pack's frozen reference date"
+            )
         for index, arg in enumerate(rest):
             if arg == "--query-mode" and (
                 index + 1 >= len(rest) or rest[index + 1] not in {"strict", "natural"}
@@ -339,26 +407,29 @@ def _perform(
         execution.update({"backend": "markdown", "document_read_calls": 0})
         documents = []
         for path in rest:
-            text = (run / "notes" / path).read_text(encoding="utf-8")
+            text = (run / "notes" / path).read_bytes().decode("utf-8")
             execution["document_read_calls"] += 1
             documents.append({"source_path": path, "text": text})
         return {"documents": documents}
-    if command == "search" and len(rest) == 1:
+    if (command == "grep" or command == "search" and arm == "markdown") and len(rest) == 1:
         expression = re.compile(rest[0], re.IGNORECASE)
         matches = []
         execution.update({"backend": "markdown", "document_read_calls": 0})
         for path in sorted(snapshot["sources"]):
-            lines = (run / "notes" / path).read_text(encoding="utf-8").splitlines()
+            text = (run / "notes" / path).read_bytes().decode("utf-8")
+            lines = re.findall(r"[^\r\n]*(?:\r\n|\r|\n|$)", text)
+            if lines and not lines[-1]:
+                lines.pop()
             execution["document_read_calls"] += 1
             for index, line in enumerate(lines):
                 if expression.search(line):
                     start, end = max(0, index - 1), min(len(lines), index + 2)
                     matches.append({
                         "source_path": path, "start_line": start + 1, "end_line": end,
-                        "text": "\n".join(lines[start:end]),
+                        "text": "".join(lines[start:end]),
                     })
         return {"matches": matches}
-    raise ValueError(f"Unsupported Markdown operation: {command}")
+    raise ValueError(f"Unsupported document operation: {command}")
 
 
 def tool(
@@ -378,6 +449,8 @@ def tool(
     try:
         snapshot = verify_snapshot(run)
         run_id = snapshot.get("run_id")
+        if arm not in run_arms(snapshot):
+            raise ValueError(f"Arm {arm} is not configured for this frozen run")
         result = _perform(run, arm, args, snapshot, execution)
         verify_snapshot(run)
         result = _bound_response(run, arm, result, snapshot)
@@ -477,23 +550,21 @@ def _score_answer(
     }
 
 
-def score(run: Path) -> dict[str, Any]:
+def score(run: Path, *, write: bool = True) -> dict[str, Any]:
     snapshot = verify_snapshot(run)
     gold_path = run / "gold.json" if snapshot.get("gold_file") else HERE / "gold.json"
     if _hash(gold_path) != snapshot["gold_sha256"]:
         raise ValueError("Gold changed after preparation; create a new comparison")
     gold = _json(gold_path)
     sources = {
-        path: (run / "notes" / path).read_text(encoding="utf-8")
+        path: (run / "notes" / path).read_bytes().decode("utf-8")
         for path in snapshot["sources"]
     }
     arms = {}
-    for arm in ARMS:
+    for arm in run_arms(snapshot):
         answers = _answers(run, arm)
-        journal = [
-            json.loads(line)
-            for line in (run / f"tools-{arm}.jsonl").read_text(encoding="utf-8").splitlines()
-        ]
+        with (run / f"tools-{arm}.jsonl").open(encoding="utf-8") as stream:
+            journal = [json.loads(line) for line in stream]
         submissions = [
             event for event in journal
             if event["arguments"] == ["submit"] and event["success"]
@@ -537,24 +608,77 @@ def score(run: Path) -> dict[str, Any]:
         "questions_sha256": snapshot["questions_sha256"],
         "gold_sha256": snapshot["gold_sha256"],
         "replicates_per_arm": 1,
-        "agent_configuration": "general-purpose agent type and runtime defaults in both arms; "
+        "configured_arms": list(run_arms(snapshot)),
+        "replicate": snapshot.get("replicate", 1),
+        "retrieval": snapshot.get("retrieval", "lexical"),
+        "shared_document_access": snapshot.get("shared_document_access", False),
+        "agent_configuration": "general-purpose agent type and runtime defaults in every arm; "
                                "model IDs not independently verified by this harness",
         "limitations": [
-            "Synthetic, structured corpus; correlated questions; one run per arm.",
-            "No conclusion about real work data or semantic retrieval quality.",
+            "Synthetic corpus; correlated questions; one observation per arm in this run.",
+            "Lexical retrieval only: no embeddings, paraphrase ranking, or semantic-search claim.",
             "Optional benchmark response paging is shared by both arms, not a native KG feature.",
             "Tool elapsed time excludes model reasoning; response bytes are not token usage.",
             "Response bytes count complete serialized payloads, not successful stdout delivery "
             "or model-visible context; tool hosts can still truncate successful stdout writes.",
-            "Data tool metrics exclude shared info/submission calls and one-time KG ingestion.",
+            "Data tool metrics exclude initial info/submission calls and shared index setup. "
+            "Paging info counts as data calls; interpret that common setup cost separately.",
             "Source restrictions are agent protocol instructions, not a filesystem sandbox.",
             "Natural-language answers require separate review for unsupported extra claims.",
         ],
         "setup": _json(run / "setup.json"),
         "arms": arms,
     }
-    _write_json(run / "scores.json", result)
+    if write:
+        _write_json(run / "scores.json", result)
     return result
+
+
+def summarize(runs: list[Path]) -> dict[str, Any]:
+    if len(runs) < 2:
+        raise ValueError("At least two independent runs are required")
+    snapshots = [verify_snapshot(run) for run in runs]
+    ids = [snapshot.get("run_id") for snapshot in snapshots]
+    if None in ids or len(set(ids)) != len(ids):
+        raise ValueError("Cannot count the same run twice")
+    fields = (
+        "version", "sources", "questions_sha256", "gold_sha256", "manifest_sha256",
+        "arms", "response_limit_bytes", "retrieval", "shared_document_access",
+    )
+    if any(
+        any(snapshot.get(field) != snapshots[0].get(field) for field in fields)
+        for snapshot in snapshots[1:]
+    ):
+        raise ValueError("Replicates must use identical frozen inputs and tool policies")
+    replicate_ids = [snapshot.get("replicate") for snapshot in snapshots]
+    if None in replicate_ids or len(set(replicate_ids)) != len(replicate_ids):
+        raise ValueError("Replicate numbers must be distinct")
+    results = [score(run, write=False) for run in runs]
+    metrics = (
+        "passed", "facts_correct", "valid_citations", "abstention_correct",
+        "data_tool_calls", "data_response_utf8_bytes", "data_tool_elapsed_ms",
+    )
+    return {
+        "replicates_per_arm": len(runs),
+        "run_ids": ids,
+        "replicate_numbers": replicate_ids,
+        "arms": {
+            arm: {
+                metric: {
+                    "observations": [result["arms"][arm][metric] for result in results],
+                    "mean": mean(result["arms"][arm][metric] for result in results),
+                    "median": median(result["arms"][arm][metric] for result in results),
+                }
+                for metric in metrics
+            }
+            for arm in run_arms(snapshots[0])
+        },
+        "limitations": [
+            "Repeated agent choices, not independent question samples or statistical significance.",
+            "Fresh contexts and identical model settings must be enforced by the coordinator.",
+            "Host delivery/model audit remains separate; this summary does not certify it.",
+        ],
+    }
 
 
 def main() -> None:
@@ -568,20 +692,45 @@ def main() -> None:
     prepare_parser.add_argument("--questions", type=Path, default=HERE / "questions.json")
     prepare_parser.add_argument("--gold", type=Path, default=HERE / "gold.json")
     prepare_parser.add_argument("--response-limit-bytes", type=int)
+    prepare_parser.add_argument("--arms", choices=ARMS, nargs="+", default=list(ARMS))
+    prepare_parser.add_argument("--replicate", type=int, default=1)
     tool_parser = subparsers.add_parser("tool")
     tool_parser.add_argument("--run", required=True, type=Path)
     tool_parser.add_argument("--arm", choices=ARMS, required=True)
     tool_parser.add_argument("arguments", nargs=argparse.REMAINDER)
     score_parser = subparsers.add_parser("score")
     score_parser.add_argument("--run", required=True, type=Path)
+    summary_parser = subparsers.add_parser("summarize")
+    summary_parser.add_argument("--runs", type=Path, nargs="+", required=True)
+    summary_parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
     if args.operation == "prepare":
-        result = prepare(
+        snapshot = prepare(
             args.output, args.manifest, args.questions, args.gold,
             response_limit_bytes=args.response_limit_bytes,
+            arms=tuple(args.arms), replicate=args.replicate,
         )
+        result = {
+            "snapshot_file": str(args.output / "snapshot.json"),
+            "run_id": snapshot["run_id"], "arms": snapshot["arms"],
+            "replicate": snapshot["replicate"],
+            "documents": len(snapshot["sources"]),
+            "source_bytes": sum(source["bytes"] for source in snapshot["sources"].values()),
+            "questions_sha256": snapshot["questions_sha256"],
+            "gold_sha256": snapshot["gold_sha256"],
+        }
     elif args.operation == "score":
-        result = score(args.run)
+        scored = score(args.run)
+        result = {
+            "scores_file": str(args.run / "scores.json"),
+            "arms": {
+                arm: {key: value for key, value in metrics.items() if key != "scores"}
+                for arm, metrics in scored["arms"].items()
+            },
+        }
+    elif args.operation == "summarize":
+        result = summarize(args.runs)
+        _write_json(args.output, result)
     else:
         arguments = args.arguments[1:] if args.arguments[:1] == ["--"] else args.arguments
         result, success = tool(

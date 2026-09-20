@@ -1,0 +1,9 @@
+{
+  "ingestion_ms": 44850.88887500024,
+  "included_in_query_tool_metrics": false,
+  "used_by_arms": [
+    "index",
+    "kg"
+  ],
+  "note": "One shared corpus build; not charged independently to each indexed arm."
+}

@@ -107,3 +107,35 @@ def test_incomplete_host_log_is_explicit_not_an_empty_success(tmp_path: Path) ->
     path.write_text('{"type":')
     with pytest.raises(ValueError, match="incomplete host event"):
         _collector().collect(path, tmp_path / "run")
+
+
+def test_index_arm_correlates_and_unconfigured_attempts_remain_visible(tmp_path: Path) -> None:
+    run = tmp_path / "run"
+    run.mkdir()
+    (run / "snapshot.json").write_text(json.dumps({"arms": ["markdown", "index", "kg"]}))
+    command = (
+        "uv run python benchmarks/work_memory/evaluate.py tool "
+        f"--run {run} --arm index -- search approval"
+    )
+    events = [
+        _start("index-query", command),
+        _complete("index-query", "[]\n<shellId: 1 completed with exit code 0>"),
+    ]
+    path = tmp_path / "events.jsonl"
+    path.write_text("".join(json.dumps(event) + "\n" for event in events))
+    (run / "tools-index.jsonl").write_text(json.dumps({
+        "request_id": "r1", "run_id": "run1", "arguments": ["search", "approval"],
+        "started_at": "2026-01-01T00:00:00.100Z",
+        "completed_at": "2026-01-01T00:00:00.900Z",
+        "success": True, "operation_success": True, "delivery_success": True,
+        "execution": {"exit_code": 0},
+        "result": {"quote": "First\u2028second"},
+    }, ensure_ascii=False) + "\n")
+    result = _collector().collect(path, run)
+    assert result["summary"]["correlated_invocations"] == 1
+    assert result["summary"]["host_recorded_models"]["index"] == ["recorded-model"]
+    assert result["summary"]["unconfigured_arm_invocations"] == 0
+    (run / "snapshot.json").write_text(json.dumps({"arms": ["markdown", "kg"]}))
+    result = _collector().collect(path, run)
+    assert result["summary"]["unconfigured_arm_invocations"] == 1
+    assert result["calls"][0]["invocations"][0]["correlation"] == "matched"
