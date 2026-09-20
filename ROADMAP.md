@@ -8,6 +8,10 @@ for generic text ingestion and agent-assisted graph enrichment. It is not an MVP
 or first-slice plan. Source-specific connector design remains separate; detailed
 contracts and implementation choices are still open.
 
+[`IMPLEMENTATION_PLAN.md`](IMPLEMENTATION_PLAN.md) organizes delivery of this
+full scope into work packages, dependencies, parallel lanes, and acceptance gates.
+It records implementation order, not additional completed capabilities.
+
 ## Product goal
 
 Build a generic knowledge system that accepts knowledge from extensible ingestion
@@ -269,9 +273,11 @@ The initial productization workstream is complete: fixtures and ingestion are
 preserved, E-stage product organization is retired, and normal search uses the
 complete existing reranked hybrid pipeline. Acceptance is recorded in the
 [final integrated validation and review](benchmarks/productization/final-integrated-2026-09-20/README.md);
-[`SPEC.md`](SPEC.md) defines the delivered contracts. Future implementation
-sequencing and release boundaries remain to be planned. The full scope above is
-unchanged; the transition does not deliver the query planner.
+[`SPEC.md`](SPEC.md) defines the delivered contracts.
+[`IMPLEMENTATION_PLAN.md`](IMPLEMENTATION_PLAN.md) records the proposed sequence,
+parallel work, and decision gates; concrete release boundaries remain to be
+decided. The full scope above is unchanged; the transition does not deliver the
+query planner.
 
 ## Productization: one KG, not a sequence of experiments
 
