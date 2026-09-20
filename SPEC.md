@@ -6,7 +6,7 @@ question-answering system.
 
 This document describes current behavior. [`ROADMAP.md`](ROADMAP.md) describes
 future query planning, generic ingestion, and agent-authored enrichment; those
-capabilities are not implemented. [FOUNDATION_SPEC.md](FOUNDATION_SPEC.md)
+capabilities are not implemented. [CONTRACTS.md](CONTRACTS.md)
 describes the validation-only values and future service obligations separately.
 
 ## Boundaries and invariants
@@ -305,7 +305,7 @@ database integrity, authorization, atomicity, idempotency or read isolation.
 An access context is trusted-boundary input, not proof of permission. The canonical
 schema and existing CLI/services do not consume these values.
 The shared semantics, compatibility/migration duties and pending integration gates
-are in [FOUNDATION_SPEC.md](FOUNDATION_SPEC.md). Representative contract fixtures
+are in [CONTRACTS.md](CONTRACTS.md). Representative contract fixtures
 and the synthetic workload/budget protocol complete F0/V0, not E1/K1/Q1.
 
 ### Existing canonical storage

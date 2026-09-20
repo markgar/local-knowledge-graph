@@ -59,8 +59,10 @@ or use `gh workflow run ci.yml --ref <branch>`, and inspect its Python
   lists remain low-level component assertions. Add separately scoped product
   search cases for the full pipeline.
 - Keep `README.md` and `SPEC.md` focused on implemented behavior; track target
-  capabilities and package status in `ROADMAP.md` and `IMPLEMENTATION_PLAN.md`.
-  Update `FOUNDATION_SPEC.md`, models, examples and tests together when changing
+  capabilities, package boundaries and dependencies in the single `ROADMAP.md`;
+  linked GitHub issues own execution detail and progress. Create issues for ready
+  packages, leaving later work in the roadmap. Do not add parallel planning docs.
+  Update `CONTRACTS.md`, models, examples and tests together when changing
   the shared value contracts. Do not present shape validation as storage,
   authorization, atomicity or query execution.
 
