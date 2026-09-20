@@ -11,6 +11,8 @@ contracts and implementation choices are still open.
 [`IMPLEMENTATION_PLAN.md`](IMPLEMENTATION_PLAN.md) organizes delivery of this
 full scope into work packages, dependencies, parallel lanes, and acceptance gates.
 It records implementation order, not additional completed capabilities.
+The proposed first-step contracts and acceptance cases are in
+[`FOUNDATION_SPEC.md`](FOUNDATION_SPEC.md); that draft is not an implemented API.
 
 ## Product goal
 
