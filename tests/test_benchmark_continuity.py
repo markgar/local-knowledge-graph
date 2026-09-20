@@ -1,27 +1,18 @@
 from __future__ import annotations
 
-import importlib.util
 import json
 import subprocess
 import sys
 from pathlib import Path
-from types import ModuleType
 from typing import Any
 
 import pytest
+from support.modules import module
 
 from kg.config import load_manifest
 from kg.db import Database
 from kg.ingest import IngestService
 from kg.retrieval import RetrievalService
-
-
-def module(path: str) -> ModuleType:
-    spec = importlib.util.spec_from_file_location(Path(path).stem, path)
-    assert spec and spec.loader
-    result = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(result)
-    return result
 
 
 @pytest.fixture

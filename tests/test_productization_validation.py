@@ -7,7 +7,7 @@ from types import ModuleType
 from typing import Any
 
 import pytest
-from test_product_search import Embeddings, Reranker
+from support.providers import Embeddings, Reranker
 
 from kg.retrieval.dense import DenseIndexError, EmbeddingProfile
 from kg.retrieval.rerank import RerankerError

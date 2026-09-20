@@ -59,6 +59,14 @@ a new activation and its immediate predecessor. Source removal and failures
 deactivate current evidence without destroying retained history. Parser/config
 changes can rebuild extracted records without claiming a new content revision.
 
+Internally, `ingest/_intake.py` translates local Markdown into the private values
+in `ingest/_prepared.py`; `ingest/_writer.py` persists those values without reading
+files or depending on Markdown parser objects. `IngestService` remains the public
+orchestrator and owns transactions, per-source savepoints, seed synchronization,
+schema adaptation, deactivation, and lexical refresh. The writer uses that existing
+transaction; unchanged revisions still skip record-state validation and rebuilding.
+These are internal boundaries, not a generic ingestion API or a new source format.
+
 ### Ingestion diagnostics
 
 `ingest --explain [--include-quotes] [--explain-limit 50] --format json` returns
