@@ -4,10 +4,10 @@ Status: implemented capabilities in a **pre-alpha** package. Retrieval-quality
 and answerability requirements are not met; this is not a production-ready
 question-answering system.
 
-This document describes current behavior. [`ROADMAP.md`](ROADMAP.md) describes
-future query planning, generic ingestion, and agent-authored enrichment; those
-capabilities are not implemented. [CONTRACTS.md](CONTRACTS.md)
-describes the validation-only values and future service obligations separately.
+This document describes current behavior. [CONTRACTS.md](CONTRACTS.md) describes
+the implemented validation-only values. Future work and service requirements live
+in the [build roadmap issue](https://github.com/markgar/local-knowledge-graph/issues/28);
+they are not implemented capabilities.
 
 ## Boundaries and invariants
 
@@ -304,9 +304,9 @@ These models are **not** callable ingestion/query services or enforcement of
 database integrity, authorization, atomicity, idempotency or read isolation.
 An access context is trusted-boundary input, not proof of permission. The canonical
 schema and existing CLI/services do not consume these values.
-The shared semantics, compatibility/migration duties and pending integration gates
-are in [CONTRACTS.md](CONTRACTS.md). Representative contract fixtures
-and the synthetic workload/budget protocol complete F0/V0, not E1/K1/Q1.
+The implemented value rules are in [CONTRACTS.md](CONTRACTS.md).
+Representative contract fixtures and the synthetic workload/budget protocol
+exercise validation and supply evaluation inputs, not service integration results.
 
 ### Existing canonical storage
 

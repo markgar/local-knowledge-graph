@@ -367,9 +367,12 @@ Authored fixtures, reviewed gold, citations and component assertions are preserv
 | Document | Purpose |
 | --- | --- |
 | [SPEC.md](SPEC.md) | Implemented ingestion, retrieval, evidence, CLI and validation contracts. |
-| [CONTRACTS.md](CONTRACTS.md) | Shared values and service obligations; validation is implemented, enforcement is not. |
+| [CONTRACTS.md](CONTRACTS.md) | Implemented `foundation/1` values, validation limits and serialization; no service enforcement. |
 | [CONTRIBUTING.md](CONTRIBUTING.md) | Development layout, validation and contribution rules. |
-| [ROADMAP.md](ROADMAP.md) | The sole delivery plan: package status, dependencies and links to ready implementation issues. |
+
+Planned work, implementation designs and delivery progress live in the
+[build roadmap issue](https://github.com/markgar/local-knowledge-graph/issues/28)
+and its linked package issues, not in repository planning documents.
 
 Evaluation tooling covers [retrieval quality](benchmarks/qasper/README.md),
 [agent workflows](benchmarks/agent/README.md),
