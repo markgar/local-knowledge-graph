@@ -15,7 +15,8 @@ system. It does not generate answers, infer entities or contradictions, or
 reliably decide whether a natural-language question is answerable. Existing
 retrieval-quality gates remain unmet. The public interface migration does not
 improve the underlying ranking algorithm or establish production readiness.
-Productization acceptance is pending final combined validation and review.
+The productization transition is [accepted after final combined validation and
+review](benchmarks/productization/final-integrated-2026-09-20/README.md).
 
 ## Install
 
@@ -342,7 +343,7 @@ separately labeled integration evidence, not improved relevance or new gold.
 [ROADMAP.md](ROADMAP.md) covers unimplemented generic text ingestion, source
 plugins, agent-authored enrichment, identity reconciliation, query planning and
 continuation. [PRODUCTIZATION_SPEC.md](PRODUCTIZATION_SPEC.md) remains the
-pending acceptance checklist for this interface transition.
+accepted implementation checklist for this interface transition.
 
 Report security issues under [SECURITY.md](SECURITY.md).
 Released under the [MIT License](LICENSE).

@@ -2,13 +2,15 @@
 
 This is integration parity, **not new relevance gold or a quality improvement
 claim**. Historical datasets, measurements, thresholds, model pins, and lexical
-benchmark labels remain unchanged. The product specification remains
-pending final combined acceptance and review, including all eight real-model
-combinations.
+benchmark labels remain unchanged. The product specification is implemented and
+accepted after [final combined validation and review](final-integrated-2026-09-20/README.md),
+including all eight real-model combinations at the integrated code tip.
 
 The [2026-09-20 real-model run](RESULTS.md) passed all eight combinations.
 The complete [machine-readable report](results-2026-09-20.json) preserves the
 actual outputs, configuration, and provenance.
+The distinct final-integrated directory preserves the subsequent full validation,
+real-model rerun, and actual CLI outputs without overwriting that earlier run.
 
 ## Run the real matrix
 

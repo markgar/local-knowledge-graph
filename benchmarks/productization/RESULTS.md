@@ -1,9 +1,12 @@
 # Productization parity: 2026-09-20
 
 **All eight required real-model combinations passed.** This establishes parity
-with the existing reranked component, not improved retrieval quality or final
-combined productization acceptance. `PRODUCTIZATION_SPEC.md` remains specified,
-not implemented; the public CLI/documentation layer is separate.
+with the existing reranked component, not improved retrieval quality. At the time
+of this earlier run, combined acceptance remained outstanding and the public
+CLI/documentation layer was separate. Subsequent
+[final integrated validation and review](final-integrated-2026-09-20/README.md)
+accepted the transition at `12aeadf4c7733cd7abdf238f1198896992dd49e3`.
+The original measurements and report below are unchanged.
 
 ## Reproduction and identity
 

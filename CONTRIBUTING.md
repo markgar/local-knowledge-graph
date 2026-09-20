@@ -71,8 +71,9 @@ for product development, and unmet quality gates must not be relabeled as passed
 The separate [productization matrix](benchmarks/productization/README.md) documents
 real-model parity checks, approved cache usage, and durable result requirements.
 Controlled-provider success cannot substitute for required real-model acceptance.
-The coordinator marks the productization checklist accepted only after final
-combined validation and review.
+The [final integrated record](benchmarks/productization/final-integrated-2026-09-20/README.md)
+documents acceptance after combined validation and review; later changes still
+require applicable regression and real-model checks.
 
 For larger changes, open an issue first so the design can be discussed before
 implementation.

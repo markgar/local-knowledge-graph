@@ -34,7 +34,8 @@ stable release. Pre-1.0 releases may contain breaking changes.
 - Current documentation is organized by capabilities and workflows; the original
   experiment ledger is archived under `benchmarks/history/`. Existing unmet
   quality gates and measured results are unchanged. Final combined productization
-  acceptance remains pending validation and review.
+  validation and review accepted the transition at code revision `12aeadf4c773`;
+  the separately preserved integrated evidence does not establish release quality.
 
 ### Fixed
 

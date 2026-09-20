@@ -1,0 +1,2247 @@
+{
+  "active_current_revisions_only": true,
+  "candidates": [
+    {
+      "dense": {
+        "position": 1,
+        "score": 0.57828289270401
+      },
+      "final_position": 1,
+      "fusion": {
+        "dense_contribution": 0.023809523809523808,
+        "lexical_contribution": 0.047619047619047616,
+        "position": 1,
+        "score": 0.07142857142857142,
+        "selected_for_reranking": true
+      },
+      "lexical": {
+        "position": 1,
+        "score": -11.424377029352625
+      },
+      "record_id": "2f0d575395b819539ca8ce93161015a54cb8a873980deb43bffafd022c88a410",
+      "reranker": {
+        "position": 1,
+        "score": 7.177383899688721
+      }
+    },
+    {
+      "dense": {
+        "position": 2,
+        "score": 0.9658008217811584
+      },
+      "final_position": 2,
+      "fusion": {
+        "dense_contribution": 0.022727272727272728,
+        "lexical_contribution": null,
+        "position": 2,
+        "score": 0.022727272727272728,
+        "selected_for_reranking": true
+      },
+      "lexical": null,
+      "record_id": "eb643f89d57c2ad327f2ff45cfbd0f2b0a461373fc63aaf0e72a2e76138b08ba",
+      "reranker": {
+        "position": 2,
+        "score": -7.8928327560424805
+      }
+    },
+    {
+      "dense": {
+        "position": 3,
+        "score": 0.9838322401046753
+      },
+      "final_position": 3,
+      "fusion": {
+        "dense_contribution": 0.021739130434782608,
+        "lexical_contribution": null,
+        "position": 3,
+        "score": 0.021739130434782608,
+        "selected_for_reranking": true
+      },
+      "lexical": null,
+      "record_id": "767fb341b397c48a9c33b0007148f5a22af4adeca5737cf78fe27eec77b59536",
+      "reranker": {
+        "position": 3,
+        "score": -10.98931884765625
+      }
+    },
+    {
+      "dense": {
+        "position": 42,
+        "score": 1.2117533683776855
+      },
+      "final_position": 4,
+      "fusion": {
+        "dense_contribution": 0.008064516129032258,
+        "lexical_contribution": null,
+        "position": 42,
+        "score": 0.008064516129032258,
+        "selected_for_reranking": true
+      },
+      "lexical": null,
+      "record_id": "ddd4ceee167efc9dd90320915489bcfe5b92065be563e423af318c9e890ea04f",
+      "reranker": {
+        "position": 4,
+        "score": -11.162740707397461
+      }
+    },
+    {
+      "dense": {
+        "position": 23,
+        "score": 1.1310482025146484
+      },
+      "final_position": 5,
+      "fusion": {
+        "dense_contribution": 0.011627906976744186,
+        "lexical_contribution": null,
+        "position": 23,
+        "score": 0.011627906976744186,
+        "selected_for_reranking": true
+      },
+      "lexical": null,
+      "record_id": "8f73fe5a51f041e4455919978395d4b01ce6e3778288099e3f788646a83732bf",
+      "reranker": {
+        "position": 5,
+        "score": -11.170537948608398
+      }
+    },
+    {
+      "dense": {
+        "position": 24,
+        "score": 1.1310482025146484
+      },
+      "final_position": 6,
+      "fusion": {
+        "dense_contribution": 0.011363636363636364,
+        "lexical_contribution": null,
+        "position": 24,
+        "score": 0.011363636363636364,
+        "selected_for_reranking": true
+      },
+      "lexical": null,
+      "record_id": "d53c90c587426c1a9e217b58dc23666c2ca354935a0cead6f0e99bf8cf4df9e6",
+      "reranker": {
+        "position": 6,
+        "score": -11.170537948608398
+      }
+    },
+    {
+      "dense": {
+        "position": 25,
+        "score": 1.1310482025146484
+      },
+      "final_position": 7,
+      "fusion": {
+        "dense_contribution": 0.011111111111111112,
+        "lexical_contribution": null,
+        "position": 25,
+        "score": 0.011111111111111112,
+        "selected_for_reranking": true
+      },
+      "lexical": null,
+      "record_id": "ed3a2c645a883d7e2c1f7ab6ba33433e1b57eefa49ebeaf3dc3fb76034c4bcbc",
+      "reranker": {
+        "position": 7,
+        "score": -11.170537948608398
+      }
+    },
+    {
+      "dense": {
+        "position": 36,
+        "score": 1.1817617416381836
+      },
+      "final_position": 8,
+      "fusion": {
+        "dense_contribution": 0.008928571428571428,
+        "lexical_contribution": null,
+        "position": 36,
+        "score": 0.008928571428571428,
+        "selected_for_reranking": true
+      },
+      "lexical": null,
+      "record_id": "7fe2640b2c4e0d0a2346efe0cbae100d132dfe012936ce0f0239e4c3f08de6df",
+      "reranker": {
+        "position": 8,
+        "score": -11.202842712402344
+      }
+    },
+    {
+      "dense": {
+        "position": 12,
+        "score": 1.0844101905822754
+      },
+      "final_position": 9,
+      "fusion": {
+        "dense_contribution": 0.015625,
+        "lexical_contribution": null,
+        "position": 12,
+        "score": 0.015625,
+        "selected_for_reranking": true
+      },
+      "lexical": null,
+      "record_id": "f5dd57982097ecb030217ea358eae3cdce09096f533e4c084a30e229fd593dc3",
+      "reranker": {
+        "position": 9,
+        "score": -11.20555305480957
+      }
+    },
+    {
+      "dense": {
+        "position": 7,
+        "score": 1.074510931968689
+      },
+      "final_position": 10,
+      "fusion": {
+        "dense_contribution": 0.018518518518518517,
+        "lexical_contribution": null,
+        "position": 7,
+        "score": 0.018518518518518517,
+        "selected_for_reranking": true
+      },
+      "lexical": null,
+      "record_id": "74fdb0dc12bd78768073e3b2be5a874024e318fcae2ce9dbbcb3fc1086613b51",
+      "reranker": {
+        "position": 10,
+        "score": -11.238455772399902
+      }
+    },
+    {
+      "dense": {
+        "position": 8,
+        "score": 1.074510931968689
+      },
+      "final_position": 11,
+      "fusion": {
+        "dense_contribution": 0.017857142857142856,
+        "lexical_contribution": null,
+        "position": 8,
+        "score": 0.017857142857142856,
+        "selected_for_reranking": true
+      },
+      "lexical": null,
+      "record_id": "a59877282d4bf1f868f5ef07cd058cc1d72aa0f58bcfd8c19ee583544e751c79",
+      "reranker": {
+        "position": 11,
+        "score": -11.238455772399902
+      }
+    },
+    {
+      "dense": {
+        "position": 9,
+        "score": 1.074510931968689
+      },
+      "final_position": 12,
+      "fusion": {
+        "dense_contribution": 0.017241379310344827,
+        "lexical_contribution": null,
+        "position": 9,
+        "score": 0.017241379310344827,
+        "selected_for_reranking": true
+      },
+      "lexical": null,
+      "record_id": "a60335cfb6ae48be3e9b6e5bda6e862ed54da9c2838ead77db65b08e958ce9ef",
+      "reranker": {
+        "position": 12,
+        "score": -11.238455772399902
+      }
+    },
+    {
+      "dense": {
+        "position": 6,
+        "score": 1.0738407373428345
+      },
+      "final_position": 13,
+      "fusion": {
+        "dense_contribution": 0.019230769230769232,
+        "lexical_contribution": null,
+        "position": 6,
+        "score": 0.019230769230769232,
+        "selected_for_reranking": true
+      },
+      "lexical": null,
+      "record_id": "59e351d1dd0f6f00e065b6250b20fcbfd68c3b27480e3710abf695b5a555c75a",
+      "reranker": {
+        "position": 13,
+        "score": -11.250863075256348
+      }
+    },
+    {
+      "dense": {
+        "position": 31,
+        "score": 1.1589405536651611
+      },
+      "final_position": 14,
+      "fusion": {
+        "dense_contribution": 0.00980392156862745,
+        "lexical_contribution": null,
+        "position": 31,
+        "score": 0.00980392156862745,
+        "selected_for_reranking": true
+      },
+      "lexical": null,
+      "record_id": "c62e351e9317994078562cb7e0b412c6569b32b09017a54549518b9d81e645c3",
+      "reranker": {
+        "position": 14,
+        "score": -11.252610206604004
+      }
+    },
+    {
+      "dense": {
+        "position": 40,
+        "score": 1.2078006267547607
+      },
+      "final_position": 15,
+      "fusion": {
+        "dense_contribution": 0.008333333333333333,
+        "lexical_contribution": null,
+        "position": 40,
+        "score": 0.008333333333333333,
+        "selected_for_reranking": true
+      },
+      "lexical": null,
+      "record_id": "51e6060e94a4582af684da5ef7e500e562c2466bf8e39bbc4963e93fd7b4975a",
+      "reranker": {
+        "position": 15,
+        "score": -11.259244918823242
+      }
+    },
+    {
+      "dense": {
+        "position": 41,
+        "score": 1.2078006267547607
+      },
+      "final_position": 16,
+      "fusion": {
+        "dense_contribution": 0.00819672131147541,
+        "lexical_contribution": null,
+        "position": 41,
+        "score": 0.00819672131147541,
+        "selected_for_reranking": true
+      },
+      "lexical": null,
+      "record_id": "f4c4623274c8b54db755153332500e293fe697c2375af2409e8f309f27281880",
+      "reranker": {
+        "position": 16,
+        "score": -11.259244918823242
+      }
+    },
+    {
+      "dense": {
+        "position": 35,
+        "score": 1.1727142333984375
+      },
+      "final_position": 17,
+      "fusion": {
+        "dense_contribution": 0.00909090909090909,
+        "lexical_contribution": null,
+        "position": 35,
+        "score": 0.00909090909090909,
+        "selected_for_reranking": true
+      },
+      "lexical": null,
+      "record_id": "ad51510d477bb226ebdfef92d3ebdc6e9a2106cd01d166a064923420c1ddfc28",
+      "reranker": {
+        "position": 17,
+        "score": -11.27294921875
+      }
+    },
+    {
+      "dense": {
+        "position": 26,
+        "score": 1.132218360900879
+      },
+      "final_position": 18,
+      "fusion": {
+        "dense_contribution": 0.010869565217391304,
+        "lexical_contribution": null,
+        "position": 26,
+        "score": 0.010869565217391304,
+        "selected_for_reranking": true
+      },
+      "lexical": null,
+      "record_id": "2f82be6273b785fd6e213f4b4d5f81cc7791d1c06085060e1de3f54f4b9254df",
+      "reranker": {
+        "position": 18,
+        "score": -11.287376403808594
+      }
+    },
+    {
+      "dense": {
+        "position": 27,
+        "score": 1.1411470174789429
+      },
+      "final_position": 19,
+      "fusion": {
+        "dense_contribution": 0.010638297872340425,
+        "lexical_contribution": null,
+        "position": 27,
+        "score": 0.010638297872340425,
+        "selected_for_reranking": true
+      },
+      "lexical": null,
+      "record_id": "a65a27167985f47a4136432e0de858e104a2c14bde271f155587ee79ec0afaf4",
+      "reranker": {
+        "position": 19,
+        "score": -11.334895133972168
+      }
+    },
+    {
+      "dense": {
+        "position": 13,
+        "score": 1.0857669115066528
+      },
+      "final_position": 20,
+      "fusion": {
+        "dense_contribution": 0.015151515151515152,
+        "lexical_contribution": null,
+        "position": 13,
+        "score": 0.015151515151515152,
+        "selected_for_reranking": true
+      },
+      "lexical": null,
+      "record_id": "0661b31dd1f04ddc99677721ef10277d99d22ca6208ea3b2e91d54a6257c3754",
+      "reranker": {
+        "position": 20,
+        "score": -11.33601188659668
+      }
+    },
+    {
+      "dense": {
+        "position": 18,
+        "score": 1.1050819158554077
+      },
+      "final_position": null,
+      "fusion": {
+        "dense_contribution": 0.013157894736842105,
+        "lexical_contribution": null,
+        "position": 18,
+        "score": 0.013157894736842105,
+        "selected_for_reranking": true
+      },
+      "lexical": null,
+      "record_id": "80a8cd6ced7cd82ad331d8f432f05b8d323adf89cf2d22e38e53f049acd6e436",
+      "reranker": {
+        "position": 21,
+        "score": -11.338626861572266
+      }
+    },
+    {
+      "dense": {
+        "position": 10,
+        "score": 1.0747898817062378
+      },
+      "final_position": null,
+      "fusion": {
+        "dense_contribution": 0.016666666666666666,
+        "lexical_contribution": null,
+        "position": 10,
+        "score": 0.016666666666666666,
+        "selected_for_reranking": true
+      },
+      "lexical": null,
+      "record_id": "aa48692dee1b060baf604fa8f975bb2522df88ad2547b7798b6c63b040069e01",
+      "reranker": {
+        "position": 22,
+        "score": -11.343072891235352
+      }
+    },
+    {
+      "dense": {
+        "position": 17,
+        "score": 1.103961706161499
+      },
+      "final_position": null,
+      "fusion": {
+        "dense_contribution": 0.013513513513513514,
+        "lexical_contribution": null,
+        "position": 17,
+        "score": 0.013513513513513514,
+        "selected_for_reranking": true
+      },
+      "lexical": null,
+      "record_id": "5d2dca8097efa0ff89732824466d209aee2979ad4a5a042b0261d6b794fdba59",
+      "reranker": {
+        "position": 23,
+        "score": -11.347370147705078
+      }
+    },
+    {
+      "dense": {
+        "position": 5,
+        "score": 1.071881890296936
+      },
+      "final_position": null,
+      "fusion": {
+        "dense_contribution": 0.02,
+        "lexical_contribution": null,
+        "position": 5,
+        "score": 0.02,
+        "selected_for_reranking": true
+      },
+      "lexical": null,
+      "record_id": "c94bc71563520b1112da905cbf5cd1da9d57828c278779e8133163af45b15242",
+      "reranker": {
+        "position": 24,
+        "score": -11.355884552001953
+      }
+    },
+    {
+      "dense": {
+        "position": 37,
+        "score": 1.1820335388183594
+      },
+      "final_position": null,
+      "fusion": {
+        "dense_contribution": 0.008771929824561403,
+        "lexical_contribution": null,
+        "position": 37,
+        "score": 0.008771929824561403,
+        "selected_for_reranking": true
+      },
+      "lexical": null,
+      "record_id": "0364ea3d17eca53ade7448b7108e973f99a22ccfa102bda00a55d764319fd279",
+      "reranker": {
+        "position": 25,
+        "score": -11.35702133178711
+      }
+    },
+    {
+      "dense": {
+        "position": 19,
+        "score": 1.1108067035675049
+      },
+      "final_position": null,
+      "fusion": {
+        "dense_contribution": 0.01282051282051282,
+        "lexical_contribution": null,
+        "position": 19,
+        "score": 0.01282051282051282,
+        "selected_for_reranking": true
+      },
+      "lexical": null,
+      "record_id": "3b9d8d293d9d9c40d64cc00879c393248da95ff3268620767fe520231ffcbfbe",
+      "reranker": {
+        "position": 26,
+        "score": -11.363567352294922
+      }
+    },
+    {
+      "dense": {
+        "position": 30,
+        "score": 1.1570419073104858
+      },
+      "final_position": null,
+      "fusion": {
+        "dense_contribution": 0.01,
+        "lexical_contribution": null,
+        "position": 30,
+        "score": 0.01,
+        "selected_for_reranking": true
+      },
+      "lexical": null,
+      "record_id": "50ac02d1a7b47402da4b34e78ae100d6f275a99ef1c1513f7b877bb228317263",
+      "reranker": {
+        "position": 27,
+        "score": -11.365321159362793
+      }
+    },
+    {
+      "dense": {
+        "position": 38,
+        "score": 1.1971217393875122
+      },
+      "final_position": null,
+      "fusion": {
+        "dense_contribution": 0.008620689655172414,
+        "lexical_contribution": null,
+        "position": 38,
+        "score": 0.008620689655172414,
+        "selected_for_reranking": true
+      },
+      "lexical": null,
+      "record_id": "f853ea15f868de467f64cc576a856017c6b9ca8c85d38f4f2afb897121a5bd2f",
+      "reranker": {
+        "position": 28,
+        "score": -11.367448806762695
+      }
+    },
+    {
+      "dense": {
+        "position": 16,
+        "score": 1.0951380729675293
+      },
+      "final_position": null,
+      "fusion": {
+        "dense_contribution": 0.013888888888888888,
+        "lexical_contribution": null,
+        "position": 16,
+        "score": 0.013888888888888888,
+        "selected_for_reranking": true
+      },
+      "lexical": null,
+      "record_id": "133167935e06ceeb3538139cea38411de30e5dec15f7b799a9a5c15bfaaf8c65",
+      "reranker": {
+        "position": 29,
+        "score": -11.374691009521484
+      }
+    },
+    {
+      "dense": {
+        "position": 34,
+        "score": 1.1726088523864746
+      },
+      "final_position": null,
+      "fusion": {
+        "dense_contribution": 0.009259259259259259,
+        "lexical_contribution": null,
+        "position": 34,
+        "score": 0.009259259259259259,
+        "selected_for_reranking": true
+      },
+      "lexical": null,
+      "record_id": "d242d2579b65fede58b37a7a14494efd7f6399e67545fc57b0bef5e40200996b",
+      "reranker": {
+        "position": 30,
+        "score": -11.37533950805664
+      }
+    },
+    {
+      "dense": {
+        "position": 4,
+        "score": 1.0688813924789429
+      },
+      "final_position": null,
+      "fusion": {
+        "dense_contribution": 0.020833333333333332,
+        "lexical_contribution": null,
+        "position": 4,
+        "score": 0.020833333333333332,
+        "selected_for_reranking": true
+      },
+      "lexical": null,
+      "record_id": "613f602c1a4e65d42abdcd319256672dbf3cfc26f07c0e445f1a0616224654f7",
+      "reranker": {
+        "position": 31,
+        "score": -11.4072904586792
+      }
+    },
+    {
+      "dense": {
+        "position": 14,
+        "score": 1.0940648317337036
+      },
+      "final_position": null,
+      "fusion": {
+        "dense_contribution": 0.014705882352941176,
+        "lexical_contribution": null,
+        "position": 14,
+        "score": 0.014705882352941176,
+        "selected_for_reranking": true
+      },
+      "lexical": null,
+      "record_id": "a0a6a7cf31ecb667125c1959145a1fd811c3da8e9747aad57d87cf221ddb06cd",
+      "reranker": {
+        "position": 32,
+        "score": -11.414061546325684
+      }
+    },
+    {
+      "dense": {
+        "position": 21,
+        "score": 1.115803837776184
+      },
+      "final_position": null,
+      "fusion": {
+        "dense_contribution": 0.012195121951219513,
+        "lexical_contribution": null,
+        "position": 21,
+        "score": 0.012195121951219513,
+        "selected_for_reranking": true
+      },
+      "lexical": null,
+      "record_id": "250b8123a13a26a1b9ab092bb7122804beecdb380bf8f983b4dc9efaf013aaa8",
+      "reranker": {
+        "position": 33,
+        "score": -11.416740417480469
+      }
+    },
+    {
+      "dense": {
+        "position": 22,
+        "score": 1.1256487369537354
+      },
+      "final_position": null,
+      "fusion": {
+        "dense_contribution": 0.011904761904761904,
+        "lexical_contribution": null,
+        "position": 22,
+        "score": 0.011904761904761904,
+        "selected_for_reranking": true
+      },
+      "lexical": null,
+      "record_id": "bf2af52a8e1c042c3d722cddc6bd0dde07a4b4abf6c4bd58f9afc4e8668333ff",
+      "reranker": {
+        "position": 34,
+        "score": -11.41793441772461
+      }
+    },
+    {
+      "dense": {
+        "position": 11,
+        "score": 1.0803403854370117
+      },
+      "final_position": null,
+      "fusion": {
+        "dense_contribution": 0.016129032258064516,
+        "lexical_contribution": null,
+        "position": 11,
+        "score": 0.016129032258064516,
+        "selected_for_reranking": true
+      },
+      "lexical": null,
+      "record_id": "c96e6f96a0ca39fd604035e7169b8f2b54e2b0e3d611902afdb229859310b201",
+      "reranker": {
+        "position": 35,
+        "score": -11.419889450073242
+      }
+    },
+    {
+      "dense": {
+        "position": 20,
+        "score": 1.1147340536117554
+      },
+      "final_position": null,
+      "fusion": {
+        "dense_contribution": 0.0125,
+        "lexical_contribution": null,
+        "position": 20,
+        "score": 0.0125,
+        "selected_for_reranking": true
+      },
+      "lexical": null,
+      "record_id": "84be094bb5848cdd626366c1702dc816dd186f1ca3011d1922141298ce2af19a",
+      "reranker": {
+        "position": 36,
+        "score": -11.433893203735352
+      }
+    },
+    {
+      "dense": {
+        "position": 28,
+        "score": 1.1421105861663818
+      },
+      "final_position": null,
+      "fusion": {
+        "dense_contribution": 0.010416666666666666,
+        "lexical_contribution": null,
+        "position": 28,
+        "score": 0.010416666666666666,
+        "selected_for_reranking": true
+      },
+      "lexical": null,
+      "record_id": "1602b634f9c49eaa92df254883eadaef35963c162f5bd8545ab461a5f7492c7a",
+      "reranker": {
+        "position": 37,
+        "score": -11.435127258300781
+      }
+    },
+    {
+      "dense": {
+        "position": 43,
+        "score": 1.2338486909866333
+      },
+      "final_position": null,
+      "fusion": {
+        "dense_contribution": 0.007936507936507936,
+        "lexical_contribution": null,
+        "position": 43,
+        "score": 0.007936507936507936,
+        "selected_for_reranking": true
+      },
+      "lexical": null,
+      "record_id": "e8928806931de35d58fb7005f217a464d507d1f39c47e3f7102fa115fe32169e",
+      "reranker": {
+        "position": 38,
+        "score": -11.437265396118164
+      }
+    },
+    {
+      "dense": {
+        "position": 15,
+        "score": 1.0941085815429688
+      },
+      "final_position": null,
+      "fusion": {
+        "dense_contribution": 0.014285714285714285,
+        "lexical_contribution": null,
+        "position": 15,
+        "score": 0.014285714285714285,
+        "selected_for_reranking": true
+      },
+      "lexical": null,
+      "record_id": "23b82c7b6029143519b6451b572752db88e82008108a4ae8ad9cb74b5270f28e",
+      "reranker": {
+        "position": 39,
+        "score": -11.442312240600586
+      }
+    },
+    {
+      "dense": {
+        "position": 32,
+        "score": 1.1646928787231445
+      },
+      "final_position": null,
+      "fusion": {
+        "dense_contribution": 0.009615384615384616,
+        "lexical_contribution": null,
+        "position": 32,
+        "score": 0.009615384615384616,
+        "selected_for_reranking": true
+      },
+      "lexical": null,
+      "record_id": "76a33a4cb740eba297c21a97fb2391eb5a59d4e2712cd4643035e230cc1f3feb",
+      "reranker": {
+        "position": 40,
+        "score": -11.446900367736816
+      }
+    },
+    {
+      "dense": {
+        "position": 39,
+        "score": 1.1981247663497925
+      },
+      "final_position": null,
+      "fusion": {
+        "dense_contribution": 0.00847457627118644,
+        "lexical_contribution": null,
+        "position": 39,
+        "score": 0.00847457627118644,
+        "selected_for_reranking": true
+      },
+      "lexical": null,
+      "record_id": "76419d778d4270690c62a4aaa81a54d4d37280222c46420e63323eb44c5e64ba",
+      "reranker": {
+        "position": 41,
+        "score": -11.447102546691895
+      }
+    },
+    {
+      "dense": {
+        "position": 33,
+        "score": 1.1656997203826904
+      },
+      "final_position": null,
+      "fusion": {
+        "dense_contribution": 0.009433962264150943,
+        "lexical_contribution": null,
+        "position": 33,
+        "score": 0.009433962264150943,
+        "selected_for_reranking": true
+      },
+      "lexical": null,
+      "record_id": "1a0b2ae412b36359428467538caea43c8b4587df03ff0d1c41c9531c762fcbf4",
+      "reranker": {
+        "position": 42,
+        "score": -11.467752456665039
+      }
+    },
+    {
+      "dense": {
+        "position": 29,
+        "score": 1.1474123001098633
+      },
+      "final_position": null,
+      "fusion": {
+        "dense_contribution": 0.01020408163265306,
+        "lexical_contribution": null,
+        "position": 29,
+        "score": 0.01020408163265306,
+        "selected_for_reranking": true
+      },
+      "lexical": null,
+      "record_id": "fd92c39561dde0796642c53081b29eb18dad67a410f9190587935bf0a33adcf8",
+      "reranker": {
+        "position": 43,
+        "score": -11.469768524169922
+      }
+    },
+    {
+      "dense": {
+        "position": 44,
+        "score": 1.2496172189712524
+      },
+      "final_position": null,
+      "fusion": {
+        "dense_contribution": 0.0078125,
+        "lexical_contribution": null,
+        "position": 44,
+        "score": 0.0078125,
+        "selected_for_reranking": true
+      },
+      "lexical": null,
+      "record_id": "f96426e6999391c84642c8f7a816815f54630ab1c9655a32e941bda79c197faa",
+      "reranker": {
+        "position": 44,
+        "score": -11.47140884399414
+      }
+    }
+  ],
+  "configuration": {
+    "contextual": false,
+    "dense_candidate_limit": 50,
+    "dense_weight": 0.5,
+    "embedding_model": {
+      "name": "Alibaba-NLP/gte-modernbert-base",
+      "pipeline_version": "sentence-transformers-normalized-float32-v1|sentence-transformers=5.7.0|transformers=5.17.0|torch=2.14.0|sqlite-vec=0.1.9|device=mps:0|dtype=torch.float16",
+      "revision": "752e76f479f37e13f5e956c0a277bd7ccea80714"
+    },
+    "embedding_profile": "gte-modernbert",
+    "lexical_candidate_limit": 50,
+    "lexical_weight": 1.0,
+    "projection_id": "4f1c0331fec7fd325571d188abc3d004af32fbb25a70866a4913339173ed23c6",
+    "projection_path": "/private/tmp/cli_validation_final_53179/index.dense.sqlite3",
+    "reranker_candidate_limit": 50,
+    "reranker_model": {
+      "name": "cross-encoder/ms-marco-MiniLM-L6-v2",
+      "pipeline_version": "sentence-transformers-cross-encoder-raw-score-v1|sentence-transformers=5.7.0|transformers=5.17.0|torch=2.14.0",
+      "revision": "233902d25c440f23af6f7d6e94d2946bac0bee0a"
+    },
+    "rrf_k": 20,
+    "source_text_version": "passage-text-v1"
+  },
+  "corpus_fingerprint": "16a2a4f22b947e95c5f97c990976030c41776a087e9532c064170c2d1d0c0288",
+  "corpus_id": "atlas-walkthrough",
+  "displayed_candidates": 44,
+  "filters": {
+    "limit": 20,
+    "since": null,
+    "since_semantics": "event_time, otherwise observed_mtime, otherwise ingested_at",
+    "source_path": null,
+    "subject": "Atlas"
+  },
+  "graph_direction": "undirected",
+  "graph_path_policy": "One deterministic shortest supporting path per scoped entity",
+  "hits": [
+    {
+      "anchor_id": "a9274b679f231f9ca363022c87734f4081a52e2e19356da5376e09e225726768",
+      "event_time": "2026-09-21",
+      "heading_path": [
+        "Audit Trail readiness",
+        "Blockers"
+      ],
+      "position": 1,
+      "rank": 7.177383899688721,
+      "record_id": "2f0d575395b819539ca8ce93161015a54cb8a873980deb43bffafd022c88a410",
+      "record_type": "passage",
+      "related_entity_ids": [],
+      "source_path": "04-audit-trail.md",
+      "source_revision_id": "ea42d8bd68004a483cbf97f95dfd183f9179a4dbe5f05c1945a424fc06fda7f0",
+      "subject_reasons": [
+        {
+          "anchor_id": "5ecb9b0b6c8833a9883b90f738e489f1094952dcf25f77353873dd3ad7e1e70b",
+          "distance": 2,
+          "entity_id": "audit-trail",
+          "kind": "document_inheritance",
+          "mention_id": "84968d0998cd576fb2d9f25be47f432498224f08bf8202555f3692beeae7df45",
+          "metadata_field": null,
+          "scope": "graph_expanded",
+          "supporting_edge_ids": [
+            "43db8da59c915e064c79daecde9092510a5a97fc8f8b785114057f77031ccd9a",
+            "6aa2e4e94dd9c806b2b31fe2f0be37e78612ba6f4048b6a8e0f159d884e313df"
+          ]
+        }
+      ],
+      "title": "Audit Trail readiness"
+    },
+    {
+      "anchor_id": "b612cf655f4e8f5c9adf9be3863e613cabd0e276b1a2d7a426bb9e39bafd0ed1",
+      "event_time": "2026-09-20",
+      "heading_path": [
+        "Security Review evidence meeting",
+        "Decisions"
+      ],
+      "position": 2,
+      "rank": -7.8928327560424805,
+      "record_id": "eb643f89d57c2ad327f2ff45cfbd0f2b0a461373fc63aaf0e72a2e76138b08ba",
+      "record_type": "passage",
+      "related_entity_ids": [],
+      "source_path": "03-security-review.md",
+      "source_revision_id": "8bee78593278cf453022306c79aed226ee7ab49555108f0b0c855ce066df8690",
+      "subject_reasons": [
+        {
+          "anchor_id": "53b569b456c9f5dc2112c95d0fb4dcffa9dde0e26a98e200d6d396fc05cef105",
+          "distance": 1,
+          "entity_id": "security-review",
+          "kind": "document_inheritance",
+          "mention_id": "19919b7103292477435f431ae092a6c08b81e9645f0bfd1081e2fd908d298e87",
+          "metadata_field": null,
+          "scope": "graph_expanded",
+          "supporting_edge_ids": [
+            "43db8da59c915e064c79daecde9092510a5a97fc8f8b785114057f77031ccd9a"
+          ]
+        },
+        {
+          "anchor_id": "fc5077210f4e2900ea04ab80998c4ccceb01abac5c6667499b0975dfd841c855",
+          "distance": 1,
+          "entity_id": "security-review",
+          "kind": "document_inheritance",
+          "mention_id": "c21daae9d3ba5fb8c3c7d8423728edd856cd7815333f950465780f8db66e0e8c",
+          "metadata_field": null,
+          "scope": "graph_expanded",
+          "supporting_edge_ids": [
+            "43db8da59c915e064c79daecde9092510a5a97fc8f8b785114057f77031ccd9a"
+          ]
+        },
+        {
+          "anchor_id": "fc5077210f4e2900ea04ab80998c4ccceb01abac5c6667499b0975dfd841c855",
+          "distance": 2,
+          "entity_id": "audit-trail",
+          "kind": "document_inheritance",
+          "mention_id": "f30c9e621114285aef178903a9c136275abb0c125205de980668d5e8cc8ac8a0",
+          "metadata_field": null,
+          "scope": "graph_expanded",
+          "supporting_edge_ids": [
+            "43db8da59c915e064c79daecde9092510a5a97fc8f8b785114057f77031ccd9a",
+            "6aa2e4e94dd9c806b2b31fe2f0be37e78612ba6f4048b6a8e0f159d884e313df"
+          ]
+        }
+      ],
+      "title": "Security Review evidence meeting"
+    },
+    {
+      "anchor_id": "ab1331408dafec178fe2eccf6bc1ab299f6f301e95ffcaea01d46e2c4091220a",
+      "event_time": "2026-09-25",
+      "heading_path": [
+        "Atlas review agenda",
+        "Questions to prepare"
+      ],
+      "position": 3,
+      "rank": -10.98931884765625,
+      "record_id": "767fb341b397c48a9c33b0007148f5a22af4adeca5737cf78fe27eec77b59536",
+      "record_type": "passage",
+      "related_entity_ids": [],
+      "source_path": "10-meeting-agenda.md",
+      "source_revision_id": "b47effab744d092fa0798a2eed6ca80618d099fa6e4a7aec7c573a7c8a16be7e",
+      "subject_reasons": [
+        {
+          "anchor_id": null,
+          "distance": null,
+          "entity_id": null,
+          "kind": "metadata_name_match",
+          "mention_id": null,
+          "metadata_field": "title",
+          "scope": "direct",
+          "supporting_edge_ids": []
+        },
+        {
+          "anchor_id": null,
+          "distance": null,
+          "entity_id": null,
+          "kind": "metadata_name_match",
+          "mention_id": null,
+          "metadata_field": "heading_path",
+          "scope": "direct",
+          "supporting_edge_ids": []
+        },
+        {
+          "anchor_id": "1aa14572cd8e27b7e9a209058145cd4f11f482b46dd0266d69586e1e5c2fdee4",
+          "distance": 0,
+          "entity_id": "atlas",
+          "kind": "document_inheritance",
+          "mention_id": "15b28e2b0394ff3acc345758f2988e29474c94be0b453b74322c1ec072364cf5",
+          "metadata_field": null,
+          "scope": "direct",
+          "supporting_edge_ids": []
+        }
+      ],
+      "title": "Atlas review agenda"
+    },
+    {
+      "anchor_id": "5633036e50bf239dcb4c6fedfcbf7bb1e352f85cdede30814a4d503eeef8b1b4",
+      "event_time": "2026-09-24",
+      "heading_path": [
+        "Atlas calendar discrepancy",
+        "Conflicts"
+      ],
+      "position": 4,
+      "rank": -11.162740707397461,
+      "record_id": "ddd4ceee167efc9dd90320915489bcfe5b92065be563e423af318c9e890ea04f",
+      "record_type": "passage",
+      "related_entity_ids": [],
+      "source_path": "08-calendar-discrepancy.md",
+      "source_revision_id": "453f37412137a3ffcf7d021a2c065388acb72ca0f01e30e53801b88abc4375c8",
+      "subject_reasons": [
+        {
+          "anchor_id": null,
+          "distance": null,
+          "entity_id": null,
+          "kind": "metadata_name_match",
+          "mention_id": null,
+          "metadata_field": "title",
+          "scope": "direct",
+          "supporting_edge_ids": []
+        },
+        {
+          "anchor_id": null,
+          "distance": null,
+          "entity_id": null,
+          "kind": "metadata_name_match",
+          "mention_id": null,
+          "metadata_field": "heading_path",
+          "scope": "direct",
+          "supporting_edge_ids": []
+        },
+        {
+          "anchor_id": "5adda92b8539a37c7cc57c4b4ab64e4e69b50149d8ab8f7db0876bbbc8c083b8",
+          "distance": 0,
+          "entity_id": "atlas",
+          "kind": "document_inheritance",
+          "mention_id": "16877dd6566cf3f6444031aef0688aed3f31816878c429a082010fc5852a8d4b",
+          "metadata_field": null,
+          "scope": "direct",
+          "supporting_edge_ids": []
+        },
+        {
+          "anchor_id": "8443af4bb12ad6f51323a43d28cdec8b3890a9957ac8f6669ecc8d81cff509f6",
+          "distance": 0,
+          "entity_id": "atlas",
+          "kind": "document_inheritance",
+          "mention_id": "ab4ac39f127d11839a8db780a50e9af0db0534f17b177254c92b92aa6f6de607",
+          "metadata_field": null,
+          "scope": "direct",
+          "supporting_edge_ids": []
+        }
+      ],
+      "title": "Atlas calendar discrepancy"
+    },
+    {
+      "anchor_id": "812b594da6cf1ab0daefe16c9c454166b9d34c39c124930f29ed5bb255d4acfc",
+      "event_time": "2026-09-18",
+      "heading_path": [
+        "Atlas launch planning",
+        "Decisions"
+      ],
+      "position": 5,
+      "rank": -11.170537948608398,
+      "record_id": "8f73fe5a51f041e4455919978395d4b01ce6e3778288099e3f788646a83732bf",
+      "record_type": "passage",
+      "related_entity_ids": [],
+      "source_path": "01-planning-meeting.md",
+      "source_revision_id": "e991b41d8f3180cbe71baf8868bcc63c152d6eead154d515226e7d764799dd73",
+      "subject_reasons": [
+        {
+          "anchor_id": null,
+          "distance": null,
+          "entity_id": null,
+          "kind": "metadata_name_match",
+          "mention_id": null,
+          "metadata_field": "title",
+          "scope": "direct",
+          "supporting_edge_ids": []
+        },
+        {
+          "anchor_id": null,
+          "distance": null,
+          "entity_id": null,
+          "kind": "metadata_name_match",
+          "mention_id": null,
+          "metadata_field": "heading_path",
+          "scope": "direct",
+          "supporting_edge_ids": []
+        },
+        {
+          "anchor_id": "56845ddcc44dd162f2232e566517d8bd7456966e68b7929489e25cbe1654f346",
+          "distance": 0,
+          "entity_id": "atlas",
+          "kind": "document_inheritance",
+          "mention_id": "b9de8e786346635c4db8d9c6bc885dcb10d72b184e9a468982c664c929c8413d",
+          "metadata_field": null,
+          "scope": "direct",
+          "supporting_edge_ids": []
+        },
+        {
+          "anchor_id": "998768b73233b2465299fbab2db07bd0246fbca67411ef5bf6dba76d045f574b",
+          "distance": 1,
+          "entity_id": "security-review",
+          "kind": "document_inheritance",
+          "mention_id": "737c9d815abeedaf01aad3424492274f21101b66a8c9f1089f6675feb0b5ea50",
+          "metadata_field": null,
+          "scope": "graph_expanded",
+          "supporting_edge_ids": [
+            "43db8da59c915e064c79daecde9092510a5a97fc8f8b785114057f77031ccd9a"
+          ]
+        },
+        {
+          "anchor_id": "998768b73233b2465299fbab2db07bd0246fbca67411ef5bf6dba76d045f574b",
+          "distance": 0,
+          "entity_id": "atlas",
+          "kind": "document_inheritance",
+          "mention_id": "ebf0cdf43e38415a36eb4c34416482d67500e7546340a06a128e896bef0dbd37",
+          "metadata_field": null,
+          "scope": "direct",
+          "supporting_edge_ids": []
+        },
+        {
+          "anchor_id": "b5b3dda165c1779f5e9778738b471993a2521f9b6adc352ad976ddb897a01bd2",
+          "distance": 0,
+          "entity_id": "atlas",
+          "kind": "document_inheritance",
+          "mention_id": "a046d9dcc31cca23ad61c46d4da167b2876e9de5f4b9c14f211ac3d61e84f290",
+          "metadata_field": null,
+          "scope": "direct",
+          "supporting_edge_ids": []
+        },
+        {
+          "anchor_id": "d21c72f80012ff0c430b47c3cf64f65ba4979473c346ad84067b585fbacc1e09",
+          "distance": 1,
+          "entity_id": "security-review",
+          "kind": "document_inheritance",
+          "mention_id": "10140aed6d62e62cca003619da1e9435eb6bef93d94a88998998fc38e1619caf",
+          "metadata_field": null,
+          "scope": "graph_expanded",
+          "supporting_edge_ids": [
+            "43db8da59c915e064c79daecde9092510a5a97fc8f8b785114057f77031ccd9a"
+          ]
+        },
+        {
+          "anchor_id": "d21c72f80012ff0c430b47c3cf64f65ba4979473c346ad84067b585fbacc1e09",
+          "distance": 0,
+          "entity_id": "atlas",
+          "kind": "document_inheritance",
+          "mention_id": "bf670d09ab858423b36a4802a936f41a97c3eae5a9c10277dfecb8d727afcd4e",
+          "metadata_field": null,
+          "scope": "direct",
+          "supporting_edge_ids": []
+        }
+      ],
+      "title": "Atlas launch planning"
+    },
+    {
+      "anchor_id": "006321bfed3adf76b08f8ad8f7cd698e3ca4a077c62f4fc4c591353dbd90a0ba",
+      "event_time": "2026-09-20",
+      "heading_path": [
+        "Security Review evidence meeting",
+        "Decisions"
+      ],
+      "position": 6,
+      "rank": -11.170537948608398,
+      "record_id": "d53c90c587426c1a9e217b58dc23666c2ca354935a0cead6f0e99bf8cf4df9e6",
+      "record_type": "passage",
+      "related_entity_ids": [],
+      "source_path": "03-security-review.md",
+      "source_revision_id": "8bee78593278cf453022306c79aed226ee7ab49555108f0b0c855ce066df8690",
+      "subject_reasons": [
+        {
+          "anchor_id": "53b569b456c9f5dc2112c95d0fb4dcffa9dde0e26a98e200d6d396fc05cef105",
+          "distance": 1,
+          "entity_id": "security-review",
+          "kind": "document_inheritance",
+          "mention_id": "19919b7103292477435f431ae092a6c08b81e9645f0bfd1081e2fd908d298e87",
+          "metadata_field": null,
+          "scope": "graph_expanded",
+          "supporting_edge_ids": [
+            "43db8da59c915e064c79daecde9092510a5a97fc8f8b785114057f77031ccd9a"
+          ]
+        },
+        {
+          "anchor_id": "fc5077210f4e2900ea04ab80998c4ccceb01abac5c6667499b0975dfd841c855",
+          "distance": 1,
+          "entity_id": "security-review",
+          "kind": "document_inheritance",
+          "mention_id": "c21daae9d3ba5fb8c3c7d8423728edd856cd7815333f950465780f8db66e0e8c",
+          "metadata_field": null,
+          "scope": "graph_expanded",
+          "supporting_edge_ids": [
+            "43db8da59c915e064c79daecde9092510a5a97fc8f8b785114057f77031ccd9a"
+          ]
+        },
+        {
+          "anchor_id": "fc5077210f4e2900ea04ab80998c4ccceb01abac5c6667499b0975dfd841c855",
+          "distance": 2,
+          "entity_id": "audit-trail",
+          "kind": "document_inheritance",
+          "mention_id": "f30c9e621114285aef178903a9c136275abb0c125205de980668d5e8cc8ac8a0",
+          "metadata_field": null,
+          "scope": "graph_expanded",
+          "supporting_edge_ids": [
+            "43db8da59c915e064c79daecde9092510a5a97fc8f8b785114057f77031ccd9a",
+            "6aa2e4e94dd9c806b2b31fe2f0be37e78612ba6f4048b6a8e0f159d884e313df"
+          ]
+        }
+      ],
+      "title": "Security Review evidence meeting"
+    },
+    {
+      "anchor_id": "bac084f49836e1b7de5336f29e0113cbca2c1be6c7daa529773a29eafad9e130",
+      "event_time": "2026-09-23",
+      "heading_path": [
+        "Atlas launch date decision",
+        "Decisions"
+      ],
+      "position": 7,
+      "rank": -11.170537948608398,
+      "record_id": "ed3a2c645a883d7e2c1f7ab6ba33433e1b57eefa49ebeaf3dc3fb76034c4bcbc",
+      "record_type": "passage",
+      "related_entity_ids": [],
+      "source_path": "07-launch-date-decision.md",
+      "source_revision_id": "fe6e9772a8bc6a05a47ef05aac7e9e4d3c434a9964c297baaef7d506a40438b2",
+      "subject_reasons": [
+        {
+          "anchor_id": null,
+          "distance": null,
+          "entity_id": null,
+          "kind": "metadata_name_match",
+          "mention_id": null,
+          "metadata_field": "title",
+          "scope": "direct",
+          "supporting_edge_ids": []
+        },
+        {
+          "anchor_id": null,
+          "distance": null,
+          "entity_id": null,
+          "kind": "metadata_name_match",
+          "mention_id": null,
+          "metadata_field": "heading_path",
+          "scope": "direct",
+          "supporting_edge_ids": []
+        },
+        {
+          "anchor_id": "5a43c474988370f2fa37f1be31e0c69eea46578e892dd4885dc6771ca8f7f4b6",
+          "distance": 0,
+          "entity_id": "atlas",
+          "kind": "document_inheritance",
+          "mention_id": "150c0e84745fdcfe621aace36a9c072bae72a097bf2479d55748deac3b8da6b0",
+          "metadata_field": null,
+          "scope": "direct",
+          "supporting_edge_ids": []
+        },
+        {
+          "anchor_id": "7103123d3e72280c2b7326957c606c57de176b6a5dfedc46bb085943b417a6e6",
+          "distance": 0,
+          "entity_id": "atlas",
+          "kind": "document_inheritance",
+          "mention_id": "20e7dff30a7463ff951ac57de427f1626037acd47f845055d31bcf99c8f92b83",
+          "metadata_field": null,
+          "scope": "direct",
+          "supporting_edge_ids": []
+        }
+      ],
+      "title": "Atlas launch date decision"
+    },
+    {
+      "anchor_id": "4bbf07993c04ea93c042f47cd8186a4c8070490325893a44383ba95d388ce22c",
+      "event_time": "2026-09-22",
+      "heading_path": [
+        "Atlas integration notes"
+      ],
+      "position": 8,
+      "rank": -11.202842712402344,
+      "record_id": "7fe2640b2c4e0d0a2346efe0cbae100d132dfe012936ce0f0239e4c3f08de6df",
+      "record_type": "passage",
+      "related_entity_ids": [],
+      "source_path": "06-integration-notes.md",
+      "source_revision_id": "0c9f65d7f14c4d9662b6149c30f439c9224d0ecd9917a74483a6b832c9ecd9f2",
+      "subject_reasons": [
+        {
+          "anchor_id": null,
+          "distance": null,
+          "entity_id": null,
+          "kind": "metadata_name_match",
+          "mention_id": null,
+          "metadata_field": "title",
+          "scope": "direct",
+          "supporting_edge_ids": []
+        },
+        {
+          "anchor_id": null,
+          "distance": null,
+          "entity_id": null,
+          "kind": "metadata_name_match",
+          "mention_id": null,
+          "metadata_field": "heading_path",
+          "scope": "direct",
+          "supporting_edge_ids": []
+        },
+        {
+          "anchor_id": "c3e951e45051a776dc2c919a95b42c46b0501db1e293e1ac7cd9467fe22ec939",
+          "distance": 0,
+          "entity_id": "atlas",
+          "kind": "document_inheritance",
+          "mention_id": "52122336e1ad7431c6e2718c9c9b396c9d854ea0743a31dd1367935bdc349633",
+          "metadata_field": null,
+          "scope": "direct",
+          "supporting_edge_ids": []
+        }
+      ],
+      "title": "Atlas integration notes"
+    },
+    {
+      "anchor_id": "ffd3a7bc31ddb815117efca28712fb1dec46d66730a4733b1664ea045ab06a96",
+      "event_time": "2026-09-20",
+      "heading_path": [
+        "Security Review evidence meeting",
+        "Actions"
+      ],
+      "position": 9,
+      "rank": -11.20555305480957,
+      "record_id": "f5dd57982097ecb030217ea358eae3cdce09096f533e4c084a30e229fd593dc3",
+      "record_type": "passage",
+      "related_entity_ids": [
+        "morgan"
+      ],
+      "source_path": "03-security-review.md",
+      "source_revision_id": "8bee78593278cf453022306c79aed226ee7ab49555108f0b0c855ce066df8690",
+      "subject_reasons": [
+        {
+          "anchor_id": "53b569b456c9f5dc2112c95d0fb4dcffa9dde0e26a98e200d6d396fc05cef105",
+          "distance": 1,
+          "entity_id": "security-review",
+          "kind": "document_inheritance",
+          "mention_id": "19919b7103292477435f431ae092a6c08b81e9645f0bfd1081e2fd908d298e87",
+          "metadata_field": null,
+          "scope": "graph_expanded",
+          "supporting_edge_ids": [
+            "43db8da59c915e064c79daecde9092510a5a97fc8f8b785114057f77031ccd9a"
+          ]
+        },
+        {
+          "anchor_id": "fc5077210f4e2900ea04ab80998c4ccceb01abac5c6667499b0975dfd841c855",
+          "distance": 1,
+          "entity_id": "security-review",
+          "kind": "document_inheritance",
+          "mention_id": "c21daae9d3ba5fb8c3c7d8423728edd856cd7815333f950465780f8db66e0e8c",
+          "metadata_field": null,
+          "scope": "graph_expanded",
+          "supporting_edge_ids": [
+            "43db8da59c915e064c79daecde9092510a5a97fc8f8b785114057f77031ccd9a"
+          ]
+        },
+        {
+          "anchor_id": "fc5077210f4e2900ea04ab80998c4ccceb01abac5c6667499b0975dfd841c855",
+          "distance": 2,
+          "entity_id": "audit-trail",
+          "kind": "document_inheritance",
+          "mention_id": "f30c9e621114285aef178903a9c136275abb0c125205de980668d5e8cc8ac8a0",
+          "metadata_field": null,
+          "scope": "graph_expanded",
+          "supporting_edge_ids": [
+            "43db8da59c915e064c79daecde9092510a5a97fc8f8b785114057f77031ccd9a",
+            "6aa2e4e94dd9c806b2b31fe2f0be37e78612ba6f4048b6a8e0f159d884e313df"
+          ]
+        }
+      ],
+      "title": "Security Review evidence meeting"
+    },
+    {
+      "anchor_id": "67cd3a4dc33e1d63bbd429a1b60451d5e6cf4f28169647f9261de7d37d58efd1",
+      "event_time": "2026-09-18",
+      "heading_path": [
+        "Atlas launch planning",
+        "Actions"
+      ],
+      "position": 10,
+      "rank": -11.238455772399902,
+      "record_id": "74fdb0dc12bd78768073e3b2be5a874024e318fcae2ce9dbbcb3fc1086613b51",
+      "record_type": "passage",
+      "related_entity_ids": [],
+      "source_path": "01-planning-meeting.md",
+      "source_revision_id": "e991b41d8f3180cbe71baf8868bcc63c152d6eead154d515226e7d764799dd73",
+      "subject_reasons": [
+        {
+          "anchor_id": null,
+          "distance": null,
+          "entity_id": null,
+          "kind": "metadata_name_match",
+          "mention_id": null,
+          "metadata_field": "title",
+          "scope": "direct",
+          "supporting_edge_ids": []
+        },
+        {
+          "anchor_id": null,
+          "distance": null,
+          "entity_id": null,
+          "kind": "metadata_name_match",
+          "mention_id": null,
+          "metadata_field": "heading_path",
+          "scope": "direct",
+          "supporting_edge_ids": []
+        },
+        {
+          "anchor_id": "56845ddcc44dd162f2232e566517d8bd7456966e68b7929489e25cbe1654f346",
+          "distance": 0,
+          "entity_id": "atlas",
+          "kind": "document_inheritance",
+          "mention_id": "b9de8e786346635c4db8d9c6bc885dcb10d72b184e9a468982c664c929c8413d",
+          "metadata_field": null,
+          "scope": "direct",
+          "supporting_edge_ids": []
+        },
+        {
+          "anchor_id": "998768b73233b2465299fbab2db07bd0246fbca67411ef5bf6dba76d045f574b",
+          "distance": 1,
+          "entity_id": "security-review",
+          "kind": "document_inheritance",
+          "mention_id": "737c9d815abeedaf01aad3424492274f21101b66a8c9f1089f6675feb0b5ea50",
+          "metadata_field": null,
+          "scope": "graph_expanded",
+          "supporting_edge_ids": [
+            "43db8da59c915e064c79daecde9092510a5a97fc8f8b785114057f77031ccd9a"
+          ]
+        },
+        {
+          "anchor_id": "998768b73233b2465299fbab2db07bd0246fbca67411ef5bf6dba76d045f574b",
+          "distance": 0,
+          "entity_id": "atlas",
+          "kind": "document_inheritance",
+          "mention_id": "ebf0cdf43e38415a36eb4c34416482d67500e7546340a06a128e896bef0dbd37",
+          "metadata_field": null,
+          "scope": "direct",
+          "supporting_edge_ids": []
+        },
+        {
+          "anchor_id": "b5b3dda165c1779f5e9778738b471993a2521f9b6adc352ad976ddb897a01bd2",
+          "distance": 0,
+          "entity_id": "atlas",
+          "kind": "document_inheritance",
+          "mention_id": "a046d9dcc31cca23ad61c46d4da167b2876e9de5f4b9c14f211ac3d61e84f290",
+          "metadata_field": null,
+          "scope": "direct",
+          "supporting_edge_ids": []
+        },
+        {
+          "anchor_id": "d21c72f80012ff0c430b47c3cf64f65ba4979473c346ad84067b585fbacc1e09",
+          "distance": 1,
+          "entity_id": "security-review",
+          "kind": "document_inheritance",
+          "mention_id": "10140aed6d62e62cca003619da1e9435eb6bef93d94a88998998fc38e1619caf",
+          "metadata_field": null,
+          "scope": "graph_expanded",
+          "supporting_edge_ids": [
+            "43db8da59c915e064c79daecde9092510a5a97fc8f8b785114057f77031ccd9a"
+          ]
+        },
+        {
+          "anchor_id": "d21c72f80012ff0c430b47c3cf64f65ba4979473c346ad84067b585fbacc1e09",
+          "distance": 0,
+          "entity_id": "atlas",
+          "kind": "document_inheritance",
+          "mention_id": "bf670d09ab858423b36a4802a936f41a97c3eae5a9c10277dfecb8d727afcd4e",
+          "metadata_field": null,
+          "scope": "direct",
+          "supporting_edge_ids": []
+        }
+      ],
+      "title": "Atlas launch planning"
+    },
+    {
+      "anchor_id": "274fcaeb73e43477dbafb1c3b7ecc3541be3e6825a003b92d361079ff61c7375",
+      "event_time": "2026-09-23",
+      "heading_path": [
+        "Atlas launch date decision",
+        "Actions"
+      ],
+      "position": 11,
+      "rank": -11.238455772399902,
+      "record_id": "a59877282d4bf1f868f5ef07cd058cc1d72aa0f58bcfd8c19ee583544e751c79",
+      "record_type": "passage",
+      "related_entity_ids": [],
+      "source_path": "07-launch-date-decision.md",
+      "source_revision_id": "fe6e9772a8bc6a05a47ef05aac7e9e4d3c434a9964c297baaef7d506a40438b2",
+      "subject_reasons": [
+        {
+          "anchor_id": null,
+          "distance": null,
+          "entity_id": null,
+          "kind": "metadata_name_match",
+          "mention_id": null,
+          "metadata_field": "title",
+          "scope": "direct",
+          "supporting_edge_ids": []
+        },
+        {
+          "anchor_id": null,
+          "distance": null,
+          "entity_id": null,
+          "kind": "metadata_name_match",
+          "mention_id": null,
+          "metadata_field": "heading_path",
+          "scope": "direct",
+          "supporting_edge_ids": []
+        },
+        {
+          "anchor_id": "5a43c474988370f2fa37f1be31e0c69eea46578e892dd4885dc6771ca8f7f4b6",
+          "distance": 0,
+          "entity_id": "atlas",
+          "kind": "document_inheritance",
+          "mention_id": "150c0e84745fdcfe621aace36a9c072bae72a097bf2479d55748deac3b8da6b0",
+          "metadata_field": null,
+          "scope": "direct",
+          "supporting_edge_ids": []
+        },
+        {
+          "anchor_id": "7103123d3e72280c2b7326957c606c57de176b6a5dfedc46bb085943b417a6e6",
+          "distance": 0,
+          "entity_id": "atlas",
+          "kind": "document_inheritance",
+          "mention_id": "20e7dff30a7463ff951ac57de427f1626037acd47f845055d31bcf99c8f92b83",
+          "metadata_field": null,
+          "scope": "direct",
+          "supporting_edge_ids": []
+        }
+      ],
+      "title": "Atlas launch date decision"
+    },
+    {
+      "anchor_id": "1880216e1948dc423df742db5b4a1e9f5c60b0acf76fc64eb245f18e22f87981",
+      "event_time": "2026-09-20",
+      "heading_path": [
+        "Security Review evidence meeting",
+        "Actions"
+      ],
+      "position": 12,
+      "rank": -11.238455772399902,
+      "record_id": "a60335cfb6ae48be3e9b6e5bda6e862ed54da9c2838ead77db65b08e958ce9ef",
+      "record_type": "passage",
+      "related_entity_ids": [],
+      "source_path": "03-security-review.md",
+      "source_revision_id": "8bee78593278cf453022306c79aed226ee7ab49555108f0b0c855ce066df8690",
+      "subject_reasons": [
+        {
+          "anchor_id": "53b569b456c9f5dc2112c95d0fb4dcffa9dde0e26a98e200d6d396fc05cef105",
+          "distance": 1,
+          "entity_id": "security-review",
+          "kind": "document_inheritance",
+          "mention_id": "19919b7103292477435f431ae092a6c08b81e9645f0bfd1081e2fd908d298e87",
+          "metadata_field": null,
+          "scope": "graph_expanded",
+          "supporting_edge_ids": [
+            "43db8da59c915e064c79daecde9092510a5a97fc8f8b785114057f77031ccd9a"
+          ]
+        },
+        {
+          "anchor_id": "fc5077210f4e2900ea04ab80998c4ccceb01abac5c6667499b0975dfd841c855",
+          "distance": 1,
+          "entity_id": "security-review",
+          "kind": "document_inheritance",
+          "mention_id": "c21daae9d3ba5fb8c3c7d8423728edd856cd7815333f950465780f8db66e0e8c",
+          "metadata_field": null,
+          "scope": "graph_expanded",
+          "supporting_edge_ids": [
+            "43db8da59c915e064c79daecde9092510a5a97fc8f8b785114057f77031ccd9a"
+          ]
+        },
+        {
+          "anchor_id": "fc5077210f4e2900ea04ab80998c4ccceb01abac5c6667499b0975dfd841c855",
+          "distance": 2,
+          "entity_id": "audit-trail",
+          "kind": "document_inheritance",
+          "mention_id": "f30c9e621114285aef178903a9c136275abb0c125205de980668d5e8cc8ac8a0",
+          "metadata_field": null,
+          "scope": "graph_expanded",
+          "supporting_edge_ids": [
+            "43db8da59c915e064c79daecde9092510a5a97fc8f8b785114057f77031ccd9a",
+            "6aa2e4e94dd9c806b2b31fe2f0be37e78612ba6f4048b6a8e0f159d884e313df"
+          ]
+        }
+      ],
+      "title": "Security Review evidence meeting"
+    },
+    {
+      "anchor_id": "09ebab8c8d2653bcf1f8a75d554f1878c274fc6bd1ac6f455489fb42b87ccb2c",
+      "event_time": "2026-09-22",
+      "heading_path": [
+        "Atlas integration notes"
+      ],
+      "position": 13,
+      "rank": -11.250863075256348,
+      "record_id": "59e351d1dd0f6f00e065b6250b20fcbfd68c3b27480e3710abf695b5a555c75a",
+      "record_type": "passage",
+      "related_entity_ids": [],
+      "source_path": "06-integration-notes.md",
+      "source_revision_id": "0c9f65d7f14c4d9662b6149c30f439c9224d0ecd9917a74483a6b832c9ecd9f2",
+      "subject_reasons": [
+        {
+          "anchor_id": null,
+          "distance": null,
+          "entity_id": null,
+          "kind": "metadata_name_match",
+          "mention_id": null,
+          "metadata_field": "title",
+          "scope": "direct",
+          "supporting_edge_ids": []
+        },
+        {
+          "anchor_id": null,
+          "distance": null,
+          "entity_id": null,
+          "kind": "metadata_name_match",
+          "mention_id": null,
+          "metadata_field": "heading_path",
+          "scope": "direct",
+          "supporting_edge_ids": []
+        },
+        {
+          "anchor_id": "c3e951e45051a776dc2c919a95b42c46b0501db1e293e1ac7cd9467fe22ec939",
+          "distance": 0,
+          "entity_id": "atlas",
+          "kind": "document_inheritance",
+          "mention_id": "52122336e1ad7431c6e2718c9c9b396c9d854ea0743a31dd1367935bdc349633",
+          "metadata_field": null,
+          "scope": "direct",
+          "supporting_edge_ids": []
+        }
+      ],
+      "title": "Atlas integration notes"
+    },
+    {
+      "anchor_id": "a0b32b44757e5c67a825e22afbfa1b8455c768405d755050dc4027036802fabe",
+      "event_time": "2026-09-25",
+      "heading_path": [
+        "Atlas review agenda",
+        "Questions to prepare"
+      ],
+      "position": 14,
+      "rank": -11.252610206604004,
+      "record_id": "c62e351e9317994078562cb7e0b412c6569b32b09017a54549518b9d81e645c3",
+      "record_type": "passage",
+      "related_entity_ids": [],
+      "source_path": "10-meeting-agenda.md",
+      "source_revision_id": "b47effab744d092fa0798a2eed6ca80618d099fa6e4a7aec7c573a7c8a16be7e",
+      "subject_reasons": [
+        {
+          "anchor_id": null,
+          "distance": null,
+          "entity_id": null,
+          "kind": "metadata_name_match",
+          "mention_id": null,
+          "metadata_field": "title",
+          "scope": "direct",
+          "supporting_edge_ids": []
+        },
+        {
+          "anchor_id": null,
+          "distance": null,
+          "entity_id": null,
+          "kind": "metadata_name_match",
+          "mention_id": null,
+          "metadata_field": "heading_path",
+          "scope": "direct",
+          "supporting_edge_ids": []
+        },
+        {
+          "anchor_id": "1aa14572cd8e27b7e9a209058145cd4f11f482b46dd0266d69586e1e5c2fdee4",
+          "distance": 0,
+          "entity_id": "atlas",
+          "kind": "document_inheritance",
+          "mention_id": "15b28e2b0394ff3acc345758f2988e29474c94be0b453b74322c1ec072364cf5",
+          "metadata_field": null,
+          "scope": "direct",
+          "supporting_edge_ids": []
+        }
+      ],
+      "title": "Atlas review agenda"
+    },
+    {
+      "anchor_id": "0b1a8f43c6df78f6ab0c37b9a30f215334da0c9b1214ecf3f650fa76e891817f",
+      "event_time": "2026-09-21",
+      "heading_path": [
+        "Audit Trail readiness",
+        "Blockers"
+      ],
+      "position": 15,
+      "rank": -11.259244918823242,
+      "record_id": "51e6060e94a4582af684da5ef7e500e562c2466bf8e39bbc4963e93fd7b4975a",
+      "record_type": "passage",
+      "related_entity_ids": [],
+      "source_path": "04-audit-trail.md",
+      "source_revision_id": "ea42d8bd68004a483cbf97f95dfd183f9179a4dbe5f05c1945a424fc06fda7f0",
+      "subject_reasons": [
+        {
+          "anchor_id": "5ecb9b0b6c8833a9883b90f738e489f1094952dcf25f77353873dd3ad7e1e70b",
+          "distance": 2,
+          "entity_id": "audit-trail",
+          "kind": "document_inheritance",
+          "mention_id": "84968d0998cd576fb2d9f25be47f432498224f08bf8202555f3692beeae7df45",
+          "metadata_field": null,
+          "scope": "graph_expanded",
+          "supporting_edge_ids": [
+            "43db8da59c915e064c79daecde9092510a5a97fc8f8b785114057f77031ccd9a",
+            "6aa2e4e94dd9c806b2b31fe2f0be37e78612ba6f4048b6a8e0f159d884e313df"
+          ]
+        }
+      ],
+      "title": "Audit Trail readiness"
+    },
+    {
+      "anchor_id": "43d7aa2e09ad035adb3ee755b454816af9053795ac78c6027dce17a6826c4f2f",
+      "event_time": "2026-09-18",
+      "heading_path": [
+        "Atlas launch planning",
+        "Blockers"
+      ],
+      "position": 16,
+      "rank": -11.259244918823242,
+      "record_id": "f4c4623274c8b54db755153332500e293fe697c2375af2409e8f309f27281880",
+      "record_type": "passage",
+      "related_entity_ids": [],
+      "source_path": "01-planning-meeting.md",
+      "source_revision_id": "e991b41d8f3180cbe71baf8868bcc63c152d6eead154d515226e7d764799dd73",
+      "subject_reasons": [
+        {
+          "anchor_id": null,
+          "distance": null,
+          "entity_id": null,
+          "kind": "metadata_name_match",
+          "mention_id": null,
+          "metadata_field": "title",
+          "scope": "direct",
+          "supporting_edge_ids": []
+        },
+        {
+          "anchor_id": null,
+          "distance": null,
+          "entity_id": null,
+          "kind": "metadata_name_match",
+          "mention_id": null,
+          "metadata_field": "heading_path",
+          "scope": "direct",
+          "supporting_edge_ids": []
+        },
+        {
+          "anchor_id": "56845ddcc44dd162f2232e566517d8bd7456966e68b7929489e25cbe1654f346",
+          "distance": 0,
+          "entity_id": "atlas",
+          "kind": "document_inheritance",
+          "mention_id": "b9de8e786346635c4db8d9c6bc885dcb10d72b184e9a468982c664c929c8413d",
+          "metadata_field": null,
+          "scope": "direct",
+          "supporting_edge_ids": []
+        },
+        {
+          "anchor_id": "998768b73233b2465299fbab2db07bd0246fbca67411ef5bf6dba76d045f574b",
+          "distance": 1,
+          "entity_id": "security-review",
+          "kind": "document_inheritance",
+          "mention_id": "737c9d815abeedaf01aad3424492274f21101b66a8c9f1089f6675feb0b5ea50",
+          "metadata_field": null,
+          "scope": "graph_expanded",
+          "supporting_edge_ids": [
+            "43db8da59c915e064c79daecde9092510a5a97fc8f8b785114057f77031ccd9a"
+          ]
+        },
+        {
+          "anchor_id": "998768b73233b2465299fbab2db07bd0246fbca67411ef5bf6dba76d045f574b",
+          "distance": 0,
+          "entity_id": "atlas",
+          "kind": "document_inheritance",
+          "mention_id": "ebf0cdf43e38415a36eb4c34416482d67500e7546340a06a128e896bef0dbd37",
+          "metadata_field": null,
+          "scope": "direct",
+          "supporting_edge_ids": []
+        },
+        {
+          "anchor_id": "b5b3dda165c1779f5e9778738b471993a2521f9b6adc352ad976ddb897a01bd2",
+          "distance": 0,
+          "entity_id": "atlas",
+          "kind": "document_inheritance",
+          "mention_id": "a046d9dcc31cca23ad61c46d4da167b2876e9de5f4b9c14f211ac3d61e84f290",
+          "metadata_field": null,
+          "scope": "direct",
+          "supporting_edge_ids": []
+        },
+        {
+          "anchor_id": "d21c72f80012ff0c430b47c3cf64f65ba4979473c346ad84067b585fbacc1e09",
+          "distance": 1,
+          "entity_id": "security-review",
+          "kind": "document_inheritance",
+          "mention_id": "10140aed6d62e62cca003619da1e9435eb6bef93d94a88998998fc38e1619caf",
+          "metadata_field": null,
+          "scope": "graph_expanded",
+          "supporting_edge_ids": [
+            "43db8da59c915e064c79daecde9092510a5a97fc8f8b785114057f77031ccd9a"
+          ]
+        },
+        {
+          "anchor_id": "d21c72f80012ff0c430b47c3cf64f65ba4979473c346ad84067b585fbacc1e09",
+          "distance": 0,
+          "entity_id": "atlas",
+          "kind": "document_inheritance",
+          "mention_id": "bf670d09ab858423b36a4802a936f41a97c3eae5a9c10277dfecb8d727afcd4e",
+          "metadata_field": null,
+          "scope": "direct",
+          "supporting_edge_ids": []
+        }
+      ],
+      "title": "Atlas launch planning"
+    },
+    {
+      "anchor_id": "28cb780ec8344723f5568fafa813dd786e2b6b2f70296c5fd2e925f8ce1b5fa3",
+      "event_time": "2026-09-18",
+      "heading_path": [
+        "Atlas launch planning",
+        "Actions"
+      ],
+      "position": 17,
+      "rank": -11.27294921875,
+      "record_id": "ad51510d477bb226ebdfef92d3ebdc6e9a2106cd01d166a064923420c1ddfc28",
+      "record_type": "passage",
+      "related_entity_ids": [
+        "priya"
+      ],
+      "source_path": "01-planning-meeting.md",
+      "source_revision_id": "e991b41d8f3180cbe71baf8868bcc63c152d6eead154d515226e7d764799dd73",
+      "subject_reasons": [
+        {
+          "anchor_id": null,
+          "distance": null,
+          "entity_id": null,
+          "kind": "metadata_name_match",
+          "mention_id": null,
+          "metadata_field": "title",
+          "scope": "direct",
+          "supporting_edge_ids": []
+        },
+        {
+          "anchor_id": null,
+          "distance": null,
+          "entity_id": null,
+          "kind": "metadata_name_match",
+          "mention_id": null,
+          "metadata_field": "heading_path",
+          "scope": "direct",
+          "supporting_edge_ids": []
+        },
+        {
+          "anchor_id": "56845ddcc44dd162f2232e566517d8bd7456966e68b7929489e25cbe1654f346",
+          "distance": 0,
+          "entity_id": "atlas",
+          "kind": "document_inheritance",
+          "mention_id": "b9de8e786346635c4db8d9c6bc885dcb10d72b184e9a468982c664c929c8413d",
+          "metadata_field": null,
+          "scope": "direct",
+          "supporting_edge_ids": []
+        },
+        {
+          "anchor_id": "998768b73233b2465299fbab2db07bd0246fbca67411ef5bf6dba76d045f574b",
+          "distance": 1,
+          "entity_id": "security-review",
+          "kind": "document_inheritance",
+          "mention_id": "737c9d815abeedaf01aad3424492274f21101b66a8c9f1089f6675feb0b5ea50",
+          "metadata_field": null,
+          "scope": "graph_expanded",
+          "supporting_edge_ids": [
+            "43db8da59c915e064c79daecde9092510a5a97fc8f8b785114057f77031ccd9a"
+          ]
+        },
+        {
+          "anchor_id": "998768b73233b2465299fbab2db07bd0246fbca67411ef5bf6dba76d045f574b",
+          "distance": 0,
+          "entity_id": "atlas",
+          "kind": "document_inheritance",
+          "mention_id": "ebf0cdf43e38415a36eb4c34416482d67500e7546340a06a128e896bef0dbd37",
+          "metadata_field": null,
+          "scope": "direct",
+          "supporting_edge_ids": []
+        },
+        {
+          "anchor_id": "b5b3dda165c1779f5e9778738b471993a2521f9b6adc352ad976ddb897a01bd2",
+          "distance": 0,
+          "entity_id": "atlas",
+          "kind": "document_inheritance",
+          "mention_id": "a046d9dcc31cca23ad61c46d4da167b2876e9de5f4b9c14f211ac3d61e84f290",
+          "metadata_field": null,
+          "scope": "direct",
+          "supporting_edge_ids": []
+        },
+        {
+          "anchor_id": "d21c72f80012ff0c430b47c3cf64f65ba4979473c346ad84067b585fbacc1e09",
+          "distance": 1,
+          "entity_id": "security-review",
+          "kind": "document_inheritance",
+          "mention_id": "10140aed6d62e62cca003619da1e9435eb6bef93d94a88998998fc38e1619caf",
+          "metadata_field": null,
+          "scope": "graph_expanded",
+          "supporting_edge_ids": [
+            "43db8da59c915e064c79daecde9092510a5a97fc8f8b785114057f77031ccd9a"
+          ]
+        },
+        {
+          "anchor_id": "d21c72f80012ff0c430b47c3cf64f65ba4979473c346ad84067b585fbacc1e09",
+          "distance": 0,
+          "entity_id": "atlas",
+          "kind": "document_inheritance",
+          "mention_id": "bf670d09ab858423b36a4802a936f41a97c3eae5a9c10277dfecb8d727afcd4e",
+          "metadata_field": null,
+          "scope": "direct",
+          "supporting_edge_ids": []
+        }
+      ],
+      "title": "Atlas launch planning"
+    },
+    {
+      "anchor_id": "c3e951e45051a776dc2c919a95b42c46b0501db1e293e1ac7cd9467fe22ec939",
+      "event_time": "2026-09-22",
+      "heading_path": [
+        "Atlas integration notes"
+      ],
+      "position": 18,
+      "rank": -11.287376403808594,
+      "record_id": "2f82be6273b785fd6e213f4b4d5f81cc7791d1c06085060e1de3f54f4b9254df",
+      "record_type": "passage",
+      "related_entity_ids": [
+        "atlas"
+      ],
+      "source_path": "06-integration-notes.md",
+      "source_revision_id": "0c9f65d7f14c4d9662b6149c30f439c9224d0ecd9917a74483a6b832c9ecd9f2",
+      "subject_reasons": [
+        {
+          "anchor_id": null,
+          "distance": null,
+          "entity_id": null,
+          "kind": "metadata_name_match",
+          "mention_id": null,
+          "metadata_field": "title",
+          "scope": "direct",
+          "supporting_edge_ids": []
+        },
+        {
+          "anchor_id": null,
+          "distance": null,
+          "entity_id": null,
+          "kind": "metadata_name_match",
+          "mention_id": null,
+          "metadata_field": "heading_path",
+          "scope": "direct",
+          "supporting_edge_ids": []
+        },
+        {
+          "anchor_id": "c3e951e45051a776dc2c919a95b42c46b0501db1e293e1ac7cd9467fe22ec939",
+          "distance": 0,
+          "entity_id": "atlas",
+          "kind": "exact_mention",
+          "mention_id": "52122336e1ad7431c6e2718c9c9b396c9d854ea0743a31dd1367935bdc349633",
+          "metadata_field": null,
+          "scope": "direct",
+          "supporting_edge_ids": []
+        }
+      ],
+      "title": "Atlas integration notes"
+    },
+    {
+      "anchor_id": "df111615d7b89879c1cadf2a12778cf68a90d112be505334dab46284c5667758",
+      "event_time": "2026-09-19",
+      "heading_path": [
+        "Atlas review follow-up"
+      ],
+      "position": 19,
+      "rank": -11.334895133972168,
+      "record_id": "a65a27167985f47a4136432e0de858e104a2c14bde271f155587ee79ec0afaf4",
+      "record_type": "passage",
+      "related_entity_ids": [
+        "security-review"
+      ],
+      "source_path": "02-follow-up-email.md",
+      "source_revision_id": "6149cd91729204b67fca8ddba9ebbc33bb1e4dccb81267bb2d911b9f044703dc",
+      "subject_reasons": [
+        {
+          "anchor_id": null,
+          "distance": null,
+          "entity_id": null,
+          "kind": "metadata_name_match",
+          "mention_id": null,
+          "metadata_field": "title",
+          "scope": "direct",
+          "supporting_edge_ids": []
+        },
+        {
+          "anchor_id": null,
+          "distance": null,
+          "entity_id": null,
+          "kind": "metadata_name_match",
+          "mention_id": null,
+          "metadata_field": "heading_path",
+          "scope": "direct",
+          "supporting_edge_ids": []
+        },
+        {
+          "anchor_id": "1511e6b489bbef159cb1818880a61179a9f5383c066db02d13bb9d0e06885dc8",
+          "distance": 0,
+          "entity_id": "atlas",
+          "kind": "document_inheritance",
+          "mention_id": "21189ba773de6a881802df8365902658023a24ccf8b87c0687ef533b691593dc",
+          "metadata_field": null,
+          "scope": "direct",
+          "supporting_edge_ids": []
+        },
+        {
+          "anchor_id": "360601f76c534593b7f56a43f47c27fa8223376c189ca780c3495beb335188bc",
+          "distance": 0,
+          "entity_id": "atlas",
+          "kind": "document_inheritance",
+          "mention_id": "e61e81df3ed104737cfc27ac90da41b04c9a6763297f498ad46c11398bc17729",
+          "metadata_field": null,
+          "scope": "direct",
+          "supporting_edge_ids": []
+        },
+        {
+          "anchor_id": "df111615d7b89879c1cadf2a12778cf68a90d112be505334dab46284c5667758",
+          "distance": 1,
+          "entity_id": "security-review",
+          "kind": "exact_mention",
+          "mention_id": "1e9e98bf1158ee06a5700418ec1041937e8828fc75f3250d777878a04359de25",
+          "metadata_field": null,
+          "scope": "graph_expanded",
+          "supporting_edge_ids": [
+            "43db8da59c915e064c79daecde9092510a5a97fc8f8b785114057f77031ccd9a"
+          ]
+        }
+      ],
+      "title": "Atlas review follow-up email"
+    },
+    {
+      "anchor_id": "1c40ab67d47c2541fe982ac2d12280790bff4330ac47ff2038e7c1aa0dc3cf94",
+      "event_time": "2026-09-19",
+      "heading_path": [
+        "Atlas review follow-up"
+      ],
+      "position": 20,
+      "rank": -11.33601188659668,
+      "record_id": "0661b31dd1f04ddc99677721ef10277d99d22ca6208ea3b2e91d54a6257c3754",
+      "record_type": "passage",
+      "related_entity_ids": [
+        "morgan",
+        "priya"
+      ],
+      "source_path": "02-follow-up-email.md",
+      "source_revision_id": "6149cd91729204b67fca8ddba9ebbc33bb1e4dccb81267bb2d911b9f044703dc",
+      "subject_reasons": [
+        {
+          "anchor_id": null,
+          "distance": null,
+          "entity_id": null,
+          "kind": "metadata_name_match",
+          "mention_id": null,
+          "metadata_field": "title",
+          "scope": "direct",
+          "supporting_edge_ids": []
+        },
+        {
+          "anchor_id": null,
+          "distance": null,
+          "entity_id": null,
+          "kind": "metadata_name_match",
+          "mention_id": null,
+          "metadata_field": "heading_path",
+          "scope": "direct",
+          "supporting_edge_ids": []
+        },
+        {
+          "anchor_id": "1511e6b489bbef159cb1818880a61179a9f5383c066db02d13bb9d0e06885dc8",
+          "distance": 0,
+          "entity_id": "atlas",
+          "kind": "document_inheritance",
+          "mention_id": "21189ba773de6a881802df8365902658023a24ccf8b87c0687ef533b691593dc",
+          "metadata_field": null,
+          "scope": "direct",
+          "supporting_edge_ids": []
+        },
+        {
+          "anchor_id": "360601f76c534593b7f56a43f47c27fa8223376c189ca780c3495beb335188bc",
+          "distance": 0,
+          "entity_id": "atlas",
+          "kind": "document_inheritance",
+          "mention_id": "e61e81df3ed104737cfc27ac90da41b04c9a6763297f498ad46c11398bc17729",
+          "metadata_field": null,
+          "scope": "direct",
+          "supporting_edge_ids": []
+        },
+        {
+          "anchor_id": "df111615d7b89879c1cadf2a12778cf68a90d112be505334dab46284c5667758",
+          "distance": 1,
+          "entity_id": "security-review",
+          "kind": "document_inheritance",
+          "mention_id": "1e9e98bf1158ee06a5700418ec1041937e8828fc75f3250d777878a04359de25",
+          "metadata_field": null,
+          "scope": "graph_expanded",
+          "supporting_edge_ids": [
+            "43db8da59c915e064c79daecde9092510a5a97fc8f8b785114057f77031ccd9a"
+          ]
+        }
+      ],
+      "title": "Atlas review follow-up email"
+    }
+  ],
+  "lexical_expression": "\"archive\" OR \"signing\" OR \"certificate\"",
+  "max_graph_distance": 2,
+  "query": "archive signing certificate",
+  "quotes_included": false,
+  "report_version": "2",
+  "score_semantics": {
+    "dense": "sqlite-vec L2 distance between normalized embeddings; lower is better",
+    "fusion": "Weighted reciprocal-rank sum; higher is better; not confidence",
+    "lexical": "SQLite FTS5 BM25; lower is better; not confidence",
+    "reranker": "Raw cross-encoder score; higher is better; not confidence or comparable across queries, models, or historical BM25 scores; returned order is authoritative"
+  },
+  "stage_counts": {
+    "deduplicated_union": 44,
+    "dense_candidates": 44,
+    "fused_shortlist": 44,
+    "lexical_candidates": 1,
+    "reranked_candidates": 44,
+    "returned_hits": 20
+  },
+  "subject_scope": [
+    {
+      "distance": 0,
+      "entity_id": "atlas",
+      "scope": "direct",
+      "supporting_anchor_ids": [],
+      "supporting_edge_ids": []
+    },
+    {
+      "distance": 1,
+      "entity_id": "security-review",
+      "scope": "graph_expanded",
+      "supporting_anchor_ids": [
+        "998768b73233b2465299fbab2db07bd0246fbca67411ef5bf6dba76d045f574b"
+      ],
+      "supporting_edge_ids": [
+        "43db8da59c915e064c79daecde9092510a5a97fc8f8b785114057f77031ccd9a"
+      ]
+    },
+    {
+      "distance": 2,
+      "entity_id": "audit-trail",
+      "scope": "graph_expanded",
+      "supporting_anchor_ids": [
+        "998768b73233b2465299fbab2db07bd0246fbca67411ef5bf6dba76d045f574b",
+        "fc5077210f4e2900ea04ab80998c4ccceb01abac5c6667499b0975dfd841c855"
+      ],
+      "supporting_edge_ids": [
+        "43db8da59c915e064c79daecde9092510a5a97fc8f8b785114057f77031ccd9a",
+        "6aa2e4e94dd9c806b2b31fe2f0be37e78612ba6f4048b6a8e0f159d884e313df"
+      ]
+    }
+  ],
+  "supersession_filter_applied": false,
+  "tie_breakers": {
+    "dense": [
+      "passage_id"
+    ],
+    "fusion": [
+      "record_id"
+    ],
+    "lexical": [
+      "source_path",
+      "start_offset",
+      "passage_id"
+    ],
+    "reranker": [
+      "record_id"
+    ]
+  },
+  "total_candidates": 44,
+  "trace_limit": 50,
+  "truncated": false
+}

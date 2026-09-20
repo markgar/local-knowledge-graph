@@ -1,7 +1,7 @@
 # Local Knowledge Graph: current contracts
 
 Status: implemented capabilities in a **pre-alpha** package. Productization
-acceptance remains pending final combined validation and review under
+acceptance is recorded after final combined validation and review under
 [`PRODUCTIZATION_SPEC.md`](PRODUCTIZATION_SPEC.md). Interface changes are not a
 claim of production readiness, improved relevance, or calibrated answerability.
 

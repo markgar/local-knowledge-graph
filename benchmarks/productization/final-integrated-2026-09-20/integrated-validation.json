@@ -1,0 +1,138 @@
+{
+  "benchmark": "productization-final-validation-v1",
+  "status": "passed",
+  "timestamp": "2026-09-20T18:05:31.990344+00:00",
+  "validated_commit": "12aeadf4c7733cd7abdf238f1198896992dd49e3",
+  "original_baseline": "ecc0da83ce284e60aa6cb0946976a80d37f4fdad",
+  "validation_stages": {
+    "unit_tests": {
+      "status": "passed",
+      "command": "uv run pytest -v",
+      "result": "649 tests passed in 77.56s",
+      "exit_code": 0,
+      "details": "All 649 unit tests passed without failures"
+    },
+    "code_quality": {
+      "status": "passed",
+      "checks": {
+        "ruff": {
+          "command": "uv run ruff check .",
+          "result": "All checks passed!",
+          "exit_code": 0
+        },
+        "mypy": {
+          "command": "uv run mypy",
+          "result": "Success: no issues found in 27 source files",
+          "exit_code": 0
+        },
+        "build": {
+          "command": "uv build",
+          "result": "Build succeeded",
+          "exit_code": 0
+        }
+      }
+    },
+    "productization_parity": {
+      "status": "passed",
+      "runner": "benchmarks/productization/validate.py",
+      "mode": "real-model",
+      "combinations": 8,
+      "combinations_passed": 8,
+      "combinations_failed": 0,
+      "results": {
+        "atlas-gte-modernbert-contextual-false": "passed",
+        "atlas-gte-modernbert-contextual-true": "passed",
+        "atlas-qwen3-embedding-0.6b-contextual-false": "passed",
+        "atlas-qwen3-embedding-0.6b-contextual-true": "passed",
+        "atlas-state-gte-modernbert-contextual-false": "passed",
+        "atlas-state-gte-modernbert-contextual-true": "passed",
+        "atlas-state-qwen3-embedding-0.6b-contextual-false": "passed",
+        "atlas-state-qwen3-embedding-0.6b-contextual-true": "passed"
+      },
+      "report_path": ".kg/productization/integrated-validation-1789927106/report.json",
+      "report_sha256": "56c8f37df945db78fe6dd8dd17ebdced39f5057a3a9a7accb35210307d831637"
+    },
+    "cli_validation": {
+      "status": "passed",
+      "test_corpus": "corpora/atlas.yml",
+      "test_query": "archive signing certificate",
+      "test_filter": {
+        "subject": "Atlas"
+      },
+      "validation_checks": {
+        "ordered_ids_match": {
+          "status": "passed",
+          "description": "Ordinary and explain search return identical record_id ordering"
+        },
+        "score_consistency": {
+          "status": "passed",
+          "details": "20/20 scores matched (tolerance rel=1e-5, abs=1e-6)",
+          "description": "All reranker scores match between ordinary and explain"
+        },
+        "citation_fields": {
+          "status": "passed",
+          "required_fields": [
+            "record_id",
+            "quote",
+            "source_path",
+            "anchor_id"
+          ],
+          "description": "All citation fields present in search results"
+        },
+        "explanation_structure": {
+          "status": "passed",
+          "candidates_returned": 44,
+          "reranker_scores_present": 44,
+          "description": "Explanation preserves full candidate trace with reranker scores"
+        },
+        "null_value_handling": {
+          "status": "passed",
+          "description": "Explanation retains explicit null values (not collapsed with exclude_none)"
+        },
+        "query_preservation": {
+          "status": "passed",
+          "query_in_explain": "archive signing certificate",
+          "description": "Query correctly preserved in explanation output"
+        }
+      },
+      "cli_outputs": {
+        "ordinary_search_sha256": "3350997faa41ad4b3dc5cf4f8014b7e22bcbb32603800dfe4504dd6332ffa185",
+        "explain_search_sha256": "0fc0a4fe72e7647731142afed36715aba5a3126dc10fae2ace0e379061ccb133"
+      }
+    },
+    "worktree_integrity": {
+      "status": "passed",
+      "head_commit": "12aeadf4c7733cd7abdf238f1198896992dd49e3",
+      "changes": "none",
+      "description": "No tracked files modified, HEAD unchanged"
+    }
+  },
+  "artifacts": {
+    "integrated_model_results": {
+      "path": "integrated-model-results.json",
+      "sha256": "56c8f37df945db78fe6dd8dd17ebdced39f5057a3a9a7accb35210307d831637",
+      "description": "Full real-model runner report with 8 combinations (atlas, atlas-state x gte-modernbert, qwen3 x contextual false/true)"
+    },
+    "cli_search_ordinary": {
+      "path": "cli_search_ordinary.json",
+      "sha256": "3350997faa41ad4b3dc5cf4f8014b7e22bcbb32603800dfe4504dd6332ffa185",
+      "description": "CLI search output for 'archive signing certificate' --subject Atlas (20 hits)"
+    },
+    "cli_search_explain": {
+      "path": "cli_search_explain.json",
+      "sha256": "0fc0a4fe72e7647731142afed36715aba5a3126dc10fae2ace0e379061ccb133",
+      "description": "CLI explain search output with full candidate traces (44 candidates across 20 results)"
+    }
+  },
+  "summary": {
+    "overall_status": "PASSED",
+    "tests_passed": 649,
+    "quality_checks_passed": 3,
+    "productization_combinations_passed": 8,
+    "cli_validations_passed": 6,
+    "worktree_verified": true,
+    "no_blockers": true,
+    "no_implementation_changes": true,
+    "all_cached_models_used": true
+  }
+}

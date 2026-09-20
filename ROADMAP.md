@@ -270,8 +270,8 @@ The first implementation workstream is specified in
 ingestion, retire E-stage product organization, and make normal search use the
 complete existing reranked hybrid pipeline. Later implementation sequencing and
 release boundaries remain to be planned. The full scope above is unchanged.
-The implementation is in review; productization acceptance remains pending final
-combined validation and review. This transition does not deliver the query planner.
+The productization transition is accepted after final combined validation and
+review, recorded in the specification. It does not deliver the query planner.
 
 ## Productization: one KG, not a sequence of experiments
 

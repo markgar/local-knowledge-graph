@@ -1,8 +1,15 @@
 # KG productization specification
 
-Status: specified, not implemented.
+Status: implemented and accepted after final combined validation and review.
 Priority: first implementation workstream in `ROADMAP.md`.
 Date: 2026-09-20.
+
+Acceptance evidence: [final integrated validation and review](benchmarks/productization/final-integrated-2026-09-20/README.md)
+at code revision `12aeadf4c7733cd7abdf238f1198896992dd49e3`, reviewed from baseline
+`ecc0da83ce284e60aa6cb0946976a80d37f4fdad`. All eight real-model combinations
+and local checks passed; no actionable whole-diff review findings remained.
+This accepts the interface transition, not production readiness or unmet
+retrieval-quality gates. No merge or GitHub CI success is implied.
 
 ## Outcome
 
