@@ -58,12 +58,15 @@ or use `gh workflow run ci.yml --ref <branch>`, and inspect its Python
   Do not rewrite authored gold to match a new ranking default: lexical expected
   lists remain low-level component assertions. Add separately scoped product
   search cases for the full pipeline.
-- Keep `README.md` and `SPEC.md` focused on implemented behavior; track target
-  capabilities, package boundaries and dependencies in the single `ROADMAP.md`;
-  linked GitHub issues own execution detail and progress. Create issues for ready
-  packages, leaving later work in the roadmap. Do not add parallel planning docs.
+- Keep repository documentation focused on implemented behavior and executable
+  assets. The [build roadmap issue](https://github.com/markgar/local-knowledge-graph/issues/28)
+  owns planned scope, dependencies, shared service requirements and acceptance
+  recipes; package issues own designs, decisions, PR-sized slices and progress.
+  Do not add repository planning documents or duplicate the issue inventory.
+  Review a package's implementation design before building; close it only with
+  actual acceptance evidence. Update docs with each delivered behavior change.
   Update `CONTRACTS.md`, models, examples and tests together when changing
-  the shared value contracts. Do not present shape validation as storage,
+  implemented value contracts. Do not present shape validation as storage,
   authorization, atomicity or query execution.
 
 ## Search and evaluation boundaries
@@ -101,8 +104,9 @@ real-model parity checks, approved cache usage, and durable result requirements.
 Controlled-provider success cannot substitute for required real-model acceptance.
 Foundation [contract inputs](corpora/foundation/README.md) and
 [workload targets](benchmarks/foundation/README.md) are deterministic validation
-and evaluation preparation, not integration results. Each owning service package
-must implement the corresponding real acceptance cases.
+and evaluation preparation, not integration results. Pending integration recipes
+and their owners live in the
+[tracking issue](https://github.com/markgar/local-knowledge-graph/issues/28#acceptance-recipes).
 
 For larger changes, open an issue first so the design can be discussed before
 implementation.

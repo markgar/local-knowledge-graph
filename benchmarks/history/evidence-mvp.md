@@ -20,12 +20,10 @@ tags:
 > [`work-memory evaluation`](../work_memory/README.md). Historical strategies
 > explicitly select low-level components, not the current public search default.
 
-> **Next product direction:** [`ROADMAP.md`](../../ROADMAP.md) defines the generic
-> knowledge engine target, including natural-language query planning and
-> generic text ingestion and agent-assisted graph enrichment. It takes precedence over
-> future-direction statements here where they differ. This specification
-> retains existing implementation contracts and historical experiment details;
-> roadmap capabilities are not implied to be implemented.
+> **Current planning:** The [build roadmap issue](https://github.com/markgar/local-knowledge-graph/issues/28)
+> owns future work and takes precedence over historical future-direction statements
+> below. This archived record is not an active implementation plan or a claim that
+> planned capabilities exist.
 
 ## Implementation Status
 
