@@ -2,16 +2,15 @@
 
 Status: F0/V0 foundation implemented (validation/fixtures/protocol only);
 all downstream packages remain planned.
-Recorded: 2026-09-20.
-Starting baseline: `c4162bac3bc5c5d40006e47ad66678fd44230f73`.
+Updated: 2026-09-20.
 
 ## Purpose and scope
 
 Deliver the complete target in [ROADMAP.md](ROADMAP.md), using the existing
 product rather than rewriting it. The roadmap defines requirements;
 [SPEC.md](SPEC.md) defines implemented behavior; this plan defines work packages,
-dependencies, coordination, and acceptance. Proposed contracts in this document
-are not existing supported APIs.
+dependencies, coordination, and acceptance. The foundation's validation-only
+values are implemented; planned service behavior is not a supported API.
 
 The scope includes all twelve core systems in the roadmap and a downstream
 adapter track for Markdown, email, meeting notes, and Teams. Concrete connector
@@ -25,11 +24,11 @@ inventing incompatible contracts.
 
 ## Starting point and constraints
 
-Productization and the preparatory structure work are complete. The baseline
-includes the full search pipeline, exact evidence/history, structured reads,
-explicit record-state resolution, and the private ingestion intake/writer split.
-The last implementation validation passed 655 tests, lint, type checks, and
-package build. These are baseline observations, not validation of future work.
+The baseline includes the full search pipeline, exact evidence/history, structured
+reads, explicit record-state resolution, the private ingestion intake/writer
+split, and `foundation/1` validation models, fixtures and evaluation inputs.
+The foundation delivers contract validation, not storage/execution guarantees
+or production quality.
 
 Keep Python, SQLite, the local CLI/JSON boundary, existing retrieval algorithms,
 and approved model/cache behavior unless a later decision justifies a change.
@@ -57,35 +56,27 @@ Important constraints for the first work packages:
 - Existing unmet relevance and answerability gates remain visible. Completing
   interfaces or passing synthetic cases does not establish production readiness.
 
-## Foundation: agree the contracts that cross lanes
+## Completed foundation and next handoff
 
-Start with a small, executable contract-and-acceptance foundation, not an
-exhaustive design exercise or a collection of empty framework packages.
-Agree enough for independently implemented producers and consumers to interoperate:
+F0/V0 is implemented. The [foundation specification](FOUNDATION_SPEC.md) is
+the shared contract reference, not a design phase to repeat. Its delivered
+artifacts are:
 
-| Boundary | Decisions to establish |
-| --- | --- |
-| Evidence | Source/external/document/revision identities; complete supplied content; source locations; passage/anchor identities; offset and encoding semantics; legacy-history compatibility. |
-| Writes | Validation; batch outcomes; idempotency; expected-revision preconditions; caller/transaction ownership; explicit failures and partial outcomes. |
-| Knowledge | Entities, identifiers, aliases, assertions, relationships and evidence links; explicit versus inferred knowledge; plugin/agent attribution; seed versus agent ownership. |
-| Scope and lifecycle | Access context on every operation; processing states and freshness; deactivation versus purge; stale submissions and concurrent changes. |
-| Queries | Typed operators and results; dependent execution; bounded budgets; ambiguity/unsupported outcomes; snapshot and continuation semantics. |
-| Compatibility | Versioned external contracts, capability discovery, schema/data migration, and adapters for existing public behavior. |
+| Deliverable | Reference | Remaining obligation |
+| --- | --- | --- |
+| Strict versioned values and validation | [`kg.models.foundation`](src/kg/models/foundation.py) and [contract tests](tests/test_foundation_contracts.py) | E1/K1/Q1 implement persistence and execution behind these boundaries. |
+| Ownership, evidence, atomic changes, support, read-state and compatibility semantics | [Shared contracts](FOUNDATION_SPEC.md#shared-contracts) | Owning packages enforce them against real stored data, including mixed-writer safety. |
+| A01-A17 scenarios and contract examples | [Acceptance inputs](corpora/foundation/README.md) | Integration outcomes remain pending under their package owners; shape checks are not substitutes. |
+| Deterministic workload and initial numeric targets | [Evaluation protocol](benchmarks/foundation/README.md) | V1 measures real services and records misses; targets are not measured results. |
 
-Scope, provenance, and revision preconditions must be present from the start,
-not retrofitted after individual features are built. Define one owner for
-cross-cutting contract and schema decisions. Contracts can evolve through
-coordinated, versioned changes; they are not frozen forever.
+**Next: E1, K1 and Q1.** Scope each as a reviewable implementation change using
+the settled contracts. The coordinator owns cross-lane contract/schema decisions;
+E1 owns migrations, K1 contribution storage, and Q1 coherent dependent execution.
+Integrate real producers and consumers before accepting a handoff.
 
-The [F0/V0 foundation specification](FOUNDATION_SPEC.md) records initial shared
-semantics, strict versioned models/tests, acceptance inventory and evaluation
-targets. Contract validation is implemented, not generic storage or execution.
-E1/K1/Q1 can use these boundaries; no downstream lane is started by this change.
-
-Create representative acceptance scenarios alongside these contracts.
-No model or real connector is needed to establish deterministic storage and
-execution invariants. Do not invent source permissions, retention requirements,
-or model-egress policy merely to unblock an implementation session.
+Contracts may evolve through coordinated, versioned changes. Do not reopen the
+foundation wholesale or invent source permissions, retention requirements, or
+model-egress policy to unblock a lane.
 
 ## Parallel implementation lanes
 
@@ -106,40 +97,42 @@ unowned tasks for a final hardening phase.
 
 ## Work packages and dependencies
 
-There are 23 work packages. A package is a planning unit, not necessarily one
-large PR or a permanently running agent. Split it into small, complete,
-reviewable changes with executable acceptance criteria.
+There are 23 work packages: **2 complete, 21 remaining**. `Next` means the shared
+foundation prerequisite is available, not that implementation has started.
+`Planned` packages follow their prerequisites; preparation may overlap.
+A package is not necessarily one large PR or a permanently running agent.
+Split it into small, complete, reviewable changes with executable acceptance criteria.
 
 The prerequisites below identify the contracts or capabilities needed to
 complete integration. Design, fixtures, and tests against agreed contracts may
 start earlier. Do not use placeholders or mocks as evidence that the integrated
 capability is finished.
 
-| ID | Work package and completion boundary | Prerequisites |
-| --- | --- | --- |
-| F0 | Shared versioned contracts and compatibility decisions described above, with executable contract tests and recorded unresolved decisions. | Baseline |
-| V0 | Cross-capability acceptance scenarios: evidence identity, retries, scope, ownership, ambiguity, exact operations, recovery, continuation and purge; agreed initial workloads and measurable budgets before parallel implementation. | F0 |
-| E1 | Generic validated text/metadata/batch intake; external identities; complete supplied-content retention; source-neutral references; current/historical reads and legacy migration. | F0 |
-| E2 | Markdown uses the shared intake boundary while retaining its existing extraction, identity and exact-citation behavior. | E1 |
-| E3 | Versioned passage processing and validated supplied boundaries; coordinated lexical/vector indexing, incremental/rebuild behavior and explicit freshness, independent of graph completion. | E1 |
-| E4 | Reliable local processing for ingestion/index/enrichment: durable states, retries, checkpoints, interruption recovery, concurrency/stale-work handling, migrations and diagnostics. | E1 |
-| K1 | General entities/identifiers/aliases, typed relationships/assertions, evidence links, interpretation provenance, ownership and scoped validated writes. | F0 |
-| K2 | Versioned agent tools for evidence inspection, candidate/entity lookup, neighborhood reads, entity creation, mentions and supported assertion writes. | E1, K1 |
-| K3 | Cross-source identity candidate discovery, explicit linking, auditable merge/unmerge or reversible equivalents, and ambiguity without silent identity decisions. | K1 |
-| K4 | Corrections, retractions, supersession, competing assertions and source edit/removal effects; separate historical knowledge from currently supported knowledge. | E1, K1 |
-| K5 | Enrichment lifecycle: pending revisions, agent attribution, idempotent retries, partial completion, stale-submission checks and re-enrichment without duplicate knowledge. | K2, E4 |
-| Q1 | Deterministic typed query executor with validated dependent operations, existing search/structured/evidence adapters, explicit outcomes, limits and execution telemetry. | F0 |
-| Q2 | Typed graph traversal/paths and exact structured lookup/filter/count/aggregate operations, entity ambiguity handling, and inspection of supporting records. | Q1, K1 |
-| Q3 | Natural-language planning into supported operations, including dependent graph/structured plans, clarification and unsupported outcomes, with bounded time/model/traversal budgets. | Q1, Q2 |
-| Q4 | Stable continuation across supported result types: snapshot identity, cursor expiry/data-change behavior, no duplicate/skipped results and honest exhaustion semantics. | Q1 |
-| X1 | Complete access/retention enforcement across reads, writes, graph/query operators and indexes; deactivation versus actual purge of canonical and derived content, including affected snapshots. | F0, E1, K1, E3, E4 |
-| I1 | Independently usable plugin contract: packaging, versions/capabilities, intake/tools, source-specific agent instructions and conformance without core edits. | E1, K2 |
-| I2 | Actual ingestion-agent integration connecting evidence-first intake, inspection, interpreted writes and lifecycle; keep interpretation outside the core. | I1, K5 |
-| S1 | Email adapter for messages, threads, participants, source links and synchronization through the shared contracts; select concrete provider separately. | I1 |
-| S2 | Meeting-notes/transcript adapter for text, participants, event times, locations and synchronization; select actual formats/providers separately. | I1 |
-| S3 | Teams-message adapter with stable source references, incremental synchronization and permission handling through the same contracts. | I1 |
-| V1 | Representative, permission-approved evaluation of evidence, retrieval, graph/structured correctness, agents/planning, latency, cost and resource usage against agreed budgets. | V0 |
-| R1 | Staged core and live-workflow acceptance, compatibility/migration/recovery validation, packaging/docs, independent combined-diff review and explicit release-gate assessment. Full-scope completion still requires all packages. | Core milestone: F0/V0, E/K/Q, X1, I1/I2 and applicable V1; final milestone: all preceding packages |
+| ID | Status | Work package and completion boundary | Prerequisites |
+| --- | --- | --- | --- |
+| F0 | Complete | Shared versioned contracts, compatibility decisions and executable validation tests; no storage/execution implementation. | Baseline |
+| V0 | Complete | A01-A17 scenarios, synthetic contract fixtures, reproducible workload and initial numeric targets; integrated outcomes and service measurements remain pending. | F0 |
+| E1 | Next | Generic validated text/metadata/batch intake; external identities; complete supplied-content retention; source-neutral references; current/historical reads and legacy migration. | F0 |
+| E2 | Planned | Markdown uses the shared intake boundary while retaining its existing extraction, identity and exact-citation behavior. | E1 |
+| E3 | Planned | Versioned passage processing and validated supplied boundaries; coordinated lexical/vector indexing, incremental/rebuild behavior and explicit freshness, independent of graph completion. | E1 |
+| E4 | Planned | Reliable local processing for ingestion/index/enrichment: durable states, retries, checkpoints, interruption recovery, concurrency/stale-work handling, migrations and diagnostics. | E1 |
+| K1 | Next | General entities/identifiers/aliases, typed relationships/assertions, evidence links, interpretation provenance, ownership and scoped validated writes. | F0 |
+| K2 | Planned | Versioned agent tools for evidence inspection, candidate/entity lookup, neighborhood reads, entity creation, mentions and supported assertion writes. | E1, K1 |
+| K3 | Planned | Cross-source identity candidate discovery, explicit linking, auditable merge/unmerge or reversible equivalents, and ambiguity without silent identity decisions. | K1 |
+| K4 | Planned | Corrections, retractions, supersession, competing assertions and source edit/removal effects; separate historical knowledge from currently supported knowledge. | E1, K1 |
+| K5 | Planned | Enrichment lifecycle: pending revisions, agent attribution, idempotent retries, partial completion, stale-submission checks and re-enrichment without duplicate knowledge. | K2, E4 |
+| Q1 | Next | Deterministic typed query executor with validated dependent operations, existing search/structured/evidence adapters, explicit outcomes, limits and execution telemetry. | F0 |
+| Q2 | Planned | Typed graph traversal/paths and exact structured lookup/filter/count/aggregate operations, entity ambiguity handling, and inspection of supporting records. | Q1, K1 |
+| Q3 | Planned | Natural-language planning into supported operations, including dependent graph/structured plans, clarification and unsupported outcomes, with bounded time/model/traversal budgets. | Q1, Q2 |
+| Q4 | Planned | Stable continuation across supported result types: snapshot identity, cursor expiry/data-change behavior, no duplicate/skipped results and honest exhaustion semantics. | Q1 |
+| X1 | Planned | Complete access/retention enforcement across reads, writes, graph/query operators and indexes; deactivation versus actual purge of canonical and derived content, including affected snapshots. | F0, E1, K1, E3, E4 |
+| I1 | Planned | Independently usable plugin contract: packaging, versions/capabilities, intake/tools, source-specific agent instructions and conformance without core edits. | E1, K2 |
+| I2 | Planned | Actual ingestion-agent integration connecting evidence-first intake, inspection, interpreted writes and lifecycle; keep interpretation outside the core. | I1, K5 |
+| S1 | Planned | Email adapter for messages, threads, participants, source links and synchronization through the shared contracts; select concrete provider separately. | I1 |
+| S2 | Planned | Meeting-notes/transcript adapter for text, participants, event times, locations and synchronization; select actual formats/providers separately. | I1 |
+| S3 | Planned | Teams-message adapter with stable source references, incremental synchronization and permission handling through the same contracts. | I1 |
+| V1 | Planned | Representative, permission-approved evaluation of evidence, retrieval, graph/structured correctness, agents/planning, latency, cost and resource usage against initial targets. Runs incrementally as services become available. | V0 |
+| R1 | Planned | Staged core and live-workflow acceptance, compatibility/migration/recovery validation, packaging/docs, independent combined-diff review and explicit release-gate assessment. Full-scope completion still requires all packages. | Core milestone: F0/V0, E/K/Q, X1, I1/I2 and applicable V1; final milestone: all preceding packages |
 
 For E1/K1, the shared evidence reference contract permits parallel development;
 integrated graph writes must still validate actual stored evidence. Q2 does not
@@ -175,19 +168,16 @@ individual branch passed its own tests.
 | 11. Reliable processing and operations | E4, E3, K5, R1 |
 | 12. Stable contracts and evaluation | F0, V0, I1, V1, R1 |
 
-## Execution order
+## Remaining execution order
 
-1. **Foundation:** F0 with acceptance-scenario preparation for V0. Resolve the
-   cross-lane contracts and preserve the baseline before implementation fans out.
-   Agree initial V0 workloads and numeric quality/operating budgets at this gate.
-2. **First parallel wave:** E1, K1 and Q1. Each lane builds against agreed
+1. **First parallel wave:** E1, K1 and Q1. Each lane builds against agreed
    contracts; integrate their evidence and scope boundaries as soon as available.
-3. **Dependent capabilities:** start ready packages rather than waiting for a
+2. **Dependent capabilities:** start ready packages rather than waiting for a
    whole lane to finish. E2/E3/E4, K2/K3/K4, Q2/Q4 and verification can overlap
    subject to file ownership and stable prerequisites.
-4. **Agent and query integration:** K5, I1/I2 and Q3 as their dependencies land.
+3. **Agent and query integration:** K5, I1/I2 and Q3 as their dependencies land.
    Continue X1, recovery testing and V1 throughout, not only at the end.
-5. **Adapters and full workflows:** S1/S2/S3 can proceed independently after
+4. **Adapters and full workflows:** S1/S2/S3 can proceed independently after
    plugin contracts stabilize. Live acceptance waits for the explicit policy
    gates. Finish R1 against the combined code and real evaluation evidence.
 
@@ -224,7 +214,7 @@ interface. Version intentional public changes.
   and work status in this plan/roadmap or associated work items, not as claims
   that unfinished features are implemented.
 
-The readiness refactor is already done. Extract evidence/history responsibilities
+The private intake/writer boundary is available. Extract evidence/history responsibilities
 from `RetrievalService` when generic evidence intake needs that boundary, and
 extract dense projection storage/build responsibilities with index lifecycle.
 Do not add another broad restructuring phase, speculative empty packages, a
@@ -265,8 +255,7 @@ Exercise an independently packaged adapter without adding source-specific core
 branches. Real-agent/provider and permission-approved usage evaluation must
 remain distinct from deterministic mocks.
 
-Set initial representative workloads and concrete quality, latency, cost and
-resource budgets during F0/V0, before the first parallel implementation wave.
+Use the [delivered V0 workload and initial targets](benchmarks/foundation/README.md).
 Measure incrementally as capabilities appear and review budget changes explicitly.
 Do not silently lower historical unmet thresholds or infer improved relevance
 from additional interfaces. Record code/configuration/model/data identities and
@@ -280,23 +269,27 @@ permission-approved S1/S2/S3 results separately. Blocked live workflows remain
 incomplete, and full-scope R1 completion still requires every package. Neither
 milestone by itself converts unmet production-quality gates into passes.
 
-## Decisions and defaults
+## Remaining decisions
 
-These decisions remain visible work, not assumptions hidden in child prompts.
-Resolve only what blocks the next package, while preserving the rest of the
-scope. Escalate choices that change public behavior, source access or data egress.
+The foundation settles initial identities, code-point offsets, contribution
+ownership, bounded atomic change sets, conjunctive support, coherent query-state
+semantics, compatibility rules and numeric limits/targets. Keep SQLite, Python,
+local CLI/JSON transport and current retrieval models. Do not repeat those
+decisions unless implementation evidence requires a reviewed contract change.
+
+The decisions below remain open. Resolve them with the owning package; escalate
+choices that change public behavior, source access or data egress.
 
 | Decision | Recommended starting position | Required before |
 | --- | --- | --- |
-| Storage and deployment | Keep SQLite, Python, current retrieval models and local CLI/JSON transport; introduce no hosted service by default. | F0 |
-| Source identity, offsets, ownership and knowledge schema | Agree explicit, versioned semantics including source synchronization and alias/contribution ownership, with compatibility for existing evidence; extensibility does not mean unvalidated arbitrary writes. | F0 exit, before E1/K1/Q1 |
+| Storage enforcement and migration | Choose transaction, receipt/state storage, predicate registry and coherent-read mechanisms that enforce the settled contracts; preserve existing evidence and owner-scope mutations. | E1/K1/Q1 acceptance |
 | Planner strategy | Build deterministic execution first; choose rules/model assistance behind its validated operator boundary. | Q3 |
 | Ingestion-agent host | Publish explicit tools/instructions; keep interpretation outside the core. Choose the actual hosting/invocation integration. | I2 |
 | Model providers and data egress | Preserve local-first, approved cache/download behavior. Hosted inference requires an explicit decision and authorization. | Any new provider integration |
 | Real sources and representative questions | Choose actual email/meeting/Teams providers and a permission-approved workflow; use synthetic conformance fixtures meanwhile. | Live S1/S2/S3 acceptance |
-| Permissions and retention | Define scope in F0; agree concrete source ACL and retention/purge rules before mixing live sources. | X1 and live connector acceptance |
+| Permissions and retention | Implement the settled scope/support boundaries; agree concrete source ACL, retention and purge rules before mixing live sources. | X1 and live connector acceptance |
 | Cursor behavior | Agree snapshot identity, expiry and data-change outcomes; distinguish bounded candidate exhaustion from corpus exhaustion. | Q4 |
-| Quality and operating budgets | Agree initial representative workloads and numeric acceptance thresholds without erasing known limitations; measure incrementally and explicitly review changes. | F0/V0 exit, before parallel implementation |
+| Evaluation and target revisions | Measure implemented services against V0 targets; select representative approved real workloads and review revisions without erasing historical misses. | Incremental V1 and R1 |
 
 ## Foundation delivery and next package boundary
 
@@ -312,6 +305,6 @@ Review the settled foundation contract and package-specific acceptance recipes.
 The coordinator owns shared contract/schema decisions; E1 owns migrations,
 K1 owns contribution storage and Q1 owns coherent dependent execution; V1 owns
 measurement. Launch ready lanes only through separately authorized work.
-Do not reopen completed
-productization or structural cleanup, start all packages simultaneously, or
+Do not restart completed foundation work, add a broad restructuring phase,
+start all packages simultaneously, or
 silently choose unresolved live-source/model policies.

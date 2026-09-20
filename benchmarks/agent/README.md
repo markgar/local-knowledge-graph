@@ -1,48 +1,45 @@
 # Agent CLI evaluation
 
-This historical E5 evaluation preserves the original natural-BM25 search,
-JSON, provenance, and revision contracts independently from retrieval-quality
-and answerability gates. Search runs through the private evaluation worker
-[`../_lexical_search.py`](../_lexical_search.py), explicitly selecting the
-low-level natural lexical service. Other operations still invoke `kg` in a
-subprocess. Neither lexical evaluation nor structured/evidence operations
-require semantic models or a vector index.
+This scripted evaluation checks seven reviewed JSON, provenance, status, and
+revision workflows. It does **not** launch an agent or measure generated-answer
+quality. For an agent-answer comparison, use [work-memory](../work_memory/README.md).
 
-Normal product search uses the full retrieval pipeline; this frozen baseline
-is not an alternative supported product interface. Its historical labels and
-reviewed expectations are unchanged. Full-pipeline parity validation is recorded
-separately under [`../productization/`](../productization/).
+Search explicitly uses natural BM25 through the private
+[`_lexical_search.py`](../_lexical_search.py) worker. Other operations invoke
+`kg` in subprocesses. Neither requires semantic models or a vector index.
+These are component/contract checks, not an alternative product search
+interface: public `kg search` uses the full lexical/dense/fusion/reranking
+pipeline. See [productization validation](../productization/README.md) for parity.
 
-The historical evaluator's operation set is (current capability discovery
-advertises interface version 2; frozen search still uses its original backend):
+## Run
 
-| Agent operation | CLI command |
-| --- | --- |
-| Discover interface capabilities | `kg capabilities --format json` |
-| Search for evidence | Internal natural-BM25 evaluation worker (not product `kg search`) |
-| Read an exact source range | `kg source-range <anchor-id> ... --format json` |
-| Read surrounding anchored context | `kg source-context <anchor-id> ... --format json` |
-| List source revisions | `kg revisions <source-path> ... --format json` |
-| Compare revisions | `kg compare-revisions <source-path> ... --format json` |
-| Resolve a citation | `kg evidence <record-id> ... --format json` |
-| Retrieve structured status | `kg status <subject> ... --format json` |
-
-`tasks.json` contains reviewed workflows for paraphrased search,
-multi-document synthesis, explicit conflicts, ambiguous cross-source results,
-unsupported subjects, citation round-trips, and revision comparison.
-
-Run the evaluation from the repository root:
+From the repository root, with the [development environment](../../CONTRIBUTING.md)
+available:
 
 ```bash
 uv run python benchmarks/agent/evaluate.py \
-  --output benchmarks/agent/results.json
+  --output .kg/agent/results-run-1.json
 ```
 
-The evaluator creates an isolated temporary corpus and invokes the appropriate
-worker or CLI in a subprocess for every operation. Generated results are not committed.
+`--tasks PATH` selects a task file (default: [`tasks.json`](tasks.json)).
+The evaluator copies the research-vault fixture into an isolated temporary
+workspace, adds a conflict document, ingests it, and executes the workflows.
+The revision workflow edits only that copy. The workspace is removed afterward.
+The complete report is always printed; `--output` also writes it, creating parent
+directories. Existing output files are overwritten, so use a distinct path for
+each retained run. Inspect `passed`, `pass_rate`, and individual `task_results`;
+failed expectations are recorded in JSON, not converted into a nonzero exit.
 
-`source-context` is an additive operation covered by the source-context CLI
-tests and reviewed corpus acceptance cases, not by the original seven E5
-workflows. It returns bounded context from the selected revision and reports
-truncation explicitly. The optional `--contextual` source representation is
-measured separately through QASPER; E5 continues to use natural BM25.
+## Coverage and limits
+
+[`tasks.json`](tasks.json) covers paraphrased lexical search, multi-document
+status, explicit conflicts, ambiguous cross-source matches, unsupported subjects,
+citation round-trips, and revision comparison. Keep its reviewed expectations
+and the `agent-cli-e5` report label unchanged when comparing runs.
+
+Citation checks use `kg evidence` and `kg source-range`; revision checks reingest
+an edited source and use `kg compare-revisions`. Capability discovery,
+`kg revisions`, and `kg source-context` have separate CLI tests; they are not workflows
+in this task file. Source context reads bounded passages from the selected
+revision and reports truncation. Contextual embedding/reranking is a separate
+[QASPER experiment](../qasper/README.md), not part of this lexical evaluation.

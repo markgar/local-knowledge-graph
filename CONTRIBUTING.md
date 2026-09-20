@@ -28,6 +28,24 @@ uv run mypy
 uv build
 ```
 
+CI is manually dispatched, not triggered automatically by pushes or pull
+requests. Run the **CI** workflow in GitHub Actions for the branch under review,
+or use `gh workflow run ci.yml --ref <branch>`, and inspect its Python
+3.12/3.13/3.14 results before merging.
+
+## Repository layout
+
+| Path | Responsibility |
+| --- | --- |
+| `src/kg/config.py`, `src/kg/models/manifest.py` | Corpus manifest loading and source selection. |
+| `src/kg/markdown/`, `src/kg/ingest/` | Exact Markdown ranges, explicit extraction and canonical writes. |
+| `src/kg/schema.sql`, `src/kg/db.py` | Canonical SQLite schema and connection handling. |
+| `src/kg/retrieval/` | Product search, component retrieval, structured state and evidence reads. |
+| `src/kg/cli.py` | Local text/JSON commands and capability reporting. |
+| `src/kg/models/foundation.py` | Validation-only `foundation/1` values, not services. |
+| `tests/`, `corpora/` | Automated coverage, manifests, source fixtures and acceptance inputs. |
+| `benchmarks/`, `examples/` | Evaluation tools/results and a cited-status client. |
+
 ## Pull requests
 
 - Keep changes focused and include tests for behavior changes.
@@ -40,6 +58,11 @@ uv build
   Do not rewrite authored gold to match a new ranking default: lexical expected
   lists remain low-level component assertions. Add separately scoped product
   search cases for the full pipeline.
+- Keep `README.md` and `SPEC.md` focused on implemented behavior; track target
+  capabilities and package status in `ROADMAP.md` and `IMPLEMENTATION_PLAN.md`.
+  Update `FOUNDATION_SPEC.md`, models, examples and tests together when changing
+  the shared value contracts. Do not present shape validation as storage,
+  authorization, atomicity or query execution.
 
 ## Search and evaluation boundaries
 
@@ -63,20 +86,21 @@ Then run the full validation commands above. Version-2 search reports must
 serialize without `exclude_none=True`: missing stage memberships/contributions
 are explicit nulls, while the report serializer handles quote opt-in.
 
-Historical evaluation explicitly selects low-level components. Agent/work-memory
-lexical runs use the private `benchmarks/_lexical_search.py` worker; QASPER selects
-its component strategy directly. Do not route frozen lexical benchmarks through
-the product facade, change their defaults, or overwrite historical results.
+Evaluation tools explicitly select their components. Agent/work-memory lexical
+runs use the private `benchmarks/_lexical_search.py` worker; QASPER selects its
+component strategy directly. Do not route fixed lexical benchmarks through the
+product facade, change their defaults, or overwrite measured results.
 Preserve source snapshots, dates, question/tool restrictions, citations and gold.
-Record new experiments under distinct labels; there is no E-stage prerequisite
-for product development, and unmet quality gates must not be relabeled as passed.
+Record new runs under distinct labels; unmet quality gates must not be relabeled
+as passed.
 
-The separate [productization matrix](benchmarks/productization/README.md) documents
+The [product search matrix](benchmarks/productization/README.md) documents
 real-model parity checks, approved cache usage, and durable result requirements.
 Controlled-provider success cannot substitute for required real-model acceptance.
-The [final integrated record](benchmarks/productization/final-integrated-2026-09-20/README.md)
-documents acceptance after combined validation and review; later changes still
-require applicable regression and real-model checks.
+Foundation [contract inputs](corpora/foundation/README.md) and
+[workload targets](benchmarks/foundation/README.md) are deterministic validation
+and evaluation preparation, not integration results. Each owning service package
+must implement the corresponding real acceptance cases.
 
 For larger changes, open an issue first so the design can be discussed before
 implementation.

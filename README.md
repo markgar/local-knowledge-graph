@@ -13,15 +13,26 @@ remain available without semantic models.
 **Pre-alpha:** this is evidence retrieval, not a production question-answering
 system. It does not generate answers, infer entities or contradictions, or
 reliably decide whether a natural-language question is answerable. Existing
-retrieval-quality gates remain unmet. The public interface migration does not
-improve the underlying ranking algorithm or establish production readiness.
-The productization transition is [accepted after final combined validation and
-review](benchmarks/productization/final-integrated-2026-09-20/README.md).
+retrieval-quality gates remain unmet.
+
+## What is available
+
+| Capability | Current behavior |
+| --- | --- |
+| Ingestion | Manifest-selected local Markdown, explicit records, seed entities and exact source anchors. |
+| Search | Local keyword + semantic retrieval, fusion/deduplication and reranking; matching vector preparation is required. |
+| Structured reads | Actions, status and record-state diagnostics without semantic models. |
+| Evidence | Exact citations, source context, retained revisions and revision comparison. |
+| Foundation values | Strict `foundation/1` Python request/result validation, contract fixtures and synthetic evaluation inputs; no generic write or query service. |
+
+There are no live email/Teams connectors, agent-authored graph writes, general
+query planner, continuation service, or source-level ACL/purge service.
+The CLI is a local tool, not an authenticated network service.
 
 ## Install
 
-Python 3.12+ and [uv](https://docs.astral.sh/uv/) are required; CI covers Python
-3.12, 3.13, and 3.14.
+Python 3.12+ and [uv](https://docs.astral.sh/uv/) are required. The manually
+dispatched CI workflow covers Python 3.12, 3.13, and 3.14.
 
 ```bash
 git clone https://github.com/markgar/local-knowledge-graph.git
@@ -54,10 +65,9 @@ Allow disk space for dependencies, model caches, the canonical database, and
 separate vector projections, plus working memory for both models and inference
 batches. CPU is supported; CUDA or Apple MPS may be selected when available.
 Larger batches, long passages, and the Qwen profile use more resources; reduce
-`dense-index --batch-size` if indexing memory is constrained. Historical
-[QASPER measurements](benchmarks/qasper/RESULTS.md) recorded embedding caches
-of 287.7 MiB for GTE and 1,151.6 MiB for Qwen, excluding the reranker and runtime.
-Those are measurements on one setup, not minimum RAM/disk guarantees.
+`dense-index --batch-size` if indexing memory is constrained. Resource requirements
+depend on corpus size, model profile and runtime; no minimum RAM/disk guarantee is
+established.
 
 ## Configure a corpus
 
@@ -104,11 +114,11 @@ Date filters use configured event time, then observed modification/ingestion tim
 when absent. Search sees active current revisions, including superseded source
 assertions; use structured status/actions to inspect effective records.
 
-JSON remains a list of `SearchResult` objects with exact quotes, record/anchor
+JSON is a list of `SearchResult` objects with exact quotes, record/anchor
 IDs, source paths, revisions, and heading paths. **Preserve the returned order.**
 `rank` is a raw cross-encoder score, higher is better, with record-ID tie-breaking.
-It is not confidence and cannot be compared across queries, models, or historical
-BM25 scores. Do not sort ascending or apply an old BM25 cutoff.
+It is not confidence and cannot be compared across queries, models, or BM25
+scores. Do not sort ascending or apply a BM25 cutoff.
 
 ### Matching profile and contextual settings
 
@@ -146,7 +156,8 @@ document's outcome/reasons, revisions, stored counts, entities, exact anchors,
 explicit records, and state diagnostics. Counts describe stored evidence, not
 newly created rows. `--explain-limit` bounds anchor/record lists independently
 per document (default 50, 1..200); truncation is explicit. Quotes require opt-in.
-Ordinary ingestion output and ingestion report version 1 are unchanged.
+Ordinary ingestion returns `IngestResult`; explained ingestion returns
+`IngestReport` version 1.
 
 Search explanations are `ProductSearchExplanation` **report version 2**.
 They capture the actual full execution: effective filters/configuration,
@@ -271,23 +282,19 @@ Domain failures with `--format json` emit stderr objects and exit 2, for example
 
 Search errors include `invalid_manifest`, `invalid_query`,
 `dense_index_unavailable`, `reranker_unavailable`, and `search_state_changed`;
-other explanation-specific codes are preserved. `dense-index` retains
-`dense_index_failed`. Typer grammar/range errors retain usage-error text, even
+other explanation-specific codes are preserved. `dense-index` reports
+`dense_index_failed`. Typer grammar/range errors use usage-error text, even
 with JSON requested. Failed ingestion sources exit 1. No missing dependency is
 reported as an empty successful result. `kg --verbose ingest ...` emits operational
 diagnostics to stderr without report bodies or quotes.
 
-## Agent/Python integration and migration
+## Agent and Python integration
 
 `kg capabilities --format json` advertises **interface version 2**. The ordinary
-search list shape and non-search operations are preserved; the default pipeline,
-score meaning, and explanation contract changed.
-
-**Remove `--query-mode` from all product CLI calls, even `--query-mode reranked`.**
-Every old invocation fails with explicit migration guidance rather than selecting
-a stage or silently ignoring the flag. Prepare a matching dense index and model
-cache before using unqualified search. `--embedding-profile` and `--contextual`
-remain supported on both indexing and search.
+search result is a list; explained search returns report version 2. Ingestion
+reports use version 1. Prepare a matching dense index and model cache before
+searching. `--embedding-profile` and `--contextual` are supported on indexing and
+search; `--query-mode` is unsupported and rejected rather than bypassing stages.
 
 The supported Python entry point is:
 
@@ -305,10 +312,10 @@ payload = report.model_dump(mode="json")  # Keep explicit null stage memberships
 ```
 
 This assumes ingestion and matching indexing have already completed.
-`RetrievalService` still provides structured/evidence reads. Its strict/natural
-lexical search, legacy version-1 explanation, and the dense/hybrid/reranked service
-classes remain low-level compatibility and evaluation APIs, not alternate product
-interfaces. They do not acquire the product facade's stricter readiness behavior.
+`RetrievalService` provides structured/evidence reads. Its strict/natural
+lexical search, version-1 explanation, and the dense/hybrid/reranked service classes
+are low-level composition and evaluation APIs, not alternate product interfaces.
+They do not enforce the product facade's stricter readiness behavior.
 
 [`examples/cited_status.py`](examples/cited_status.py) is a model-independent
 subprocess client for structured status, error handling, and cited output:
@@ -317,7 +324,34 @@ subprocess client for structured status, error handling, and cited output:
 uv run python examples/cited_status.py corpora/example.yml Atlas
 ```
 
-## Development, evidence, and future work
+The example defaults to `--since 30d`; use its `--since` option to change that
+window. The underlying `kg status` command has no default time filter.
+
+### Foundation value validation
+
+`kg.models.foundation` supplies immutable, strict `foundation/1` values for
+document-write descriptions, bounded enrichment changes and dependent query plans.
+It checks shape, declared scope, exact source slices, references and result
+correlation. It does **not** ingest, execute, authorize or persist these requests.
+There is no CLI command for submitting them.
+
+```python
+from pathlib import Path
+from kg.models.foundation import WriteRequest
+
+request = WriteRequest.model_validate_json(
+    Path("corpora/foundation/enrichment.json").read_text(encoding="utf-8")
+)
+payload = request.model_dump_json()
+schema = WriteRequest.model_json_schema()
+```
+
+Use [FOUNDATION_SPEC.md](FOUNDATION_SPEC.md) for the contract reference,
+[corpora/foundation](corpora/foundation/README.md) for examples, and
+[benchmarks/foundation](benchmarks/foundation/README.md) for reproducible inputs
+and proposed engineering targets. Those targets are not measured performance.
+
+## Development and documentation
 
 ```bash
 uv run pytest
@@ -330,25 +364,19 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) and the current [contracts](SPEC.md).
 Routine tests use controlled providers; they do not download/run real models.
 Authored fixtures, reviewed gold, citations and component assertions are preserved.
 
-[QASPER results](benchmarks/qasper/RESULTS.md) retain historical relevance,
-latency, resource costs, and the failed answerability calibration. The original
-[experiment ledger and acceptance gates](benchmarks/history/evidence-mvp.md)
-remain available; no unmet gate was lowered. The
-[agent baseline](benchmarks/agent/README.md) and
-[work-memory comparison](benchmarks/work_memory/README.md) explicitly preserve
-historical lexical strategies through internal evaluation adapters.
-[Productization parity validation](benchmarks/productization/README.md) is
-separately labeled integration evidence, not improved relevance or new gold.
+| Document | Purpose |
+| --- | --- |
+| [SPEC.md](SPEC.md) | Implemented ingestion, retrieval, evidence, CLI and validation contracts. |
+| [FOUNDATION_SPEC.md](FOUNDATION_SPEC.md) | Foundation values and the service obligations they describe; enforcement is not implemented. |
+| [CONTRIBUTING.md](CONTRIBUTING.md) | Development layout, validation and contribution rules. |
+| [ROADMAP.md](ROADMAP.md) | Current capability gaps and target product requirements. |
+| [IMPLEMENTATION_PLAN.md](IMPLEMENTATION_PLAN.md) | Package status, dependencies and remaining delivery sequence. |
 
-[ROADMAP.md](ROADMAP.md) covers unimplemented generic text ingestion, source
-plugins, agent-authored enrichment, identity reconciliation, query planning and
-continuation. [IMPLEMENTATION_PLAN.md](IMPLEMENTATION_PLAN.md) organizes the full
-roadmap into dependent work packages, parallel lanes, and acceptance gates.
-[SPEC.md](SPEC.md) defines the current product contracts.
-The [F0/V0 foundation](FOUNDATION_SPEC.md) adds versioned validation-only Python
-models, synthetic acceptance inputs and initial evaluation targets. It does not
-yet provide generic write/query services, ACL enforcement or durable retries;
-existing commands and result formats are unchanged.
+Evaluation tooling covers [retrieval quality](benchmarks/qasper/README.md),
+[agent workflows](benchmarks/agent/README.md),
+[work-memory comparisons](benchmarks/work_memory/README.md), and
+[product search parity](benchmarks/productization/README.md).
+Component benchmark results do not establish product-search quality or readiness.
 
 Report security issues under [SECURITY.md](SECURITY.md).
 Released under the [MIT License](LICENSE).

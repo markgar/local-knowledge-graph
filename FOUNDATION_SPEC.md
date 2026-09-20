@@ -1,7 +1,7 @@
 # Foundation specification: F0 and V0
 
 Status: F0/V0 contract validation and evaluation inputs implemented; services planned.
-Recorded: 2026-09-20.
+Contract version: `foundation/1`.
 Parent: [implementation plan](IMPLEMENTATION_PLAN.md).
 
 ## Objective and boundary
@@ -22,22 +22,23 @@ authorize, synchronize, execute queries, or guarantee persistence. Existing
 product interface version 2 and report versions are independent and unchanged.
 No access to live sources or hosted models is authorized by this foundation.
 
-## Deliverables and exit gate
+## Delivered foundation
 
-| Deliverable | Required evidence before the first parallel wave |
+F0/V0 is complete for validation and evaluation inputs. These artifacts are the
+starting point for E1/K1/Q1, not outstanding foundation tasks.
+
+| Deliverable | Delivered reference |
 | --- | --- |
-| Contract decisions | Agreed initial identity, offset, ownership, write, knowledge, scope, and query semantics; no unresolved decision that forces E1, K1, or Q1 to invent a shared boundary. |
-| Executable contracts | Versioned request/result models, validation rules, serialization examples, and positive/negative tests following the existing Pydantic patterns. No empty service framework. |
-| Compatibility design | Mapping from existing IDs and public results; legacy-content handling; schema migration ownership and preservation cases. |
-| Acceptance inventory | V0 cases below with deterministic inputs, expected outcomes, owning packages, and an explicit distinction between contract checks and future integration checks. |
-| Evaluation protocol | Agreed initial workloads and numeric operating/quality budgets, recorded before implementation fans out; measurement method and retained historical gates. |
-| Handoff | One owner for shared contracts/schema, bounded E1/K1/Q1 work items, and a record of deferred decisions with owners and deadlines. |
+| Contract decisions | [Shared contracts](#shared-contracts): initial identity, offset, ownership, write, support, scope and query semantics. |
+| Executable contracts | [`kg.models.foundation`](src/kg/models/foundation.py) and [validation/serialization tests](tests/test_foundation_contracts.py). |
+| Compatibility design | [Limits, compatibility and first-wave ownership](#limits-compatibility-and-first-wave-ownership); migration implementation is still E1/E2/K1 work. |
+| Acceptance inventory | [A01-A17](#v0-acceptance-inventory) and [deterministic recipes/examples](corpora/foundation/README.md); integrated outcomes remain pending. |
+| Evaluation protocol | [Workload and initial targets](benchmarks/foundation/README.md), pinned by [workload tests](tests/test_foundation_workload.py); no service-performance measurements. |
+| Handoff | [Implementation plan](IMPLEMENTATION_PLAN.md): E1/K1/Q1 are next; later policy/connector decisions retain explicit owners. |
 
-The executable gate is covered by `tests/test_foundation_contracts.py` and
-`tests/test_foundation_workload.py`, not by writing this document. F0 delivers
-model validation and serialization tests without implementing persistence.
-V0 must not introduce permanently skipped tests or passing mocks that claim to
-prove future storage, concurrency, permission, or recovery behavior.
+Passing contract tests proves validation behavior, not storage, concurrency, authorization,
+or recovery. Later packages must supply real integration evidence, not skipped
+tests or mocked passing substitutes.
 
 ## Shared contracts
 
@@ -49,6 +50,11 @@ strict types reject boolean-as-integer and string-as-number coercion. JSON array
 become immutable tuples; Python constructors use tuples. Use `model_validate_json`,
 `model_dump_json`, and `model_json_schema`. `_prepared.py` and `_writer.py` remain
 private, unrelated implementation boundaries.
+
+The following sections combine implemented value validation with the service
+obligations those values describe. Commit-time, persistence, authorization,
+processing and execution guarantees remain unimplemented unless explicitly
+identified as current behavior in [SPEC.md](SPEC.md).
 
 ### 1. Scope, identity, and ownership
 
@@ -92,8 +98,8 @@ The current Markdown importer deactivates unselected documents across a corpus,
 deletes corpus-wide aliases, and deletes/rebuilds mentions and relationships on
 re-extraction/config changes. **Before any new writer can coexist**, E1/K1 must
 either owner-scope all these mutations or explicitly reject mixed-writer storage.
-E2 must then implement scoped coexistence, not merely add owner labels. If legacy documents
-cannot be assigned an unambiguous owner, require explicit migration mapping
+E2 must then implement scoped coexistence, not merely add owner labels. If legacy
+documents cannot be assigned an unambiguous owner, require explicit migration mapping
 rather than claiming or deactivating them.
 
 ### 2. Canonical content and evidence
@@ -144,8 +150,7 @@ implementation; F0 establishes evidence identity and reference validity.
 Idempotency is a persistence guarantee, not merely request-model validation.
 Resolve authorized retries before reapplying stale preconditions, but never replay
 retained content to a caller whose access was revoked. Purge must invalidate or
-sanitize retry responses; a retry must not resurrect purged content. F0 records
-retry retention and post-expiry semantics before claiming durable retry behavior.
+sanitize retry responses; a retry must not resurrect purged content.
 The selected starting policy is a 30-day durable result window from commit, then
 `retry_expired` for the same key rather than re-execution. E4 retains a non-content
 key tombstone for the managed corpus lifetime; keys are not reusable. The digest
@@ -158,12 +163,13 @@ the current request's correlation ID.
 
 Failures expose typed codes and bounded diagnostics, not source text or secrets
 in operational logs. Invalid evidence or an unsupported operation must not become
-a successful empty result. Size and batch limits must be explicit in the contract
-and capability description; their numeric values are an F0 decision.
+a successful empty result. Size and batch limits are defined in the
+[limits and compatibility section](#limits-compatibility-and-first-wave-ownership)
+and validated by the models.
 
-#### Selected starting direction: bounded enrichment change sets
+#### Bounded enrichment change sets
 
-Following the rubber-duck review, start with one atomic change set that can
+The selected contract describes one atomic change set that can
 create entities and add related aliases, mentions, and supported assertions.
 It may cite multiple documents in one corpus, including different authorized
 source namespaces. Single-entity and single-document submissions are valid
@@ -209,7 +215,7 @@ depend on it, preserve compatibility or introduce an explicit contract version.
 
 ### 4. Knowledge contributions
 
-The initial schema must distinguish entities, external identifiers, aliases,
+The initial value model distinguishes entities, external identifiers, aliases,
 passage mentions, and typed assertions/relationships. Co-mention does not create
 a factual relationship. Similar names or candidate scores do not merge entities.
 
@@ -295,8 +301,9 @@ are handled; deleting a row is not a promise of physical secure erasure.
 
 ## V0 acceptance inventory
 
-All cases below are planned. F0 checks shapes and validation where possible;
-owning packages must later demonstrate actual integrated behavior.
+The inventory and contract fixtures are delivered. The integrated outcomes below
+remain pending: owning packages must demonstrate actual storage/execution
+behavior, even where foundation tests already cover input/result validation.
 
 | ID | Setup and required outcome | Integration owners |
 | --- | --- | --- |
@@ -332,33 +339,30 @@ no duplicate committed writes on retries, exact quotes/counts, and no lost or
 repointed historical citations outside explicit purge. Existing relevance and
 answerability thresholds remain unchanged and separately reported.
 
-Before the first wave, agree numeric targets for intake throughput, structured
-and graph p95 latency, cold/warm search latency, peak memory, disk growth,
-recovery time, and planner/agent time, token and cost limits. Each budget needs
-hardware/runtime/model identity, workload, measurement method, owner, and the
-package where it becomes enforceable. Do not invent measured baselines.
-
 The exact workload, numeric proposed engineering targets, rationale and
 measurement protocol are recorded in
 [`benchmarks/foundation/README.md`](benchmarks/foundation/README.md).
 These are not measured service performance or accepted real-world quality.
-Capability-specific real-model and
-approved real-source workloads supplement the synthetic workload as they become
+They cover intake, structured/graph/search latency, memory, disk, recovery and
+planner/agent budgets with measurement methods and owners. V1 must record actual
+hardware/runtime/model identities and outcomes, not invent measured baselines.
+Capability-specific real-model and approved real-source workloads supplement
+the synthetic workload as they become
 available. Record misses incrementally and review any budget revision; do not
 lower a threshold retrospectively to label a failing run accepted.
 
 ## Acceptance milestones and implementation handoff
 
-**Foundation accepted:** the F0/V0 exit evidence above exists and blocking
-decisions below are resolved. Independent E1/K1/Q1 work can then start. Contract
-acceptance is not proof of implemented storage or execution behavior.
+**Foundation accepted (complete):** the F0/V0 artifacts above are implemented.
+E1/K1/Q1 can now be scoped independently against them. Contract acceptance is not
+proof of implemented storage or execution behavior.
 
-**Core accepted:** E/K/Q, X1, I1/I2, and applicable V1/R1 gates pass on integrated
+**Core acceptance (pending):** E/K/Q, X1, I1/I2, and applicable V1/R1 gates must pass on integrated
 code, including an independently packaged synthetic adapter and actual
 agent integration. This milestone does not require all three live connectors
 and does not establish production readiness or change known quality failures.
 
-**Live workflows accepted:** S1/S2/S3 each have approved provider/access/retention
+**Live-workflow acceptance (pending):** S1/S2/S3 must each have approved provider/access/retention
 decisions and live synchronization/enrichment/query evidence. R1's final full-scope
 assessment remains open until these and all remaining gates are assessed.
 

@@ -5,4 +5,5 @@
 - `tests/` contains unit, CLI, ingestion, acceptance, and benchmark tests.
 - `corpora/` contains manifests and synthetic fixtures; `examples/` contains client usage; `benchmarks/` contains real-world evaluation tooling and results.
 - Start with `README.md` for usage, `SPEC.md` for behavior and architecture, and `CONTRIBUTING.md` for development rules and validation commands.
+- `FOUNDATION_SPEC.md` documents validation-only `foundation/1` values and pending service obligations. `ROADMAP.md` and `IMPLEMENTATION_PLAN.md` track future work; do not describe their targets as implemented behavior.
 - Preserve deterministic behavior, immutable provenance, exact source anchors, corpus isolation, and generic configuration-driven logic.

@@ -1,6 +1,6 @@
 # Foundation workload and initial budgets
 
-Status: V0 inputs and **proposed engineering targets**, recorded 2026-09-20.
+Status: implemented V0 inputs and **proposed engineering targets**.
 No service-performance baseline, model quality, ACL enforcement, recovery result
 or production readiness is claimed. V1 owns measurements and reviewed revisions.
 
@@ -12,11 +12,9 @@ input and `serialized()` returns canonical UTF-8 JSON bytes (sorted keys, compac
 separators, trailing LF). This prints metadata, not a benchmark score. It requires
 no models, network, service, or random library. Seed 1729 is a formula input;
 version `foundation-workload/2` freezes that formula and serialization.
-Version 2 fixes the pre-merge version-1 soft-line-break-only workload: long
-documents now have 40 separate paragraphs after their introductory block (41
-source anchors). Structural tests run the real Markdown parser to pin this.
-It also names both distinct Sam entities for the ambiguity scenario. There are
-no historical performance measurements being replaced by this correction.
+Long documents have 40 separate paragraphs after their introductory block
+(41 source anchors). Structural tests run the real Markdown parser to pin this.
+The workload names two distinct Sam entities for the ambiguity scenario.
 
 | Property | Exact value |
 | --- | --- |
