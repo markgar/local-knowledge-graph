@@ -379,11 +379,18 @@ def _perform(
                 and arg.split("=", 1)[1] not in {"strict", "natural"}
             ):
                 raise ValueError("This comparison uses lexical retrieval only")
+        entrypoint = ["-m", "kg", command]
+        backend = "kg_cli"
+        if command == "search":
+            entrypoint = [str(REPOSITORY / "benchmarks" / "_lexical_search.py")]
+            backend = "legacy_lexical"
+            if not any(arg.split("=")[0] == "--query-mode" for arg in rest):
+                rest = [*rest, "--query-mode", "strict"]
         argv = [
-            sys.executable, "-m", "kg", command, *rest,
+            sys.executable, *entrypoint, *rest,
             "--manifest", str(run / "corpus.yml"), "--format", "json",
         ]
-        execution.update({"backend": "kg_cli", "argv": argv})
+        execution.update({"backend": backend, "argv": argv})
         backend_started = perf_counter()
         process = subprocess.run(
             argv,

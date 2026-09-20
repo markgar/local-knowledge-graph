@@ -11,12 +11,16 @@ from typing import Any, cast
 
 
 def _run_cli(manifest: Path, *arguments: str) -> Any:
+    command, *rest = arguments
+    entrypoint = (
+        [str(Path(__file__).resolve().parents[1] / "_lexical_search.py")]
+        if command == "search" else ["-m", "kg", command]
+    )
     process = subprocess.run(
         [
             sys.executable,
-            "-m",
-            "kg",
-            *arguments,
+            *entrypoint,
+            *rest,
             "--manifest",
             str(manifest),
             "--format",

@@ -1,5 +1,23 @@
 # Work-memory comparison
 
+## Historical retrieval compatibility
+
+These frozen comparisons retain lexical retrieval, independently of the normal
+product search pipeline. The wrapper routes `search` through the private
+[`../_lexical_search.py`](../_lexical_search.py) evaluation worker and explicitly
+selects **strict** when a historical invocation omits `--query-mode`. Explicit
+strict/natural choices, version-1 lexical explanations and quote opt-in remain
+available only within the benchmark wrapper. They are not public `kg search`
+modes. No semantic models or vector readiness are required by these baselines.
+
+Structured/evidence operations continue to use the `kg` CLI. Tool restrictions,
+frozen dates, labels, source/gold hashes, and old measurements are unchanged.
+New search journals identify `execution.backend: "legacy_lexical"` and record
+the actual worker argv, exit status, timing, and output sizes; non-search CLI
+journals retain `"kg_cli"`. Discovery, expanded, and interleaved comparisons
+inherit this same wrapper. Full-pipeline validation has a distinct
+[`productization`](../productization/) label.
+
 This is an actual agent-answer comparison, separate from the scripted CLI
 contract checks in `benchmarks/agent/`. It asks whether the KG helps an agent
 prepare from a growing set of work documents, compared with reading/searching
@@ -51,9 +69,9 @@ truncation performed later by the tool host.
 
 ## Telemetry gate
 
-Before another comparison, verify the tooling with real CLI invocations, not
+Before another comparison, verify the tooling with real worker/CLI invocations, not
 only unit tests or inferred code paths. The wrapper records a run/request ID,
-the exact native CLI arguments and exit code, subprocess stdout/stderr sizes,
+the exact worker/CLI arguments and exit code, subprocess stdout/stderr sizes,
 timings, serialized-response hash and collection counts, and separate operation
 and stdout-delivery outcomes. Empty successful results remain distinguishable
 from query errors and broken pipes.
