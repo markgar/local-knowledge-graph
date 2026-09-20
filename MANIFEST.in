@@ -1,5 +1,6 @@
 include LICENSE README.md SPEC.md CHANGELOG.md CONTRIBUTING.md
 include CONTRACTS.md
+recursive-include .github/skills *.md
 recursive-include src *.py *.pyi *.sql py.typed
 recursive-include tests *.py
 recursive-include corpora *.yml *.yaml *.md

@@ -46,6 +46,73 @@ or use `gh workflow run ci.yml --ref <branch>`, and inspect its Python
 | `tests/`, `corpora/` | Automated coverage, manifests, source fixtures and acceptance inputs. |
 | `benchmarks/`, `examples/` | Evaluation tools/results and a cited-status client. |
 
+## Starting work: issue, file spec, critic, implementation
+
+Issues organize future work; file specs support design and criticism; repository
+docs describe delivered behavior. Working specs belong outside the tracked repo,
+not alongside `SPEC.md`.
+
+For guided execution, use the repository's
+[`work-package` skill](.github/skills/work-package/SKILL.md):
+
+> Use /work-package for issue #24. Design and critic review only; do not implement.
+
+The skill follows the steps below and stops for approval before implementation.
+In Copilot CLI, use `/skills reload` if it was added during the current session,
+then `/skills info work-package` to confirm discovery.
+
+1. **Choose a ready package.** Start at the
+   [build roadmap issue](https://github.com/markgar/local-knowledge-graph/issues/28),
+   open its linked package issue, and check prerequisites and acceptance criteria.
+   Start a design session from current main; choosing an issue is not approval
+   to begin implementation.
+2. **Write a real Markdown spec file.** Use the session's artifact storage outside
+   the repository, for example `files/E1-spec.md` within the session directory.
+   Record its absolute path so the author and critic review the same file.
+   Read current code before proposing changes. Include the package issue link,
+   baseline commit, scope/non-goals, APIs, storage/schema and migration changes,
+   transaction/state/failure handling, compatibility, acceptance tests, unresolved
+   decisions, and PR-sized implementation slices with stopping points. Link shared
+   requirements from the tracking issue rather than copying the whole roadmap.
+3. **Have an independent critic review the file.** Give the critic its absolute
+   path, the package issue, shared requirements and code baseline. Ask for concrete
+   gaps, unsafe assumptions, missing edge cases and testability concerns, with
+   spec-section/code references. The critic reviews; it does not implement.
+4. **Revise and approve.** Address findings in that same file, record dispositions,
+   and re-review material changes. Resolve blocking decisions and obtain explicit
+   approval of the design and first implementation slice before coding.
+5. **Preserve the approved spec on the package issue.** Attach its full content as
+   a named issue artifact, including revision/baseline and review outcome, and link
+   it from the issue. A local file path alone is not a durable handoff. The issue
+   artifact is the approved design record; the local file is its working copy.
+   For design changes, revise the file, review and approve them, then update the
+   same artifact rather than creating competing approved versions. Preserve this
+   record before archiving the design session.
+6. **Implement an approved slice.** Give the implementation session the issue,
+   approved artifact and stopping point. If main has changed, check the design
+   against it before coding. Run applicable acceptance tests and the validation
+   commands above, obtain independent complete-diff review, resolve findings and
+   re-review fixes before merge. Link each PR to the package issue; update repo
+   docs for behavior actually delivered.
+7. **Record progress and close on evidence.** After each merge, record completed
+   slices and remaining work on the package issue. Close only when its acceptance
+   criteria are demonstrated, then update the tracking issue. One merged slice
+   does not necessarily complete a package.
+
+Use this starting prompt, substituting the package and issue:
+
+> Inspect current main and issue #24. Write an E1-spec.md implementation design
+> in this session's artifact storage, outside the tracked repo, and report its
+> absolute path. Follow the spec contents in CONTRIBUTING.md. Do not implement.
+
+Then give a separate critic this prompt:
+
+> Review the spec at `<absolute path>` against its package issue, shared
+> requirements and referenced code baseline. Identify concrete correctness,
+> compatibility, migration, failure-handling and acceptance-test gaps. Cite spec
+> sections and code where relevant. Do not edit or implement; report findings for
+> the author to address before approval.
+
 ## Pull requests
 
 - Keep changes focused and include tests for behavior changes.
@@ -63,8 +130,9 @@ or use `gh workflow run ci.yml --ref <branch>`, and inspect its Python
   owns planned scope, dependencies, shared service requirements and acceptance
   recipes; package issues own designs, decisions, PR-sized slices and progress.
   Do not add repository planning documents or duplicate the issue inventory.
-  Review a package's implementation design before building; close it only with
-  actual acceptance evidence. Update docs with each delivered behavior change.
+  Follow the [file-spec and critic workflow](#starting-work-issue-file-spec-critic-implementation)
+  before building; close a package only with actual acceptance evidence.
+  Update docs with each delivered behavior change.
   Update `CONTRACTS.md`, models, examples and tests together when changing
   implemented value contracts. Do not present shape validation as storage,
   authorization, atomicity or query execution.
