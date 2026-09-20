@@ -1,44 +1,25 @@
-# Foundation specification: F0 and V0
+# Shared contract reference
 
-Status: F0/V0 contract validation and evaluation inputs implemented; services planned.
 Contract version: `foundation/1`.
-Parent: [implementation plan](IMPLEMENTATION_PLAN.md).
+Implementation: validation and serialization only; service enforcement is planned.
 
-## Objective and boundary
+## How to use this reference
 
-Make the evidence, knowledge, and query lanes safe to implement independently.
-F0 establishes the smallest shared contract surface and executable contract
-checks. V0 defines the acceptance scenarios and evaluation protocol that later
-packages must satisfy. Neither package delivers the complete ingestion engine,
-graph store, processing scheduler, query planner, or connectors.
+This is the single reference for shared evidence, ownership, write and query
+semantics. It is not a delivery plan. Use [ROADMAP.md](ROADMAP.md) for work
+packages and their issues, [SPEC.md](SPEC.md) for current product behavior, and
+[acceptance recipes](corpora/foundation/README.md) for integration cases and owners.
 
-[SPEC.md](SPEC.md) remains the authority for implemented behavior. This document
-does not change existing commands, identities, JSON reports, source fixtures, or
-reviewed gold. The full [roadmap](ROADMAP.md) remains in scope.
-
-The decisions below are the initial `foundation/1` semantics. Executable values
-live in `kg.models.foundation`; they validate and serialize data but do not write,
+Executable values live in `kg.models.foundation`; they validate and serialize data but do not write,
 authorize, synchronize, execute queries, or guarantee persistence. Existing
 product interface version 2 and report versions are independent and unchanged.
 No access to live sources or hosted models is authorized by this foundation.
 
-## Delivered foundation
-
-F0/V0 is complete for validation and evaluation inputs. These artifacts are the
-starting point for E1/K1/Q1, not outstanding foundation tasks.
-
-| Deliverable | Delivered reference |
-| --- | --- |
-| Contract decisions | [Shared contracts](#shared-contracts): initial identity, offset, ownership, write, support, scope and query semantics. |
-| Executable contracts | [`kg.models.foundation`](src/kg/models/foundation.py) and [validation/serialization tests](tests/test_foundation_contracts.py). |
-| Compatibility design | [Limits, compatibility and first-wave ownership](#limits-compatibility-and-first-wave-ownership); migration implementation is still E1/E2/K1 work. |
-| Acceptance inventory | [A01-A17](#v0-acceptance-inventory) and [deterministic recipes/examples](corpora/foundation/README.md); integrated outcomes remain pending. |
-| Evaluation protocol | [Workload and initial targets](benchmarks/foundation/README.md), pinned by [workload tests](tests/test_foundation_workload.py); no service-performance measurements. |
-| Handoff | [Implementation plan](IMPLEMENTATION_PLAN.md): E1/K1/Q1 are next; later policy/connector decisions retain explicit owners. |
-
 Passing contract tests proves validation behavior, not storage, concurrency, authorization,
 or recovery. Later packages must supply real integration evidence, not skipped
-tests or mocked passing substitutes.
+tests or mocked passing substitutes. Numeric performance targets and their
+measurement protocol live in [benchmarks/foundation](benchmarks/foundation/README.md),
+not in this reference.
 
 ## Shared contracts
 
@@ -164,7 +145,7 @@ the current request's correlation ID.
 Failures expose typed codes and bounded diagnostics, not source text or secrets
 in operational logs. Invalid evidence or an unsupported operation must not become
 a successful empty result. Size and batch limits are defined in the
-[limits and compatibility section](#limits-compatibility-and-first-wave-ownership)
+[limits and compatibility section](#limits-and-compatibility)
 and validated by the models.
 
 #### Bounded enrichment change sets
@@ -299,85 +280,7 @@ indexes, job/retry payloads, diagnostics, and snapshots, and define failure/reco
 behavior. The eventual policy must state how backups and SQLite storage remnants
 are handled; deleting a row is not a promise of physical secure erasure.
 
-## V0 acceptance inventory
-
-The inventory and contract fixtures are delivered. The integrated outcomes below
-remain pending: owning packages must demonstrate actual storage/execution
-behavior, even where foundation tests already cover input/result validation.
-
-| ID | Setup and required outcome | Integration owners |
-| --- | --- | --- |
-| A01 | Submit identical external IDs in different corpora/namespaces; identities remain isolated. Retry within one namespace produces no duplicate document. | E1 |
-| A02 | Supply CRLF, combining characters, and non-BMP text; full content and exact ranges round-trip. Wrong quotes/out-of-range references reject without writes. | E1, E3 |
-| A03 | Migrate legacy evidence with missing full content; IDs/quotes/history survive and content reads explicitly report unavailable. Verified backfill preserves identity. | E1, E2 |
-| A04 | Co-locate Markdown, synthetic email, seed and agent contributions. Force parser/config rebuild and Markdown re-extraction, remove a seed and omit an email document; unrelated documents/entities/aliases/mentions/relationships survive. Owner-scoping or explicit mixed-writer rejection gates new writes before coexistence is enabled. | E1, E2, K1 |
-| A05 | Interrupt or fail snapshot enumeration and interleave old/new synchronization runs; only a successful authorized current snapshot can deactivate its own absent documents. | E1, E2, E4 |
-| A06 | Retry after commit but before response; no duplicate writes. Reuse a key with changed payload, and race two expected-version updates; conflicts have no partial mutation. | E1, K1, E4 |
-| A07 | Mix valid and invalid independent batch items; every item has one ordered outcome, failed units leave no rows, successful units remain durable. | E1, K1 |
-| A08 | Edit, deactivate and restore the same content, then submit old enrichment; state-version checks reject it even when the content revision matches again. | E1, K4, K5 |
-| A09 | Submit same-named entities, mentions, and competing explicit/inferred assertions; no silent identity merge or factual edge, and attribution/evidence remains inspectable. | K1, K2, K3, K4 |
-| A10 | Exercise denied evidence/history, alias lookup, graph paths, counts, diagnostics and resumed results; none disclose unauthorized contributions or totals. | X1, K2, Q1, Q2, Q4 |
-| A11 | Use more matching tasks than the search limit; dependent resolve/filter/count returns the full eligible count and inspectable support, not top-k cardinality. Ambiguity prevents guessing. Interleave a write between dependent steps: one coherent state or explicit changed-state failure, never a mixed-state count. | Q1, Q2, Q3 |
-| A12 | Commit text before enrichment; indexing becomes ready independently. Interrupt jobs and change source state; retries converge and stale jobs cannot mark current work complete. | E3, E4, K5 |
-| A13 | Page through tied results; no duplicates/skips within the supported result set. Exercise expiry, data changes, access revocation, and bounded-pool exhaustion explicitly. | Q4, X1 |
-| A14 | Purge content while jobs/cursors/retry records exist, then retry/restart; managed stores cannot return or resurrect purged content and failures remain recoverable. | X1, E4, K5, Q4 |
-| A15 | Execute existing Markdown, structured-read, citation/history and product-search workflows; preserve their contracts and authored component gold. | E2, Q1, R1 |
-| A16 | Metadata-only and access-only updates retain historical citation context, change relevant state tokens, and cannot leave a stale projection falsely ready. | E1, E3, X1 |
-| A17 | Create entities and an assertion in one change set using request-local handles and evidence from two documents. Verify returned IDs and identical retry results. Change either document or submit an invalid local reference before commit; the entire set leaves no new entities, aliases, or assertions. | E1, K1, K2 |
-
-## Evaluation setup and budgets
-
-V0 supplies a reproducible synthetic workload before real-source selection:
-two corpora, at least two writer namespaces in one corpus, 1,000 documents
-covering small notes and multi-passage text, and at least 200 matching tasks for
-a query with a limit of 20. Include Unicode/newline fixtures, repeated content,
-ambiguous identities, denied sources, updates/restores, and failures. Record
-exact fixture sizes, generator seed/version, and operation mix.
-
-Correctness gates are exact: no cross-scope disclosure in authored cases,
-no duplicate committed writes on retries, exact quotes/counts, and no lost or
-repointed historical citations outside explicit purge. Existing relevance and
-answerability thresholds remain unchanged and separately reported.
-
-The exact workload, numeric proposed engineering targets, rationale and
-measurement protocol are recorded in
-[`benchmarks/foundation/README.md`](benchmarks/foundation/README.md).
-These are not measured service performance or accepted real-world quality.
-They cover intake, structured/graph/search latency, memory, disk, recovery and
-planner/agent budgets with measurement methods and owners. V1 must record actual
-hardware/runtime/model identities and outcomes, not invent measured baselines.
-Capability-specific real-model and approved real-source workloads supplement
-the synthetic workload as they become
-available. Record misses incrementally and review any budget revision; do not
-lower a threshold retrospectively to label a failing run accepted.
-
-## Acceptance milestones and implementation handoff
-
-**Foundation accepted (complete):** the F0/V0 artifacts above are implemented.
-E1/K1/Q1 can now be scoped independently against them. Contract acceptance is not
-proof of implemented storage or execution behavior.
-
-**Core acceptance (pending):** E/K/Q, X1, I1/I2, and applicable V1/R1 gates must pass on integrated
-code, including an independently packaged synthetic adapter and actual
-agent integration. This milestone does not require all three live connectors
-and does not establish production readiness or change known quality failures.
-
-**Live-workflow acceptance (pending):** S1/S2/S3 must each have approved provider/access/retention
-decisions and live synchronization/enrichment/query evidence. R1's final full-scope
-assessment remains open until these and all remaining gates are assessed.
-
-F0/V0 supplies contract tests, representative inputs, the
-[deterministic scenario recipes](corpora/foundation/README.md), and initial budget
-record, not implementations of later systems. No future integration case is a
-permanent skipped test or a mocked passing storage/ACL/recovery check.
-
-| Remaining decision | Owner and deadline |
-| --- | --- |
-| Concrete planner and ingestion-agent host | Q3 and I2 respectively, before integration |
-| Cursor storage, expiry and data-change policy within coherent execution semantics | Q4, before exposing continuation |
-| Actual providers, source permissions, retention duration, backup/purge policy, or hosted model egress | X1 and S1/S2/S3, before relevant live integration; never inferred from fixtures |
-
-### Limits, compatibility and first-wave ownership
+## Limits and compatibility
 
 `FoundationCapabilities` advertises **validation_only**, separately from existing
 `kg capabilities`. No new service is advertised there. Intake is at most 5,000,000
@@ -397,11 +300,6 @@ selection is not limited by its displayed result page (at most 1,000 records).
 These modest limits bound local transactional and query work; capability growth
 requires reviewed contract/budget updates, not silent coercion. Structural limits
 are validated here; time, database integrity and authorization are service duties.
-
-The coordinator for this roadmap owns shared contract/schema changes; E1 owns
-schema migration implementation and coordinates K1 schema edits, Q1 owns query
-consistency/adapters, V1 owns measurements and budget revisions. E1/K1/Q1 are
-ready to implement these boundaries, not complete or launched by this change.
 
 | Existing surface | Compatibility/migration decision (E1/E2/K1/Q1) |
 | --- | --- |

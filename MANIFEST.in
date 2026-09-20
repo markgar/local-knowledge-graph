@@ -1,5 +1,5 @@
 include LICENSE README.md SPEC.md CHANGELOG.md CONTRIBUTING.md
-include FOUNDATION_SPEC.md IMPLEMENTATION_PLAN.md ROADMAP.md
+include CONTRACTS.md ROADMAP.md
 recursive-include src *.py *.pyi *.sql py.typed
 recursive-include tests *.py
 recursive-include corpora *.yml *.yaml *.md

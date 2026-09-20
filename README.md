@@ -346,7 +346,7 @@ payload = request.model_dump_json()
 schema = WriteRequest.model_json_schema()
 ```
 
-Use [FOUNDATION_SPEC.md](FOUNDATION_SPEC.md) for the contract reference,
+Use [CONTRACTS.md](CONTRACTS.md) for the contract reference,
 [corpora/foundation](corpora/foundation/README.md) for examples, and
 [benchmarks/foundation](benchmarks/foundation/README.md) for reproducible inputs
 and proposed engineering targets. Those targets are not measured performance.
@@ -367,10 +367,9 @@ Authored fixtures, reviewed gold, citations and component assertions are preserv
 | Document | Purpose |
 | --- | --- |
 | [SPEC.md](SPEC.md) | Implemented ingestion, retrieval, evidence, CLI and validation contracts. |
-| [FOUNDATION_SPEC.md](FOUNDATION_SPEC.md) | Foundation values and the service obligations they describe; enforcement is not implemented. |
+| [CONTRACTS.md](CONTRACTS.md) | Shared values and service obligations; validation is implemented, enforcement is not. |
 | [CONTRIBUTING.md](CONTRIBUTING.md) | Development layout, validation and contribution rules. |
-| [ROADMAP.md](ROADMAP.md) | Current capability gaps and target product requirements. |
-| [IMPLEMENTATION_PLAN.md](IMPLEMENTATION_PLAN.md) | Package status, dependencies and remaining delivery sequence. |
+| [ROADMAP.md](ROADMAP.md) | The sole delivery plan: package status, dependencies and links to ready implementation issues. |
 
 Evaluation tooling covers [retrieval quality](benchmarks/qasper/README.md),
 [agent workflows](benchmarks/agent/README.md),
