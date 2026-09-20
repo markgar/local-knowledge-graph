@@ -4,40 +4,24 @@
 [![Python 3.12+](https://img.shields.io/badge/python-3.12%2B-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
-A deterministic, evidence-backed knowledge engine for configured Markdown
-corpora. The project is intentionally local-first: corpus configuration is
-data, SQLite is the durable index, and every returned record points to an
-immutable source revision and exact quote.
+A local-first, evidence-backed knowledge engine for configured Markdown corpora.
+SQLite stores immutable source revisions and exact citations. Search combines
+keyword and semantic retrieval, fuses and deduplicates candidates, then reranks
+them with a local cross-encoder. Structured status, tasks, and evidence reads
+remain available without semantic models.
 
-Python 3.12 or newer is required. The supported CI matrix covers Python 3.12,
-3.13, and 3.14. The deterministic evidence and provenance MVP described in
-[`SPEC.md`](SPEC.md) is implemented. Dense retrieval, hybrid fusion, and local
-cross-encoder reranking are measured; answerability remains an active
-development area, so the project is pre-alpha.
+**Pre-alpha:** this is evidence retrieval, not a production question-answering
+system. It does not generate answers, infer entities or contradictions, or
+reliably decide whether a natural-language question is answerable. Existing
+retrieval-quality gates remain unmet. The public interface migration does not
+improve the underlying ranking algorithm or establish production readiness.
+The productization transition is [accepted after final combined validation and
+review](benchmarks/productization/final-integrated-2026-09-20/README.md).
 
-The engine provides:
+## Install
 
-- Pydantic contracts for corpus manifests and JSON results.
-- CommonMark block parsing with exact source ranges.
-- A rebuildable SQLite schema and FTS5 search.
-- Idempotent ingestion with immutable document revisions.
-- Stable document identity across unambiguous file moves.
-- Explicit tasks, owners, due dates, decisions, blockers, and conflicts.
-- Approved entity aliases, exact mentions, and bounded two-hop relationships.
-- Current-state retrieval without losing historical evidence.
-- Thin Typer commands over reusable Python services.
-
-Lexical ranking statistics are isolated to the active revisions of each
-corpus. Other corpora, removed sources, and historical revisions cannot
-change that corpus's BM25 scores. Historical citations retain revision-bound
-titles. Restoring older content reuses its immutable revision but records a
-new activation, so `compare-revisions` compares against the state immediately
-before the restore rather than the revision's original creation time.
-
-It does not use an LLM or infer entities, relationships, decisions, blockers,
-or contradictions. Those records must be explicit in source structure.
-
-## Install from source
+Python 3.12+ and [uv](https://docs.astral.sh/uv/) are required; CI covers Python
+3.12, 3.13, and 3.14.
 
 ```bash
 git clone https://github.com/markgar/local-knowledge-graph.git
@@ -45,182 +29,39 @@ cd local-knowledge-graph
 uv sync --extra dev
 ```
 
-This creates a project-local `.venv`. Run commands through `uv run` or activate
-the environment directly.
+Use `uv run` to run commands in the project-local `.venv`. The checked-in
+[`uv.toml`](uv.toml) uses the package feed approved for the primary Microsoft
+development environment and contains no credentials. If it is unavailable,
+use an index approved for your environment; do not bypass organizational
+network controls or change feeds merely to evade a block.
 
-The checked-in [`uv.toml`](uv.toml) routes Python dependencies through
-Microsoft's package feed because direct package downloads from public PyPI are
-blocked in the primary development environment. This configuration contains
-no credentials. Contributors outside that environment should replace
-`index-url` with their approved PEP 503 package index or remove `uv.toml` to
-use uv's default public index.
+### First-use models and resources
 
-## Quick start
+Embeddings and reranking run locally through Sentence Transformers/PyTorch;
+corpus text is not sent to a remote inference API. First use may download pinned
+model files through Hugging Face's normal cache path. Use only approved download
+sources or a prepopulated, approved local cache. `HF_HOME` can select a cache;
+`HF_HUB_OFFLINE=1` requires cached files instead of network access. If a required
+model or dependency is blocked/unavailable, report the blocked host/error and
+prepare it through an approved route. There is no keyword-only fallback.
 
-```bash
-uv run kg ingest --manifest corpora/example.yml
-uv run kg dense-index --manifest corpora/example.yml
-uv run kg dense-index --manifest corpora/example.yml --embedding-profile qwen3-embedding-0.6b
-uv run kg search "release" --manifest corpora/example.yml --format json
-uv run kg search "What supports the release?" --manifest corpora/example.yml --query-mode natural
-uv run kg search "What supports the release?" --manifest corpora/example.yml --query-mode dense
-uv run kg search "What supports the release?" --manifest corpora/example.yml --query-mode hybrid --embedding-profile qwen3-embedding-0.6b
-uv run kg search "What supports the release?" --manifest corpora/example.yml --query-mode reranked --embedding-profile qwen3-embedding-0.6b
-uv run kg actions Atlas --manifest corpora/example.yml --status open --format json
-uv run kg status Atlas --manifest corpora/example.yml --format json
-```
+`dense-index` loads the embedding model and builds vectors. It does **not** prepare
+the reranker: the first `search`, even one returning no hits, also initializes
+`cross-encoder/ms-marco-MiniLM-L6-v2` at its pinned revision. A successful empty
+search therefore requires both providers and a matching current index.
 
-The example database is written to `.kg/example.sqlite3`, which is ignored by
-Git.
+Allow disk space for dependencies, model caches, the canonical database, and
+separate vector projections, plus working memory for both models and inference
+batches. CPU is supported; CUDA or Apple MPS may be selected when available.
+Larger batches, long passages, and the Qwen profile use more resources; reduce
+`dense-index --batch-size` if indexing memory is constrained. Historical
+[QASPER measurements](benchmarks/qasper/RESULTS.md) recorded embedding caches
+of 287.7 MiB for GTE and 1,151.6 MiB for Qwen, excluding the reranker and runtime.
+Those are measurements on one setup, not minimum RAM/disk guarantees.
 
-### Inspect an ingestion
+## Configure a corpus
 
-```bash
-uv run kg ingest --manifest corpora/example.yml --explain
-uv run kg ingest --manifest corpora/example.yml --explain --include-quotes --format json
-```
-
-`--explain` reports each document's outcome and why it happened: new content,
-an unchanged revision, a move, restored content, reactivation, a parser/config
-rebuild, failure, or removal from the selected sources. This **runs ingestion**;
-it is not a dry run. To walk through sources one at a time, add each file to a
-separate test corpus before running the command again.
-
-The report separates configured entities from entities actually mentioned,
-lists stored counts and source anchors, and explains explicit relationships,
-actions, decisions, blockers, and conflicts. Every listed passage or record has
-an evidence ID. Counts describe the stored revision, **not rows created during
-this run**; `records_rebuilt` distinguishes extraction from reuse. Unchanged
-documents still show their existing evidence.
-
-Quotes are omitted unless `--include-quotes` is supplied with `--explain`.
-Reports still contain source paths, headings, entity names, owners, and dates;
-they are not anonymized. Up to 50 indexed anchors and 50 structured records are
-shown per document; `--explain-limit 200` raises each limit. Truncation is
-explicit and counts remain complete. Use `kg evidence <record-id>` or
-`kg source-range <anchor-id>` with the same manifest to inspect exact evidence.
-
-Text output is for inspection; `--format json` returns the versioned
-`IngestReport` contract. Ordinary ingestion output remains unchanged. Reports
-are generated from the ingestion transaction and are not persisted in
-`ingest_run`; that table retains only the small run summary. Operational logs
-stay on stderr (`kg --verbose ingest ...`), without report bodies or quotes.
-Malformed YAML errors report locations without echoing source snippets.
-
-### Atlas incremental scenario
-
-[`corpora/atlas.yml`](corpora/atlas.yml) indexes ten fictional work documents:
-planning notes, email exports, a security review, an audit-system blocker,
-technical notes, a changed launch decision, a calendar discrepancy, a completion
-email, an agenda, and a similarly named unrelated project.
-
-```bash
-uv run pytest tests/test_atlas_walkthrough.py -v
-uv run kg ingest --manifest corpora/atlas.yml --explain
-uv run kg status Atlas --manifest corpora/atlas.yml --format json
-uv run kg search "archive signing certificate" --subject Atlas --manifest corpora/atlas.yml
-```
-
-The staged tests add one document at a time to an isolated database, following
-the declared expectations in
-[`atlas-stages.yml`](corpora/fixtures/atlas-stages.yml). They check extraction,
-exact citations, two-hop retrieval, unchanged records, project isolation,
-and a subsequent task edit and revert. The normal ingest command above loads
-all ten documents into `.kg/atlas.sqlite3`; the fixture sources remain unchanged.
-
-Atlas connects to Security Review, which connects to Audit Trail. This lets
-retrieval find the audit certificate blocker without adding "Atlas" to that
-document. Atlascope remains a separate project: subject filtering uses the same
-case-insensitive name boundaries as entity mentions, not substring matching.
-Numbered checklists work alongside bulleted checklists.
-
-The negative cases are intentional: prose promises do not create tasks,
-completion emails do not close checkboxes in other documents, and a new launch
-date does not automatically supersede other sources. Both dated accounts stay
-retrievable; conflicts require an explicit structural record. This is a
-synthetic correctness scenario, not a benchmark of agent reasoning or natural
-language extraction quality.
-
-### Explicit cross-document updates
-
-Use a corpus-scoped, case-sensitive key to identify an explicit task or
-decision, then name that key on a replacement record in another document:
-
-```markdown
-- [ ] Confirm the review date. [owner:: Avery] [key:: review-v1]
-```
-
-```markdown
-- [x] Confirmed the review date. [owner:: Avery] [key:: review-v2] [supersedes:: review-v1]
-```
-
-The same fields work on records under `## Decisions`. A replacement can reopen
-a task or revise a decision; it must have the same record kind as its target.
-Keys identify individual record versions, not a shared mutable task ID.
-Give each replacement its own key if another update will refer to it.
-Replacements are full records, not field patches: owner and due-date metadata
-must be stated again if they should appear on the replacement.
-Keys allow 1-128 ASCII letters, digits, dots, underscores, colons, and hyphens,
-starting with a letter or digit. A record can supersede one target.
-
-`actions`, `decisions`, and the structured sections of `status` return effective
-records. Replacements inherit their predecessors' subject association even
-without repeating a project name. Original sources, exact citations, and
-revision histories remain untouched. Search and `status.recent_material`
-continue to expose source evidence, including superseded assertions; neither
-is a list of current facts.
-
-No timestamp or prose-based winner is inferred. Missing or duplicate keys,
-cross-kind links, self-references, cycles, and competing replacements produce
-diagnostics rather than hiding an arbitrary record. Forward references resolve
-after the target is ingested. Only active current source revisions participate;
-editing or removing an update removes its prior effect. This is not an
-as-of-time query and does not resolve blockers or conflicts automatically.
-
-```bash
-uv run kg ingest --manifest corpora/atlas-state.yml --explain --format json
-uv run kg record-state --manifest corpora/atlas-state.yml --format json
-uv run kg status Atlas --manifest corpora/atlas-state.yml --format json
-```
-
-The separate twelve-document fixture exercises explicit completion and
-rescheduling while the ten-document baseline retains prose-only negative cases.
-
-The telemetry is produced by the same resolver used for retrieval:
-`ingest --explain` includes record keys and a post-ingestion state snapshot;
-`record-state` audits the current snapshot without ingesting. It reports source
-and target evidence IDs, resolution outcomes, ambiguous candidates, competing
-sources, effective replacement IDs, and exactly which records are suppressed.
-Limits truncate displayed links explicitly, never the resolution calculation.
-Quotes require `--include-quotes`. Diagnostics still contain paths and keys.
-Plain ingestion adds `state_warnings` only when references are unresolved;
-sources remain indexed and exit status still reflects source-ingestion failures.
-`status.evidence_gaps` also surfaces corpus-wide state warnings.
-
-### Query telemetry
-
-```bash
-uv run kg search "archive signing certificate" --subject Atlas --manifest corpora/atlas-state.yml --explain --format json
-```
-
-`search --explain` exposes the actual strict/natural lexical expression,
-filters, corpus fingerprint, BM25 ranks, and the predicates that admitted each
-hit. Subject traces distinguish direct mentions, title/heading matches,
-document-level inheritance, and bounded graph expansion, with supporting edge
-IDs and hop counts. This is diagnostic telemetry, not a confidence score or an
-agent-generated explanation.
-
-Ordinary search output is unchanged. Explain output omits source quotes unless
-`--include-quotes` is supplied; paths, names, headings, and query text remain
-visible. Explain currently supports strict/natural lexical modes, not semantic
-modes. It rejects concurrent database commits rather than combining results
-and explanations from inconsistent states. The trace explicitly records that
-supersession does not filter source search; use structured status/actions and
-`record-state` to inspect effective record state.
-
-## Corpus manifests
-
-A corpus is configured entirely through YAML:
+[`corpora/example.yml`](corpora/example.yml) is ready to use. To define your own:
 
 ```yaml
 corpus_id: example
@@ -235,23 +76,130 @@ seed_entities:
   - entity_id: example-project
     name: Example Project
     entity_type: project
-    aliases:
-      - Example
+    aliases: [Example]
 metadata_fields:
   event_time: date
 ```
 
-Paths are resolved relative to the manifest. Symlinks are rejected by default,
-and sources larger than `max_source_bytes` fail ingestion explicitly.
+Paths are relative to the manifest. Corpus configuration is data, not Python.
+Only selected sources are ingested. Symlinks are rejected by default and oversized
+sources fail explicitly. Generated databases under `.kg/` are ignored by Git.
 
-## Explicit Markdown conventions
+## Ingest, prepare, search
 
-The indexer recognizes only evidence that is present in the Markdown:
+```bash
+uv run kg ingest --manifest corpora/example.yml
+uv run kg dense-index --manifest corpora/example.yml
+uv run kg search "What supports the release?" --manifest corpora/example.yml --format json
+uv run kg actions Atlas --manifest corpora/example.yml --status open --format json
+uv run kg status Atlas --manifest corpora/example.yml --format json
+```
+
+Search always runs **keyword + semantic -> fusion/deduplication -> reranking**.
+It returns evidence, not an answer. `--subject` restricts by names, approved
+aliases, document inheritance, and explicit graph relationships up to two hops.
+Similar names do not merge. `--source` restricts source paths, `--since` accepts
+durations such as `12h`, `30d`, or `4w`, and `--limit` accepts 1..100 (default 20).
+Date filters use configured event time, then observed modification/ingestion time
+when absent. Search sees active current revisions, including superseded source
+assertions; use structured status/actions to inspect effective records.
+
+JSON remains a list of `SearchResult` objects with exact quotes, record/anchor
+IDs, source paths, revisions, and heading paths. **Preserve the returned order.**
+`rank` is a raw cross-encoder score, higher is better, with record-ID tie-breaking.
+It is not confidence and cannot be compared across queries, models, or historical
+BM25 scores. Do not sort ascending or apply an old BM25 cutoff.
+
+### Matching profile and contextual settings
+
+Default `gte-modernbert` uses the pinned `Alibaba-NLP/gte-modernbert-base`.
+The other fixed profile, `qwen3-embedding-0.6b`, uses pinned
+`Qwen/Qwen3-Embedding-0.6B`, normalized 1,024-dimensional vectors, its official
+query instruction, and uninstructed documents. Both are Apache-2.0 models.
+Exact model/configuration pins are in [`dense.py`](src/kg/retrieval/dense.py)
+and [`rerank.py`](src/kg/retrieval/rerank.py).
+
+Always use the **same profile and contextual setting** for preparation and search:
+
+```bash
+uv run kg dense-index --manifest corpora/example.yml --embedding-profile qwen3-embedding-0.6b --contextual
+uv run kg search "What is holding up approval?" --manifest corpora/example.yml --embedding-profile qwen3-embedding-0.6b --contextual --format json
+```
+
+`--contextual` includes source title and heading path in embeddings and reranking,
+without changing lexical retrieval, query text, or exact quotes. It is an opt-in
+representation, not an LLM-generated summary. Profile-specific and contextual
+projections coexist. Their compatibility includes model revision, runtime
+versions, actual inference device/dtype, encoding behavior, and corpus fingerprint;
+changing hardware/runtime or source representation can require rebuilding.
+
+### Inspect ingestion and search
+
+```bash
+uv run kg ingest --manifest corpora/example.yml --explain --format json
+uv run kg search "release evidence" --manifest corpora/example.yml --explain --format json
+uv run kg search "release evidence" --manifest corpora/example.yml --explain --explain-limit 200 --include-quotes --format json
+```
+
+Ingestion explanations **perform ingestion**, not a dry run. They show each
+document's outcome/reasons, revisions, stored counts, entities, exact anchors,
+explicit records, and state diagnostics. Counts describe stored evidence, not
+newly created rows. `--explain-limit` bounds anchor/record lists independently
+per document (default 50, 1..200); truncation is explicit. Quotes require opt-in.
+Ordinary ingestion output and ingestion report version 1 are unchanged.
+
+Search explanations are `ProductSearchExplanation` **report version 2**.
+They capture the actual full execution: effective filters/configuration,
+projection and model identities, natural lexical expression, complete stage
+counts, lexical/dense positions and scores, actual fusion contributions,
+reranker scores, final positions, and graph-scope supporting evidence.
+Absent stage memberships/contributions are explicit JSON `null`, not zero.
+
+The candidate display defaults to 50 entries; `--explain-limit 1..200` requires
+`--explain`. It does not change calculations or shorten the separate final hits
+list. `displayed_candidates`, `total_candidates`, and `truncated` expose the bound.
+Returned hits appear first, followed by remaining reranked and then fused
+candidates. `--include-quotes` also requires `--explain`; hit quote keys are
+omitted otherwise. Paths, headings, names, query text and metadata remain visible:
+reports are **not anonymized**. Ordinary search and evidence reads include quotes.
+
+Both search paths reject intervening database commits, including an edit and
+restore that leaves the final fingerprint unchanged. `search_state_changed`
+means retry once writes finish, not partial success; unrelated corpus writes in
+the same database can also invalidate a call. Telemetry is not an explanation of
+model reasoning or evidence of answerability.
+
+## Inspect citations, context, and history
+
+Use IDs and source paths from returned results with the same manifest:
+
+```bash
+uv run kg evidence <record-id> --manifest corpora/example.yml --format json
+uv run kg source-range <anchor-id> --manifest corpora/example.yml --format json
+uv run kg source-context <anchor-id> --manifest corpora/example.yml --max-anchors 50 --format json
+uv run kg revisions <source-path> --manifest corpora/example.yml --format json
+uv run kg compare-revisions <source-path> --manifest corpora/example.yml --format json
+```
+
+These commands do not load semantic models or require vectors. Context expands
+within the selected anchor's stored revision and containing section, including
+subsections until the next sibling/ancestor heading. It returns the selected range,
+section heading, source-ordered anchors and explicit truncation. The centered
+window always retains the selected anchor (`--max-anchors` 1..200). These are
+parsed evidence blocks, not reconstructed full sections; code blocks may be
+absent and nested list anchors can overlap.
+
+Historical citations remain valid after source edits, removals, and restores.
+Revision comparison defaults to the immediate predecessor of the target's latest
+activation; explicit `--from`/`--to` select revisions. Legacy indexes without
+activation history require explicit IDs rather than guessed transition order.
+
+## Explicit records and current state
 
 ```markdown
 ## Actions
 
-- [ ] Review the release. [owner:: Avery] [due:: 2026-10-01]
+- [ ] Review the release. [owner:: Avery] [due:: 2026-10-01] [key:: review-v1]
 
 ## Decisions
 
@@ -260,127 +208,116 @@ The indexer recognizes only evidence that is present in the Markdown:
 ## Blockers
 
 - Approval is still pending.
-
-## Conflicts
-
-- The two cited sources report different dates.
 ```
 
-Checkboxes in bulleted or numbered lists determine task status, including
-`1. [ ]` and `1) [x]`. Optional `[owner:: ...]` and `[due:: ...]`
-fields provide task metadata. Items and paragraphs under exact `Decision`,
-`Decisions`, `Blocker`, `Blockers`, `Conflict`, or `Conflicts` headings become
-explicit records. Wikilinks and approved aliases create exact mentions and
-cited relationships; similar names are never merged automatically.
+Bulleted or numbered checkboxes supply task status. Exact Decision(s), Blocker(s),
+and Conflict(s) headings classify explicit records. Wikilinks and approved aliases
+create cited mentions/relationships. Missing owners and dates remain missing;
+prose promises do not become tasks and a completion email does not close another
+document's checkbox.
 
-## CLI
+For an explicit cross-document update, give the replacement its own key:
 
-| Command | Purpose |
-| --- | --- |
-| `kg ingest` | Validate a manifest and update immutable revisions and current indexes. |
-| `kg capabilities` | Describe the versioned JSON CLI operations available to agents. |
-| `kg dense-index` | Build a profile-specific, versioned sqlite-vec projection with pinned local embeddings. |
-| `kg status` | Return cited material, decisions, actions, blockers, relationships, conflicts, and evidence gaps. |
-| `kg record-state` | Audit applied and unresolved explicit record replacements and their evidence. |
-| `kg actions` | Return explicit open or completed tasks with owners and due dates. |
-| `kg evidence` | Resolve any returned record ID to its exact source anchor. |
-| `kg source-range` | Read an immutable source anchor with exact offsets and quote hash. |
-| `kg source-context` | Expand a hit into its containing section's anchored evidence in the same revision. |
-| `kg revisions` | List the immutable revision history for a source document. |
-| `kg compare-revisions` | Compare added, removed, modified, and unchanged source ranges. |
-| `kg search` | Search current passages with FTS5. |
+```markdown
+- [x] Review completed. [owner:: Avery] [key:: review-v2] [supersedes:: review-v1]
+```
 
-`search` and `actions` support `--source` and `--since`; `status` supports an
-optional `--since` and otherwise considers all dated evidence. Search defaults
-to strict all-term matching; `--query-mode natural`
-uses safely quoted any-term matching with BM25 ranking, `--query-mode dense`
-uses the local versioned embedding projection, and `--query-mode hybrid`
-combines their unchanged rankings with deterministic reciprocal-rank fusion.
-`--query-mode reranked` scores the unchanged top 50 hybrid candidates with a
-pinned local cross-encoder before returning the requested result count.
-Durations use forms such as `12h`, `30d`, or `4w`.
-
-Dense indexing uses the pinned Apache-2.0
-`Alibaba-NLP/gte-modernbert-base` revision through Sentence Transformers. The
-GTE profile remains the default and preserves its existing `.dense.sqlite3`
-projection path and encoding behavior. The second fixed profile is the
-Apache-2.0 `Qwen/Qwen3-Embedding-0.6B` revision
-`97b0c614be4d77ee51c0cef4e5f07c00f9eb65b3`. It uses 1,024-dimensional,
-L2-normalized embeddings, the model's 32K context behavior, the official
-`query` prompt
-`Instruct: Given a web search query, retrieve relevant passages that answer the query`
-on queries, and no instruction on documents.
-
-Select either profile with `--embedding-profile gte-modernbert` or
-`--embedding-profile qwen3-embedding-0.6b` on `dense-index` and dense, hybrid,
-or reranked `search`. Both profile projections remain on disk simultaneously;
-switching does not rebuild an existing compatible projection. Sentence
-Transformers uses the best available local PyTorch backend, such as CUDA, MPS,
-or CPU. The actual device and tensor dtype are part of projection
-compatibility, along with the profile, model revision, runtime versions,
-dimensions, normalization, context and encoding behavior, source-text version,
-and canonical corpus fingerprint.
-
-Models are downloaded on first use. Embeddings are stored in disposable
-profile-specific sqlite-vec databases beside the canonical corpus database;
-every vector remains keyed to its exact passage, anchor, and source revision.
-No corpus text is sent to an API.
-
-### Context-aware retrieval (opt-in)
-
-Use `--contextual` on both `dense-index` and dense, hybrid, or reranked
-`search` to include the document title and full heading path alongside each
-passage when embedding and reranking. The query, lexical ranking, model
-profiles, and canonical quotes remain unchanged. Context is deterministic
-source metadata, not an LLM-generated summary.
+Keys are corpus-scoped and case-sensitive. Replacements are complete same-kind
+task/decision records, not field patches. Effective actions/decisions/status
+suppress uniquely resolved predecessors while preserving citations and inherited
+subject scope. Missing/duplicate keys, cycles, cross-kind or competing updates
+produce diagnostics, not a latest-date winner. Removing/editing the replacement
+removes its former effect. This is not historical as-of evaluation.
 
 ```bash
-uv run kg dense-index --manifest corpora/example.yml --contextual
-uv run kg search "What is holding up approval?" --manifest corpora/example.yml --query-mode reranked --contextual --format json
-uv run kg source-context <anchor-id> --manifest corpora/example.yml --format json
+uv run kg ingest --manifest corpora/atlas-state.yml --explain --format json
+uv run kg record-state --manifest corpora/atlas-state.yml --format json
+uv run kg status Atlas --manifest corpora/atlas-state.yml --format json
 ```
 
-Contextual projections use separate `.contextual.sqlite3` files and a distinct
-source-text version, so they coexist with the original profile indexes.
-Commands without `--contextual` retain the passage-only semantic representation.
-Passing the flag to strict or natural search is an explicit argument error.
-The new mode is experimental; the recorded QASPER results do not measure it.
+`record-state` audits the resolver without ingestion. Ingestion explanations also
+show the state snapshot. Quotes require `--include-quotes`; display limits never
+limit resolution. Plain ingestion reports `state_warnings` for unresolved links,
+while indexed sources remain available. Status includes these evidence gaps.
 
-`source-context` returns the selected exact range, its nearest containing
-heading, and source-ordered anchors in that section, including subsections.
-The next sibling or ancestor heading ends the section; repeated heading names
-do not merge sections. Before the first heading, only the document preamble is
-returned. Headingless documents form one section.
+The ten-document [Atlas scenario](corpora/atlas.yml) and its
+[incremental stages](corpora/fixtures/atlas-stages.yml) preserve prose-only
+negative cases, exact citations, two-hop scope, isolation, edits and restores.
+The separate twelve-document [Atlas state scenario](corpora/atlas-state.yml)
+adds explicit completion and rescheduling. To search either, run matching
+`dense-index` after ingestion. These fixtures are correctness tests, not proof
+of general agent reasoning quality.
 
-Output is bounded to 50 anchors by default (`--max-anchors 1..200`), centered
-around the selected hit when necessary. `total_anchors` and `truncated` expose
-omitted context; the selected hit is always included and the section heading
-is returned separately even when outside the window. Each anchor retains its
-own quote, offsets, hash, and revision. These are parsed evidence blocks, not
-a reconstructed full section: unindexed blocks such as fenced code are absent,
-and nested list anchors may overlap. Historical hits expand within their
-original stored revision, without reading the current source file.
+## Maintenance and errors
 
-With `--format json`, output follows the Pydantic contracts in `kg.models`.
-Manifest, argument, query, and lookup failures are emitted to stderr as:
+After editing sources, run `ingest` and then rebuild each affected dense
+projection with its matching profile/contextual settings. Search fails explicitly
+while its index is stale; ingestion does not automatically prepare semantic search.
+After upgrades, reingest existing corpora and rebuild projections. Ready provider
+instances are reused within a Python service lifetime, but freshness is rechecked
+on every call; CLI processes load independently.
+
+The pre-alpha canonical schema is rebuildable from source. Keep an old database
+separately when historical revisions are needed: a fresh index from current files
+cannot recreate past contents or activation history. Parser upgrades do not rewrite
+historical source anchors; legacy malformed anchors require a fresh database if
+corrected current evidence is needed.
+
+Domain failures with `--format json` emit stderr objects and exit 2, for example:
 
 ```json
-{"error":"invalid_manifest","message":"Could not read manifest ..."}
+{"error":"dense_index_unavailable","message":"... run 'kg dense-index' with matching settings ..."}
 ```
 
-Use `--verbose` for schema and ingestion diagnostics.
+Search errors include `invalid_manifest`, `invalid_query`,
+`dense_index_unavailable`, `reranker_unavailable`, and `search_state_changed`;
+other explanation-specific codes are preserved. `dense-index` retains
+`dense_index_failed`. Typer grammar/range errors retain usage-error text, even
+with JSON requested. Failed ingestion sources exit 1. No missing dependency is
+reported as an empty successful result. `kg --verbose ingest ...` emits operational
+diagnostics to stderr without report bodies or quotes.
 
-## External client
+## Agent/Python integration and migration
 
-[`examples/cited_status.py`](examples/cited_status.py) invokes the CLI as a
-subprocess, handles structured errors, and renders a short report with source,
-heading, and revision citations:
+`kg capabilities --format json` advertises **interface version 2**. The ordinary
+search list shape and non-search operations are preserved; the default pipeline,
+score meaning, and explanation contract changed.
+
+**Remove `--query-mode` from all product CLI calls, even `--query-mode reranked`.**
+Every old invocation fails with explicit migration guidance rather than selecting
+a stage or silently ignoring the flag. Prepare a matching dense index and model
+cache before using unqualified search. `--embedding-profile` and `--contextual`
+remain supported on both indexing and search.
+
+The supported Python entry point is:
+
+```python
+from pathlib import Path
+from kg.config import load_manifest
+from kg.db import Database
+from kg.retrieval import SearchService
+
+corpus = load_manifest(Path("corpora/example.yml"))
+service = SearchService(Database(corpus.database), corpus.corpus_id)
+hits = service.search("release evidence", limit=5)
+report = service.explain_search("release evidence", limit=5, trace_limit=50)
+payload = report.model_dump(mode="json")  # Keep explicit null stage memberships.
+```
+
+This assumes ingestion and matching indexing have already completed.
+`RetrievalService` still provides structured/evidence reads. Its strict/natural
+lexical search, legacy version-1 explanation, and the dense/hybrid/reranked service
+classes remain low-level compatibility and evaluation APIs, not alternate product
+interfaces. They do not acquire the product facade's stricter readiness behavior.
+
+[`examples/cited_status.py`](examples/cited_status.py) is a model-independent
+subprocess client for structured status, error handling, and cited output:
 
 ```bash
 uv run python examples/cited_status.py corpora/example.yml Atlas
 ```
 
-## Development
+## Development, evidence, and future work
 
 ```bash
 uv run pytest
@@ -389,160 +326,24 @@ uv run mypy
 uv build
 ```
 
-## Package boundaries
+See [CONTRIBUTING.md](CONTRIBUTING.md) and the current [contracts](SPEC.md).
+Routine tests use controlled providers; they do not download/run real models.
+Authored fixtures, reviewed gold, citations and component assertions are preserved.
 
-- `config.py` owns manifest validation and source discovery.
-- `markdown/` converts source bytes into positioned structural records.
-- `ingest/` coordinates revisions, anchors, passages, and explicit tasks.
-- `retrieval/` performs database reads and maps rows to public contracts.
-- `db.py` owns connections, transactions, and schema initialization.
-- `lexical.py` maintains corpus-local current-state FTS5 projections and their
-  canonical fingerprints.
-- `cli.py` only parses command-line options and renders service results.
+[QASPER results](benchmarks/qasper/RESULTS.md) retain historical relevance,
+latency, resource costs, and the failed answerability calibration. The original
+[experiment ledger and acceptance gates](benchmarks/history/evidence-mvp.md)
+remain available; no unmet gate was lowered. The
+[agent baseline](benchmarks/agent/README.md) and
+[work-memory comparison](benchmarks/work_memory/README.md) explicitly preserve
+historical lexical strategies through internal evaluation adapters.
+[Productization parity validation](benchmarks/productization/README.md) is
+separately labeled integration evidence, not improved relevance or new gold.
 
-The project is pre-alpha and indexes are rebuildable from source. Update
-`src/kg/schema.sql` directly for schema changes, then rebuild generated
-databases. See [`SPEC.md`](SPEC.md) for the product contract and implementation
-ledger.
+[ROADMAP.md](ROADMAP.md) covers unimplemented generic text ingestion, source
+plugins, agent-authored enrichment, identity reconciliation, query planning and
+continuation. [PRODUCTIZATION_SPEC.md](PRODUCTIZATION_SPEC.md) remains the
+accepted implementation checklist for this interface transition.
 
-### Updating existing indexes
-
-Run `kg ingest --manifest <corpus.yml>` for each existing corpus after upgrading.
-Parser version 5 additionally recognizes numbered checklists and normalizes
-numbered explicit-record summaries. Version 4 repaired task-field ownership,
-code-block exclusion, and CommonMark newline mapping for current sources.
-Ingestion also creates the
-corpus-local lexical projection; legacy indexes without it return an explicit
-search error until ingestion completes. Rebuild each dense projection you use
-with `kg dense-index` (including `--contextual` when applicable) after
-reingestion invalidates its fingerprint.
-
-Parser version 6 and ingestion schema version 4 add explicit record bindings.
-Reingest existing corpora to populate them. Unannotated documents keep their
-existing structured-record behavior.
-
-The activation log starts with the currently observed state of an upgraded
-document. Earlier transitions cannot be recovered from content hashes alone.
-Comparisons without a recorded predecessor require explicit `--from` and
-`--to`; the system does not guess a historical transition order. New edits
-and reverts record their predecessors automatically.
-
-Existing historical source anchors are not rewritten by the parser upgrade.
-If an older index contains malformed anchors from the previous parser, build
-a fresh database from available source files. Keep the old database separately
-if its historical revisions are needed: rebuilding from current files cannot
-recreate past document contents or past activation history.
-
-Contributions are welcome; see [`CONTRIBUTING.md`](CONTRIBUTING.md). Security
-issues should be reported according to [`SECURITY.md`](SECURITY.md).
-
-## Acceptance corpora
-
-`corpora/acceptance/` contains reviewed questions and exact expected evidence
-for two unrelated synthetic corpora. Tests also verify abstention, immutable
-history, rebuild equivalence, corpus isolation, source moves, failed-source
-deactivation, and manifest-driven reindexing.
-
-## Real-world benchmark
-
-[`benchmarks/qasper/`](benchmarks/qasper/) provides a reproducible evaluation
-against 50 real scientific papers and 179 human-authored QASPER questions with
-gold supporting paragraphs and unanswerable cases. The repository includes the
-downloader, deterministic paper IDs, Markdown converter, evaluator, and
-aggregate baseline results without redistributing the source papers.
-
-[`benchmarks/qasper/RESULTS.md`](benchmarks/qasper/RESULTS.md) preserves the
-baseline and the completed experiment history one feature at a time, including
-each metric delta, configuration, latency, and index cost.
-
-The benchmark currently shows that the evidence substrate is reliable but the
-retrieval layer is not yet agent-ready:
-
-| Metric | Current natural-search baseline |
-| --- | ---: |
-| Evidence Recall@1 | 12.2% |
-| Evidence Recall@5 | 40.2% |
-| Evidence Recall@10 | 54.6% |
-| Mean reciprocal rank | 0.302 |
-| Unanswerable false-evidence rate | 100.0% |
-| Anchor integrity | 100.0% |
-
-The first dense-only experiment retained 100% anchor integrity but
-underperformed natural BM25, reaching 29.1% Recall@5, 42.7% Recall@10, and
-0.264 MRR. It is preserved as a measured negative result and is combined with
-natural BM25 by the E2 hybrid-fusion implementation.
-
-E2 improves the same fixture to 41.6% Recall@5, 60.9% Recall@10, and 0.334 MRR
-while retaining 100% anchor integrity. It remains below the agent-useful
-acceptance gates and has not yet been validated on an email- and
-meeting-notes-style evaluation corpus.
-
-E3 reranks the unchanged top 50 E2 candidates with a pinned local
-cross-encoder, reaching 58.5% Recall@5, 72.2% Recall@10, and 0.446 MRR while
-retaining deterministic rankings and 100% anchor integrity. This is a material
-improvement but remains below the reranked acceptance gates.
-
-A controlled GTE-versus-Qwen substitution kept all retrieval architecture and
-benchmark inputs unchanged. Qwen improved dense Recall@10 from 42.7% to 64.2%
-and hybrid Recall@5 from 41.6% to 46.6%, but the unchanged reranker produced
-essentially the same final quality: 58.5% Recall@5 for both profiles, with
-Qwen at 71.6% rather than 72.2% Recall@10. Qwen also required about four times
-the model cache, 3.6 times the indexing time, and a 32.8% larger vector index.
-GTE therefore remains the compatibility default. QASPER is one scientific
-paper regression dataset, not the sole basis for selecting a general-purpose
-embedding model.
-
-The project should therefore be understood as an experimental evidence index,
-not a production question-answering system.
-
-## Agent CLI
-
-E5 uses the local CLI and machine-readable JSON as the agent integration
-boundary. Run `kg capabilities --format json` to discover the versioned
-operations. Search results can be followed through `kg evidence` and
-`kg source-range`; `kg revisions` and `kg compare-revisions` expose immutable
-history without requiring an agent SDK or network service.
-
-The reviewed workflow benchmark in [`benchmarks/agent/`](benchmarks/agent/)
-covers paraphrased retrieval, multi-document status, explicit conflicts,
-ambiguous cross-source results, unsupported subjects, citation round-trips,
-and revision comparison. MCP can be added later as a transport adapter over
-the same service contracts.
-
-The separate [`work-memory comparison`](benchmarks/work_memory/README.md)
-evaluates actual agent answers against a plain-Markdown baseline. It freezes
-twelve source documents and ten questions before running two fresh agents:
-one using read-only KG commands, one using Markdown search/batch reads.
-Predeclared gold checks current facts, abstention, and exact supporting
-citations. Tool journals measure actual calls, returned bytes, and tool time;
-natural-language claims receive a separate review. This small synthetic pilot
-does not establish general superiority over Markdown or replace QASPER.
-
-## Roadmap
-
-The next product direction is a generic knowledge engine with extensible
-ingestion and a unified natural-language query service. The query service will
-select and sequence structured queries, keyword search, semantic search, and
-graph traversal; the calling agent remains responsible for the final narrative
-answer.
-
-[`ROADMAP.md`](ROADMAP.md) records the responsibility boundaries, current
-implementation gaps, the full core build map, and open decisions. Query
-planning and the generic ingestion plugin interface are **not built yet**.
-The roadmap describes target capabilities, not current functionality.
-The ingestion target separates mechanical text storage/indexing from subsequent
-agent-assisted graph enrichment. Source-specific plugins remain separate work.
-
-The first planned change is defined in
-[`PRODUCTIZATION_SPEC.md`](PRODUCTIZATION_SPEC.md): preserve fixtures and
-ingestion while making normal search use the full existing retrieval pipeline
-and retiring experiment-stage product organization. This is not implemented yet.
-
-Existing provenance, retrieval implementations, and benchmarks remain useful
-foundations. Historical experiment details and acceptance gates remain in
-[`SPEC.md`](SPEC.md#milestone-5-agent-useful-retrieval); the roadmap defines the
-next product direction.
-
-## License
-
+Report security issues under [SECURITY.md](SECURITY.md).
 Released under the [MIT License](LICENSE).

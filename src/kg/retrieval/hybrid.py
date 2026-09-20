@@ -6,12 +6,14 @@ from typing import Protocol
 
 from kg.db import Database
 from kg.models.contracts import SearchResult
+from kg.retrieval._telemetry import execution_trace
 from kg.retrieval.dense import (
     DEFAULT_EMBEDDING_PROFILE,
     DenseIndexError,
     DenseRetrievalService,
     EmbeddingProfile,
 )
+from kg.retrieval.product_explain import FusionScore
 from kg.retrieval.service import RetrievalService, SearchQueryError
 
 DEFAULT_CANDIDATE_LIMIT = 50
@@ -99,6 +101,11 @@ class HybridRetrievalService:
         )
         if self.retrieval.index_fingerprint() != source_fingerprint:
             raise DenseIndexError("Corpus changed while hybrid search was running")
+        trace = execution_trace.get()
+        if trace is not None:
+            trace.lexical = lexical
+            trace.dense = dense
+            trace.candidate_limit = candidate_limit
         return _reciprocal_rank_fusion(
             lexical,
             dense,
@@ -141,10 +148,27 @@ def _reciprocal_rank_fusion(
     ranked_ids = sorted(
         results_by_id,
         key=lambda record_id: (-scores[record_id], record_id),
-    )[:limit]
+    )
+    trace = execution_trace.get()
+    if trace is not None:
+        trace.lexical_weight = lexical_weight
+        trace.dense_weight = dense_weight
+        trace.rrf_k = rrf_k
+        for position, record_id in enumerate(ranked_ids, start=1):
+            contributions = [
+                weight / (rrf_k + ranking[record_id]) if record_id in ranking else None
+                for weight, ranking in weighted_positions
+            ]
+            trace.fusion[record_id] = FusionScore(
+                position=position,
+                score=scores[record_id],
+                lexical_contribution=contributions[0],
+                dense_contribution=contributions[1],
+                selected_for_reranking=position <= limit,
+            )
     return [
         results_by_id[record_id].model_copy(update={"rank": scores[record_id]})
-        for record_id in ranked_ids
+        for record_id in ranked_ids[:limit]
     ]
 
 

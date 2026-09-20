@@ -58,10 +58,10 @@ The first run produced:
 | Anchor integrity | 100.0% | 100.0% |
 
 Strict search returned no passage for 175 of 179 questions because natural
-questions contain words that do not all occur in one paragraph. The engine's
-natural query mode safely joins unique terms with FTS5 `OR` and lets BM25 rank
-the candidates. This is a public search feature rather than benchmark-specific
-query rewriting.
+questions contain words that do not all occur in one paragraph. The internal natural lexical component safely joins unique terms with FTS5
+`OR` and lets BM25 rank the candidates. The evaluator selects this component
+explicitly rather than applying benchmark-specific query rewriting or relying
+on the public search default.
 
 The low top-rank score and false-evidence rate show that ranking and calibrated
 abstention need more work. These are retrieval failures, not citation failures:
@@ -73,9 +73,10 @@ The aggregate measurements are checked in as
 because it includes dataset-derived identifiers and is more useful as a
 working artifact than as source code.
 
-The permanent experiment history and one-feature-at-a-time methodology are in
-[`RESULTS.md`](RESULTS.md). New retrieval capabilities must record their
-metrics and delta there before the next capability is introduced.
+The permanent experiment history and its original methodology are in
+[`RESULTS.md`](RESULTS.md). Preserve those measurements and record new
+evaluations under distinct labels; historical stages are not product development
+prerequisites.
 
 ## Run it
 
@@ -103,7 +104,15 @@ are written beneath `benchmarks/qasper/data/`, which Git ignores.
 The environment-specific `uv.lock` is also ignored because the configured
 package feed may differ between development environments.
 
-The evaluator uses natural search and the GTE profile by default. Run it with
+The evaluator explicitly uses the low-level natural lexical service and the GTE
+profile by default. Its `--strategy` flag is evaluation-only, not a public search
+mode. Strict/natural evaluation requires no models or vector indexes. Dense,
+hybrid, and reranked strategies select their original component services with
+unchanged profile/contextual configuration and scores. `calibrate.py` continues
+to consume the original reranker-score results, not product-search output.
+See [`../productization/`](../productization/) for separately labeled product parity.
+
+Run it with
 `--strategy strict` to reproduce the original all-term baseline, or use
 `--strategy dense`, `--strategy hybrid`, or `--strategy reranked` after
 building the selected profile projection:

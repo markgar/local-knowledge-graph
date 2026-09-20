@@ -1,8 +1,15 @@
 # KG productization specification
 
-Status: specified, not implemented.
+Status: implemented and accepted after final combined validation and review.
 Priority: first implementation workstream in `ROADMAP.md`.
 Date: 2026-09-20.
+
+Acceptance evidence: [final integrated validation and review](benchmarks/productization/final-integrated-2026-09-20/README.md)
+at code revision `12aeadf4c7733cd7abdf238f1198896992dd49e3`, reviewed from baseline
+`ecc0da83ce284e60aa6cb0946976a80d37f4fdad`. All eight real-model combinations
+and local checks passed; no actionable whole-diff review findings remained.
+This accepts the interface transition, not production readiness or unmet
+retrieval-quality gates. No merge or GitHub CI success is implied.
 
 ## Outcome
 
@@ -66,7 +73,27 @@ search(
     since: datetime | None = None,
     source_path: str | None = None,
 ) -> list[SearchResult]
+
+explain_search(
+    query: str,
+    *,
+    subject: str | None = None,
+    limit: int = 20,
+    since: datetime | None = None,
+    source_path: str | None = None,
+    include_quotes: bool = False,
+    trace_limit: int = 50,
+) -> ProductSearchExplanation
 ```
+
+Both methods belong to `SearchService`. Export the version-2
+`ProductSearchExplanation` contract from `kg.retrieval` alongside the facade;
+retain the existing lexical `SearchExplanation` contract for low-level callers.
+`kg search --explain` calls the facade's `explain_search()` method. Expose
+`--explain-limit` as the CLI equivalent of `trace_limit`, with default 50 and
+allowed range 1-200. Reject an explicitly supplied `--explain-limit` without
+`--explain`, just as `--include-quotes` requires `--explain`. Invalid Python trace
+limits raise `ValueError` before provider initialization.
 
 The facade composes the existing reranked service; it does not change
 `RetrievalService.search()` into a hybrid entry point. That lexical method is
@@ -81,6 +108,18 @@ dense-index/embedding readiness, and `RerankerError` for reranker readiness or
 execution failures. Preserve corresponding CLI error codes. Explanation failures
 retain explicit `SearchExplanationError` codes. Preserve test injection seams
 without exposing retrieval-stage bypasses on the product API.
+
+Ordinary product search also rejects intervening database commits, including
+edit-and-restore that returns the corpus fingerprint to its original value.
+Observe the full execution, from before readiness checks through final result
+assembly; fingerprint comparison alone is insufficient. Use
+`SearchStateChangedError`, a `SearchQueryError` subclass with code
+`search_state_changed`, for ordinary search, and preserve
+`SearchExplanationError` with that same code for explained search. Both CLI paths
+emit `search_state_changed` with an instruction to retry; neither silently
+retries or returns partial results. Conservatively rejecting unrelated-corpus
+commits in the same database is acceptable, matching existing explanation
+behavior. Existing component fingerprint checks remain intact.
 
 Constructing services or using structured/evidence operations must not initialize
 models. Readiness is enforced when executing product search, after argument
@@ -142,6 +181,14 @@ all passages. Only then may they return `[]` without scoring any candidates.
 Use real provider initialization/readiness, not a cache-file existence check.
 Cache ready providers within the service lifetime to avoid needless reloading.
 
+Cache loaded provider instances, not an index-readiness verdict. Every ordinary
+or explained call must recheck the selected projection's freshness and
+compatibility against current corpus state, even when the same facade has
+already completed a search. A successful call followed by ingestion must fail
+if the projection is stale; rebuilding the matching projection must allow the
+same facade instance to recover without reconstructing it or reloading models.
+An initialization failure must not be cached as success.
+
 This is deliberately stricter than the old reranked service, which skips reranker
 initialization for an empty candidate list. Apply the stricter requirement at
 the product facade; successful ranking parity does not require preserving this
@@ -184,6 +231,40 @@ The version-2 trace must include:
   supporting evidence IDs.
 - Displayed versus total trace counts and explicit truncation. Limiting the
   displayed trace must not change the retrieval calculation.
+
+The version-2 JSON report has the following stable top-level shape:
+
+| Field | Contract |
+| --- | --- |
+| `report_version` | Literal `"2"`. |
+| `corpus_id`, `corpus_fingerprint` | Corpus identity and fingerprint for the observed execution. |
+| `query`, `filters`, `lexical_expression` | Original query, effective subject/source/date/result-limit constraints, and executed natural-mode FTS expression. Preserve existing date-filter semantics. |
+| `configuration` | Selected projection ID, embedding profile and model revision, reranker model revision, provider pipeline versions, contextual setting, effective candidate limits, fusion weights, and fusion constant. |
+| `score_semantics`, `tie_breakers` | Stage-specific score directions/meanings and actual deterministic tie-breakers. |
+| `stage_counts` | Counts for lexical candidates, dense candidates, deduplicated union, fused shortlist, reranked candidates, and returned hits, before display truncation. |
+| `subject_scope` | Existing bounded graph scope and supporting evidence paths. |
+| `active_current_revisions_only`, `supersession_filter_applied` | Preserve the existing values `true` and `false`; source search does not hide superseded assertions. |
+| `quotes_included` | Whether quote disclosure was explicitly requested. |
+| `hits` | All final results up to the requested result limit, in returned order, using the existing explained-hit citation and subject-attribution fields. `rank` is the reranker score. Quotes are omitted unless opted in. |
+| `candidates` | Bounded per-candidate stage trace, keyed within each entry by canonical `record_id`. |
+| `trace_limit`, `total_candidates`, `displayed_candidates`, `truncated` | Requested display bound, deduplicated union size, displayed entry count, and whether entries were omitted. |
+
+Each candidate entry contains `record_id`, nullable `lexical` and `dense` stage
+objects (each with one-based `position` and raw `score`), `fusion` (one-based
+position over the full union, fused score, separate lexical/dense contributions,
+and `selected_for_reranking`), nullable `reranker` (one-based position and raw
+score), and nullable `final_position`. Absent stages and absent fusion
+contributions are explicit JSON `null`, never zero or silently omitted;
+`final_position` is null for candidates outside the returned result limit.
+Candidate entries contain no passage text; quote opt-in applies to `hits`.
+Fusion contributions record the actual weighted reciprocal-rank terms.
+
+Choose displayed candidates deterministically: returned hits in final order,
+then remaining reranked candidates in reranker order, then remaining union
+candidates in fusion order; deduplicate by canonical ID and take `trace_limit`.
+The separate `hits` list is never shortened by the trace limit. Position
+numbering precedes display truncation. Changing the trace limit or quote opt-in
+must not change candidate generation, scoring, counts, or final results.
 
 This is execution telemetry, not a generated natural-language rationale.
 Capture the data during the actual execution. Explained and ordinary search
@@ -257,13 +338,19 @@ Add or update tests proving:
   exclude all passages. Cover embedding and reranker failures independently for
   ordinary and explained search.
 - Source edit -> stale-index failure -> matching index rebuild -> successful
-  search works without changing ingestion semantics.
+  search works without changing ingestion semantics, including on the same
+  facade instance with cached providers for ordinary and explained calls.
 - Public search enforces readiness while legacy lexical and structured/evidence
   operations remain usable without semantic models.
 - Removed mode arguments provide explicit migration errors.
 - Version-2 explanations describe the full execution without exposing quotes by
   default; final rankings match ordinary search and intervening commits,
   including edit-and-restore, are detected.
+- Ordinary search also rejects intervening commits with `search_state_changed`,
+  including edit-and-restore and commits during readiness checks.
+- Python and CLI explanations use the version-2 contract; trace bounds, explicit
+  null membership, deterministic truncation, and quote opt-in do not affect
+  returned hits or retrieval calculations.
 - Capability discovery advertises interface version 2 and migrated consumers
   respect the documented score semantics.
 - Existing ingestion scenarios, including edits, restores, removals, failures,
@@ -274,6 +361,34 @@ make every fixture test download or run large models. Also exercise the real
 configured models on representative existing fixtures to confirm actual
 integration. If dependencies or network policy block that validation, report it
 as incomplete rather than substituting mocked evidence for real-model success.
+
+The required real-model matrix uses `corpora/atlas.yml` and
+`corpora/atlas-state.yml`, each with both `gte-modernbert` and
+`qwen3-embedding-0.6b`, each with contextual mode off and on (eight combinations).
+Use the existing pinned cross-encoder in every combination. Build isolated
+indexes from unchanged fixture sources; do not overwrite fixture manifests or
+historical benchmark databases.
+
+For every combination, run `"archive signing certificate"` both unscoped and
+with subject `"Atlas"`, plus a source filter matching no passage. Compare
+ordinary and explained product search against the existing explicit
+`RerankedRetrievalService` path under identical configuration and provider
+instances. Require identical ordered IDs and citations; controlled-provider
+tests require exact scores, while real-model scores may differ only within
+relative tolerance `1e-5` and absolute tolerance `1e-6`. The empty case must
+verify the product readiness contract separately, not inherit the component's
+reranker shortcut. These are integration/parity checks, not new relevance gold
+or evidence of improved retrieval quality.
+
+Record commands, code revision, fixture fingerprints, model revisions,
+dependency versions, hardware/device, configuration, comparison outcomes, and
+blocked combinations under a distinct `benchmarks/productization/` validation
+label, without modifying historical measurements. All eight combinations must
+pass before this workstream is accepted as complete. A blocked check leaves
+acceptance outstanding; do not mark the specification implemented or claim
+completion based on mocks. Implementation may proceed while checks are blocked,
+but any decision to merge with outstanding validation requires an explicit
+maintainer exception identifying the missing checks.
 
 ### Benchmark continuity
 
@@ -313,7 +428,8 @@ Unrelated model/quality tuning is not a hidden prerequisite for this workstream.
 4. Under identical data, configuration, and providers, normal search matches
    the former explicit reranked path's successful rankings, filters, and
    citations. The explicit stricter empty-result readiness contract is tested
-   separately rather than treated as a parity regression.
+   separately rather than treated as a parity regression, as is the stricter
+   ordinary-search intervening-commit protection.
 5. Index/model readiness failures are explicit and never silently downgrade
    retrieval; setup and recovery instructions are documented.
 6. Search explanations correspond to the full execution, and existing diagnostic
@@ -322,7 +438,9 @@ Unrelated model/quality tuning is not a hidden prerequisite for this workstream.
    help, and examples require no knowledge of the E-series.
 8. The existing test suite, updated integration coverage, lint, type checks,
    and package build pass; pre-existing failures and blocked real-model checks
-   are separately reported rather than masked.
+   are separately reported rather than masked. The required real-model matrix
+   passes before final acceptance; a merge exception does not count as passing
+   validation or completing the workstream.
 9. The migration notes identify the changed search default, removed mode
    argument, public Python facade and legacy component boundary, score semantics,
    edit/reindex lifecycle, model/index prerequisites, and interface/report

@@ -17,7 +17,9 @@ import sqlite_vec  # type: ignore[import-untyped]
 
 from kg.db import Database
 from kg.models.contracts import DenseIndexResult, SearchResult
+from kg.retrieval._telemetry import execution_trace
 from kg.retrieval.context import CONTEXTUAL_SOURCE_TEXT_VERSION, contextual_passage_text
+from kg.retrieval.product_explain import ModelIdentity
 from kg.retrieval.service import RetrievalService, SearchQueryError
 
 SOURCE_TEXT_VERSION = "passage-text-v1"
@@ -465,6 +467,17 @@ class DenseRetrievalService:
             _validate_projection_model(
                 projection, embedding_provider, source_text_version=self.source_text_version
             )
+            trace = execution_trace.get()
+            if trace is not None:
+                trace.projection_id = projection_id
+                trace.projection_path = str(self.projection_path)
+                trace.embedding_profile = self.profile.value
+                trace.source_text_version = self.source_text_version
+                trace.embedding_model = ModelIdentity(
+                    name=embedding_provider.name,
+                    revision=embedding_provider.revision,
+                    pipeline_version=embedding_provider.pipeline_version,
+                )
             query_vector = _validate_vector(
                 embedding_provider.encode_query(query),
                 embedding_provider.dimensions,

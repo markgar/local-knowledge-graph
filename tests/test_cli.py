@@ -7,7 +7,10 @@ import pytest
 from typer.testing import CliRunner
 
 from kg.cli import app
+from kg.config import load_manifest
+from kg.db import Database
 from kg.models.contracts import DenseIndexResult, SearchResult
+from kg.retrieval import RetrievalService
 from kg.retrieval.dense import DenseIndexError, EmbeddingProfile
 
 RUNNER = CliRunner()
@@ -78,18 +81,10 @@ def test_evidence_command_returns_exact_record_anchor(tmp_path: Path) -> None:
         encoding="utf-8",
     )
     assert RUNNER.invoke(app, ["ingest", "--manifest", str(manifest)]).exit_code == 0
-    search = RUNNER.invoke(
-        app,
-        [
-            "search",
-            "Evidence",
-            "--manifest",
-            str(manifest),
-            "--format",
-            "json",
-        ],
-    )
-    record_id = json.loads(search.stdout)[0]["record_id"]
+    corpus = load_manifest(manifest)
+    record_id = RetrievalService(Database(corpus.database), corpus.corpus_id).search(
+        "Evidence"
+    )[0].record_id
 
     evidence = RUNNER.invoke(
         app,
@@ -107,7 +102,7 @@ def test_evidence_command_returns_exact_record_anchor(tmp_path: Path) -> None:
     assert json.loads(evidence.stdout)["quote"] == "Evidence passage."
 
 
-def test_natural_query_mode_is_available_through_cli(tmp_path: Path) -> None:
+def test_natural_query_matching_remains_available_at_component_boundary(tmp_path: Path) -> None:
     manifest = tmp_path / "corpus.yml"
     vault = tmp_path / "vault"
     vault.mkdir()
@@ -125,22 +120,11 @@ def test_natural_query_mode_is_available_through_cli(tmp_path: Path) -> None:
     )
     assert RUNNER.invoke(app, ["ingest", "--manifest", str(manifest)]).exit_code == 0
 
-    result = RUNNER.invoke(
-        app,
-        [
-            "search",
-            "unrelated evidence",
-            "--query-mode",
-            "natural",
-            "--manifest",
-            str(manifest),
-            "--format",
-            "json",
-        ],
+    corpus = load_manifest(manifest)
+    result = RetrievalService(Database(corpus.database), corpus.corpus_id).search(
+        "unrelated evidence", query_mode="natural"
     )
-
-    assert result.exit_code == 0
-    assert json.loads(result.stdout)[0]["quote"] == "Evidence passage."
+    assert result[0].quote == "Evidence passage."
 
 
 def test_status_without_since_includes_old_dated_evidence(tmp_path: Path) -> None:
@@ -192,7 +176,7 @@ def test_status_without_since_includes_old_dated_evidence(tmp_path: Path) -> Non
 
 
 @pytest.mark.parametrize("use_context", [False, True])
-def test_dense_commands_are_available_through_cli(
+def test_dense_index_and_product_search_configuration_through_cli(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
     use_context: bool,
@@ -261,6 +245,17 @@ def test_dense_commands_are_available_through_cli(
 
     monkeypatch.setattr("kg.cli.DenseRetrievalService", StubDenseRetrievalService)
 
+    class StubSearchService(StubDenseRetrievalService):
+        def __init__(
+            self, database: object, corpus_id: str, *,
+            embedding_profile: EmbeddingProfile, contextual: bool,
+        ) -> None:
+            super().__init__(
+                database, corpus_id, profile=embedding_profile, contextual=contextual
+            )
+
+    monkeypatch.setattr("kg.cli.SearchService", StubSearchService)
+
     index_result = RUNNER.invoke(
         app,
         [
@@ -282,8 +277,6 @@ def test_dense_commands_are_available_through_cli(
             "search",
             "semantic question",
             *(["--contextual"] if use_context else []),
-            "--query-mode",
-            "dense",
             "--embedding-profile",
             "qwen3-embedding-0.6b",
             "--manifest",
@@ -321,7 +314,7 @@ def test_dense_encode_error_is_machine_readable(
             database: object,
             corpus_id: str,
             *,
-            profile: EmbeddingProfile,
+            embedding_profile: EmbeddingProfile,
             contextual: bool,
         ) -> None:
             pass
@@ -329,15 +322,13 @@ def test_dense_encode_error_is_machine_readable(
         def search(self, query: str, **kwargs: object) -> list[SearchResult]:
             raise DenseIndexError("Could not encode query: model failure")
 
-    monkeypatch.setattr("kg.cli.DenseRetrievalService", StubDenseRetrievalService)
+    monkeypatch.setattr("kg.cli.SearchService", StubDenseRetrievalService)
 
     result = RUNNER.invoke(
         app,
         [
             "search",
             "question",
-            "--query-mode",
-            "dense",
             "--manifest",
             str(manifest),
             "--format",
@@ -354,7 +345,7 @@ def test_dense_encode_error_is_machine_readable(
 
 
 @pytest.mark.parametrize("use_context", [False, True])
-def test_hybrid_query_mode_is_available_through_cli(
+def test_product_search_preserves_hybrid_evidence_payload_through_cli(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
     use_context: bool,
@@ -400,7 +391,7 @@ def test_hybrid_query_mode_is_available_through_cli(
             ]
 
     monkeypatch.setattr(
-        "kg.cli.HybridRetrievalService",
+        "kg.cli.SearchService",
         StubHybridRetrievalService,
     )
     result = RUNNER.invoke(
@@ -409,8 +400,6 @@ def test_hybrid_query_mode_is_available_through_cli(
             "search",
             "hybrid question",
             *(["--contextual"] if use_context else []),
-            "--query-mode",
-            "hybrid",
             "--embedding-profile",
             "qwen3-embedding-0.6b",
             "--manifest",
@@ -425,7 +414,7 @@ def test_hybrid_query_mode_is_available_through_cli(
 
 
 @pytest.mark.parametrize("use_context", [False, True])
-def test_reranked_query_mode_is_available_through_cli(
+def test_product_search_preserves_reranked_evidence_payload_through_cli(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
     use_context: bool,
@@ -471,7 +460,7 @@ def test_reranked_query_mode_is_available_through_cli(
             ]
 
     monkeypatch.setattr(
-        "kg.cli.RerankedRetrievalService",
+        "kg.cli.SearchService",
         StubRerankedRetrievalService,
     )
     result = RUNNER.invoke(
@@ -480,8 +469,6 @@ def test_reranked_query_mode_is_available_through_cli(
             "search",
             "reranked question",
             *(["--contextual"] if use_context else []),
-            "--query-mode",
-            "reranked",
             "--embedding-profile",
             "qwen3-embedding-0.6b",
             "--manifest",

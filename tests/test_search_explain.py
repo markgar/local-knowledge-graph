@@ -229,34 +229,35 @@ def test_graph_paths_are_undirected(corpus: CorpusManifest) -> None:
 
 
 @pytest.mark.parametrize("format_", ["json", "text"])
-def test_cli_quotes_are_separately_opted_in(corpus: CorpusManifest, format_: str) -> None:
-    arguments = [
-        "search", "private", "--subject", "Cobalt", "--manifest", str(corpus.manifest_path),
-        "--explain", "--format", format_,
-    ]
-    redacted = RUNNER.invoke(app, arguments)
-    assert redacted.exit_code == 0, redacted.output
-    assert PRIVATE_QUOTE not in redacted.stdout
-    assert "Cobalt" in redacted.stdout
+def test_lexical_quotes_are_separately_opted_in(corpus: CorpusManifest, format_: str) -> None:
+    def render(include_quotes: bool) -> str:
+        report = explain_search(
+            Database(corpus.database), corpus.corpus_id, "private", subject="Cobalt",
+            include_quotes=include_quotes,
+        )
+        return (
+            report.model_dump_json(exclude_none=True)
+            if format_ == "json" else render_search_explanation(report)
+        )
+
+    redacted = render(False)
+    assert PRIVATE_QUOTE not in redacted
+    assert "Cobalt" in redacted
     if format_ == "json":
-        assert "quote" not in json.loads(redacted.stdout)["hits"][0]
-    included = RUNNER.invoke(app, [*arguments, "--include-quotes"])
-    assert included.exit_code == 0, included.output
-    assert PRIVATE_QUOTE in included.stdout
+        assert "quote" not in json.loads(redacted)["hits"][0]
+    included = render(True)
+    assert PRIVATE_QUOTE in included
     if format_ == "json":
-        assert json.loads(included.stdout)["hits"][0]["quote"] == PRIVATE_QUOTE
+        assert json.loads(included)["hits"][0]["quote"] == PRIVATE_QUOTE
     else:
-        assert "FTS expression:" in redacted.stdout
-        assert "not confidence" in redacted.stdout
-        assert "exact_mention" in redacted.stdout
+        assert "FTS expression:" in redacted
+        assert "not confidence" in redacted
+        assert "exact_mention" in redacted
 
 
-def test_cli_default_search_shape_unchanged(corpus: CorpusManifest) -> None:
-    result = RUNNER.invoke(app, [
-        "search", "private", "--manifest", str(corpus.manifest_path), "--format", "json"
-    ])
-    assert result.exit_code == 0
-    payload = json.loads(result.stdout)
+def test_lexical_search_shape_unchanged(corpus: CorpusManifest) -> None:
+    results = RetrievalService(Database(corpus.database), corpus.corpus_id).search("private")
+    payload = [result.model_dump(mode="json") for result in results]
     assert isinstance(payload, list)
     assert payload[0]["quote"] == PRIVATE_QUOTE
     assert set(payload[0]) == set(SearchResult.model_fields)
@@ -266,21 +267,21 @@ def test_cli_default_search_shape_unchanged(corpus: CorpusManifest) -> None:
     ("flags", "error"),
     [
         (["--include-quotes"], "invalid_query"),
-        (["--explain", "--contextual"], "invalid_query"),
+        (["--explain-limit", "50"], "invalid_query"),
         (["--explain", "--since", "not-a-date"], "invalid_query"),
-        (["--explain", "--query-mode", "dense"], "unsupported_explanation_mode"),
-        (["--explain", "--query-mode", "hybrid"], "unsupported_explanation_mode"),
-        (["--explain", "--query-mode", "reranked"], "unsupported_explanation_mode"),
+        (["--explain", "--query-mode", "dense"], "invalid_query"),
+        (["--explain", "--query-mode", "hybrid"], "invalid_query"),
+        (["--explain", "--query-mode", "reranked"], "invalid_query"),
     ],
 )
 def test_invalid_flags_fail_before_model_work(
     corpus: CorpusManifest, monkeypatch: pytest.MonkeyPatch, flags: list[str], error: str
 ) -> None:
     def forbidden(*args: Any, **kwargs: Any) -> None:
-        pytest.fail("Semantic service must not be constructed for explain")
+        pytest.fail("Models must not be loaded for invalid arguments")
 
-    for name in ("DenseRetrievalService", "HybridRetrievalService", "RerankedRetrievalService"):
-        monkeypatch.setattr(f"kg.cli.{name}", forbidden)
+    monkeypatch.setattr("kg.retrieval.dense.SentenceTransformerEmbeddingProvider", forbidden)
+    monkeypatch.setattr("kg.retrieval.rerank.SentenceTransformerCrossEncoderProvider", forbidden)
     result = RUNNER.invoke(app, [
         "search", "evidence", "--manifest", str(corpus.manifest_path), "--format", "json", *flags
     ])
@@ -333,9 +334,6 @@ def test_changes_between_search_and_attribution_are_rejected(
         return results
 
     monkeypatch.setattr(RetrievalService, "search", mutate)
-    result = RUNNER.invoke(app, [
-        "search", "evidence", "--manifest", str(corpus.manifest_path),
-        "--subject", "Cobalt", "--explain", "--format", "json",
-    ])
-    assert result.exit_code == 2
-    assert json.loads(result.stderr)["error"] == "search_state_changed"
+    with pytest.raises(SearchExplanationError) as error:
+        explain_search(database, corpus.corpus_id, "evidence", subject="Cobalt")
+    assert error.value.code == "search_state_changed"
