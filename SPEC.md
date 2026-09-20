@@ -288,6 +288,28 @@ readiness or concurrency semantics. Legacy lexical explanations remain version 1
 
 ## Storage, maintenance, and validation
 
+### Foundation value contracts (validation only)
+
+`kg.models.foundation` implements strict `foundation/1` request/result values for
+supplied content, evidence, document writes, atomic enrichment descriptions,
+batch correlation, synchronization/metadata snapshots and dependent query plans.
+`model_validate_json()` checks types, bounds, exact code-point source slices,
+request-local references, supporting-document dependency coverage and declared
+scope. `model_dump_json()` round-trips these immutable values without normalizing
+source text. `BatchResult.validate_for()` and `QueryResult.validate_for()` check
+request/result correlation. `FoundationCapabilities` explicitly says
+`validation_only`; it does not change `kg capabilities` or product interface 2.
+
+These models are **not** callable ingestion/query services or enforcement of
+database integrity, authorization, atomicity, idempotency or read isolation.
+An access context is trusted-boundary input, not proof of permission. No schema,
+existing command/result, source fixture or authored gold changes accompany them.
+The shared semantics, compatibility/migration duties and pending integration gates
+are in [FOUNDATION_SPEC.md](FOUNDATION_SPEC.md). Representative contract fixtures
+and the synthetic workload/budget protocol complete F0/V0, not E1/K1/Q1.
+
+### Existing canonical storage
+
 [`src/kg/schema.sql`](src/kg/schema.sql) owns rebuildable canonical SQLite tables
 for source documents/revisions/anchors/activations, entities/aliases/mentions,
 relationships, structured records/bindings, passages, lexical projections, and

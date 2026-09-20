@@ -1,6 +1,7 @@
 # Full roadmap implementation plan
 
-Status: planned; implementation of this plan has not started.
+Status: F0/V0 foundation implemented (validation/fixtures/protocol only);
+all downstream packages remain planned.
 Recorded: 2026-09-20.
 Starting baseline: `c4162bac3bc5c5d40006e47ad66678fd44230f73`.
 
@@ -43,7 +44,8 @@ Important constraints for the first work packages:
 - The manifest importer currently controls seed-entity activation. Agent-created
   knowledge needs explicit ownership/lifecycle rules before multiple writers
   coexist; a Markdown ingest must not deactivate another writer's entities.
-  It also deletes corpus-wide aliases and deactivates unselected documents.
+  It also deletes corpus-wide aliases and deactivates unselected documents,
+  and re-extraction/config rebuilds replace mentions and relationships.
   Ownership must cover document synchronization scopes and individual knowledge
   contributions, not just entities.
 - `ingest/_prepared.py` and `_writer.py` are private implementation boundaries,
@@ -75,11 +77,10 @@ not retrofitted after individual features are built. Define one owner for
 cross-cutting contract and schema decisions. Contracts can evolve through
 coordinated, versioned changes; they are not frozen forever.
 
-The [F0/V0 foundation specification](FOUNDATION_SPEC.md) proposes the shared
-semantics, acceptance inventory, and explicit first-wave exit gate. Agree initial
-source identities, offsets, document/contribution ownership, knowledge schema,
-and write/query contracts before E1/K1/Q1 start independently, not at their later
-integration. Writing the specification does not complete F0 or V0.
+The [F0/V0 foundation specification](FOUNDATION_SPEC.md) records initial shared
+semantics, strict versioned models/tests, acceptance inventory and evaluation
+targets. Contract validation is implemented, not generic storage or execution.
+E1/K1/Q1 can use these boundaries; no downstream lane is started by this change.
 
 Create representative acceptance scenarios alongside these contracts.
 No model or real connector is needed to establish deterministic storage and
@@ -255,7 +256,10 @@ The central integrated scenario is:
 Include ambiguity, competing assertions, ownership coexistence, interruption,
 concurrent writers, partial completion and cross-source permissions.
 Ownership coexistence must demonstrate that Markdown synchronization cannot
-deactivate another connector's documents or erase agent-authored aliases.
+deactivate another connector's documents or erase agent-authored aliases, mentions
+or relationships, including during forced parser/config rebuilds. E1/K1 must
+owner-scope those mutations or explicitly reject mixed-writer storage **before**
+enabling new writes; E2 must complete coexistence.
 Partial/failed source enumeration must not be treated as a complete snapshot.
 Exercise an independently packaged adapter without adding source-specific core
 branches. Real-agent/provider and permission-approved usage evaluation must
@@ -294,17 +298,20 @@ scope. Escalate choices that change public behavior, source access or data egres
 | Cursor behavior | Agree snapshot identity, expiry and data-change outcomes; distinguish bounded candidate exhaustion from corpus exhaustion. | Q4 |
 | Quality and operating budgets | Agree initial representative workloads and numeric acceptance thresholds without erasing known limitations; measure incrementally and explicitly review changes. | F0/V0 exit, before parallel implementation |
 
-## Starting in the next session
+## Foundation delivery and next package boundary
 
 Read this plan, [FOUNDATION_SPEC.md](FOUNDATION_SPEC.md),
 [ROADMAP.md](ROADMAP.md), [SPEC.md](SPEC.md), and
 [CONTRIBUTING.md](CONTRIBUTING.md), then confirm the latest `main` and baseline
-validation. All package IDs above are planned, not implemented by writing this
-document.
+validation. F0 delivers `kg.models.foundation` validation/serialization only.
+V0 delivers `corpora/foundation` scenarios and `benchmarks/foundation` reproducible
+inputs/numeric targets, not integrated behavior or measured service performance.
+All other package IDs remain planned.
 
-Start by reviewing the F0/V0 draft and resolving its first-wave decisions,
-then implement executable contracts, acceptance fixtures, and the initial budget
-record. Record the decisions and ready dependencies, then launch the
-three implementation lanes on PR-sized work. Do not reopen completed
+Review the settled foundation contract and package-specific acceptance recipes.
+The coordinator owns shared contract/schema decisions; E1 owns migrations,
+K1 owns contribution storage and Q1 owns coherent dependent execution; V1 owns
+measurement. Launch ready lanes only through separately authorized work.
+Do not reopen completed
 productization or structural cleanup, start all packages simultaneously, or
 silently choose unresolved live-source/model policies.

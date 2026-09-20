@@ -11,8 +11,9 @@ contracts and implementation choices are still open.
 [`IMPLEMENTATION_PLAN.md`](IMPLEMENTATION_PLAN.md) organizes delivery of this
 full scope into work packages, dependencies, parallel lanes, and acceptance gates.
 It records implementation order, not additional completed capabilities.
-The proposed first-step contracts and acceptance cases are in
-[`FOUNDATION_SPEC.md`](FOUNDATION_SPEC.md); that draft is not an implemented API.
+Initial first-step contracts and acceptance cases are in
+[`FOUNDATION_SPEC.md`](FOUNDATION_SPEC.md). Validation models and synthetic inputs
+are implemented; generic storage, authorization and execution are not.
 
 ## Product goal
 
@@ -381,11 +382,14 @@ Historical experiment identifiers may remain in archived results for traceabilit
 
 - First real connector, source system, and representative user questions.
 - Plugin packaging and how ingestion agents are hosted or invoked.
-- Initial knowledge schema, extension rules, and identity reconciliation policy.
-- Rule-based versus model-assisted planning, and the initial operator set.
+- Later knowledge-schema extensions and identity reconciliation implementation;
+  initial types/support/ownership rules are settled in the foundation.
+- Rule-based versus model-assisted planning; the initial typed operator vocabulary
+  is settled in the foundation, not yet executable.
 - Local-only versus configurable hosted model providers and data-egress policy.
 - Retention, purge, and access-control requirements for actual connected sources.
-- Cursor/snapshot implementation and measurable quality, latency, and cost gates.
+- Cursor/snapshot implementation and measured quality, latency, and cost results;
+  initial numeric engineering targets are recorded under `benchmarks/foundation/`.
 
 These are implementation decisions to resolve, not capabilities already built.
 The current SQLite foundation can be reused; this roadmap does not require a
