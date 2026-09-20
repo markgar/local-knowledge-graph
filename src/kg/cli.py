@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import Annotated, Any, Never
 
 import typer
+from typer.core import TyperCommand
 
 from kg.config import ManifestError, load_manifest
 from kg.db import Database
@@ -16,14 +17,14 @@ from kg.ingest import IngestService
 from kg.ingest.explain import render_ingest_report
 from kg.models.contracts import ErrorResult, IngestReport
 from kg.models.manifest import CorpusManifest
+from kg.retrieval import SearchExplanationError, SearchService, SearchStateChangedError
 from kg.retrieval.dense import (
     DEFAULT_EMBEDDING_PROFILE,
     DenseIndexError,
     DenseRetrievalService,
     EmbeddingProfile,
 )
-from kg.retrieval.hybrid import HybridRetrievalService
-from kg.retrieval.rerank import RerankedRetrievalService, RerankerError
+from kg.retrieval.rerank import RerankerError
 from kg.retrieval.service import (
     RecordNotFoundError,
     RetrievalService,
@@ -43,12 +44,27 @@ class OutputFormat(StrEnum):
     json = "json"
 
 
-class QueryMode(StrEnum):
-    strict = "strict"
-    natural = "natural"
-    dense = "dense"
-    hybrid = "hybrid"
-    reranked = "reranked"
+class SearchCommand(TyperCommand):
+    def parse_args(self, ctx: Any, args: list[str]) -> list[str]:
+        # Catch even missing/unknown legacy values without advertising a bypass option.
+        options = args[:args.index("--")] if "--" in args else args
+        if any(arg.split("=", 1)[0] == "--query-mode" for arg in options):
+            output_format = OutputFormat.text
+            for index, arg in enumerate(options):
+                if arg == "--format" and index + 1 < len(options):
+                    if options[index + 1] == "json":
+                        output_format = OutputFormat.json
+                elif arg == "--format=json":
+                    output_format = OutputFormat.json
+            _fail(
+                "invalid_query",
+                "--query-mode has been removed, including --query-mode reranked. "
+                "Omit the flag: kg search now always uses keyword + semantic retrieval, "
+                "fusion, and reranking. Run kg dense-index with the same "
+                "--embedding-profile and --contextual settings before searching.",
+                output_format,
+            )
+        return super().parse_args(ctx, args)
 
 
 FormatOption = Annotated[OutputFormat, typer.Option("--format")]
@@ -59,7 +75,7 @@ ContextualOption = Annotated[
         help="Include titles and headings in semantic retrieval; uses a separate dense index.",
     ),
 ]
-AGENT_INTERFACE_VERSION = "1"
+AGENT_INTERFACE_VERSION = "2"
 
 
 @app.callback()
@@ -89,6 +105,25 @@ def capabilities(
                     "name": "evidence_search",
                     "command": "search",
                     "result": "list[SearchResult]",
+                    "pipeline": "keyword + semantic -> fusion -> reranking",
+                    "rank_semantics": (
+                        "Raw cross-encoder score, higher is better; returned order is "
+                        "authoritative, not confidence or comparable across queries/models."
+                    ),
+                    "explanation": {
+                        "flag": "--explain",
+                        "result": "ProductSearchExplanation",
+                        "report_version": "2",
+                        "trace_limit": {
+                            "flag": "--explain-limit", "default": 50, "min": 1, "max": 200,
+                        },
+                        "quotes": "Only with --include-quotes",
+                    },
+                    "readiness": (
+                        "ingest -> matching dense-index -> search; embedding and reranker "
+                        "required even for empty results; no keyword fallback"
+                    ),
+                    "migration": "--query-mode is removed; omit it, including reranked.",
                 },
                 {
                     "name": "source_range_read",
@@ -188,8 +223,9 @@ def dense_index(
     _render(result.model_dump(mode="json"), output_format)
 
 
-@app.command()
+@app.command(cls=SearchCommand)
 def search(
+    ctx: typer.Context,
     query: str,
     manifest: ManifestOption,
     subject: Annotated[str | None, typer.Option()] = None,
@@ -197,112 +233,55 @@ def search(
     limit: Annotated[int, typer.Option(min=1, max=100)] = 20,
     since: Annotated[str | None, typer.Option()] = None,
     source: Annotated[str | None, typer.Option()] = None,
-    query_mode: Annotated[
-        QueryMode,
-        typer.Option(
-            help=(
-                "Strict, natural BM25, dense semantic, hybrid RRF, "
-                "or cross-encoder reranked search."
-            )
-        ),
-    ] = QueryMode.strict,
     embedding_profile: Annotated[
         EmbeddingProfile,
-        typer.Option(help="Embedding profile for dense, hybrid, and reranked search."),
+        typer.Option(help="Embedding profile; must match the prepared dense index."),
     ] = DEFAULT_EMBEDDING_PROFILE,
     contextual: ContextualOption = False,
     explain: Annotated[
-        bool, typer.Option(help="Explain lexical search ranking, filters, and subject scope.")
+        bool, typer.Option(help="Explain the full retrieval pipeline, filters, and subject scope.")
     ] = False,
     include_quotes: Annotated[
         bool, typer.Option(help="Include source quotes in explain output (requires --explain).")
     ] = False,
+    explain_limit: Annotated[
+        int,
+        typer.Option(min=1, max=200, help="Maximum traced candidates (requires --explain)."),
+    ] = 50,
 ) -> None:
-    """Search indexed evidence."""
-    from kg.retrieval.explain import (
-        SearchExplanationError,
-        explain_search,
-        render_search_explanation,
-    )
+    """Search evidence with keyword + semantic retrieval, fusion, and reranking.
 
+    Prepare a matching dense-index first. No keyword-only fallback is used.
+    Migration: --query-mode is removed; omit it (including reranked).
+    """
     if include_quotes and not explain:
         _fail("invalid_query", "--include-quotes requires --explain", output_format)
-    if explain and query_mode not in {QueryMode.strict, QueryMode.natural}:
+    limit_source = ctx.get_parameter_source("explain_limit")
+    if not explain and limit_source is not None and limit_source.name == "COMMANDLINE":
         _fail(
-            "unsupported_explanation_mode",
-            "--explain supports only strict and natural search",
+            "invalid_query",
+            "--explain-limit requires --explain",
             output_format,
         )
     corpus = _load_manifest_or_exit(manifest, output_format)
     try:
-        if contextual and query_mode in {QueryMode.strict, QueryMode.natural}:
-            raise SearchQueryError(
-                "--contextual requires --query-mode dense, hybrid, or reranked"
-            )
         cutoff = _parse_since(since) if since else None
         database = Database(corpus.database)
+        service = SearchService(
+            database, corpus.corpus_id, embedding_profile=embedding_profile, contextual=contextual
+        )
         if explain:
-            report = explain_search(
-                database, corpus.corpus_id, query, subject, limit, cutoff, source,
-                "natural" if query_mode is QueryMode.natural else "strict",
+            report = service.explain_search(
+                query, subject=subject, limit=limit, since=cutoff, source_path=source,
                 include_quotes=include_quotes,
+                trace_limit=explain_limit,
             )
-            if output_format is OutputFormat.text:
-                typer.echo(render_search_explanation(report))
-            else:
-                _render(report.model_dump(mode="json", exclude_none=True), output_format)
+            _render(report.model_dump(mode="json"), output_format)
             return
-        if query_mode is QueryMode.reranked:
-            results = RerankedRetrievalService(
-                database,
-                corpus.corpus_id,
-                embedding_profile=embedding_profile,
-                contextual=contextual,
-            ).search(
-                query=query,
-                subject=subject,
-                limit=limit,
-                since=cutoff,
-                source_path=source,
-            )
-        elif query_mode is QueryMode.hybrid:
-            results = HybridRetrievalService(
-                database,
-                corpus.corpus_id,
-                embedding_profile=embedding_profile,
-                contextual=contextual,
-            ).search(
-                query=query,
-                subject=subject,
-                limit=limit,
-                since=cutoff,
-                source_path=source,
-            )
-        elif query_mode is QueryMode.dense:
-            results = DenseRetrievalService(
-                database,
-                corpus.corpus_id,
-                profile=embedding_profile,
-                contextual=contextual,
-            ).search(
-                query=query,
-                subject=subject,
-                limit=limit,
-                since=cutoff,
-                source_path=source,
-            )
-        else:
-            results = RetrievalService(database, corpus.corpus_id).search(
-                query=query,
-                subject=subject,
-                limit=limit,
-                since=cutoff,
-                source_path=source,
-                query_mode=(
-                    "natural" if query_mode is QueryMode.natural else "strict"
-                ),
-            )
-    except SearchExplanationError as exc:
+        results = service.search(
+            query, subject=subject, limit=limit, since=cutoff, source_path=source
+        )
+    except (SearchExplanationError, SearchStateChangedError) as exc:
         _fail(exc.code, str(exc), output_format)
     except DenseIndexError as exc:
         _fail("dense_index_unavailable", str(exc), output_format)

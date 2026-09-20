@@ -7,6 +7,35 @@ stable release. Pre-1.0 releases may contain breaking changes.
 
 ## Unreleased
 
+### Changed
+
+- Public `kg search` now uses `kg.retrieval.SearchService`: natural keyword plus
+  semantic retrieval, canonical-ID fusion/deduplication, and cross-encoder
+  reranking. Agent `interface_version` is now `"2"`.
+- Removed `--query-mode` from product search, including its former `reranked`
+  value. Old invocations fail with migration guidance. Omit the flag, prepare a
+  matching `dense-index`, and retain matching profile/contextual settings.
+- Ordinary search preserves `list[SearchResult]`, but `rank` is now the raw
+  reranker score (higher is better). Preserve returned order; old BM25
+  thresholds and cross-query score comparisons are invalid.
+- Product `search --explain` now reports the actual full pipeline as
+  `ProductSearchExplanation` version 2, with model/projection identities, stage
+  counts/scores, explicit null membership, graph evidence, and bounded candidate
+  telemetry. `--explain-limit` defaults to 50 (1..200) and, like quote opt-in,
+  requires `--explain`.
+- Product search requires current matching indexes and ready embedding/reranking
+  providers even for empty results. Ingestion remains separate from vector
+  preparation. Source changes require matching reindexing; failures never fall
+  back to lexical search. Both search paths reject intervening database commits
+  with `search_state_changed` and retry guidance.
+- Structured/evidence CLI contracts and legacy low-level Python services remain
+  available without semantic model initialization. Historical lexical benchmark
+  adapters explicitly preserve their original strategies, labels, and evidence.
+- Current documentation is organized by capabilities and workflows; the original
+  experiment ledger is archived under `benchmarks/history/`. Existing unmet
+  quality gates and measured results are unchanged. Final combined productization
+  acceptance remains pending validation and review.
+
 ### Fixed
 
 - Numbered checkboxes omitted from actions and numbered decisions retaining
@@ -27,7 +56,7 @@ stable release. Pre-1.0 releases may contain breaking changes.
 - A frozen ten-question work-memory comparison for actual KG-versus-Markdown
   agent answers, with withheld gold, exact-citation scoring, identical source
   snapshots, and request/result journals for measured tool effort.
-- Machine-readable strict/natural search telemetry through `search --explain`,
+- Machine-readable strict/natural search telemetry through the low-level lexical API,
   with executed lexical expressions, filters, ranks, subject-scope predicates,
   graph evidence paths, opt-in quotes, and concurrent-change detection.
 - Generic, explicitly keyed task/decision supersession across documents, with

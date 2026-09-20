@@ -25,7 +25,8 @@ everything. Benchmarks support product development; they do not define the
 product or its supported source formats.
 
 This document defines the next product direction. `SPEC.md` retains the existing
-implementation contracts and historical experiment details. Where its future
+implementation contracts; [benchmark history](benchmarks/history/evidence-mvp.md)
+retains the original experiment details. Where its future
 direction conflicts with this roadmap, this roadmap takes precedence; existing
 behavior is not changed merely by documenting a target.
 
@@ -61,14 +62,14 @@ has been established. Existing retrieval acceptance gates remain unmet.
 
 | Capability | Current state | Required work |
 | --- | --- | --- |
-| Keyword retrieval | Built: FTS5/BM25, strict and natural modes. | Retain and expose through the unified query interface. |
+| Keyword retrieval | Built: internal FTS5/BM25 components; natural candidates feed product search. | Retain within future query execution. |
 | Semantic retrieval | Built: local embeddings and vector projections. | Integrate into planned query execution and index lifecycle. |
 | Fusion and deduplication | Built: keyword/vector reciprocal-rank fusion. | Accommodate additional retrieval paths where appropriate. |
 | Reranking | Built: cross-encoder over hybrid candidates. | Apply to relevance-ranked evidence, not exact counts or exhaustive results. |
 | Evidence and history | Built: exact quotes, immutable revisions, source ranges, context, and revision comparison. | Generalize source references beyond Markdown files. |
 | Graph retrieval | Limited: explicit relationships and bounded two-hop subject expansion. | Add typed, question-driven relationship and path operations. |
 | Structured retrieval | Limited: dedicated tasks, decisions, blockers, conflicts, and status operations. | Add supported exact lookups, filters, counts, and aggregations. |
-| Automatic retrieval routing | Not built; caller explicitly selects `--query-mode`. | Choose suitable retrieval methods from query intent and constraints. |
+| Automatic retrieval routing | Not built; product search always runs reranked hybrid retrieval with no mode selector. | Choose suitable operations from query intent and constraints, including structured/graph execution. |
 | Query plan generation and execution | Not built. | Translate natural language into a validated sequence of supported operations and execute dependencies. |
 | Query entity resolution | Known subjects and aliases exist, but no general question-to-entity stage. | Resolve candidate identities and report ambiguity rather than guess. |
 | Pagination | Result limits exist; continuation cursors do not. | Add stable continuation with explicit result-set boundaries. |
@@ -269,6 +270,8 @@ The first implementation workstream is specified in
 ingestion, retire E-stage product organization, and make normal search use the
 complete existing reranked hybrid pipeline. Later implementation sequencing and
 release boundaries remain to be planned. The full scope above is unchanged.
+The implementation is in review; productization acceptance remains pending final
+combined validation and review. This transition does not deliver the query planner.
 
 ## Productization: one KG, not a sequence of experiments
 

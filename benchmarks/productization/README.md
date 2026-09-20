@@ -3,8 +3,8 @@
 This is integration parity, **not new relevance gold or a quality improvement
 claim**. Historical datasets, measurements, thresholds, model pins, and lexical
 benchmark labels remain unchanged. The product specification remains
-"specified, not implemented" until combined acceptance, including all eight real
-model combinations.
+pending final combined acceptance and review, including all eight real-model
+combinations.
 
 The [2026-09-20 real-model run](RESULTS.md) passed all eight combinations.
 The complete [machine-readable report](results-2026-09-20.json) preserves the
@@ -59,7 +59,9 @@ under a distinct run filename when publishing; local databases stay in `.kg/`.
 
 ## Consumer inventory and assertion mapping
 
-No existing tests or datasets were renamed, moved, deleted, or weakened.
+The core and benchmark-continuity layers changed no original tests or datasets.
+The public CLI migration mappings below distinguish preserved lexical assertions
+from intentionally retired public mode selection.
 
 | Consumer | Preserved backend / assertions |
 | --- | --- |
@@ -77,3 +79,37 @@ The original transition baseline is `ecc0da83ce284e60aa6cb0946976a80d37f4fdad`.
 The initial corpus tree was `a382b28467818b5bebc6f92d88aa8fe812a67d42`;
 the historical benchmark tree before adapter edits was
 `bcf85e25cd94d60be1f6f122f51bb1da48fa8d1b`.
+
+### Public CLI layer inventory and assertion mapping
+
+The CLI layer starts from benchmark-continuity commit
+`1f9f67d61e369b8ec85affba0f073c4fccbadd21`: **565 tests passed** before edits.
+All authored `corpora/` content, manifests, stage definitions, acceptance gold,
+core product tests, benchmark adapter tests, and recorded results remain unchanged.
+
+| Original consumer/assertion | Current location and preserved property |
+| --- | --- |
+| `tests/test_cli.py::test_evidence_command_returns_exact_record_anchor` | Same test; strict `RetrievalService.search()` obtains the record ID instead of public search. The public evidence command still must return exactly `"Evidence passage."`. A new product CLI round-trip separately covers semantic hit IDs. |
+| `test_natural_query_mode_is_available_through_cli` | Renamed `test_natural_query_matching_remains_available_at_component_boundary` in the same file. The unchanged `"unrelated evidence"` query must still return exactly `"Evidence passage."` through natural lexical search. Public natural-mode selection is intentionally removed and explicitly tested as an error. |
+| `test_dense_commands_are_available_through_cli` | Renamed `test_dense_index_and_product_search_configuration_through_cli`. Both contextual settings, Qwen profile, corpus ID, batch size 16, projection identity and exact `"Semantic evidence."` payload remain asserted. Indexing still uses the dense service; search dispatch uses the facade. |
+| `test_dense_encode_error_is_machine_readable` | Same test and exact error/message assertion; the injected failure now crosses `SearchService`, which owns public search. Additional actual-provider failure tests cover initialization and execution. |
+| `test_hybrid_query_mode_is_available_through_cli` | Renamed `test_product_search_preserves_hybrid_evidence_payload_through_cli`. Original query, profile, corpus/context settings and exact `"Hybrid evidence."` assertion survive at the public facade dispatch boundary. Component fusion tests remain unchanged. |
+| `test_reranked_query_mode_is_available_through_cli` | Renamed `test_product_search_preserves_reranked_evidence_payload_through_cli`. Original query, profile, corpus/context settings and exact `"Reranked evidence."` assertion survive at facade dispatch. Actual pipeline tests separately prove reranker application and score order. |
+| `tests/test_search_explain.py::test_cli_quotes_are_separately_opted_in` | Renamed `test_lexical_quotes_are_separately_opted_in`. Direct lexical explanation/rendering retains both format cases, exact private quote inclusion/omission, subject text, FTS expression, score disclaimer and exact-mention assertions. New product CLI quote tests cover both output formats independently. |
+| `test_cli_default_search_shape_unchanged` | Renamed `test_lexical_search_shape_unchanged`. Exact private-quote and `SearchResult` field-set assertions remain lexical; new product CLI tests independently pin the full ordinary list/field shape. |
+| `test_invalid_flags_fail_before_model_work` | Retains quote/since rejection and all three obsolete semantic-mode invocations. Mode errors now correctly say `invalid_query` with migration guidance rather than `unsupported_explanation_mode`; the obsolete contextual-only rejection is replaced by the new explain-limit dependency. Lexical contextual rejection is preserved explicitly against the private worker. Provider factories are forbidden rather than forbidding construction of lazy services. |
+| `test_changes_between_search_and_attribution_are_rejected` | Same mutation and expected `search_state_changed`, now asserted directly on lexical `explain_search()`. Separate product CLI tests require the same code and retry guidance for ordinary/explained edit-and-restore during readiness and scoring. Other lexical explanation assertions are untouched. |
+| `tests/test_agent_cli.py::test_agent_cli_publishes_versioned_capabilities` | Only expected interface version changes from 1 to 2; transport and discovered-operation assertions are unchanged. Additional discovery coverage pins report version, trace bounds and migration guidance. |
+| `tests/test_source_context.py::test_context_cli_and_capability` | Unchanged source/context/capability assertions. Old strict/natural contextual invocations still fail as `invalid_query`, now because modes are removed. The private-worker contextual rejection test preserves the original lexical incompatibility property. |
+| `tests/test_acceptance.py`, `tests/test_atlas_walkthrough.py` | Entire files unchanged: exact lists, negative matches, stage counts, graph scope, edit/restore/history and citations already use the lexical/structured boundary. No semantic output replaces their gold. |
+| `examples/cited_status.py`, `tests/test_client_example.py` | Audited and unchanged: structured status only, no search-mode or score assumptions. |
+| Historical benchmark consumers | Backend/default selection remains as documented above. No public-facade rerouting or score re-sorting/threshold changes. QASPER instructions already use explicit internal `--strategy`. |
+
+`tests/test_product_cli.py` is separately scoped integration coverage: real
+component composition with controlled provider factories, both embedding profiles
+and contextual settings, filtering/two-hop scope/isolation, citation offsets and
+history, authoritative score order, full union/dedup/fusion/rerank telemetry,
+explicit JSON nulls, trace bounds and quote controls, all obsolete mode spellings,
+readiness/empty/provider/index errors and recovery, commit consistency, discovery,
+and model-free structured operations. It does not redefine lexical gold or claim
+real-model relevance. Core and benchmark tests continue to run unchanged.

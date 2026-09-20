@@ -13,7 +13,8 @@ is not an alternative supported product interface. Its historical labels and
 reviewed expectations are unchanged. Full-pipeline parity validation is recorded
 separately under [`../productization/`](../productization/).
 
-The stable command set is:
+The historical evaluator's operation set is (current capability discovery
+advertises interface version 2; frozen search still uses its original backend):
 
 | Agent operation | CLI command |
 | --- | --- |
@@ -43,5 +44,5 @@ worker or CLI in a subprocess for every operation. Generated results are not com
 `source-context` is an additive operation covered by the source-context CLI
 tests and reviewed corpus acceptance cases, not by the original seven E5
 workflows. It returns bounded context from the selected revision and reports
-truncation explicitly. The optional `--contextual` semantic search mode is
+truncation explicitly. The optional `--contextual` source representation is
 measured separately through QASPER; E5 continues to use natural BM25.

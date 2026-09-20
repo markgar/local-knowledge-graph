@@ -1,733 +1,304 @@
----
-type: product-specification
-status: active
-date: 2026-09-17
-tags:
-  - knowledge-graph
-  - software
-  - mvp
----
+# Local Knowledge Graph: current contracts
 
-# Knowledge Graph Software MVP
+Status: implemented capabilities in a **pre-alpha** package. Productization
+acceptance remains pending final combined validation and review under
+[`PRODUCTIZATION_SPEC.md`](PRODUCTIZATION_SPEC.md). Interface changes are not a
+claim of production readiness, improved relevance, or calibrated answerability.
 
-> **Next product direction:** [`ROADMAP.md`](ROADMAP.md) defines the generic
-> knowledge engine target, including natural-language query planning and
-> generic text ingestion and agent-assisted graph enrichment. It takes precedence over
-> future-direction statements here where they differ. This specification
-> retains existing implementation contracts and historical experiment details;
-> roadmap capabilities are not implied to be implemented.
+This document describes current behavior. [`ROADMAP.md`](ROADMAP.md) describes
+future query planning, generic ingestion, and agent-authored enrichment; those
+capabilities are not implemented. The original implementation ledger and research
+sequence are preserved in [benchmark history](benchmarks/history/evidence-mvp.md).
+Historical stages are not prerequisites for developing product features.
 
-## Implementation Status
+## Boundaries and invariants
 
-This document is both the evidence-MVP product contract and the roadmap toward
-agent-useful retrieval. Statuses describe the repository as of 2026-09-18:
+The package ingests manifest-selected local Markdown, stores canonical evidence
+in SQLite, and exposes cited search and structured reads through Python and a
+thin CLI. Configuration is data: subjects, aliases, paths, and corpora must not
+require parser or retrieval code changes. The caller generates narrative answers;
+retrieval does not generate an answer or infer truth from model knowledge.
 
-- **Implemented**: available and covered by automated tests.
-- **Partial**: the foundational path exists, but the complete requirement is
-  not yet satisfied.
-- **Planned**: specified but not implemented.
+- Documents have stable identities, including unambiguous moves. Reused paths
+  receive an unused deterministic identity rather than overwriting a moved document.
+- Revisions are immutable content versions. Anchors preserve exact offsets,
+  structural and heading paths, quotes, and quote hashes within a revision.
+- Every derived record resolves to source evidence. Historical citations retain
+  their original revision and title, even after edits, removals, or restores.
+- Current retrieval uses active current revisions of the requested corpus.
+  Other corpora, removed documents, and historical revisions cannot alter its
+  lexical ranking statistics. Model/vector projections never replace provenance.
+- No inferred entities, relationships, owners, decisions, blockers, contradictions,
+  or cross-source completion are generated. Similar names are not merged.
 
-| Capability | Status | Notes |
-| --- | --- | --- |
-| Generic corpus manifest and source selection | Implemented | Corpora, paths, aliases, and metadata mappings are configuration data. |
-| Immutable revisions and exact source anchors | Implemented | Historical revisions remain retrievable while current-state queries use only the active revision. |
-| Idempotent ingestion | Implemented | Unchanged sources do not create new revisions or mutate document state. |
-| Ingestion explanations | Implemented | Opt-in per-document outcomes, stored counts, extraction rules, and evidence IDs; source quotes require separate opt-in. |
-| Markdown headings, paragraphs, lists, tasks, and wikilinks | Implemented | CommonMark block maps preserve exact source ranges while fenced code is excluded from structural classification. |
-| Rebuildable SQLite schema | Implemented | The packaged schema initializes new indexes; pre-alpha schema changes require rebuilding generated databases. |
-| FTS5 passage search | Implemented | Queries are corpus-scoped and limited to current active revisions, with strict and natural BM25-ranked modes. |
-| Real-world semantic retrieval | In progress | Two isolated local embedding profiles, hybrid fusion, and cross-encoder reranking are implemented and measured; acceptance gates remain unmet. |
-| Seed entities, approved aliases, and exact mentions | Implemented | Similar names are never merged automatically. |
-| Explicit relationships and graph traversal | Implemented | Anchored wikilink relationships support deterministic one- and two-hop traversal. |
-| Explicit open and completed tasks | Implemented | Checkbox status and optional inline owner and due-date fields are extracted. |
-| Event-date filtering | Implemented | Configured document dates and revision timestamps support bounded retrieval. |
-| `ingest`, `status`, `actions`, `evidence`, and `search` CLI | Implemented | Commands expose text and JSON output over reusable services. |
-| Decisions, blockers, and conflicts | Implemented | Explicit structural sections produce cited records; contradiction inference remains a non-goal. |
-| Evidence gaps and abstention | Partial | Unknown configured subjects abstain deterministically; E4 evaluated and rejected a top-reranker-score threshold for natural-language answerability. |
-| Reviewed acceptance datasets | Implemented | Synthetic corpora verify contracts; QASPER measures real-world evidence retrieval and exposes current limitations. |
-| Second-corpus generalization proof | Implemented | A separate research corpus uses the same parser, schema, ingestion, and retrieval services. |
-| External client integration | Implemented | A subprocess client handles JSON errors and renders cited status output. |
+## Configuration and ingestion
 
-## Purpose
+`kg ingest --manifest <corpus.yml>` validates source selection, parses Markdown,
+and updates the canonical database and corpus-local lexical projection.
+`load_manifest()` and `IngestService.ingest()` expose the same configuration and
+ingestion boundaries to Python.
 
-Build a small, general-purpose local knowledge engine. The software
-ingests a configured set of Markdown documents, preserves immutable evidence,
-indexes explicit structure and relationships, and exposes cited retrieval
-through a reusable Python API and CLI.
+Manifests specify corpus ID/display name, vault root, database, include patterns,
+seed entities/approved aliases, and optional metadata mappings such as
+`event_time: date`. Paths are relative to the manifest. Symlinks are rejected by
+default; sources over `max_source_bytes` fail explicitly. Source discovery,
+parsing rules, and ranking remain generic across corpora.
 
-For any configured subject or workstream, it should answer:
+CommonMark headings, paragraphs, lists, checkboxes, and wikilinks produce exact
+source ranges. Numbered and bulleted checkboxes supply task status. Inline
+`[owner:: ...]` and `[due:: ...]` fields supply optional task metadata. Items and
+paragraphs under exact Decision(s), Blocker(s), and Conflict(s) headings become
+explicit records. Fenced code is not classified as structured knowledge.
+Approved aliases create exact mentions; wikilinks create cited relationships
+between configured entities in an anchor, not inferred dependencies.
 
-> What is connected to this subject, what explicit actions and decisions are
-> recorded, and which exact source passages support each result?
+Unchanged ingestion reuses revisions without changing document state. Edits
+preserve prior evidence. Restores reuse an immutable content revision but record
+a new activation and its immediate predecessor. Source removal and failures
+deactivate current evidence without destroying retained history. Parser/config
+changes can rebuild extracted records without claiming a new content revision.
 
-The primary product surface is an agent or other client. A local Python
-package, CLI, and SQLite database provide deterministic ingestion and retrieval
-behind that experience.
+### Ingestion diagnostics
 
-Topics, workstreams, products, customers, people, aliases, and source paths are
-data. None may be hard-coded in parsing or retrieval logic.
+`ingest --explain [--include-quotes] [--explain-limit 50] --format json` returns
+`IngestReport` with `report_version: "1"`; ordinary `IngestResult` is unchanged.
+This performs ingestion, not a dry run. Python uses `explain`, `include_quotes`,
+and `detail_limit`.
 
-## Intended User Experience
+The report gives configured entities, unmatched patterns, source-ordered
+document outcomes/reasons, identity, current/previous revisions and paths,
+revision reuse, active state, and `records_rebuilt`. Successful documents include
+stored counts, mentioned entities, source anchors/passages, structured records,
+extraction rules, and evidence IDs. Counts are stored revision totals, not rows
+newly created by this run; historical anchors may outnumber current passages.
 
-A user asks a client a question about a configured subject. The client invokes
-the local CLI or Python API, receives structured results with evidence, and
-presents a concise answer.
+Anchor and record lists are independently bounded to 50 per document (1..200),
+ordered by source offsets and identity ties, with explicit truncation and complete
+counts. Quotes require opt-in; metadata is not anonymized. Reports use the
+ingestion transaction; report construction failure aborts ingestion. Report bodies
+and quotes are not stored in `ingest_run` or operational logs. Malformed YAML
+errors omit source snippets. Failed sources produce a nonzero ingestion exit.
 
-Every substantive statement must include:
+## Index preparation and model readiness
 
-- The source note.
-- The source revision.
-- The heading or structural location.
-- The exact supporting passage.
-- The date or time context when available.
+The workflow is **ingest -> matching dense-index -> search**. Ingestion does not
+build vectors or load semantic models. `kg dense-index` / the low-level
+`DenseRetrievalService.build_index()` build a disposable sqlite-vec projection
+beside the canonical database, keyed to exact passage/anchor/revision identities.
 
-If evidence is missing, stale, or conflicting, the system must say so rather
-than complete the answer from model knowledge.
+`--embedding-profile` selects `gte-modernbert` (default) or
+`qwen3-embedding-0.6b` on both indexing and search. Model names, pinned revisions,
+dimensions, normalization, prompts, and encoding behavior are defined in
+[`dense.py`](src/kg/retrieval/dense.py). GTE retains its compatibility-default
+projection path. Qwen uses its official asymmetric query instruction, 1,024
+normalized dimensions, and uninstructed documents. The pinned reranker is
+`cross-encoder/ms-marco-MiniLM-L6-v2`, revision
+`233902d25c440f23af6f7d6e94d2946bac0bee0a`.
 
-## Version 1 Scope
+`--contextual` is opt-in on both commands. It supplies `Title: <title>`,
+`Heading: <path joined by / >`, and untouched passage text separated by blank
+lines, omitting absent metadata. It changes neither queries nor lexical
+retrieval nor canonical quotes. `title-heading-passage-v1` contextual projections
+are separate from `passage-text-v1` projections and can coexist.
 
-### Generalization Boundary
+Projection compatibility includes profile, pinned model, runtime versions,
+actual device/dtype, dimensions, normalization, context and encoding behavior,
+source-text version, and corpus fingerprint. CUDA, MPS, or CPU may be selected
+by the local runtime; device/runtime changes may require rebuilding. Ingestion
+that changes the fingerprint invalidates the selected projection until rebuilt.
 
-The engine operates on generic:
+Product search validates arguments before readiness and enforces readiness on
+**every call**, including empty corpora and filters matching no passages.
+Missing/stale/incompatible projections, unavailable embeddings, and unavailable
+rerankers fail explicitly. No keyword-only, vector-only, unreranked, or empty-list
+fallback represents success. Building vectors prepares embeddings, not the
+reranker; the first product search initializes the latter separately.
 
-- Source documents, revisions, and anchors.
-- Entities, aliases, mentions, and explicit relationships.
-- Actions and decisions.
-- Searchable passages and evidence.
+Providers load lazily and are cached within a service lifetime, not globally
+across CLI processes. The index-readiness verdict is not cached; a service must
+fail after an invalidating edit and recover after rebuilding without reloading
+ready providers. Only approved package/model downloads and caches may be used;
+network-policy failures are blockers, never bypassed.
 
-The software must accept any corpus manifest and any subject at query time. A
-new corpus, topic, or workstream must require no Python or schema changes.
+## Product search
 
-### Sources
+```python
+from pathlib import Path
 
-Ingest Markdown files selected by a corpus manifest. The manifest declares:
+from kg.db import Database
+from kg.retrieval import SearchService
 
-- Corpus ID and display name.
-- Vault root.
-- Included source paths or path patterns.
-- Seed entities and approved aliases.
-- Optional metadata-field mappings.
-
-The engine does not contain corpus-specific source defaults and does not crawl
-the entire vault unless a manifest explicitly requests it.
-
-### Excluded Sources
-
-Version 1 does not ingest:
-
-- Meeting transcripts.
-- Remote email.
-- Chat or channel messages.
-- Arbitrary cloud documents.
-- Live cloud synchronization.
-- Task systems other than explicit tasks already present in selected notes.
-
-These sources can be added only after the initial slice demonstrates that they
-improve a defined workflow.
-
-## Functional Requirements
-
-### Deterministic Ingestion
-
-The indexer must extract:
-
-- Vault-relative path.
-- Frontmatter.
-- Document title.
-- Heading hierarchy.
-- Paragraphs, list items, and task items.
-- Obsidian wikilinks.
-- Explicit dates and meeting metadata when structurally available.
-- Explicit task status, owner, and due date when structurally available.
-- Exact source offsets and quoted text.
-
-The indexer must not use an LLM to infer entities, relationships, decisions, or
-tasks in Version 1.
-
-#### Explicit record state
-
-Actions and decisions can declare `[key:: version-key]` and
-`[supersedes:: earlier-version-key]`. Keys are corpus-scoped and case-sensitive.
-The engine persists these declarations against their source anchors in
-`record_binding`; it does not mutate the earlier source. Resolution uses only
-active current source revisions, independent of ingestion order.
-
-A unique, same-kind, non-cyclic, uncontested reference suppresses the earlier
-record from effective actions/decisions/status queries. Chains resolve to their
-current endpoint and inherit subject scope from predecessors. Date/status/source
-filters apply to the effective record; this is not historical as-of evaluation.
-Source evidence search and citation resolution retain superseded assertions.
-
-Missing or duplicate target keys, type mismatches, self-references, cycles,
-and competing updates must be explicit diagnostics, never implicit last-write
-or latest-date selection. Syntax errors fail the source savepoint. Unresolved
-references leave source records indexed; plain ingestion reports additional
-`state_warnings`, and status surfaces corpus-level warnings as evidence gaps.
-Removing or editing an update removes its former effect.
-
-`record-state` / `RetrievalService.record_state()` and ingestion explanations
-expose the actual resolver outcomes, source/target identities, ambiguous
-candidates, conflicting sources, effective record IDs, and suppressed IDs.
-Trace reads are transaction-consistent, and quotes remain opt-in. Display
-limits do not alter state resolution. Inline-code examples and child-list
-metadata must not create state declarations on a parent record.
-
-Checkboxes in both bulleted and CommonMark ordered lists produce tasks.
-Numbered decisions, blockers, and conflicts omit list markers from summaries
-while preserving their exact source quotes.
-
-### Revision and Provenance
-
-Each logical document has a stable identifier. Each distinct content version
-creates an immutable revision identified by a content hash.
-
-Every derived record must point to one or more source anchors in a specific
-revision. Re-ingesting unchanged content must produce no database changes.
-Editing a note must preserve the prior revision and its historical anchors.
-
-### Retrieval
-
-The MVP must support:
-
-- Full-text search over titles, headings, passages, aliases, and explicit tasks.
-- Resolution of a requested subject through seed entities, approved aliases,
-  wikilinks, and exact mentions.
-- One- or two-hop traversal across explicitly linked entities.
-- Filtering by source or event date.
-- Retrieval of exact supporting passages.
-- Identification of explicit open and completed tasks.
-
-Current-state output is a derived view over evidence, not an independent source
-of truth.
-
-Subject matching in titles, headings, and record text uses case-insensitive,
-literal name boundaries consistent with approved-alias mention extraction.
-A substring inside another name is not a match (for example, Atlas does not
-match Atlascope). This applies to lexical retrieval, dense candidate filtering,
-actions, explicit records, and status. It does not remove existing document-wide
-scope inheritance or bounded two-hop graph expansion.
-
-### Structured Output
-
-Commands used by clients must support JSON output. Each result should include:
-
-```text
-record_id
-record_type
-title
-summary
-status
-event_time
-source_path
-source_revision_id
-anchor_id
-heading_path
-quote
-related_entity_ids
+search = SearchService(Database(Path("index.sqlite3")), "corpus-id")
+results = search.search("release evidence", subject="Atlas", limit=20)
+report = search.explain_search(
+    "release evidence", subject="Atlas", limit=20,
+    include_quotes=False, trace_limit=50,
+)
 ```
 
-Fields that are not available from deterministic evidence remain null. They
-must not be guessed.
-
-## CLI Contract
-
-The initial executable is `kg`.
-
-### Ingest
-
-```bash
-kg ingest --manifest <corpus.yml>
-```
-
-Responsibilities:
-
-- Validate configured paths.
-- Create new document revisions when content changes.
-- Parse deterministic structure.
-- Update full-text indexes and explicit relationships.
-- Report added, changed, unchanged, missing, and failed sources.
-
-#### Ingestion explanation contract
-
-`kg ingest --explain [--include-quotes] [--explain-limit 50] --format json`
-returns an `IngestReport` with `report_version: "1"` in addition to the existing
-run counts. Without `--explain`, the `IngestResult` JSON shape is unchanged.
-`IngestService.ingest` accepts the corresponding `explain`, `include_quotes`,
-and `detail_limit` keyword arguments. This is real ingestion, not a dry run.
-
-The report includes configured entities, unmatched include patterns, and
-source-path-ordered document reports. Each document reports its outcome,
-machine-readable reasons, identity, current/stored and previous revision IDs,
-previous path on moves, revision state (`new`, `reused`, `unchanged`, or
-`unavailable`), active state, and whether derived records were rebuilt.
-Parser/configuration rebuilds do not claim new content revisions. Failed
-sources and newly deactivated sources are explicit; retained evidence for
-those inactive sources is not presented as current indexed content.
-
-Successful documents include stored counts, configured entities actually
-mentioned and their anchor IDs, indexed source anchors/passages, and explained
-structured records. These are current-revision totals, not per-run insertion
-counts. The anchor count includes all immutable anchors retained for that
-revision; the indexed anchor list follows current passages, which can be fewer
-after a parser upgrade. Mention counts count stored mention records, including
-overlapping structural anchors, not necessarily distinct source occurrences.
-
-Record rules are `explicit_wikilink`, `checkbox_task`, `decision_heading`,
-`blocker_heading`, and `conflict_heading`. Wikilink edges connect a mentioned
-configured source entity to a configured wikilink target in the same anchor;
-these are not inferred semantic dependencies. Owners remain action metadata,
-not inferred assignment edges. Entity mentions use approved names/aliases;
-source anchors follow parsed CommonMark blocks, not inferred facts.
-
-The anchor and structured-record lists are independently limited to 50 entries
-per document by default (allowed range 1..200), ordered by source offsets with
-stable identity tie-breaks. Each list has an explicit truncation flag; counts
-and entity-mention summaries remain complete. Entries retain exact offsets,
-heading paths, anchor IDs, and passage/record IDs for evidence lookup.
-Source quotes appear in CLI JSON only with `--include-quotes`; using that flag
-without `--explain` fails before ingestion. Other metadata is not anonymized.
-
-Report reads use the ingestion transaction. Failure to construct a report
-aborts the run rather than treating a reporting defect as a bad source.
-Reports and quotes are never added to persisted `ingest_run.counts_json` or
-operational logs. YAML source-error diagnostics omit source snippets.
-
-#### Query execution telemetry
-
-`search --explain [--include-quotes]` returns a typed lexical search explanation
-instead of changing the normal search-result contract. It exposes the executed
-FTS expression, filters, corpus fingerprint, actual ranks, matched subject
-predicates, document inheritance, and up-to-two-hop graph paths with supporting
-edge IDs. Scores are ranking statistics, not confidence. Quotes are opt-in.
-
-The trace supports strict and natural modes. Unsupported semantic modes fail
-explicitly before model work. Concurrent database commits invalidate the trace
-and require retry, rather than permitting mixed-state attribution.
-`supersession_filter_applied: false` makes clear that source search retains
-superseded assertions; effective actions and decisions use the state resolver.
-
-### Status
-
-```bash
-kg status <subject> --manifest <corpus.yml> --format json
-```
-
-Returns evidence-backed sections for:
-
-- Recent material changes.
-- Explicit decisions.
-- Open actions.
-- Completed actions.
-- Blockers.
-- People, customers, products, and meetings connected to the workstream.
-- Evidence gaps and conflicts.
-
-The first implementation may return extracted records rather than polished
-natural-language prose. The calling client is responsible for presentation.
-
-### Actions
-
-```bash
-kg actions <subject> --manifest <corpus.yml> --status open --format json
-```
-
-Returns explicit tasks associated with the workstream, including owner, due
-date, status, source, and evidence. Tasks with no explicit owner must remain
-unassigned.
-
-### Evidence
-
-```bash
-kg evidence <record-id> --manifest <corpus.yml> --format json
-```
-
-Returns every source anchor supporting the selected record, including exact
-quotes and Obsidian-openable paths.
-
-### Source Range
-
-```bash
-kg source-range <anchor-id> --manifest <corpus.yml> --format json
-```
-
-Returns the immutable source range identified by an anchor, including its
-revision, structural path, offsets, exact quote, and quote hash.
-
-### Source Context
-
-```bash
-kg source-context <anchor-id> --manifest <corpus.yml> --format json
-```
-
-Returns a `SourceContextResult`: `selected` (the exact source range),
-`section_heading` (nullable), `anchors` (source-ordered exact ranges),
-`total_anchors`, and `truncated`. Expansion is corpus-scoped and bound to the
-selected anchor's immutable revision, not to the current source file.
-
-The nearest containing heading starts the section. Its subsections are
-included until the next sibling or ancestor heading, determined by source
-position and heading depth rather than heading names. Preamble anchors are
-separate from the first headed section; a headingless document is one section.
-`--max-anchors` defaults to 50 and accepts 1 through 200. Oversized sections
-return a window centered on the selected anchor, adjusted at section edges,
-and report truncation explicitly. The selected anchor is always in the window;
-the section heading is also returned separately. Only indexed anchors are
-returned, not a reconstructed full-text section; code blocks may be absent
-and nested list anchors may overlap.
-
-### Revisions
-
-```bash
-kg revisions <source-path> --manifest <corpus.yml> --format json
-kg compare-revisions <source-path> --manifest <corpus.yml> --format json
-```
-
-Lists immutable document revisions and compares exact added, removed,
-modified, and unchanged source ranges. The comparison defaults to the current
-revision and its immediate predecessor; callers may supply explicit `--from`
-and `--to` revision IDs.
-
-An append-only activation log records predecessor transitions independently
-of content revisions. Reverting to known content reuses its revision ID,
-counts as changed ingestion, and records a new activation. The default
-predecessor is that of the latest activation of the selected target revision.
-Revision listings still contain unique content revisions in original ingestion
-order. Legacy databases have no reliable activation history: ingestion starts
-the log at their current state and warns that earlier transitions are unknown.
-Comparisons without a recorded predecessor require explicit revision IDs.
-
-### Search
-
-```bash
-kg search <query> --manifest <corpus.yml> --subject <subject> --format json
-```
-
-Returns ranked source passages using the requested implemented lexical, dense,
-hybrid, or reranked query mode. Every mode resolves results to canonical
-source anchors.
-
-## Minimal Data Model
-
-### Source Layer
-
-- `source_document`
-  - Stable logical identity and vault-relative path.
-- `source_revision`
-  - Immutable content hash, observed modification time, and ingestion time.
-- `source_anchor`
-  - Heading path, structural path, offsets, exact quote, and quote hash.
-- `revision_activation`
-  - Ordered document-state transitions referencing immutable content revisions
-    and their immediately preceding revisions.
-- `ingest_run`
-  - Parser and schema versions, timestamps, status, and counts.
-
-### Knowledge Layer
-
-- `entity`
-  - Workstream, person, organization, customer, project, product, topic, or
-    meeting.
-- `entity_alias`
-  - Approved deterministic aliases and wikilink targets.
-- `mention`
-  - Exact anchored references to an entity.
-- `relationship`
-  - Explicit relationships derived from links or structured fields.
-- `action_item`
-  - Explicit task text, status, owner, and due date.
-- `decision`
-  - Only decisions explicitly identified by source structure in Version 1.
-
-### Retrieval Layer
-
-- `passage`
-  - Searchable source text associated with an anchor.
-- `passage_fts`
-  - Retained revision-level retrieval text, including titles, headings,
-    aliases, and passages. Not used directly for BM25 ranking.
-- `lexical_projection` and corpus-specific `current_fts_<hash>` tables
-  - Current active passage text only, with isolated FTS5 corpus statistics.
-    Refreshed atomically with ingestion when the canonical corpus fingerprint
-    changes; unchanged ingestions do not rebuild them.
-
-## Identity Rules
-
-Use deterministic identifiers:
-
-```text
-document_id = assigned stable UUID
-revision_id = hash(document_id + canonical source bytes)
-anchor_id = hash(revision_id + structural path + offsets)
-record_id = hash(anchor_id + normalized record type + normalized value)
-```
-
-Entities may have manually approved aliases supplied by configuration or
-recorded review decisions. The MVP must not automatically merge similar names.
-
-Path-based UUIDs are used only when unoccupied. If a path is reused after its
-document moved elsewhere, a deterministic unused generation UUID is allocated;
-the moved document's identity and revisions must never be overwritten.
-
-## Implementation Shape
-
-Use Python with:
-
-- The standard-library `sqlite3` module.
-- SQLite FTS5.
-- Typer for the CLI.
-- Pydantic for command and output contracts.
-- A Markdown parser that preserves source positions.
-- One packaged SQL schema file for rebuildable generated databases.
-
-Organize the code as a reusable package:
-
-```text
-src/kg/
-  cli.py
-  config.py
-  db.py
-  schema.sql
-  ingest/
-  markdown/
-  retrieval/
-  models/
-tests/
-corpora/
-  example.yml
-```
-
-CLI commands must be thin adapters. Ingestion, retrieval, and database logic
-must be callable directly by an agent or a future local review application.
-
-The corpus manifest contains data only. Parser behavior, relationship rules,
-and ranking behavior must remain the same across corpora.
-
-## Acceptance Dataset
-
-Each pilot corpus should provide a reviewed set of questions covering:
-
-- Current workstream status.
-- Changes during a specified time window.
-- Open and completed actions.
-- Explicit owners and missing owners.
-- Blockers and dependencies.
-- Recent meetings.
-- Customers and products mentioned.
-- People connected through explicit evidence.
-- Exact source citations.
-- Conflicting passages.
-- Questions for which the correct answer is abstention.
-
-Reviewed questions and expected evidence anchors are corpus-specific fixtures,
-not production defaults.
-
-## Evidence MVP Status
-
-The evidence substrate is complete, but the agent-useful retrieval milestone
-is not:
-
-- [x] A corpus is added entirely through a manifest and source files.
-- [x] Re-running ingestion without source changes produces zero data changes.
-- [x] Editing one source creates a new revision without destroying prior
-  evidence.
-- [x] Every returned task, decision, relationship, and status item has an exact
-  source anchor.
-- [ ] A reviewed real-world question set returns expected evidence with useful
-  retrieval recall.
-- [ ] Unsupported natural-language questions reliably report insufficient
-  evidence or request clarification.
-- [x] The database can be deleted and rebuilt from configured sources with
-  equivalent logical results.
-- [x] An external client can invoke the CLI and present cited JSON output.
-- [x] A second synthetic corpus works without Python or schema changes.
-
-## Explicit Non-Goals
-
-The MVP does not include:
-
-- A standalone web application.
-- A general-purpose knowledge graph for the full vault.
-- Hard-coded topics, workstreams, people, products, or source paths.
-- Training proprietary embedding or reranking models.
-- Implementing a custom approximate-nearest-neighbor algorithm or vector
-  database.
-- Treating a vector index, model output, or inferred graph as authoritative
-  evidence.
-- LLM-based claim or entity extraction.
-- Automatic person merges.
-- Contradiction or supersession inference.
-- GraphRAG community summaries.
-- Automatic email drafting or sending.
-- Automatic task creation.
-- Background synchronization or webhooks.
-- A graph database server.
-
-## Delivery Sequence
-
-### Milestone 1: Corpus and contracts
-
-- [x] Define and validate the generic corpus-manifest schema.
-- [x] Create an example manifest and synthetic fixture corpus.
-- [x] Establish command and JSON contracts.
-- [x] Add reviewed synthetic source selections and expected evidence fixtures.
-
-### Milestone 2: Deterministic index
-
-- [x] Create the rebuildable SQLite schema.
-- [x] Parse notes into immutable revisions and exact anchors.
-- [x] Index headings, passages, wikilinks, exact mentions, and checkbox tasks.
-- [x] Prove idempotent ingestion and preservation of historical revisions.
-- [x] Parse CommonMark blocks while preserving exact source positions.
-- [x] Extract structured owners, due dates, decisions, blockers, conflicts, and
-  configured event metadata.
-
-### Milestone 3: Deterministic structured retrieval
-
-- [x] Implement corpus-scoped FTS5 search.
-- [x] Implement `status`, `actions`, `search`, and `evidence`.
-- [x] Implement current-state filtering without losing historical evidence.
-- [x] Implement anchored one-hop wikilink traversal.
-- [x] Implement bounded two-hop traversal.
-- [x] Implement deterministic decision, blocker, and conflict retrieval.
-- [x] Prove a second reviewed corpus requires configuration only.
-
-### Milestone 4: Client integration
-
-- [x] Invoke the CLI from an external client.
-- [x] Generate a cited answer from a reviewed synthetic corpus.
-- [x] Record unsupported cases as explicit abstention fixtures.
-
-The results of Milestone 4 determine whether the next investment should be
-semantic extraction, another source connector, embeddings, or a review UI.
-
-### Milestone 5: Agent-useful retrieval
-
-- [x] Establish a reproducible real-document benchmark with exact gold
-  evidence.
-- [x] Record sparse lexical retrieval, latency, citation integrity, and
-  unanswerable-query baselines.
-- [x] Add a versioned dense embedding projection over canonical source
-  anchors.
-- [x] Combine sparse and dense candidates using deterministic reciprocal-rank
-  fusion.
-- [x] Rerank the strongest candidates with a local cross-encoder.
-- [ ] Calibrate answerability so unsupported questions abstain or request
-  clarification.
-- [x] Add an agent-oriented evaluation set covering paraphrases, revisions,
-  ambiguity, conflicts, multi-document synthesis, and unsupported questions.
-- [x] Expose agent-facing evidence search, source-range reads, revision
-  comparison, and citation resolution through a stable tool interface.
-
-The canonical SQLite database remains the evidence and provenance store.
-Embedding indexes, learned sparse indexes, reranking outputs, and inferred
-records are disposable, versioned projections. Every projected result must
-resolve back to an immutable `anchor_id` and `revision_id`.
-
-#### Build versus integrate
-
-The project owns:
-
-- Deterministic Markdown parsing and exact source positions.
-- Stable documents, immutable revisions, and citation resolution.
-- Explicit records and relationships.
-- Current-versus-historical evidence semantics.
-- Benchmark fixtures, evaluation, and acceptance gates.
-
-The project integrates rather than invents:
-
-- Pretrained embedding and cross-encoder models.
-- Vector indexing and nearest-neighbor search.
-- Sparse/dense fusion algorithms.
-- Model inference runtimes.
-
-The implemented semantic retrieval path uses Sentence Transformers with two
-fixed, permissively licensed local retrieval profiles, isolated vector
-projections keyed by canonical anchor IDs, and FTS5 for exact lexical search.
-The default `gte-modernbert` profile preserves the pinned
-`Alibaba-NLP/gte-modernbert-base` behavior. The
-`qwen3-embedding-0.6b` profile pins `Qwen/Qwen3-Embedding-0.6B`, applies its
-official asymmetric query instruction, and leaves documents uninstructed.
-Profile-specific databases prevent vector-space or ranking mixing while
-allowing both projections to coexist. It fuses independent rankings with
-reciprocal-rank fusion and reranks only a bounded candidate set.
-`sqlite-vec` is the lowest-change experimental index; LanceDB is the preferred
-embedded alternative if hybrid-search ergonomics or index maturity require a
-separate derived store. Neither may replace canonical SQLite provenance.
-
-The E2 fusion contract uses the unchanged E0 natural-BM25 and E1 dense
-rankings. Each parent receives identical subject, source, and date filters and
-a default candidate pool of 50, expanded when the caller requests more
-results. Candidates are deduplicated by canonical passage ID and scored with
-weighted reciprocal-rank fusion using `k = 20`, a lexical weight of `1.0`, and
-a dense weight of `0.5`; equal scores are ordered by passage ID. These generic
-defaults remain constructor parameters rather than corpus-specific rules.
-Hybrid search requires a current E1 projection and fails explicitly when that
-projection is missing, stale, or incompatible.
-
-Projection identity includes the embedding profile, model and exact revision,
-Sentence Transformers, Transformers, PyTorch, and sqlite-vec runtime versions,
-actual local inference device and dtype, dimensions, L2 normalization,
-source-text version, context behavior, query and document encoding behavior,
-and canonical source fingerprint. Generated projections are disposable;
-canonical evidence and immutable provenance remain in SQLite. CUDA and Apple
-MPS may be used when available, but CPU remains a supported local fallback.
-
-#### Experimental discipline
-
-An opt-in contextual retrieval mode adds source titles and heading paths to
-the text sent to the existing embedding and reranking models. The format is
-`Title: <title>`, `Heading: <path joined by / >`, and the untouched quote,
-separated by blank lines; absent metadata fields are omitted. It does not
-change canonical anchors, lexical retrieval, queries, model profiles, or
-fusion settings. Use `--contextual` for dense indexing and semantic search.
-
-The `title-heading-passage-v1` source-text version participates in projection
-identity and compatibility. Contextual projections have separate
-`.contextual.sqlite3` paths; original `passage-text-v1` projections and default
-behavior remain unchanged. Dense-index JSON reports the `contextual` mode.
-The QASPER evaluator accepts the same flag and labels its output. This is an
-implemented experiment, not a measured improvement or a passed acceptance gate.
-
-Retrieval work proceeds one measurable feature at a time:
-
-1. Complete an independent code review and resolve its high-confidence
-   findings before measuring a feature's efficacy.
-2. Dense retrieval over the existing anchors, with model substitutions
-   evaluated as isolated profile experiments.
-3. Sparse/dense fusion without changing either underlying retriever.
-4. Cross-encoder reranking without changing candidate generation.
-5. Answerability calibration without changing retrieval.
-6. Agent-tool integration after retrieval and abstention have been measured,
-   without treating a successful interface evaluation as evidence that failed
-   retrieval or abstention gates have passed.
-
-Each step must preserve the corpus selection, questions, gold evidence, metric
-implementation, and prior configuration. Its aggregate result and delta must
-be added to [`benchmarks/qasper/RESULTS.md`](benchmarks/qasper/RESULTS.md)
-before another retrieval feature begins. Model substitutions, chunking
-changes, fusion methods, and reranker substitutions are separate experiments
-rather than bundled improvements.
-
-#### Retrieval acceptance gates
-
-On the pinned QASPER fixture:
-
-- Dense plus hybrid retrieval: Recall@5 at least 60%, Recall@10 at least 75%,
-  and MRR at least 0.45.
-- Cross-encoder reranking: Recall@5 at least 70%, Recall@10 at least 80%, MRR
-  at least 0.55, and evidence-set F1@10 at least twice the lexical baseline.
-- Citation and anchor integrity must remain 100%.
-
-Before describing the system as useful to an agent, an in-domain evaluation
-set must demonstrate:
-
-- Evidence Recall@10 of at least 85%.
-- Direct-fact MRR of at least 0.70.
-- Claim-level citation correctness of at least 95%.
-- False evidence or answers on unsupported questions of at most 5%.
-- Correct abstention or clarification on unsupported and ambiguous questions
-  of at least 90%.
-- Successful completion of at least 80% of representative agent tasks.
-
-These thresholds are project acceptance gates, not claims of universal
-retrieval quality.
+Both methods accept keyword-only `subject`, `limit`, `since` (a datetime;
+prefer timezone-aware values), and `source_path`. Construction also accepts
+`embedding_profile` and `contextual`.
+There are no public stage-bypass options.
+
+`kg search <query> --manifest <corpus.yml>` uses this facade: natural any-term
+BM25 keyword candidates and semantic candidates receive identical constraints,
+then canonical-ID deduplication and weighted reciprocal-rank fusion feed the
+cross-encoder. The existing defaults remain lexical weight 1.0, dense weight
+0.5, fusion constant 20, and candidate pools of 50 expanded for larger requested
+limits. CLI result limit defaults to 20 and accepts 1..100.
+
+Subject scoping uses configured entities/aliases, literal name boundaries,
+document inheritance, and bounded undirected two-hop explicit relationships.
+Atlas does not match Atlascope. No general query-to-entity resolution or new
+graph candidate generator is implied. `--source` and `--since` retain existing
+source/date semantics; date filtering uses configured event times with revision
+timestamps as fallback. CLI durations use positive `h`, `d`, or `w` units.
+
+Ordinary JSON is still `list[SearchResult]`: record identity/type, title, summary,
+status, event time, source path/revision, anchor, heading path, exact quote,
+related entities, and `rank`. Returned list order is authoritative: raw
+cross-encoder score **descending**, then record ID for ties. Scores are not
+confidence, not comparable across queries/models, and not historical BM25 scores.
+Consumers must not re-sort ascending or apply a former BM25 threshold.
+
+### Execution explanations
+
+`search --explain [--include-quotes] [--explain-limit 50]` calls
+`SearchService.explain_search()` and returns `ProductSearchExplanation`,
+`report_version: "2"`. The trace limit is 1..200 and is valid only with
+`--explain`, as is quote opt-in. Text output renders the same diagnostic object;
+use `--format json` for the machine-readable contract.
+
+The report captures the actual execution, not a second search: corpus identity
+and fingerprint; effective filters and natural lexical expression; projection,
+profile, model revisions/pipeline versions and contextual configuration;
+candidate limits, fusion weights/constant; score meanings/tie-breakers; complete
+stage counts; bounded graph scope/supporting edges; and all final hits.
+`active_current_revisions_only` is true, `supersession_filter_applied` is false.
+
+Each candidate has `record_id`, nullable lexical/dense/reranker positions and raw
+scores, fusion position/score and individual contributions, shortlist membership,
+and nullable final position. Missing stages and contributions serialize as
+explicit JSON **null**, not zero or omitted keys. Use `model_dump()` /
+`model_dump_json()` **without `exclude_none=True`**. The serializer independently
+omits hit quote keys unless requested; candidate entries never carry text.
+
+Candidates are displayed in final-hit order, then remaining reranker order,
+then remaining fusion order, deduplicated and capped. `total_candidates`,
+`displayed_candidates`, `trace_limit`, and `truncated` expose display bounds.
+Changing display limits/quotes does not change scoring, counts, or the separate
+hits list. Paths, names, headings, query/filter text and metadata remain visible;
+omitting quotes is not anonymization.
+
+Ordinary and explained search reject intervening database commits, including
+edit-and-restore with an unchanged final fingerprint. Neither retries silently
+nor returns partial mixed-state results. Retry after writes finish. Unrelated
+corpus writes in the same database may also conservatively invalidate a call.
+
+## Structured state and evidence reads
+
+These operations use `RetrievalService`, not semantic search, and require no
+vector index or model initialization. Their signatures and payloads are unchanged.
+
+| CLI operation | Contract |
+| --- | --- |
+| `actions <subject>` | Explicit tasks; optional open/completed status, source and since filters. Missing owner remains null. |
+| `status <subject>` | Cited recent material, effective actions/decisions, blockers, relationships, conflicts and evidence gaps. No default date window. |
+| `record-state` | Current explicit task/decision replacement audit; bounded display and opt-in quotes. |
+| `evidence <record-id>` | Exact supporting anchor and citation. |
+| `source-range <anchor-id>` | Immutable quote, offsets/hash, location, revision and current-state indicator. |
+| `source-context <anchor-id>` | Selected range, nullable section heading, source-ordered anchors, total and truncation. |
+| `revisions <source-path>` | Unique immutable content revisions in original ingestion order. |
+| `compare-revisions <source-path>` | Added/removed/modified/unchanged ranges; optional `--from` and `--to`. |
+
+Python additionally exposes direct decisions, blockers, conflicts, and relationship
+reads. Structured output leaves unavailable fields null rather than guessing.
+
+### Explicit record replacement
+
+Tasks and decisions may declare a corpus-scoped, case-sensitive
+`[key:: version-key]` and `[supersedes:: earlier-version-key]`. Keys use 1..128
+ASCII letters, digits, dots, underscores, colons, or hyphens, starting with a
+letter/digit. A replacement is a complete same-kind record, not a field patch.
+
+Unique, non-cyclic, uncontested references suppress predecessors from effective
+actions/decisions/status and inherit subject scope. Resolution uses active
+current sources independent of ingestion order. Filters apply to effective
+records, not historical as-of state. Search and status recent material retain
+superseded evidence. Prose and latest timestamps do not choose winners.
+
+Missing/duplicate keys, cross-kind links, self-links, cycles and competing
+updates produce diagnostics, not arbitrary suppression. Syntax errors fail a
+source savepoint. Unresolved references leave evidence indexed, add ingestion
+`state_warnings`, and appear in status evidence gaps. Removing/editing an update
+removes its former effect. Record-state and ingestion diagnostics use the actual
+resolver and report support, candidates, effective and suppressed IDs.
+
+### Context and history
+
+Context starts at the nearest containing heading and includes subsections until
+the next sibling/ancestor heading. Repeated names do not merge sections;
+preambles and headingless documents are handled separately. The selected anchor
+is always included in a centered window (default 50, `--max-anchors` 1..200).
+The heading is returned separately, even outside that window. Each range retains
+its own offsets, hash and revision. These are parsed blocks, not reconstructed
+full sections: code can be absent and nested list anchors can overlap.
+
+Historical context reads stored anchors, never current file bytes. Revision
+comparison defaults to the target's latest activation predecessor, so restores
+compare against the state before restoration, not original creation. Upgraded
+databases without earlier activation history require explicit revision IDs;
+unknown transition order is not invented.
+
+## CLI versions, errors, and compatibility
+
+`kg capabilities --format json` advertises **interface_version `"2"`** and search
+configuration, score, readiness, explanation, and migration guidance. Search
+report version advances to `"2"`; unrelated payload/report versions do not change.
+
+`--query-mode` is removed. Every former value, **including `reranked`**, fails
+with migration guidance (`invalid_query` for JSON). Omit the flag and prepare
+the matching projection. It is not an ignored alias or a hidden lexical route.
+
+Domain errors are emitted on stderr as `{"error": "...", "message": "..."}` with
+exit code 2 and no success payload. Dense readiness maps to
+`dense_index_unavailable`; reranker failures to `reranker_unavailable`; ordinary
+`SearchStateChangedError` and changed-state explanations to `search_state_changed`.
+Other `SearchExplanationError.code` values survive. Invalid search semantics or
+configuration use `invalid_query`; manifest errors use `invalid_manifest`.
+Typer's option grammar/range errors retain its usage-error format, even when
+JSON was requested. `dense-index` failures retain `dense_index_failed`.
+Other operation-specific error mappings are unchanged.
+
+Existing `RetrievalService.search()` (strict/natural lexical), lexical
+`SearchExplanation`, `DenseRetrievalService`, `HybridRetrievalService`, and
+`RerankedRetrievalService` remain low-level Python composition/evaluation APIs.
+They are not alternate public product modes and do not inherit stricter product
+readiness or concurrency semantics. Legacy lexical explanations remain version 1.
+
+## Storage, maintenance, and validation
+
+[`src/kg/schema.sql`](src/kg/schema.sql) owns rebuildable canonical SQLite tables
+for source documents/revisions/anchors/activations, entities/aliases/mentions,
+relationships, structured records/bindings, passages, lexical projections, and
+ingest summaries. Dense projections are independently disposable.
+
+After upgrades, reingest each corpus and rebuild matching dense projections.
+Pre-alpha schema changes may require a fresh database. Preserve the old database
+when historical evidence is needed: rebuilding from current sources cannot
+recreate past content or activation history.
+
+Reviewed [acceptance corpora](corpora/acceptance/) and incremental Atlas scenarios
+pin exact evidence, graph scope, abstention, isolation, ingestion, edits/restores,
+and history. Lexical expected lists remain component assertions, not semantic
+gold. Separate product tests cover the entire pipeline and CLI with controlled
+providers; routine tests do not download models.
+
+[QASPER results](benchmarks/qasper/RESULTS.md) preserve measured relevance,
+latency, cost, and the rejected answerability threshold. Existing
+[retrieval acceptance gates](benchmarks/history/evidence-mvp.md#retrieval-acceptance-gates)
+remain unmet and unchanged. Productization parity does not satisfy those gates.
+The [real-model productization matrix](benchmarks/productization/README.md)
+and its durable results are integration evidence, not new relevance gold.
+See [CONTRIBUTING.md](CONTRIBUTING.md) for validation commands.

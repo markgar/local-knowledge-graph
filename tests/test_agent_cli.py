@@ -42,7 +42,7 @@ def test_agent_cli_publishes_versioned_capabilities() -> None:
 
     assert result.exit_code == 0
     payload = json.loads(result.stdout)
-    assert payload["interface_version"] == "1"
+    assert payload["interface_version"] == "2"
     assert payload["transport"] == "local_cli_json"
     assert {tool["command"] for tool in payload["tools"]} >= {
         "search",
