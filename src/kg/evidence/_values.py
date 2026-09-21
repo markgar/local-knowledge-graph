@@ -12,9 +12,27 @@ from kg.evidence.errors import EvidenceServiceError
 from kg.models.foundation import SourceMetadata, WriteRequest
 
 
+def _original_fields(value: object) -> object:
+    """Keep original Python types: serializers can turn a malformed bool into an int."""
+    if isinstance(value, BaseModel):
+        return {
+            key: _original_fields(item)
+            for key, item in (value.__dict__ | (value.__pydantic_extra__ or {})).items()
+        }
+    if isinstance(value, tuple):
+        return tuple(_original_fields(item) for item in value)
+    if isinstance(value, list):
+        return [_original_fields(item) for item in value]
+    if isinstance(value, dict):
+        return {key: _original_fields(item) for key, item in value.items()}
+    return value
+
+
 def validated[Model: BaseModel](kind: type[Model], value: Model) -> Model:
     try:
-        return kind.model_validate_json(value.model_dump_json(warnings="error"))
+        if not isinstance(value, kind):
+            raise TypeError("Expected a typed service value")
+        return kind.model_validate(_original_fields(value), strict=True)
     except (ValidationError, ValueError, TypeError, AttributeError, PydanticSerializationError):
         raise EvidenceServiceError("invalid_request") from None
 

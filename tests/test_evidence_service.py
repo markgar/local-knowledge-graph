@@ -13,6 +13,7 @@ from kg.models.foundation import (
     ExpectedState,
     RemoveDocument,
     SourceMetadata,
+    SuppliedAnchor,
     WriteBatch,
     WriteRequest,
 )
@@ -136,6 +137,45 @@ def test_invalid_construct_and_batch_are_atomic(tmp_path: Path) -> None:
         )
     with env.database.connection() as connection:
         assert connection.execute("SELECT count(*) FROM document").fetchone()[0] == 0
+
+
+def test_original_python_types_rejected_before_batch_item_zero(tmp_path: Path) -> None:
+    env = environment(tmp_path / "e.db")
+    valid = put(env.scope, external="first")
+    malformed = put(env.scope, external="second", text="abc")
+    malformed = malformed.model_copy(
+        update={
+            "payload": malformed.payload.model_copy(
+                update={
+                    "content": malformed.payload.content.model_copy(
+                        update={
+                            "anchors": (
+                                SuppliedAnchor.model_construct(
+                                    local_id="boolean", start=True, end=2, quote="b"
+                                ),
+                            )
+                        }
+                    ),
+                }
+            )
+        }
+    )
+    for operation in (
+        lambda: env.service.write(malformed),
+        lambda: env.service.write_batch(
+            WriteBatch.model_construct(
+                contract_version="foundation/1",
+                batch_id="strict",
+                items=(valid, malformed),
+            )
+        ),
+    ):
+        with pytest.raises(EvidenceServiceError) as error:
+            operation()
+        assert error.value.failure.code == "invalid_request"
+    with env.database.connection() as connection:
+        for table in ("document", "revision", "write_key"):
+            assert connection.execute(f"SELECT count(*) FROM {table}").fetchone()[0] == 0
 
 
 def test_ordered_mixed_batch_and_omission_safety(tmp_path: Path) -> None:

@@ -8,15 +8,27 @@ from pathlib import Path
 
 from pydantic import ValidationError
 
-from kg._sqlite import EVIDENCE_APPLICATION_ID, execute_schema, tables, write_transaction
+from kg._sqlite import (
+    EVIDENCE_APPLICATION_ID,
+    execute_schema,
+    has_user_schema,
+    read_snapshot,
+    tables,
+    write_transaction,
+)
 from kg.evidence.errors import EvidenceServiceError, storage_error
 
 
 def _check(connection: sqlite3.Connection, *, allow_empty: bool = False) -> bool:
+    with read_snapshot(connection):
+        return _format(connection, allow_empty=allow_empty)
+
+
+def _format(connection: sqlite3.Connection, *, allow_empty: bool) -> bool:
     application = connection.execute("PRAGMA application_id").fetchone()[0]
     version = connection.execute("PRAGMA user_version").fetchone()[0]
     names = tables(connection)
-    if allow_empty and application == 0 and version == 0 and not names:
+    if allow_empty and application == 0 and version == 0 and not has_user_schema(connection):
         return False
     if application != EVIDENCE_APPLICATION_ID or version != 1 or "store_format" not in names:
         raise EvidenceServiceError("unsupported")

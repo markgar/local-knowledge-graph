@@ -13,18 +13,45 @@ def tables(connection: sqlite3.Connection) -> set[str]:
     return {
         str(row[0])
         for row in connection.execute(
-            "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'"
+            "SELECT name FROM sqlite_master WHERE type='table' AND name NOT GLOB 'sqlite_*'"
         )
     }
 
 
-def legacy_format(connection: sqlite3.Connection, *, projection: bool = False) -> None:
-    if connection.execute("PRAGMA application_id").fetchone()[0] != 0:
-        raise sqlite3.DatabaseError("Incompatible database format; use a separate database file")
-    names = tables(connection)
-    expected = "projection_schema" if projection else "source_document"
-    if names and expected not in names:
-        raise sqlite3.DatabaseError("Incompatible database format; use a separate database file")
+def has_user_schema(connection: sqlite3.Connection) -> bool:
+    return (
+        connection.execute(
+            "SELECT 1 FROM sqlite_master WHERE name NOT GLOB 'sqlite_*' LIMIT 1"
+        ).fetchone()
+        is not None
+    )
+
+
+@contextmanager
+def read_snapshot(connection: sqlite3.Connection) -> Iterator[None]:
+    if connection.in_transaction:
+        yield
+    else:
+        connection.execute("BEGIN")
+        try:
+            yield
+        finally:
+            connection.rollback()
+
+
+def legacy_format(connection: sqlite3.Connection, *, projection: bool = False) -> bool:
+    with read_snapshot(connection):
+        if connection.execute("PRAGMA application_id").fetchone()[0] != 0:
+            raise sqlite3.DatabaseError(
+                "Incompatible database format; use a separate database file"
+            )
+        expected = "projection_schema" if projection else "source_document"
+        nonempty = has_user_schema(connection)
+        if nonempty and expected not in tables(connection):
+            raise sqlite3.DatabaseError(
+                "Incompatible database format; use a separate database file"
+            )
+        return nonempty
 
 
 def execute_schema(connection: sqlite3.Connection, sql: str) -> None:

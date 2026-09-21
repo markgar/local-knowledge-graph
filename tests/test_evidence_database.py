@@ -16,9 +16,14 @@ from kg.retrieval.dense import DenseIndexError, DenseRetrievalService
 def snapshot(path: Path) -> tuple[object, ...]:
     with sqlite3.connect(path) as connection:
         return (
-            *(connection.execute(f"PRAGMA {name}").fetchone()[0] for name in (
-                "application_id", "user_version", "journal_mode",
-            )),
+            *(
+                connection.execute(f"PRAGMA {name}").fetchone()[0]
+                for name in (
+                    "application_id",
+                    "user_version",
+                    "journal_mode",
+                )
+            ),
             tuple(connection.iterdump()),
         )
 
@@ -37,17 +42,62 @@ def test_fresh_format_reopen_and_transaction(tmp_path: Path) -> None:
     assert snapshot(database.path) == before
 
 
-@pytest.mark.parametrize("old", ["legacy", "unknown", "projection"])
+@pytest.mark.parametrize("old", ["legacy", "unknown", "projection", "sqlitefoo", "view-only"])
 def test_incompatible_store_does_not_mutate(tmp_path: Path, old: str) -> None:
     path = tmp_path / "old.db"
     with sqlite3.connect(path) as connection:
-        connection.execute(f"CREATE TABLE {old}(value TEXT)")
-        connection.execute(f"INSERT INTO {old} VALUES ('retained')")
+        if old == "view-only":
+            connection.execute("CREATE VIEW unrelated AS SELECT 1 AS retained")
+        else:
+            connection.execute(f"CREATE TABLE {old}(value TEXT)")
+            connection.execute(f"INSERT INTO {old} VALUES ('retained')")
     before = snapshot(path)
     with pytest.raises(EvidenceServiceError) as error:
         EvidenceDatabase(path).initialize()
     assert error.value.failure.code == "unsupported"
     assert snapshot(path) == before
+    with pytest.raises(sqlite3.DatabaseError):
+        Database(path).initialize()
+    assert snapshot(path) == before
+
+
+def test_admission_snapshot_during_competing_evidence_commit(tmp_path: Path, monkeypatch) -> None:
+    path = tmp_path / "race.db"
+    with sqlite3.connect(path) as connection:
+        connection.execute("PRAGMA journal_mode=WAL")
+    database = EvidenceDatabase(path)
+    competed = False
+
+    class AdmissionCursor(sqlite3.Cursor):
+        application_read = False
+
+        def execute(self, sql, parameters=()):
+            self.application_read = sql == "PRAGMA application_id"
+            return super().execute(sql, parameters)
+
+        def fetchone(self):
+            nonlocal competed
+            result = super().fetchone()
+            if self.application_read and not competed:
+                assert result[0] == 0
+                competed = True
+                EvidenceDatabase(path).initialize()
+            return result
+
+    class AdmissionConnection(sqlite3.Connection):
+        def execute(self, sql, parameters=()):
+            return self.cursor(factory=AdmissionCursor).execute(sql, parameters)
+
+    def open_connection(*, create):
+        connection = sqlite3.connect(path, factory=AdmissionConnection)
+        connection.row_factory = sqlite3.Row
+        connection.execute("PRAGMA foreign_keys=ON")
+        return connection
+
+    monkeypatch.setattr(database, "_open", open_connection)
+    database.initialize()
+    assert competed
+    assert snapshot(path)[:3] == (EVIDENCE_APPLICATION_ID, 1, "wal")
 
 
 def test_old_and_projection_connections_reject_evidence(tmp_path: Path) -> None:
@@ -77,9 +127,9 @@ def test_schema_execution_keeps_lock_and_rolls_back(tmp_path: Path) -> None:
     assert not connection.execute("SELECT name FROM sqlite_master").fetchall()
     assert not connection.in_transaction
     connection.close()
-    assert "CREATE TABLE revision" in resources.files("kg.evidence").joinpath(
-        "schema.sql"
-    ).read_text()
+    assert (
+        "CREATE TABLE revision" in resources.files("kg.evidence").joinpath("schema.sql").read_text()
+    )
 
 
 def initialize_worker(path: str, kind: str, ready: object = None) -> None:
