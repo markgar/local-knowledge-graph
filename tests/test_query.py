@@ -41,10 +41,23 @@ from kg.query import QueryService, QueryServiceError, _worker
 from kg.query.service import closure
 
 
-@pytest.fixture
-def query(tmp_path):
+@pytest.fixture(params=["anchor", "codepoint-window/1", "supplied-anchors/1"])
+def query(tmp_path, request):
     env = environment(tmp_path / "query.db")
-    saved = receipt(env.service.write(put(env.scope)))
+    value = put(env.scope)
+    if request.param != "anchor":
+        value = value.model_copy(
+            update={
+                "payload": value.payload.model_copy(
+                    update={
+                        "content": value.payload.content.model_copy(
+                            update={"passage_policy": request.param}
+                        )
+                    }
+                )
+            }
+        )
+    saved = receipt(env.service.write(value))
     ref = (
         env.service.anchors(
             env.scope,
@@ -54,7 +67,15 @@ def query(tmp_path):
         .entries[0]
         .reference
     )
-    request = QueryRequest(
+    if request.param != "anchor":
+        produce(
+            env.database, env.service.identity, env.scope, value.attribution,
+            saved.document_id, saved.processing.state_version,
+        )
+        ref = env.service.passages(
+            env.scope, saved.document_id, saved.processing.state_version,
+        ).entries[0].reference
+    plan = QueryRequest(
         contract_version="foundation/1",
         request_id="query",
         scope=env.scope,
@@ -62,7 +83,7 @@ def query(tmp_path):
         output_step="e",
     )
     with QueryService(env.database, env.service.identity) as service:
-        yield env, service, request
+        yield env, service, plan
 
 
 def assert_redacted(execution, reason):
@@ -171,7 +192,7 @@ def test_missing_anchor_and_passage_are_not_empty(query):
     )
     assert_redacted(
         service.execute(request.model_copy(update={"steps": (passage,)})),
-        "unsupported_restriction",
+        "not_found",
     )
 
 
@@ -434,7 +455,7 @@ def test_python_example_executes_real_canonical_anchor(query, tmp_path):
     assert value["report"]["owning_service"] == "query"
 
 
-def test_delivered_passage_resolver_keeps_query_anchor_only(query):
+def test_delivered_passage_and_anchor_capabilities_match_execution(query):
     env, service, request = query
     value = put(env.scope, external="published-passages")
     value = value.model_copy(
@@ -488,8 +509,13 @@ def test_delivered_passage_resolver_keeps_query_anchor_only(query):
             "steps": (EvidenceStep(operation="evidence", step_id="e", evidence=reference),),
         }
     )
-    assert_redacted(service.execute(passage), "unsupported_restriction")
-    assert service.capabilities(env.scope).evidence_kinds == ("anchor",)
+    result = service.execute(passage)
+    assert result.result.outcome == "complete"
+    assert result.result.records_examined == 1
+    assert result.result.data.records[0].support.evidence == (reference,)
+    capabilities = service.capabilities(env.scope)
+    assert capabilities.evidence_kinds == ("anchor", "passage")
+    assert capabilities.adapter_version == "canonical-evidence/1"
 
 
 def test_shared_resolver_scratch_uses_original_supervisor_pool(query, monkeypatch):

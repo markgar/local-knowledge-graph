@@ -225,8 +225,6 @@ class QueryService:
                     output = next(s for s in request.steps if s.step_id == request.output_step)
                     if len(required) != 1 or not isinstance(output, EvidenceStep):
                         raise Stopped("unsupported", "unsupported_operation")
-                    if output.evidence.passage_id is not None:
-                        raise Stopped("unsupported", "unsupported_restriction")
                     ledger = Ledger(
                         budget,
                         request.budget.max_operations,
