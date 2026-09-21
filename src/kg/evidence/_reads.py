@@ -4,11 +4,13 @@ import sqlite3
 from collections.abc import Iterator
 from contextlib import contextmanager
 from datetime import datetime
+from typing import TYPE_CHECKING
 
 from pydantic import TypeAdapter, ValidationError
 
 from kg.evidence import _store
 from kg.evidence._authorization import authorize
+from kg.evidence._reporting import reported_read
 from kg.evidence._values import sha, validated
 from kg.evidence.database import EvidenceDatabase
 from kg.evidence.errors import EvidenceServiceError
@@ -36,6 +38,10 @@ from kg.models.foundation import (
 )
 
 _TOKEN = TypeAdapter(Token)
+
+if TYPE_CHECKING:
+    from kg.diagnostics import DiagnosticService
+    from kg.diagnostics._collector import Collector
 
 
 def check_token(value: str) -> str:
@@ -195,6 +201,8 @@ def evidence_view(
 class EvidenceReads:
     database: EvidenceDatabase
     identity: LocalIdentity
+    _collector: Collector
+    diagnostics: DiagnosticService
 
     @contextmanager
     def _read(self, scope: Scope) -> Iterator[sqlite3.Connection]:
@@ -211,6 +219,7 @@ class EvidenceReads:
                 if version is None or version[0] != scope.access.policy_version:
                     raise EvidenceServiceError("state_changed")
 
+    @reported_read("current")
     def current(self, scope: Scope, document: ExternalDocument) -> DocumentView:
         document = validated(ExternalDocument, document)
         with self._read(scope) as connection:
@@ -230,16 +239,19 @@ class EvidenceReads:
                 raise EvidenceServiceError("not_found")
             return document_view(connection, doc, doc["current_state"])
 
+    @reported_read("document")
     def document(self, scope: Scope, document_id: str) -> DocumentView:
         with self._read(scope) as connection:
             doc = scoped_document(connection, scope, document_id)
             return document_view(connection, doc, doc["current_state"])
 
+    @reported_read("state")
     def state(self, scope: Scope, document_id: str, state_version: str) -> DocumentView:
         with self._read(scope) as connection:
             doc = scoped_document(connection, scope, document_id)
             return document_view(connection, doc, check_token(state_version))
 
+    @reported_read("content")
     def content(self, scope: Scope, document_id: str, revision_id: str) -> ContentResult:
         with self._read(scope) as connection:
             scoped_document(connection, scope, document_id)
@@ -252,6 +264,7 @@ class EvidenceReads:
                 text=text,
             )
 
+    @reported_read("history")
     def history(
         self,
         scope: Scope,
@@ -277,6 +290,7 @@ class EvidenceReads:
                 next_after_sequence=entries[-1].sequence if more else None,
             )
 
+    @reported_read("revisions")
     def revisions(
         self,
         scope: Scope,
@@ -311,6 +325,7 @@ class EvidenceReads:
                 next_after_sequence=entries[-1].sequence if more else None,
             )
 
+    @reported_read("evidence")
     def evidence(
         self,
         scope: Scope,
@@ -322,6 +337,7 @@ class EvidenceReads:
         with self._read(scope) as connection:
             return evidence_view(connection, scope, reference, state_version)
 
+    @reported_read("citation")
     def citation(self, scope: Scope, citation: StoredCitation) -> EvidenceView:
         citation = validated(StoredCitation, citation)
         with self._read(scope) as connection:
@@ -330,6 +346,7 @@ class EvidenceReads:
                 raise EvidenceServiceError("not_found")
             return result
 
+    @reported_read("anchors")
     def anchors(
         self,
         scope: Scope,
@@ -375,6 +392,7 @@ class EvidenceReads:
                 next_after_ordinal=entries[-1].ordinal if more else None,
             )
 
+    @reported_read("revision_anchors")
     def revision_anchors(
         self,
         scope: Scope,

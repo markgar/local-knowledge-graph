@@ -3,7 +3,7 @@ from __future__ import annotations
 import sqlite3
 from dataclasses import dataclass
 from datetime import datetime, timedelta
-from typing import Literal
+from typing import TYPE_CHECKING, Literal
 
 from kg.evidence._authorization import authorize_writer
 from kg.evidence._coordination import CanonicalKey
@@ -84,7 +84,7 @@ def clock(connection: sqlite3.Connection, supplied: datetime) -> datetime:
 
 def replay_only(
     context: CanonicalWriteContext, identity: LocalIdentity, request: WriteRequest,
-    key_id: str, observed_at: datetime,
+    key_id: str, observed_at: datetime, *, capture: Capture | CaptureUnavailable | None = None,
 ) -> ReplayResult:
     connection = context.connection
     if identity != context.identity:
@@ -117,6 +117,18 @@ def replay_only(
     else:
         document = request.payload.document
     authorize_writer(connection, identity, request.scope, request.attribution, document)
+    if capture is not None:
+        from kg.diagnostics._targets import DocumentTarget, ReportTargets, WriterTarget
+
+        with capture.guard():
+            capture.retain(ReportTargets(values=(WriterTarget(
+                document=document, owner_id=request.attribution.owner_id,
+                writer_id=request.attribution.writer_id,
+            ),)))
+            if response is not None:
+                capture.retain(ReportTargets(values=(DocumentTarget(
+                    document_id=response["document_id"],
+                ),)))
     if response is None and not key["expired"]:
         raise EvidenceServiceError("internal_error")
     at = clock(connection, observed_at)
@@ -162,3 +174,5 @@ def save_document(
         ),
     )
     return key_id
+if TYPE_CHECKING:
+    from kg.diagnostics._collector import Capture, CaptureUnavailable

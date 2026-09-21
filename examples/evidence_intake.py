@@ -15,6 +15,7 @@ from kg.models.evidence import (
     PolicyGrant,
     WriterBinding,
 )
+from kg.models.execution import ExecutionReport, ExplainOptions
 from kg.models.foundation import (
     AccessContext,
     Attribution,
@@ -102,6 +103,11 @@ def run(path: Path) -> str:
     if not isinstance(outcome.receipt, DocumentReceipt):
         raise RuntimeError(outcome.model_dump_json())
     saved = outcome.receipt
+    headers = service.diagnostics.for_request(scope, outcome.request_id)
+    if headers.entries:
+        report = service.diagnostics.report(scope, headers.entries[0].report_id)
+        if isinstance(report, ExecutionReport):
+            assert report.observation_kind == "captured_execution"
     citation = (
         service.anchors(
             scope,
@@ -111,7 +117,10 @@ def run(path: Path) -> str:
         .entries[0]
         .citation
     )
-    return service.citation(scope, citation).model_dump_json()
+    explained = service.citation_explained(
+        scope, citation, ExplainOptions(detail="detailed", include_quotes=False),
+    )
+    return explained.outcome.model_dump_json()
 
 
 if __name__ == "__main__":

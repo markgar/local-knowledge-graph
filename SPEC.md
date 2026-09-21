@@ -148,6 +148,51 @@ verbatim, including distinct seed and source bases. E3 projection handles contai
 scoped immutable identities and are usable only in their live read session.
 Neither DTOs nor handles install runnable knowledge/indexing adapters.
 
+### Shared execution diagnostics
+
+`kg.diagnostics` owns one bounded collector, authorized discovery facade and
+parent/child disclosure group. `kg.models.execution` imports closed package event
+values, not package services. E1 captures actual ordinary read/write phases and
+the canonical owner's commit observation; its named explained methods call the
+same operation once. Stored outcomes, schema/signature, receipt ordering and
+semantic/private execution budgets are unchanged.
+
+Capture admission reserves a full report slot before event validation/copying.
+Logical JSON sizing short-circuits without allocating a serialization; quote and
+batch/target limits apply before capture copies. Report bodies are prepared outside
+authorization fences. The collector never evicts active work and never interrupts
+business stages to fit a trace. Retention failure after a confirmed commit produces
+diagnostic unavailability, not a failed write.
+
+Trusted owner integrations use `Collector.begin_capture`, `Capture.retain`,
+`append`, `quote`, `configure` and `finish`. `finish` returns a non-disclosing
+`PreparedReport` handle, not release authority. Retain **all** dependencies that
+make a summary sensitive, even if a detailed event will not fit. Exact evidence,
+writer, knowledge witness, indexing configuration and processing target values
+form a bounded union. E1's authorizer implements only its own target kinds and
+rejects unimplemented kinds. Owner integrations must supply fixed typed target
+checks, never arbitrary request predicates.
+Construct diagnostic-only event/target values inside `with capture.guard():`;
+this catches allocation failure without covering or suppressing any business
+execution. Collector admission, sizing and retention independently isolate
+allocation failure. Both boundaries log a fixed safe availability reason.
+
+Nested captures share one `DisclosureGroup`. A child cannot publish itself;
+until the owning parent releases the group under its fresh authorization fence,
+public child lookup is unavailable. Retained original-observer references bind
+later disclosure to the same canonical generation. Group terminal redaction,
+scope and all dependency bindings survive parent eviction until the final child
+expires. No-data failure/close clears event/configuration payloads irreversibly;
+supervisor close finalizes active reservations without publishing them.
+
+Public disclosure reauthorizes all dependencies under a fresh read-only
+`BEGIN IMMEDIATE` fence, released by rollback. Listing also checks the complete
+returned header page under one final fence. No report lookup creates another report,
+advances the receipt clock, writes a canonical table, commits or runs a business
+operation. Reports disappear with service/process lifetime and are not durable
+audit records or retained query support. See [CONTRACTS.md](CONTRACTS.md#execution-diagnostics)
+for the public API, exact fixed limits and explicit unavailable/redacted shapes.
+
 The following sections describe the **separate Markdown demonstration**, unless
 explicitly referring to `kg.evidence`. Its fixture/gold assets are preserved; its
 databases and APIs are not a migration/compatibility contract for the new engine.
