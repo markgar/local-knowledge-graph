@@ -92,7 +92,7 @@ def test_real_multidocument_current_support_and_stale_dependency(
                 dependencies,
                 (references[0].model_copy(update={"passage_id": "not-produced"}),),
             )
-        assert error.value.failure.code == "unsupported"
+        assert error.value.failure.code == "not_found"
         with pytest.raises(EvidenceServiceError):
             validator.validate_current(
                 scope,

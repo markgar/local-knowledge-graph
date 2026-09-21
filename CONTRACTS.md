@@ -39,8 +39,9 @@ enrichment values include independent entity support and explicitly namespaced s
 | `content(scope, document_id, revision_id)` | `ContentResult(available, text)`; exact empty text is available, corruption is an error. |
 | `anchors(scope, document_id, state_version, *, after_ordinal=0, limit=100)` | `AnchorPage` for that state's immutable set. |
 | `revision_anchors(scope, document_id, revision_id, *, after_ordinal=0, limit=100)` | `RevisionAnchorPage` including former members, complete references and origin citations. |
-| `evidence(scope, EvidenceRef, *, state_version=None)` | Exact quote/range/hash and metadata. Default context is the anchor's creation state; explicit state must contain it. |
+| `evidence(scope, EvidenceRef, *, state_version=None)` | Exact quote/range/hash and metadata. Default context is the passage's first publication state, or the anchor's creation state for anchor-only references; explicit state must contain it. |
 | `citation(scope, StoredCitation)` | Round-trip the exact required reference/state/metadata-snapshot relationship. |
+| `passages(scope, document_id, state_version, *, after_ordinal=0, limit=100)` | `indexing/1` `PassagePage`: policy, set identity, complete saved evidence/citations in source order; `not_processed` differs from a completed empty set. Limit 1..200. |
 | `capabilities()` | `EvidenceCapabilities`, not `FoundationCapabilities`: implemented operations, unsupported features and limits. |
 
 All reads need current trusted `read` authority. Writes need `write_documents`
@@ -75,8 +76,20 @@ K1 must use the private same-transaction validator rather than that informationa
 
 See [SPEC.md](SPEC.md#generic-evidence-store) for byte identity, transactions,
 30-day retry/tombstone behavior and clean rebuild policy, and the executable
-[Python example](examples/evidence_intake.py). There is no sync completion, passage,
-enrichment, indexing/search or purge API in this service.
+[Python example](examples/evidence_intake.py). There is no sync completion, public
+passage-production, enrichment, indexing/search or purge API in this service.
+
+Passage reads use the immutable state-to-set association. Generated anchor-only
+references require membership through that state's published passage set; supplied
+anchor-only references still use the owner's supplied anchor set. A passage
+reference additionally requires its exact passage/set/anchor chain. Unknown or
+mismatched passage IDs now return `not_found`, not the former `unsupported`.
+`member_of_current_anchor_set` continues to describe the **supplied** anchor set;
+`is_current_support` also admits genuine current generated/passage membership.
+Neither requires vector readiness. Same-transaction support still requires an
+exact active dependency state and namespace token, not merely this read-time flag.
+The private producer is not a public API; intake capability `passage_policy`
+remains `retained_intent_only`.
 
 ## Execution diagnostics
 
@@ -90,6 +103,7 @@ target authorizer; request data cannot supply an authorization callback.
 | `ExplainOptions(detail="summary", include_quotes=False)` | Detailed capture is opt-in; quotes require `detail="detailed"` and never broaden authorization. |
 | `write_explained(request, options)` / `write_batch_explained(batch, options)` | Execute the same ordinary method once, returning `Explained[WriteOutcome]` / `Explained[BatchResult]`. |
 | Named read `_explained` wrappers | `current`, `document`, `state`, `content`, `history`, `revisions`, `evidence`, `citation`, `anchors`, `revision_anchors`; same inputs/cursors and typed ordinary result, plus the sidecar. `options` precedes keyword-only pagination/state arguments. |
+| `passages_explained(scope, document_id, state_version, options, *, after_ordinal=0, limit=100)` | The same passage read once, plus bounded actual passage-status events and retained exact evidence dependencies; quotes remain opt-in. |
 | `diagnostics.report(scope, report_id)` | Authorized retained body, or `ReportAvailability`; an admitted failure's diagnostic ID is also a lookup alias. Never reruns the business operation. |
 | `diagnostics.recent(scope, *, limit=20)` | Freshly authorized headers only, newest completion first, stable report-ID tie-break; limit 1..32. |
 | `diagnostics.for_request(scope, request_id, *, limit=20)` | Same headers, restricted to correlation within the originating identity/exact scope. Reused request IDs identify separate invocations. |

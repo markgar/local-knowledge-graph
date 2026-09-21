@@ -54,9 +54,14 @@ ordinary scoped read/write/seed operations are not excluded.
 See [execution diagnostics](CONTRACTS.md#execution-diagnostics) for limits,
 quote opt-in and unavailable/redacted results.
 
-The service does not read source files, parse Markdown, generate passages, enrich
-knowledge, index or search. Every new state reports indexing/enrichment **pending**
-with `processor_not_available`. Supplied passage policy is retained intent only.
+The service does not read source files, parse Markdown, enrich knowledge, index
+or search. Every new state reports indexing/enrichment **pending** with
+`processor_not_available`. Intake retains passage policy intent without running
+processing. The private canonical passage kernel supports `codepoint-window/1`
+and `supplied-anchors/1`; it does not expose a public process command.
+`service.passages(scope, document_id, state_version)` reads an immutable published
+set, or explicitly reports `not_processed`. Published passage and generated-anchor
+citations also resolve through ordinary evidence reads, independently of vectors.
 
 Fresh stores use the complete `evidence-store/2` schema and the `evidence/2`
 service interface. Initialization verifies the actual schema and its recorded
