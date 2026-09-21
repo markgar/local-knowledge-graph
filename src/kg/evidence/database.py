@@ -6,6 +6,8 @@ from contextlib import contextmanager
 from importlib import resources
 from pathlib import Path
 
+from pydantic import ValidationError
+
 from kg._sqlite import EVIDENCE_APPLICATION_ID, execute_schema, tables, write_transaction
 from kg.evidence.errors import EvidenceServiceError, storage_error
 
@@ -55,7 +57,7 @@ class EvidenceDatabase:
                 connection.execute("PRAGMA journal_mode=WAL")
             finally:
                 connection.close()
-        except (sqlite3.Error, OSError) as error:
+        except (sqlite3.Error, OSError, ValidationError) as error:
             raise storage_error(error) from None
 
     @contextmanager
@@ -67,7 +69,7 @@ class EvidenceDatabase:
                 yield connection
             finally:
                 connection.close()
-        except (sqlite3.Error, OSError) as error:
+        except (sqlite3.Error, OSError, ValidationError) as error:
             raise storage_error(error) from None
 
     @contextmanager

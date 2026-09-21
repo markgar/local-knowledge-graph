@@ -18,6 +18,7 @@ def storage_error(error: Exception) -> EvidenceServiceError:
     result = EvidenceServiceError("internal_error")
     LOGGER.error(
         "Evidence failure diagnostic=%s class=%s",
-        result.failure.diagnostic_id, type(error).__name__,
+        result.failure.diagnostic_id,
+        type(error).__name__,
     )
     return result
