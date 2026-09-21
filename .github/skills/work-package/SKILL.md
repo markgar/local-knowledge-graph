@@ -34,13 +34,13 @@ the package ready yourself. Inspect worktree changes and refresh the main ref
 without overwriting work or switching to the main checkout. Record the inspected
 commit and any relevant unmerged changes in the spec.
 
-Use app subsessions for scoped design, independent criticism and, when authorized,
-implementation work. Keep the parent session coordinating results and user
-decisions. Reuse suitable existing subsessions rather than duplicating work; give
-each the issue, relevant files/artifacts, scope, expected output and stop condition.
-Use the orchestration workflow for session creation and handoffs, without a fixed
-session hierarchy or unnecessary fan-out. Subsessions inherit the same approval
-boundaries; a design request does not authorize implementation.
+One work session can own design, revisions and authorized implementation end to
+end: use the current session or one app subsession if the work is delegated.
+Do not create separate app sessions for each phase. Independent criticism needs
+fresh agent context, not a separate app session or code worktree: use a
+general-purpose subagent with a read-only review assignment. Any delegated work
+inherits the same approval boundaries; a design request does not authorize
+implementation.
 
 Use an issue-linked session when publishing issue artifacts, and verify it targets
 the selected issue. If session tools are unavailable, report that limitation;
@@ -74,8 +74,9 @@ Preserve exact provenance, corpus isolation, authored gold and benchmark results
 
 ## 3. Obtain independent criticism
 
-Use an independent, read-only critic subsession to review the file, not an
-author's summary.
+Use a general-purpose subagent in fresh context to review the file, not an
+author's summary. Instruct it to work read-only in the current worktree; do not
+create an app session or worktree just for critique.
 Provide the absolute path, revision, issue and shared requirements, code baseline,
 scope, and an explicit stop after reporting findings. If the critic cannot access
 the file, supply that exact revision through supported artifact/file transfer.
@@ -114,10 +115,12 @@ Default completion is a reviewed spec awaiting approval, or an approved spec
 published to its issue, with implementation not started. Report the file/revision,
 issue/artifact reference, review state and blockers concisely.
 
-Only after an explicit instruction to implement the approved slice, hand off its
-issue, approved artifact, inspected baseline, acceptance criteria and stopping
-point. Reconcile changes on main first. Follow `CONTRIBUTING.md` for tests,
-independent complete-diff review, fix review and merge checks. Dispatch CI only
+Only after an explicit instruction to implement the approved slice, continue in
+the same work session using its issue, approved artifact, inspected baseline,
+acceptance criteria and stopping point. If a handoff is actually needed, provide
+that same context; a new session is not required. Reconcile changes on main first.
+Follow `CONTRIBUTING.md` for tests, independent complete-diff review, fix review
+and merge checks. Dispatch CI only
 for code-affecting changes, not documentation, skill text or instructions alone.
 Update package progress after each delivered slice; close only on actual acceptance evidence
 and update the tracker. Do not infer merge or issue-closure authority from a

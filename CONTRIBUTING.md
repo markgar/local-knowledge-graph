@@ -78,6 +78,9 @@ For guided execution, use the repository's
 > Use /work-package for issue #24. Design and critic review only; do not implement.
 
 The skill follows the steps below and stops for approval before implementation.
+One work session (the current session or one delegated app subsession) can own
+design, revisions and authorized implementation end to end. Independent critique
+uses a fresh-context subagent, not a second app session or worktree.
 In Copilot CLI, use `/skills reload` if it was added during the current session,
 then `/skills info work-package` to confirm discovery.
 
@@ -94,10 +97,12 @@ then `/skills info work-package` to confirm discovery.
    transaction/state/failure handling, compatibility, acceptance tests, unresolved
    decisions, and PR-sized implementation slices with stopping points. Link shared
    requirements from the tracking issue rather than copying the whole roadmap.
-3. **Have an independent critic review the file.** Give the critic its absolute
-   path, the package issue, shared requirements and code baseline. Ask for concrete
-   gaps, unsafe assumptions, missing edge cases and testability concerns, with
-   spec-section/code references. The critic reviews; it does not implement.
+3. **Have an independent critic review the file.** Use a general-purpose subagent
+   with fresh context and a read-only assignment in the current worktree, not a
+   separate app session or worktree. Give it the file's absolute path, the package
+   issue, shared requirements and code baseline. Ask for concrete gaps, unsafe
+   assumptions, missing edge cases and testability concerns, with spec-section/code
+   references. The critic reviews; it does not edit or implement.
 4. **Revise and approve.** Address findings in that same file, record dispositions,
    and re-review material changes. Resolve blocking decisions and obtain explicit
    approval of the design and first implementation slice before coding.
@@ -108,9 +113,9 @@ then `/skills info work-package` to confirm discovery.
    For design changes, revise the file, review and approve them, then update the
    same artifact rather than creating competing approved versions. Preserve this
    record before archiving the design session.
-6. **Implement an approved slice.** Give the implementation session the issue,
-   approved artifact and stopping point. If main has changed, check the design
-   against it before coding. Run applicable acceptance tests and the validation
+6. **Implement an approved slice.** Continue in the same work session with the issue,
+   approved artifact and stopping point; no new session is required. If main has
+   changed, check the design against it before coding. Run applicable acceptance tests and the validation
    commands above, obtain independent complete-diff review, resolve findings and
    re-review fixes before merge. Link each PR to the package issue; update repo
    docs for behavior actually delivered.
@@ -125,7 +130,7 @@ Use this starting prompt, substituting the package and issue:
 > in this session's artifact storage, outside the tracked repo, and report its
 > absolute path. Follow the spec contents in CONTRIBUTING.md. Do not implement.
 
-Then give a separate critic this prompt:
+Then give a fresh-context general-purpose subagent this read-only prompt:
 
 > Review the spec at `<absolute path>` against its package issue, shared
 > requirements and referenced code baseline. Identify concrete correctness,
