@@ -4,7 +4,7 @@ from typing import Literal, Self
 
 from pydantic import AwareDatetime, Field, model_validator
 
-from kg.models.foundation import Scope, Token, Value
+from kg.models.foundation import ErrorCode, Scope, Token, Value
 
 JobStatus = Literal[
     "queued",
@@ -59,6 +59,14 @@ class WorkerRegistration(ProcessingValue):
     selection: WorkerSelection
 
 
+class PlanStateRequest(ProcessingValue):
+    corpus_id: Token
+    plan_id: Token
+    plan_version: Token
+    expected_enabled: bool
+    enabled: bool
+
+
 class RegistrationResult(ProcessingValue):
     status: Literal["applied", "unchanged"]
 
@@ -91,6 +99,25 @@ class HeartbeatRequest(JobRequest):
     claim_fence: int = Field(ge=1)
 
 
+FailureClass = Literal["transient", "permanent"]
+
+
+class FailRequest(HeartbeatRequest):
+    failure_class: FailureClass
+    failure_code: Literal["budget_exceeded", "invalid_request", "unsupported", "internal_error"]
+
+    @model_validator(mode="after")
+    def classified(self) -> Self:
+        if (self.failure_class == "transient") != (self.failure_code == "budget_exceeded"):
+            raise ValueError("Only resource-budget failures are retryable in this control API")
+        return self
+
+
+class RetryRequest(JobRequest):
+    expected_status_version: int = Field(ge=1, le=2**63 - 1)
+    retry_key: Token
+
+
 class JobsRequest(WorkerRequest):
     after_sequence: int = Field(default=0, ge=0, le=2**63 - 1)
     limit: int = Field(default=100, ge=1, le=200)
@@ -99,6 +126,20 @@ class JobsRequest(WorkerRequest):
 class ScheduleReceipt(ProcessingValue):
     job_id: Token
     status: Literal["applied", "unchanged"]
+
+
+class RetryReceipt(ProcessingValue):
+    job_id: Token
+    status: Literal["applied"] = "applied"
+    status_version: int = Field(ge=1)
+    retry_episode: int = Field(ge=2)
+
+
+class RecoveryResult(ProcessingValue):
+    examined: int = Field(ge=0, le=200)
+    changed: int = Field(ge=0, le=200)
+    unsupported: int = Field(ge=0, le=200)
+    next_after: int | None = Field(default=None, ge=1)
 
 
 class JobView(ProcessingValue):
@@ -115,6 +156,8 @@ class JobView(ProcessingValue):
     lease_deadline: AwareDatetime | None
     next_due_at: AwareDatetime
     reason: CoordinationReason | None
+    failure_code: ErrorCode | None = None
+    diagnostic_id: Token | None = None
 
 
 class Claim(ProcessingValue):
@@ -145,16 +188,23 @@ class JobPage(ProcessingValue):
 
 
 class ProcessingCapabilities(ProcessingValue):
-    operations: tuple[Literal["schedule", "claim", "heartbeat", "job", "jobs"], ...] = (
+    operations: tuple[
+        Literal["schedule", "claim", "heartbeat", "fail", "retry", "recover", "job", "jobs"], ...
+    ] = (
         "schedule",
         "claim",
         "heartbeat",
+        "fail",
+        "retry",
+        "recover",
         "job",
         "jobs",
     )
     lease_seconds: Literal[60] = 60
     heartbeat_interval_seconds: Literal[20] = 20
     max_attempts: Literal[10] = 10
+    failure_classes: tuple[FailureClass, ...] = ("transient", "permanent")
+    max_retry_delay_seconds: Literal[300] = 300
     claim_scan_limit: Literal[200] = 200
     max_page_size: Literal[200] = 200
     executes_work: Literal[False] = False

@@ -126,7 +126,9 @@ records, or expose enrichment, seed replacement or knowledge reads. Existing
 evidence capabilities remain unchanged. See the executable
 [schema example](examples/knowledge_schema.py).
 
-## Canonical anchor queries
+<a id="canonical-anchor-queries"></a>
+
+## Canonical evidence queries
 
 `kg.query.QueryService(database, identity)` executes validated `QueryRequest`
 values against the canonical evidence store. `execute(request)` returns
@@ -138,20 +140,34 @@ options=ExplainOptions())` executes once and returns shared `Explained` with
 `service.diagnostics.report/recent/for_request`; request IDs correlate distinct
 invocations, not durable retries.
 
-The installed capability is **anchor evidence only**, including authorized
-immutable history. The result is one evidence Record identified by anchor ID,
+The installed capability is **anchor and published passage evidence**, including
+generated anchors and authorized immutable history (`canonical-evidence/1`).
+The result is one evidence Record identified by anchor ID,
 with its full requested reference in SourceSupport. No quote text is added to
 foundation results or Q1 reports. Detailed reports include the selected ID,
 closure and acknowledged semantic reservation; summary reports omit selected IDs.
 `capabilities(scope)` is authorized and reportable. There is no installed
 support registry or `inspect_support` method in this slice. Required
-resolve/records/count/search/paths and non-null passage references return
-unsupported, never a fake empty result or legacy adapter fallback.
+resolve/records/count/search/paths return unsupported, never a fake empty result
+or legacy adapter fallback. Missing or mismatched passage references return
+`not_found`. Passage evidence requires its real state/set/passage/anchor chain,
+not vector readiness. Both `codepoint-window/1` and `supplied-anchors/1` kernel
+outputs are readable.
+
+An evidence step accepts an `EvidenceRef`, not a `StoredCitation` or explicit
+state/set selector. It preserves the entire requested reference, including
+`passage_id`; default passage context is its first publication state. Exact
+quote/range/hash and origin metadata remain accessible through
+`EvidenceService.evidence`, and saved state/metadata contexts through
+`EvidenceService.citation`. A later edit, removal, policy change or restoration
+does not rewrite that history. Readability alone does not establish current
+support: that requires the current active revision and actual set membership.
 
 The whole request is reconstructed/validated, even branches not executed.
 Only the selected output's named dependency closure is dispatched. Unrelated
 unsupported branches are `not_needed`. One operation and one eligible evidence
-reservation are charged for a successful anchor read; missing evidence charges
+`evidence_reference` reservation are charged for a successful evidence read;
+there is no additional search-final charge. Missing evidence charges
 no public record unit. On any no-data failure, step telemetry is empty and
 foundation counters are zero **redacted sentinels**, not measurements.
 `work_accounting="redacted"` distinguishes these from authorized
@@ -190,9 +206,13 @@ not HTTP authentication.
 | --- | --- |
 | `register_plan(PlanRegistration)` | Immutable corpus/plan/version/producer/config definition; identical registration is unchanged, conflicting replacement fails. Kind is currently `index` only. Optional configuration references must already exist; null installs no executable provider. |
 | `register_worker(WorkerRegistration)` | Idempotent exact principal/namespace/plan/version/worker/owner/writer binding; requires existing plan/namespace. Trusted provisioning, no fabricated scoped admin grant/report. |
+| `set_plan_enabled(PlanStateRequest)` | Trusted administrative boolean CAS using `expected_enabled`; toggles only availability, never the immutable plan definition or job identity. No automatic requeue. |
 | `schedule(ScheduleRequest)` | Applied/unchanged `ScheduleReceipt(job_id,status)`. Exact document/revision/state/namespace-token dependency; 30-day control receipts and logical dedup independent of worker instance. |
 | `claim(WorkerRequest)` | `ClaimResult` with one fenced 60-second lease or `no_work`, inspected count and `scan_truncated`. At most 200 candidate transitions per call; truncation is not proof of no remaining work. |
 | `heartbeat(HeartbeatRequest)` | Renewed `Claim` only for matching worker/fence, unexpired lease and live dependency/plan/corpus guard. Heartbeat at most every 20 seconds while working. |
+| `fail(FailRequest)` | Current matching claim/fence only. Explicit `transient` + `budget_exceeded` records deterministic retry delay/exhaustion; `permanent` + `invalid_request`, `unsupported` or `internal_error` records terminal failure. Returns `JobView` with safe failure code/opaque diagnostic ID. No arbitrary exception classification or owner acknowledgement. |
+| `retry(RetryRequest)` | Only `failed/retry_exhausted`, current `expected_status_version` and fresh guards. Starts a new episode with a 30-day idempotent `RetryReceipt(job_id,status,status_version,retry_episode)`; lifetime attempts remain unchanged. The receipt describes the committed restart, not current job status. |
+| `recover(JobsRequest)` | Creation-sequence pagination over nonterminal document jobs, 1..200: `RecoveryResult(examined,changed,unsupported,next_after)`. Expires claims, supersedes stale dependencies and requeues eligible same-plan blocks. Counts/cursor are authorized selection results, not whole-store totals. |
 | `job(JobRequest)` / `jobs(JobsRequest)` | Current owned `JobView` / creation-sequence-keyset `JobPage`, limits 1..200; no bodies or unfiltered totals. Status inspection does not advance the durable clock. |
 | `capabilities()` | Only delivered operations; `executes_work=False`, `acknowledges_work=False`. |
 
@@ -205,15 +225,40 @@ trusted target construction; the service independently validates ownership and
 the exact immutable state chain. Opaque IDs and a claim are not credentials.
 
 Expired running jobs become `retry_wait` with persisted 1,2,4,...,300-second-capped
-backoff, or `failed` at ten attempts. Reclaim occurs during bounded `claim`;
+backoff, or `failed` at ten attempts per episode. Reclaim occurs during bounded
+`claim` or `recover`;
 after recording expiry the caller waits until `next_due_at` and claims again.
 Fences and lifetime/episode counters persist across process restart. Exact expiry
 is inclusive; shared max-observed UTC prevents backward-clock revival. Source
 changes supersede old work; plan disable/guard invalidation block execution.
-This slice has no explicit retry-episode reset, unblock, cancellation or plan
-update API. Registration does not resurrect work or enqueue a background scanner.
+`fail` accepts only the closed classification above, advertised by registered
+plan capabilities. The caller is the trusted registered worker reporting a
+failure, not an installed executor; corruption/unclassified exceptions are never
+automatically retryable. Repeated or late failure messages lose their claim CAS,
+including at exact expiry or after worker replacement.
 
-All five ordinary methods also have `_explained(request, options)` wrappers.
+Recovery requeues `plan_disabled` and `authority_unavailable` blocks only with
+the same immutable plan enabled, fresh same-principal registration/authority,
+current document dependencies and unchanged unblocked guard. Requeue invalidates
+the fence and preserves lifetime/episode counters and any not-before time; an
+exhausted episode becomes failed rather than running again. Repeated recovery
+does not advance job versions/fences or reset delay. Policy changes that rotate
+source state supersede the old job rather than repairing it.
+
+`processor_unavailable`, `purge_blocked` and `awaiting_input` blocks are explicitly
+counted as unsupported recovery, never silently requeued: this slice has no owner
+availability proof, X1 release or resupplied-unit execution. A newly stale target
+can still be superseded. Plan disable/enable cannot erase these owner-only blocks.
+Terminal success, permanent failure, cancellation and supersession never recover.
+Retry only resets the exhausted episode counter; there is no lifetime attempt cap
+or automatic new episode. Changed input under a retry key conflicts; inclusive
+30-day expiry precedes digest comparison and its tombstone survives clock rollback.
+Historical schedule/retry receipt reads require current retained-target authority,
+but not a current source or live claim, and never reactivate work.
+There is no cancellation, processor installation or plan-definition update API.
+Registration does not resurrect work or enqueue a background scanner.
+
+All eight ordinary methods also have `_explained(request, options)` wrappers.
 Summaries are captured by default, detail opt-in. Reports record actual calls,
 current status inspection, or explicitly labelled retained receipt facts, never
 invented original execution. Fixed `ProcessingSelectionTarget` retains the real

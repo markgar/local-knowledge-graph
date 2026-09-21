@@ -19,10 +19,12 @@ from kg.models.execution import ExecutionReport, ExplainOptions
 from kg.models.foundation import EvidenceStep, QueryBudget, QueryRequest
 from kg.models.processing import (
     DocumentTarget,
+    FailRequest,
     HeartbeatRequest,
     JobRequest,
     JobsRequest,
     PlanRegistration,
+    RetryRequest,
     ScheduleRequest,
     WorkerRegistration,
     WorkerRequest,
@@ -124,7 +126,9 @@ def combined(tmp_path: Path):
         yield env, processing, scheduled, service, query, passage
 
 
-@pytest.mark.parametrize("operation", ["schedule", "heartbeat", "inspection"])
+@pytest.mark.parametrize(
+    "operation", ["schedule", "heartbeat", "fail", "retry", "recover", "inspection"]
+)
 def test_processing_commit_between_real_query_read_and_original_release(
     combined,
     monkeypatch: pytest.MonkeyPatch,
@@ -141,6 +145,24 @@ def test_processing_commit_between_real_query_read_and_original_release(
         processing.schedule(scheduled)
         claim = processing.claim(worker).claim
         assert claim is not None
+    if operation == "recover":
+        assert claim is not None
+        processing._clock = lambda: claim.lease_deadline
+    if operation == "retry":
+        for attempt in range(1, 11):
+            assert claim is not None and claim.attempt == attempt
+            failed = processing.fail(
+                FailRequest(
+                    **worker.model_dump(),
+                    job_id=claim.job_id,
+                    claim_fence=claim.claim_fence,
+                    failure_class="transient",
+                    failure_code="budget_exceeded",
+                )
+            )
+            processing._clock = lambda due=failed.next_due_at: due
+            if attempt < 10:
+                claim = processing.claim(worker).claim
     read_finished, continue_release = Event(), Event()
     original = query._run_worker
     original_observer_changed = []
@@ -184,13 +206,34 @@ def test_processing_commit_between_real_query_read_and_original_release(
                             claim_fence=claim.claim_fence,
                         )
                     )
+                elif operation == "fail":
+                    processing.fail(
+                        FailRequest(
+                            **worker.model_dump(),
+                            job_id=claim.job_id,
+                            claim_fence=claim.claim_fence,
+                            failure_class="transient",
+                            failure_code="budget_exceeded",
+                        )
+                    )
+                elif operation == "retry":
+                    processing.retry(
+                        RetryRequest(
+                            **worker.model_dump(),
+                            job_id=claim.job_id,
+                            expected_status_version=before.status_version,
+                            retry_key="restart",
+                        )
+                    )
+                elif operation == "recover":
+                    assert processing.recover(JobsRequest(**worker.model_dump())).changed == 1
                 after = processing.job(
                     JobRequest(
                         **worker.model_dump(),
                         job_id=claim.job_id,
                     )
                 )
-                assert after.status_version == before.status_version + (operation == "heartbeat")
+                assert after.status_version == before.status_version + (operation != "inspection")
         finally:
             continue_release.set()
         explained = pending.result(timeout=15)
@@ -223,7 +266,7 @@ def test_processing_commit_between_real_query_read_and_original_release(
         ) == ("pending", "pending")
 
 
-@pytest.mark.parametrize("operation", ["claim", "jobs"])
+@pytest.mark.parametrize("operation", ["claim", "jobs", "recover"])
 def test_empty_processing_reports_and_passage_reports_keep_separate_authority(
     combined,
     operation: str,
@@ -234,15 +277,15 @@ def test_empty_processing_reports_and_passage_reports_keep_separate_authority(
         selection=scheduled.selection,
         request_id="empty",
     )
-    empty = (
-        processing.claim_explained(worker)
-        if operation == "claim"
-        else processing.jobs_explained(JobsRequest(**worker.model_dump()))
-    )
     if operation == "claim":
+        empty = processing.claim_explained(worker)
         assert empty.outcome.status == "no_work"
-    else:
+    elif operation == "jobs":
+        empty = processing.jobs_explained(JobsRequest(**worker.model_dump()))
         assert empty.outcome.entries == ()
+    else:
+        empty = processing.recover_explained(JobsRequest(**worker.model_dump()))
+        assert empty.outcome.examined == empty.outcome.changed == 0
     assert isinstance(empty.report, ExecutionReport)
     source = env.service.evidence_explained(
         env.scope,
@@ -303,7 +346,7 @@ def test_empty_processing_reports_and_passage_reports_keep_separate_authority(
         query.diagnostics.report(env.scope, anchor.report.report_id),
         ExecutionReport,
     )
-    denied = query_request.model_copy(
+    passage_request = query_request.model_copy(
         update={
             "steps": (
                 query_request.steps[0].model_copy(
@@ -312,4 +355,13 @@ def test_empty_processing_reports_and_passage_reports_keep_separate_authority(
             )
         }
     )
-    assert query.execute(denied).stop_reason == "unsupported_restriction"
+    executed = query.execute_explained(passage_request)
+    assert executed.outcome.result.outcome == "complete"
+    assert executed.outcome.result.data.records[0].support.evidence == (passage.reference,)
+    assert executed.outcome.result.records_examined == 1
+    assert isinstance(executed.report, ExecutionReport)
+    assert [
+        (event.event.stage, event.event.reservations)
+        for event in executed.report.events
+        if event.event.kind == "query.budget"
+    ] == [("evidence_reference", 1)]

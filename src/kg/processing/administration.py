@@ -12,6 +12,7 @@ from kg.evidence.errors import EvidenceServiceError
 from kg.models.evidence import LocalAdminAuthority, LocalIdentity
 from kg.models.processing import (
     PlanRegistration,
+    PlanStateRequest,
     ProcessingCapabilities,
     RegistrationResult,
     WorkerRegistration,
@@ -33,6 +34,40 @@ class ProcessingAdministration:
     def __init__(self, database: EvidenceDatabase, authority: LocalAdminAuthority) -> None:
         self.database = database
         self.authority = validated(LocalAdminAuthority, authority)
+
+    @_budget_errors
+    def set_plan_enabled(self, request: PlanStateRequest) -> RegistrationResult:
+        request = validated(PlanStateRequest, request)
+        with writing(
+            self.database,
+            LocalIdentity(principal_id=self.authority.principal_id),
+            deadline=Deadline(time.monotonic() + 5),
+        ) as context:
+            row = context.connection.execute(
+                "SELECT enabled FROM processing_plan "
+                "WHERE corpus_id=? AND plan_id=? AND plan_version=?",
+                (request.corpus_id, request.plan_id, request.plan_version),
+            ).fetchone()
+            if row is None:
+                raise EvidenceServiceError("not_found")
+            if bool(row["enabled"]) != request.expected_enabled:
+                raise EvidenceServiceError("state_conflict")
+            if request.enabled == request.expected_enabled:
+                return RegistrationResult(status="unchanged")
+            changed = context.connection.execute(
+                "UPDATE processing_plan SET enabled=? "
+                "WHERE corpus_id=? AND plan_id=? AND plan_version=? AND enabled=?",
+                (
+                    int(request.enabled),
+                    request.corpus_id,
+                    request.plan_id,
+                    request.plan_version,
+                    int(request.expected_enabled),
+                ),
+            ).rowcount
+            if changed != 1:
+                raise EvidenceServiceError("state_conflict")
+        return RegistrationResult(status="applied")
 
     @_budget_errors
     def register_plan(self, request: PlanRegistration) -> RegistrationResult:
