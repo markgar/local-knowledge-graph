@@ -23,6 +23,7 @@ retrieval-quality gates remain unmet.
 | Markdown demonstration | Manifest-selected local Markdown, explicit records, seed entities, structured reads, source context and revision comparison in its separate database. |
 | Demonstration search | Full local keyword + semantic retrieval, fusion/deduplication and reranking; matching vector preparation is required. No keyword-only fallback. |
 | Foundation values | Strict `foundation/1` request/result validation, including independent entity-support attestations and namespaced seed support. Document operations execute through `EvidenceService`; enrichment and generic queries remain validation-only. |
+| Execution diagnostics | Evidence calls retain bounded, authorized in-memory summaries. Named explained wrappers execute once; detailed traces and source quotes require opt-in. |
 
 There are no live email/Teams connectors, agent-authored graph writes, general
 query planner, continuation service, or source-level ACL/purge service.
@@ -41,6 +42,15 @@ discovers canonical anchors, and resolves a saved citation. Repeating the exampl
 replays the original receipt under the same retry key. See
 [the example](examples/evidence_intake.py), [service API](CONTRACTS.md#evidence-service-api),
 and [storage semantics](SPEC.md#generic-evidence-store).
+
+Evidence operations preserve their ordinary result shapes. Discover summaries with
+`service.diagnostics.recent(scope)` or
+`service.diagnostics.for_request(scope, request_id)`, then fetch a report by ID.
+Use `write_explained(request)` or `citation_explained(scope, citation, options)`
+for the ordinary outcome plus an `execution-report/1` sidecar. Reports expire
+after five minutes, remain scope/target-authorized, and are not durable audit logs.
+See [execution diagnostics](CONTRACTS.md#execution-diagnostics) for limits,
+quote opt-in and unavailable/redacted results.
 
 The service does not read source files, parse Markdown, generate passages, enrich
 knowledge, index or search. Every new state reports indexing/enrichment **pending**

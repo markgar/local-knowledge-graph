@@ -78,6 +78,70 @@ See [SPEC.md](SPEC.md#generic-evidence-store) for byte identity, transactions,
 [Python example](examples/evidence_intake.py). There is no sync completion, passage,
 enrichment, indexing/search or purge API in this service.
 
+## Execution diagnostics
+
+`kg.models.execution` defines strict frozen `execution-report/1` values, shared by
+one process-local `kg.diagnostics.DiagnosticService`. The owning `EvidenceService`
+constructs `service.diagnostics` with its trusted identity, collector and fixed
+target authorizer; request data cannot supply an authorization callback.
+
+| API / value | Delivered behavior |
+| --- | --- |
+| `ExplainOptions(detail="summary", include_quotes=False)` | Detailed capture is opt-in; quotes require `detail="detailed"` and never broaden authorization. |
+| `write_explained(request, options)` / `write_batch_explained(batch, options)` | Execute the same ordinary method once, returning `Explained[WriteOutcome]` / `Explained[BatchResult]`. |
+| Named read `_explained` wrappers | `current`, `document`, `state`, `content`, `history`, `revisions`, `evidence`, `citation`, `anchors`, `revision_anchors`; same inputs/cursors and typed ordinary result, plus the sidecar. `options` precedes keyword-only pagination/state arguments. |
+| `diagnostics.report(scope, report_id)` | Authorized retained body, or `ReportAvailability`; an admitted failure's diagnostic ID is also a lookup alias. Never reruns the business operation. |
+| `diagnostics.recent(scope, *, limit=20)` | Freshly authorized headers only, newest completion first, stable report-ID tie-break; limit 1..32. |
+| `diagnostics.for_request(scope, request_id, *, limit=20)` | Same headers, restricted to correlation within the originating identity/exact scope. Reused request IDs identify separate invocations. |
+
+Ordinary scoped evidence reads/writes attempt summaries without changing their
+outcomes. Unscoped static `capabilities()` and trusted administrative provisioning
+are not captured. A same-scope batch has one report correlated by `batch_id`;
+mixed-scope batches return a `not_collected` sidecar, not a misleading single-scope
+report. Their independent unit transactions and result order are unchanged.
+Invalid input rejected before capture does not promise a retained diagnostic.
+
+`ExecutionReport` includes generated report/execution IDs, service/operation,
+nullable request/diagnostic/parent/step/job/unit correlation, observation kind,
+capture level, collected state, safe outcome/reason, authorized configuration
+identities and ordered `RecordedEvent(sequence, event)` values. Absent stage
+memberships/ranks/scores stay null, not invented zeroes. Captured/displayed counts
+count admitted events, not all potentially omitted work; `truncated` marks capture
+limits. Serialize without dropping null fields.
+
+`captured_execution` describes this invocation; a replay never recreates an old
+trace. Its authorized existing commit fact has `retained_commit_fact` explicitly
+on the event. Evidence reads are `current_inspection`, even when they inspect
+historical evidence now. Commit observations distinguish not attempted, staged
+acknowledgement, confirmed commit, confirmed rollback and unknown. Losing a
+commit response is not proof of rollback.
+
+`ReportAvailability(state="not_collected"|"unavailable"|"redacted", execution_id,
+diagnostic_id, reason)` has **no** event/count/configuration fields. Unknown,
+foreign, expired, evicted and restarted lookups return the same unavailable value.
+Fresh authorization checks both the originating identity/exact effective scope and
+every retained target for immediate bodies, later bodies and header listings.
+Denied/changed disclosure irreversibly clears the group's details; restoring
+rights or making a new authorized inspection cannot reveal the old trace.
+
+Limits are five monotonic minutes from completion, at most 32 reports per owning
+service instance/identity, 32 summary or 200 detailed events, 256 KiB logical
+payload/report and 8 MiB active-plus-retained reservations. The implementation
+reserves a full 256 KiB slot before capture, including up to 64 KiB of bounded
+authorization/group bookkeeping. Conservative pre-serialization sizing can stop
+capture earlier; source excerpts are limited to 8,192 characters each. A disclosure
+group admits at most 32 lifetime members and 200 total target descriptors, including
+dependencies of evicted parents. Oldest completed reports are evicted first;
+active captures are not evicted. Capacity failure changes diagnostic availability,
+not business work, model input, ranking, counters or a committed write outcome.
+Tracing still consumes real execution time.
+
+The package-owned `knowledge_events`, `indexing_events`, `query_events` and
+`processing_events` modules define closed value unions only. They do not implement
+those services or establish their acceptance. Shared collector/group tests do not
+claim real search/provider execution. No private scan/VM meters, raw exceptions,
+request bodies or source quotes by default are retained.
+
 ## Validation and serialization APIs
 
 - Models forbid extra fields, use strict types and are frozen. Integer fields

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from datetime import datetime
+from typing import TYPE_CHECKING
 
 from kg.evidence import _receipts, _store, _writer
 from kg.evidence._authorization import authorize, authorize_writer
@@ -19,6 +20,7 @@ from kg.evidence._values import validated
 from kg.evidence.database import EvidenceDatabase
 from kg.evidence.errors import EvidenceServiceError
 from kg.models.evidence import LocalIdentity
+from kg.models.execution_events import CommitEvent, EvidenceEvent
 from kg.models.foundation import (
     BatchResult,
     DocumentReceipt,
@@ -29,6 +31,9 @@ from kg.models.foundation import (
     WriteOutcome,
     WriteRequest,
 )
+
+if TYPE_CHECKING:
+    from kg.diagnostics._collector import Capture, CaptureUnavailable
 
 
 def failed(request_id: str, failure: Failure) -> WriteOutcome:
@@ -71,6 +76,7 @@ def write(
     database: EvidenceDatabase, identity: LocalIdentity, request: WriteRequest,
     observed_at: datetime, *, participant: CoordinatedWriteParticipant | None = None,
     unit: UnitIdentity | None = None,
+    capture: Capture | CaptureUnavailable | None = None,
 ) -> WriteOutcome:
     request = validated(WriteRequest, request)
     if (participant is None) != (unit is None):
@@ -79,11 +85,15 @@ def write(
         unit = validated(UnitIdentity, unit)
         if unit.corpus_id != request.scope.corpus_id:
             raise EvidenceServiceError("invalid_request")
+    context: CanonicalWriteContext | None = None
     try:
         with writing(database, identity) as context:
             if not isinstance(request.payload, (PutDocument, RemoveDocument)):
                 raise EvidenceServiceError("unsupported")
             authorize(context.connection, identity, request.scope, "write_documents")
+            if capture is not None:
+                with capture.guard():
+                    capture.append(EvidenceEvent(phase="authorization", decision="passed"))
             key = _receipts.canonical_key(request)
             admission = (
                 participant.classify_unit(context, unit, key)
@@ -98,12 +108,30 @@ def write(
                 stored["key_id"] if stored is not None else None
             )
             if key_id is not None:
-                replay = _receipts.replay_only(context, identity, request, key_id, observed_at)
+                replay = _receipts.replay_only(
+                    context, identity, request, key_id, observed_at, capture=capture,
+                )
                 if isinstance(replay, _receipts.ReplayMissing):
                     raise EvidenceServiceError("state_conflict")
                 if isinstance(replay, (_receipts.ReplayExpired, _receipts.ReplayConflict)):
+                    if capture is not None:
+                        with capture.guard():
+                            capture.append(EvidenceEvent(
+                                phase="replay",
+                                decision=(
+                                    "retry_expired" if isinstance(replay, _receipts.ReplayExpired)
+                                    else "retry_conflict"
+                                ),
+                            ))
                     return failed(request.request_id, replay.failure)
                 outcome = replay.outcome(request.request_id)
+                if capture is not None:
+                    with capture.guard():
+                        capture.append(EvidenceEvent(phase="replay", decision="replayed"))
+                        capture.append(CommitEvent(
+                            observation="confirmed_committed",
+                            observation_kind="retained_commit_fact",
+                        ))
                 if isinstance(admission, SettledSuccess) or participant is None:
                     return outcome
                 assert unit is not None
@@ -111,6 +139,9 @@ def write(
                 require_current_receipt(context, request, replay.receipt)
                 committed = WriteCommit(key_id=key_id, outcome=outcome)
                 participant.acknowledge_write(context, unit, committed)
+                if capture is not None:
+                    with capture.guard():
+                        capture.append(CommitEvent(observation="acknowledgement_staged"))
                 return outcome
             authorize_writer(
                 context.connection, identity, request.scope, request.attribution,
@@ -120,7 +151,13 @@ def write(
                 assert unit is not None
                 participant.guard_new(context, unit, request)
             at = _receipts.clock(context.connection, observed_at)
+            if capture is not None:
+                with capture.guard():
+                    capture.append(EvidenceEvent(phase="replay", decision="fresh"))
             doc, status = _writer.apply(context, request, at)
+            if capture is not None:
+                with capture.guard():
+                    capture.append(EvidenceEvent(phase="mutation", decision=status))
             receipt = _store.receipt(context.connection, doc)
             key_id = _receipts.save_document(context, request, receipt, status, at)
             outcome = WriteOutcome(request_id=request.request_id, status=status, receipt=receipt)
@@ -128,9 +165,18 @@ def write(
                 assert unit is not None
                 committed = WriteCommit(key_id=key_id, outcome=outcome)
                 participant.acknowledge_write(context, unit, committed)
+                if capture is not None:
+                    with capture.guard():
+                        capture.append(CommitEvent(observation="acknowledgement_staged"))
             return outcome
     except EvidenceServiceError as error:
         return failed(request.request_id, error.failure)
+    finally:
+        if capture is not None:
+            with capture.guard():
+                capture.append(CommitEvent(
+                    observation=context.commit_outcome if context is not None else "not_attempted",
+                ))
 
 
 def write_batch(
