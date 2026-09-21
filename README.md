@@ -22,12 +22,18 @@ retrieval-quality gates remain unmet.
 | Generic evidence | `kg.evidence`: atomic supplied-document writes/removal, ordered batches, exact UTF-8 content, scoped history/anchors/citations, durable retry receipts and trusted local policy. |
 | Markdown demonstration | Manifest-selected local Markdown, explicit records, seed entities, structured reads, source context and revision comparison in its separate database. |
 | Demonstration search | Full local keyword + semantic retrieval, fusion/deduplication and reranking; matching vector preparation is required. No keyword-only fallback. |
-| Foundation values | Strict `foundation/1` request/result validation, including independent entity-support attestations and namespaced seed support. Document operations execute through `EvidenceService`; enrichment and generic queries remain validation-only. |
+| Foundation values | Strict `foundation/1` request/result validation, including independent entity-support attestations and namespaced seed support. Document operations execute through `EvidenceService`; canonical anchor-evidence plans execute through `QueryService`. Other query operations and enrichment remain unimplemented. |
+| Canonical queries | `kg.query.QueryService`: selected plan closure, actual historical anchor reads, spawned deadline supervision, inherited accounting and fresh release authorization. Required resolve/records/count/search/paths and passage evidence are explicitly unsupported. |
 | Execution diagnostics | Evidence calls retain bounded, authorized in-memory summaries. Named explained wrappers execute once; detailed traces and source quotes require opt-in. |
 
 There are no live email/Teams connectors, agent-authored graph writes, general
 query planner, continuation service, or source-level ACL/purge service.
 The CLI is a local tool, not an authenticated network service.
+
+For canonical anchor queries, see [the Python example](examples/query_anchor.py)
+and [the executable query contract](CONTRACTS.md#canonical-anchor-queries).
+Use the service as a context manager and guard executable Python entry points
+with `if __name__ == "__main__":` because each execution spawns a fresh worker.
 
 ## Generic evidence service
 
