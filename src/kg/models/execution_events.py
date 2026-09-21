@@ -36,6 +36,13 @@ SafeReason = (
         "index_not_ready",
         "not_selected_for_reranking",
         "below_return_limit",
+        "awaiting_input",
+        "dependency_changed",
+        "retry_scheduled",
+        "retry_exhausted",
+        "purge_blocked",
+        "plan_disabled",
+        "authority_unavailable",
     ]
 )
 SafeOutcome = Literal[

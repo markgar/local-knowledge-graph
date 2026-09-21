@@ -3,7 +3,8 @@
 from __future__ import annotations
 
 import sqlite3
-from collections.abc import Callable, Iterable, Mapping
+from collections.abc import Callable, Iterable, Iterator, Mapping
+from contextlib import contextmanager
 from typing import Any, Protocol, Self, overload
 
 from kg._execution_budget import DeadlineStop, PrivateBudget, PrivateResourceStop
@@ -84,6 +85,19 @@ class AccountedConnection(sqlite3.Connection):
     _closed = False
     _participant = False
     _read_only = False
+
+    @contextmanager
+    def _using_budget(self, budget: PrivateBudget) -> Iterator[None]:
+        self._check_active()
+        previous = self._budget
+        if previous is None or not budget.inherits(previous):
+            raise EvidenceServiceError("invalid_request")
+        budget.check_deadline()
+        self._budget = budget
+        try:
+            yield
+        finally:
+            self._budget = previous
 
     def _check_active(self) -> None:
         if self._closed:

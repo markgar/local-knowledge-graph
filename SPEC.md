@@ -129,7 +129,12 @@ Release reauthorizes the exact identity/scope while writers are excluded and
 unlocks by rollback, without canonical DML. Retained references explicitly own the
 observer lifetime; a later inspection can use a new call's budget, never reset an
 existing one. Read adapters cannot mutate canonical data or end the snapshot;
-connection-local TEMP is allowed with a verified 128 MiB page cap.
+connection-local TEMP is configured as `temp_store=FILE` before participant
+controls, with readback and a verified 128 MiB page cap. Admission requires a
+reported `TEMP_STORE=0`, `1` or `2` compile option; forced-memory (`3`) or
+unverifiable builds fail with `unsupported`. FILE mode permits SQLite to spill
+TEMP to files; SQLite/OS caches and the temporary-directory filesystem still
+apply. This is not a guarantee of physical disk writes or a process RSS bound.
 
 `kg._execution_budget` separates semantic reservations from inherited private
 visits, SQL VM, scratch/provider and absolute-deadline allowances. Local step
@@ -142,6 +147,26 @@ Private counters are absent from public accounting. The public search schedule
 has five one-passage events: TEMP, lexical, vector, rerank, final evidence.
 Readiness, fusion and counting an existing selection add none. These are shared
 contracts, not an installed generic search or multiprocess query executor.
+
+`PrivateBudget.limited(max_visits=10_000)` creates a cumulative local view of the
+same pool/deadline. Visits reserve against every ancestor cap atomically; VM,
+scratch and provider reservations use the original pool. Sibling views never
+reset global consumption. `CanonicalReadContext.using_budget(view)` applies the
+view to both its step meter and all connection fetches on the existing snapshot,
+including helper SQL and EOF lookahead. Retain and reuse that view across pages
+of one selection; enter the scope on every fetch. Nested scopes can only inherit,
+not replace or widen, the current view. Exit restores the previous accounting
+boundary, not the allowance. These are trusted synchronous owner contexts, not
+concurrently shareable connections or a multiprocess transport.
+
+`writing(database, identity, *, deadline=None, budget=None)` accepts that same
+inherited/local view; an explicit deadline must match it exactly. An owner can
+also narrow an already-budgeted write with `CanonicalWriteContext.using_budget`.
+Admission/schema checks and nested support fetches are accounted. Deadline-only
+writes create one ordinary pool; calls without either argument retain E1's
+unbudgeted default. Resource/deadline exceptions in the body roll back normally.
+Final acknowledgement/settlement still proceeds immediately to owner commit,
+without a new deadline or live-claim recheck.
 
 K1 witness/selection DTOs preserve the producer's contribution-sequence witness
 verbatim, including distinct seed and source bases. E3 projection handles contain
@@ -168,10 +193,15 @@ Trusted owner integrations use `Collector.begin_capture`, `Capture.retain`,
 `append`, `quote`, `configure` and `finish`. `finish` returns a non-disclosing
 `PreparedReport` handle, not release authority. Retain **all** dependencies that
 make a summary sensitive, even if a detailed event will not fit. Exact evidence,
-writer, knowledge witness, indexing configuration and processing target values
+writer, knowledge witness, owned seed-set/knowledge-writer binding, indexing
+configuration and processing target values
 form a bounded union. E1's authorizer implements only its own target kinds and
 rejects unimplemented kinds. Owner integrations must supply fixed typed target
 checks, never arbitrary request predicates.
+Owned seed targets do not require a fabricated contribution for an empty set.
+Trusted bootstrap/schema provisioning is excluded from this scoped execution
+report API; ordinary scoped knowledge read/write/seed operations are not excluded.
+There is no administrative audit subsystem or invented admin namespace grant.
 Construct diagnostic-only event/target values inside `with capture.guard():`;
 this catches allocation failure without covering or suppressing any business
 execution. Collector admission, sizing and retention independently isolate

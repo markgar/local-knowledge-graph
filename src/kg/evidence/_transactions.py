@@ -29,6 +29,12 @@ class CanonicalWriteContext:
         if not self.active or not self._connection.in_transaction:
             raise EvidenceServiceError("invalid_request")
 
+    @contextmanager
+    def using_budget(self, budget: PrivateBudget) -> Iterator[None]:
+        self.check_active()
+        with self._connection._using_budget(budget):
+            yield
+
     @property
     def connection(self) -> AccountedConnection:
         self.check_active()
@@ -38,9 +44,16 @@ class CanonicalWriteContext:
 @contextmanager
 def writing(
     database: EvidenceDatabase, identity: LocalIdentity, *, deadline: Deadline | None = None,
+    budget: PrivateBudget | None = None,
 ) -> Iterator[CanonicalWriteContext]:
     identity = validated(LocalIdentity, identity)
-    with database.connection(budget=PrivateBudget(deadline) if deadline else None) as connection:
+    if budget is not None:
+        if deadline is not None and deadline != budget.deadline:
+            raise EvidenceServiceError("invalid_request")
+        budget.check_deadline()
+    elif deadline is not None:
+        budget = PrivateBudget(deadline)
+    with database.connection(budget=budget) as connection:
         connection.execute("BEGIN IMMEDIATE")
         context = CanonicalWriteContext(connection, identity)
         try:

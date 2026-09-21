@@ -9,7 +9,14 @@ from dataclasses import dataclass, field
 
 from pydantic import ValidationError
 
-from kg._execution_budget import Deadline, PrivateBudget, ScratchReservation, ScratchUnit, StepMeter
+from kg._execution_budget import (
+    BudgetedStep,
+    Deadline,
+    PrivateBudget,
+    ScratchReservation,
+    ScratchUnit,
+    StepMeter,
+)
 from kg.evidence._authorization import authorize
 from kg.evidence._format import check
 from kg.evidence._sql import AccountedConnection
@@ -45,6 +52,18 @@ class CanonicalReadContext:
         self.check_active()
         if session_id != self.session_id:
             raise EvidenceServiceError("invalid_request")
+
+    @contextmanager
+    def using_budget(self, budget: PrivateBudget) -> Iterator[None]:
+        """Apply a retained local cap to this snapshot, including nested helper SQL."""
+        self.check_active()
+        previous = self.meter
+        with self._connection._using_budget(budget):
+            self.meter = BudgetedStep(previous, budget)
+            try:
+                yield
+            finally:
+                self.meter = previous
 
     def _hold_scratch(self, size_bytes: int, unit: ScratchUnit) -> None:
         self.check_active()
@@ -189,6 +208,14 @@ def read_context(
 
 
 def _limit_temp(connection: AccountedConnection) -> None:
+    # TEMP_STORE=3 overrides the pragma even when its readback says FILE.
+    options = {row[0] for row in connection.execute("PRAGMA compile_options")}
+    if not options.intersection({"TEMP_STORE=0", "TEMP_STORE=1", "TEMP_STORE=2"}):
+        raise EvidenceServiceError("unsupported")
+    connection.execute("PRAGMA temp_store=FILE")
+    mode = connection.execute("PRAGMA temp_store").fetchone()
+    if mode is None or mode[0] != 1:
+        raise EvidenceServiceError("unsupported")
     row = connection.execute("PRAGMA temp.page_size").fetchone()
     if row is None or type(row[0]) is not int or row[0] <= 0:
         raise EvidenceServiceError("unsupported")

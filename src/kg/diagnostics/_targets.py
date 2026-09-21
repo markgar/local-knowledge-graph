@@ -38,6 +38,25 @@ class KnowledgeTarget(Value):
     witness_ids: tuple[Token, ...] = Field(max_length=200)
 
 
+class KnowledgeWriterTarget(Value):
+    """Exact binding key; corpus and principal come from AuthorizationBinding."""
+
+    kind: Literal["knowledge_writer"] = "knowledge_writer"
+    namespace: Token
+    owner_id: Token
+    writer_id: Token
+
+
+class SeedSetTarget(Value):
+    """Owned set identity, including an empty set with no contribution IDs."""
+
+    kind: Literal["seed_set"] = "seed_set"
+    namespace: Token
+    owner_id: Token
+    writer_id: Token
+    seed_set_id: Token
+
+
 class IndexTarget(Value):
     kind: Literal["indexing"] = "indexing"
     document_id: Token
@@ -56,6 +75,8 @@ ReportTarget = Annotated[
     | EvidenceTarget
     | WriterTarget
     | KnowledgeTarget
+    | KnowledgeWriterTarget
+    | SeedSetTarget
     | IndexTarget
     | ProcessingTarget,
     Field(discriminator="kind"),
@@ -79,6 +100,9 @@ class ReportAuthorizer(Protocol):
 
     Unknown owner target kinds must fail closed, not be silently skipped.
     The fence covers ALL bindings and original observers as one release.
+    Knowledge writer/set checks must bind the originating corpus/principal,
+    namespace, grants and exact owner/writer (and set), even for empty results.
+    A target describes a dependency; constructing one grants no authority.
     """
 
     def fence(

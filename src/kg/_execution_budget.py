@@ -77,7 +77,7 @@ class ScratchReservation:
 
 
 class PrivateBudget:
-    """One local pool per invocation; child views must retain this same object.
+    """One local pool per invocation; limited views retain that pool.
 
     Q1 owns the process-safe implementation of these operations, not serialized
     copies of this local implementation or fresh per-step limits.
@@ -89,6 +89,30 @@ class PrivateBudget:
         self._visits = 0
         self._vm = 0
         self._scratch = 0
+        self._root = self
+        self._parent: PrivateBudget | None = None
+        self._max_visits = 100_000
+
+    def limited(self, *, max_visits: int) -> PrivateBudget:
+        """Create a cumulative local visit cap, never another execution pool."""
+        _quantity(max_visits, maximum=100_000)
+        self.check_deadline()
+        child = object.__new__(PrivateBudget)
+        child.deadline = self.deadline
+        child._lock = self._lock
+        child._root = self._root
+        child._parent = self
+        child._max_visits = max_visits
+        child._visits = 0
+        return child
+
+    def inherits(self, budget: PrivateBudget) -> bool:
+        current: PrivateBudget | None = self
+        while current is not None:
+            if current is budget:
+                return True
+            current = current._parent
+        return False
 
     def __copy__(self) -> Self:
         raise TypeError("Execution pools must be inherited, not copied")
@@ -112,23 +136,29 @@ class PrivateBudget:
     def reserve_visits(self, n: int = 1) -> None:
         _quantity(n)
         with self._locked():
-            if self._visits + n > 100_000:
-                raise PrivateResourceStop()
-            self._visits += n
+            current: PrivateBudget | None = self
+            while current is not None:
+                if current._visits + n > current._max_visits:
+                    raise PrivateResourceStop()
+                current = current._parent
+            current = self
+            while current is not None:
+                current._visits += n
+                current = current._parent
 
     def reserve_vm(self, instructions: int) -> None:
         _quantity(instructions)
         with self._locked():
-            if self._vm + instructions > 10_000_000:
+            if self._root._vm + instructions > 10_000_000:
                 raise PrivateResourceStop()
-            self._vm += instructions
+            self._root._vm += instructions
 
     def reserve_sql_quantum(self) -> int:
         with self._locked():
-            quantum = min(1000, 10_000_000 - self._vm)
+            quantum = min(1000, 10_000_000 - self._root._vm)
             if not quantum:
                 raise PrivateResourceStop()
-            self._vm += quantum
+            self._root._vm += quantum
             return quantum
 
     def reserve_scratch(self, size_bytes: int, unit: ScratchUnit) -> ScratchReservation:
@@ -140,10 +170,10 @@ class PrivateBudget:
         if unit not in limits:
             raise ValueError("Unknown scratch unit")
         with self._locked():
-            if size_bytes > limits[unit] or self._scratch + size_bytes > 64 << 20:
+            if size_bytes > limits[unit] or self._root._scratch + size_bytes > 64 << 20:
                 raise PrivateResourceStop()
-            self._scratch += size_bytes
-            return ScratchReservation(self, size_bytes)
+            self._root._scratch += size_bytes
+            return ScratchReservation(self._root, size_bytes)
 
     def reserve_provider(
         self, size_bytes: int, *, unit: Literal["vector", "reranker"],
@@ -176,6 +206,33 @@ class StepMeter(Protocol):
 class ExecutionMeter(Protocol):
     def begin_step(self, step_id: str) -> StepMeter: ...
     def public_accounting(self) -> PublicAccounting: ...
+
+
+class BudgetedStep:
+    """Delegate semantic charges unchanged while narrowing private work."""
+
+    def __init__(self, meter: StepMeter, budget: PrivateBudget) -> None:
+        if not budget.inherits(meter.private_budget):
+            raise ValueError("Budget must inherit the current allowance")
+        self._meter = meter
+        self._budget = budget
+
+    @property
+    def private_budget(self) -> PrivateBudget:
+        return self._budget
+
+    def reserve_public(self, stage: SemanticStage, n: int = 1) -> None:
+        self._budget.check_deadline()
+        self._meter.reserve_public(stage, n)
+
+    def reserve_visits(self, n: int = 1) -> None:
+        self._budget.reserve_visits(n)
+
+    def check_deadline(self) -> None:
+        self._budget.check_deadline()
+
+    def reserve_scratch(self, size_bytes: int, unit: ScratchUnit) -> ScratchReservation:
+        return self._budget.reserve_scratch(size_bytes, unit)
 
 
 class LocalExecutionMeter:

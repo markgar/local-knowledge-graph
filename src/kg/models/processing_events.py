@@ -38,6 +38,10 @@ class ProcessingDecision(Value):
         "succeeded",
         "failed",
         "blocked",
+        "queued",
+        "retry_wait",
+        "superseded",
+        "cancelled",
     ]
     observation_kind: ObservationKind = "captured_execution"
     job_id: Token | None = None

@@ -1,4 +1,8 @@
-"""Supply exact content without a parser, source-file reader or model provider."""
+"""Supply exact content without a parser, source-file reader or model provider.
+
+Trusted bootstrap is outside scoped reporting; the ordinary evidence call below
+retains an authorized summary.
+"""
 
 from __future__ import annotations
 

@@ -3,11 +3,13 @@
 from __future__ import annotations
 
 import sqlite3
+import time
 from datetime import UTC, datetime, timedelta
 
 import pytest
 from support.evidence import environment, put, receipt
 
+from kg._execution_budget import Deadline, DeadlineStop, PrivateBudget, PrivateResourceStop
 from kg.evidence import EvidenceServiceError, _dispatch, _receipts
 from kg.evidence._coordination import NewWork, SettledFailure, SettledSuccess, UnitIdentity
 from kg.evidence._sql import AccountedConnection
@@ -15,6 +17,67 @@ from kg.evidence._transactions import writing
 from kg.models.foundation import Failure, WriteBatch
 
 AT = datetime(2026, 1, 1, tzinfo=UTC)
+
+
+def test_inherited_write_budget_and_nested_fetch_stop_roll_back(tmp_path):
+    env = environment(tmp_path / "local.db")
+    budget = PrivateBudget(Deadline(time.monotonic() + 30))
+    local = budget.limited(max_visits=10_000)
+    with (
+        pytest.raises(PrivateResourceStop),
+        writing(env.database, env.service.identity, budget=local) as context,
+    ):
+        assert context.connection._budget is local
+        context.connection.execute("UPDATE processing_guard SET epoch=epoch+1")
+        with context.using_budget(local.limited(max_visits=1)):
+            cursor = context.connection.execute("SELECT 1 UNION ALL SELECT 2")
+            assert cursor.fetchone()[0] == 1
+            cursor.fetchall()
+    assert context.commit_outcome == "confirmed_rolled_back"
+    assert 1 < budget._visits == local._visits < 10_000
+    with env.database.connection() as connection:
+        assert connection.execute("SELECT epoch FROM processing_guard").fetchone()[0] == 0
+    with pytest.raises(EvidenceServiceError), context.using_budget(local):
+        pytest.fail("Expired owner context admitted a cap")
+
+
+def test_write_budget_deadline_cannot_widen_and_default_remains_unbudgeted(tmp_path, monkeypatch):
+    env = environment(tmp_path / "local.db")
+    deadline = Deadline(time.monotonic() + 30)
+    budget = PrivateBudget(deadline)
+    with (
+        pytest.raises(EvidenceServiceError),
+        writing(env.database, env.service.identity, budget=budget,
+                deadline=Deadline(deadline.expires_at_monotonic + 1)),
+    ):
+        pytest.fail("Widened deadline admitted")
+    with writing(env.database, env.service.identity) as context:
+        assert context.connection._budget is None
+    with (
+        pytest.raises(DeadlineStop),
+        writing(env.database, env.service.identity, budget=budget) as context,
+    ):
+        context.connection.execute("UPDATE processing_guard SET epoch=epoch+1")
+        monkeypatch.setattr(time, "monotonic", lambda: deadline.expires_at_monotonic)
+        context.connection.execute("SELECT 1").fetchone()
+    assert context.commit_outcome == "confirmed_rolled_back"
+    monkeypatch.undo()
+    with env.database.connection() as connection:
+        assert connection.execute("SELECT epoch FROM processing_guard").fetchone()[0] == 0
+
+
+def test_inherited_write_commits_immediately_after_final_settlement(tmp_path, monkeypatch):
+    env = environment(tmp_path / "local.db")
+    deadline = Deadline(time.monotonic() + 30)
+    budget = PrivateBudget(deadline)
+    statements = []
+    with writing(env.database, env.service.identity, budget=budget) as context:
+        context.connection.execute("UPDATE processing_guard SET epoch=epoch+1")
+        context.connection.set_trace_callback(statements.append)
+        # Final live guard/CAS and settlement already ran; no post-settlement recheck.
+        monkeypatch.setattr(time, "monotonic", lambda: deadline.expires_at_monotonic)
+    assert statements == ["COMMIT"]
+    assert context.commit_outcome == "confirmed_committed"
 
 
 class Participant:
