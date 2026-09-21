@@ -5,11 +5,82 @@ and answerability requirements are not met; this is not a production-ready
 question-answering system.
 
 This document describes current behavior. [CONTRACTS.md](CONTRACTS.md) describes
-the implemented validation-only values. Future work and service requirements live
+foundation values and the generic evidence service API. Future work and service requirements live
 in the [build roadmap issue](https://github.com/markgar/local-knowledge-graph/issues/28);
 they are not implemented capabilities.
 
-## Boundaries and invariants
+## Generic evidence store
+
+`kg.evidence.EvidenceDatabase`, `EvidenceAdministration` and `EvidenceService`
+implement the new Python-only canonical evidence engine. Its packaged
+`kg/evidence/schema.sql` uses SQLite application ID `0x4b474531`, user version 1
+and `evidence-store/1`. Initialization atomically creates an empty target or
+verifies that exact format. Old/unknown nonempty files are rejected without
+changing headers, journal mode, schema or rows. There is no migration/reset API:
+use a fresh path and explicitly resupply content. Old canonical and independent
+dense-projection writers also reject this format under their schema/write lock.
+
+External identity is exact `(corpus, namespace, external_id)`, not location or
+content. Each document has an immutable owner and synchronization scope; several
+owners may be registered in one namespace. Local identity/admin authority must
+be provisioned by the embedding application, not taken from untrusted requests.
+The local policy checks principal, fresh corpus policy version, declared grants
+and namespaces, operation and writer binding. This is not hosted authentication,
+provider ACL synchronization or protection from someone controlling Python/files.
+
+Exact strict UTF-8 bytes are stored as BLOBs, including empty content, CRLF, BOM,
+NUL, combining marks and non-BMP characters. Revisions are document-specific,
+domain-separated digests; content hashes are plain SHA-256. Existing bytes are
+compared before reuse. Supplied anchors use half-open Unicode code-point ranges
+and exact quote equality; the service does not generate anchors. Immutable
+anchor sets are independent of content revisions, so removed members remain
+discoverable in the historical revision inventory.
+
+Each content, metadata, anchor-set, passage-policy, activity or effective namespace
+policy change creates a fresh state token and metadata snapshot. Per-document
+sequence orders states; no-op writes retain state. Remove retains content/history;
+restore reuses an identical revision but never its old activation state.
+Metadata equality sorts attribute keys and preserves scalar types/source strings.
+Attribution-only changes add committed provenance/receipts without state churn.
+
+Each write owns one `BEGIN IMMEDIATE` transaction with CAS checks and an atomic
+receipt/provenance ledger. Only committed applied/unchanged units reserve a retry
+key, scoped by corpus/writer/operation. Identical authorized retry returns the
+original status/receipt under the new request ID, before testing stale state.
+Changed committed-key input conflicts. At 30 days (inclusive), replay removes its
+response payload and permanently expires the key; it never executes again.
+A durable max-observed UTC clock watermark prevents observed expiry reversal.
+This is lazy response expiration, not source retention/purge or trusted elapsed
+time against a hostile OS clock. Retained receipt targets are reauthorized.
+After an uncertain commit, retry the same key, not a new one.
+
+Batches revalidate the entire envelope before item zero, then commit valid units
+independently in input order, continuing after unit failures. There is no batch
+rollback, generation/snapshot synchronization or absence-based removal.
+All fresh states report pending indexing/enrichment and `processor_not_available`.
+No indexing/search/readiness setter, passage production or enrichment is exposed.
+
+Current/history/content/citation reads use one authorized SQLite snapshot and a
+fresh policy-version check before release; a concurrent policy change returns
+`state_changed`, never the captured data. Policy replacement advances corpus
+freshness and creates new states for all documents (including inactive ones) in
+exactly affected namespaces. Unaffected namespace tokens/states remain stable.
+Historical citations resolve their explicit state/snapshot, not today's title.
+Pages are bounded keyset reads, not retained multi-call query snapshots.
+
+The private `TransactionEvidence.validate_current()` validates active current
+dependencies and full reference chains on the transaction owner's connection:
+exact revision/state, namespace policy token, current anchor membership and stored
+byte/quote integrity. Validation rejects use after the context exits; returned data
+is not a reusable credential.
+This is the K1 integration boundary, not a graph-write implementation; non-null
+passage references are unsupported. K1 passage mentions require real E3 passages.
+
+The following sections describe the **separate Markdown demonstration**, unless
+explicitly referring to `kg.evidence`. Its fixture/gold assets are preserved; its
+databases and APIs are not a migration/compatibility contract for the new engine.
+
+## Markdown demonstration boundaries and invariants
 
 The package ingests manifest-selected local Markdown, stores canonical evidence
 in SQLite, and exposes cited search and structured reads through Python and a
@@ -303,7 +374,8 @@ request/result correlation. `FoundationCapabilities` explicitly says
 These models are **not** callable ingestion/query services or enforcement of
 database integrity, authorization, atomicity, idempotency or read isolation.
 An access context is trusted-boundary input, not proof of permission. The canonical
-schema and existing CLI/services do not consume these values.
+Markdown schema/CLI do not consume these values. The separate `kg.evidence`
+service consumes document envelopes and enforces the guarantees described above.
 The implemented value rules are in [CONTRACTS.md](CONTRACTS.md).
 Representative contract fixtures and the synthetic workload/budget protocol
 exercise validation and supply evaluation inputs, not service integration results.

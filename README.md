@@ -4,11 +4,11 @@
 [![Python 3.12+](https://img.shields.io/badge/python-3.12%2B-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
-A local-first, evidence-backed knowledge engine for configured Markdown corpora.
-SQLite stores immutable source revisions and exact citations. Search combines
-keyword and semantic retrieval, fuses and deduplicates candidates, then reranks
-them with a local cross-encoder. Structured status, tasks, and evidence reads
-remain available without semantic models.
+A local-first, evidence-backed knowledge engine. The new generic Python evidence
+service stores exact supplied text, immutable revisions and citation context in
+SQLite. The separate Markdown demonstration includes structured reads and a full
+keyword + semantic search, fusion and reranking pipeline; it is not yet connected
+to the new evidence store.
 
 **Pre-alpha:** this is evidence retrieval, not a production question-answering
 system. It does not generate answers, infer entities or contradictions, or
@@ -19,15 +19,42 @@ retrieval-quality gates remain unmet.
 
 | Capability | Current behavior |
 | --- | --- |
-| Ingestion | Manifest-selected local Markdown, explicit records, seed entities and exact source anchors. |
-| Search | Local keyword + semantic retrieval, fusion/deduplication and reranking; matching vector preparation is required. |
-| Structured reads | Actions, status and record-state diagnostics without semantic models. |
-| Evidence | Exact citations, source context, retained revisions and revision comparison. |
-| Foundation values | Strict `foundation/1` Python request/result validation, contract fixtures and synthetic evaluation inputs; no generic write or query service. |
+| Generic evidence | `kg.evidence`: atomic supplied-document writes/removal, ordered batches, exact UTF-8 content, scoped history/anchors/citations, durable retry receipts and trusted local policy. |
+| Markdown demonstration | Manifest-selected local Markdown, explicit records, seed entities, structured reads, source context and revision comparison in its separate database. |
+| Demonstration search | Full local keyword + semantic retrieval, fusion/deduplication and reranking; matching vector preparation is required. No keyword-only fallback. |
+| Foundation values | Strict `foundation/1` request/result validation and synthetic inputs. Document operations execute through `EvidenceService`; enrichment and generic queries remain validation-only. |
 
 There are no live email/Teams connectors, agent-authored graph writes, general
 query planner, continuation service, or source-level ACL/purge service.
 The CLI is a local tool, not an authenticated network service.
+
+## Generic evidence service
+
+Run the self-contained Python example with a **fresh, separate** target:
+
+```bash
+uv run python examples/evidence_intake.py --database /tmp/evidence-demo.sqlite3
+```
+
+It registers a trusted principal/namespace/writer binding, writes exact text,
+discovers canonical anchors, and resolves a saved citation. Repeating the example
+replays the original receipt under the same retry key. See
+[the example](examples/evidence_intake.py), [service API](CONTRACTS.md#evidence-service-api),
+and [storage semantics](SPEC.md#generic-evidence-store).
+
+The service does not read source files, parse Markdown, generate passages, enrich
+knowledge, index or search. Every new state reports indexing/enrichment **pending**
+with `processor_not_available`. Supplied passage policy is retained intent only.
+There is no snapshot-completion or purge API; omitted batch documents stay active.
+The existing CLI and search pipeline below operate on the Markdown demonstration,
+not on `EvidenceDatabase`.
+
+Old generated databases are unsupported inputs. Use a new file and resupply
+content; no database migration, old-ID mapping or historical reconstruction is
+performed. Source corpus fixtures and authored evaluation expectations remain
+unchanged. Keep any old inputs/history you need; the service never deletes an
+incompatible file automatically. New evidence IDs survive updates/restores within
+one store, not a destructive rebuild.
 
 ## Install
 
@@ -332,8 +359,9 @@ window. The underlying `kg status` command has no default time filter.
 `kg.models.foundation` supplies immutable, strict `foundation/1` values for
 document-write descriptions, bounded enrichment changes and dependent query plans.
 It checks shape, declared scope, exact source slices, references and result
-correlation. It does **not** ingest, execute, authorize or persist these requests.
-There is no CLI command for submitting them.
+correlation. Models alone do **not** ingest, execute, authorize or persist requests;
+`EvidenceService` executes document operations separately. There is no CLI command
+for submitting these values.
 
 ```python
 from pathlib import Path
@@ -367,7 +395,7 @@ Authored fixtures, reviewed gold, citations and component assertions are preserv
 | Document | Purpose |
 | --- | --- |
 | [SPEC.md](SPEC.md) | Implemented ingestion, retrieval, evidence, CLI and validation contracts. |
-| [CONTRACTS.md](CONTRACTS.md) | Implemented `foundation/1` values, validation limits and serialization; no service enforcement. |
+| [CONTRACTS.md](CONTRACTS.md) | Foundation values, validation limits, serialization and the `evidence/1` service API. |
 | [CONTRIBUTING.md](CONTRIBUTING.md) | Development layout, validation and contribution rules. |
 
 Planned work, implementation designs and delivery progress live in the

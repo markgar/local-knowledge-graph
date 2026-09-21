@@ -15,6 +15,7 @@ from typing import Protocol, cast
 
 import sqlite_vec  # type: ignore[import-untyped]
 
+from kg._sqlite import execute_schema, legacy_format, write_transaction
 from kg.db import Database
 from kg.models.contracts import DenseIndexResult, SearchResult
 from kg.retrieval._telemetry import execution_trace
@@ -639,6 +640,7 @@ class DenseRetrievalService:
                 f"Could not open dense projection database: {exc}"
             ) from exc
         try:
+            legacy_format(connection, projection=True)
             connection.row_factory = sqlite3.Row
             connection.enable_load_extension(True)
             sqlite_vec.load(connection)
@@ -702,6 +704,16 @@ class DenseRetrievalService:
 
 
 def _initialize_projection_schema(connection: sqlite3.Connection) -> None:
+    if connection.in_transaction:
+        legacy_format(connection, projection=True)
+        _projection_schema(connection)
+    else:
+        with write_transaction(connection):
+            legacy_format(connection, projection=True)
+            _projection_schema(connection)
+
+
+def _projection_schema(connection: sqlite3.Connection) -> None:
     schema_table = connection.execute(
         """
         SELECT 1
@@ -721,7 +733,8 @@ def _initialize_projection_schema(connection: sqlite3.Connection) -> None:
                 "Unsupported dense projection schema version; delete the dense "
                 "database and rebuild it."
             )
-    connection.executescript(
+    execute_schema(
+        connection,
         f"""
         CREATE TABLE IF NOT EXISTS projection_schema (
             version INTEGER PRIMARY KEY
@@ -770,7 +783,8 @@ def _initialize_projection_schema(connection: sqlite3.Connection) -> None:
 
 
 def _migrate_projection_schema_v2(connection: sqlite3.Connection) -> None:
-    connection.executescript(
+    execute_schema(
+        connection,
         f"""
         ALTER TABLE dense_projection ADD COLUMN normalization TEXT NOT NULL
             DEFAULT '{NORMALIZATION}';

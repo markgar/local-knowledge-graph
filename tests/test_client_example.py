@@ -76,3 +76,15 @@ def test_external_client_invokes_cli_and_loads_status(tmp_path: Path) -> None:
     )
 
     assert status["decisions"][0]["summary"] == "Use SQLite."
+
+
+def test_evidence_example_executes_and_replays(tmp_path: Path) -> None:
+    import json
+    import subprocess
+
+    command = [sys.executable, "examples/evidence_intake.py", "--database", str(tmp_path / "e.db")]
+    first = json.loads(subprocess.run(command, check=True, capture_output=True, text=True).stdout)
+    second = json.loads(subprocess.run(command, check=True, capture_output=True, text=True).stdout)
+    assert first == second
+    assert first["quote"] == "Cafe\u0301 \U0001f680"
+    assert first["start"] == 3 and first["end"] == 10

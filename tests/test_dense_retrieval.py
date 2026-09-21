@@ -9,6 +9,7 @@ import pytest
 
 from kg.config import load_manifest
 from kg.db import Database
+from kg.evidence import EvidenceDatabase
 from kg.ingest import IngestService
 from kg.models.contracts import SearchResult
 from kg.retrieval.dense import (
@@ -50,6 +51,28 @@ class FakeEmbeddingProvider:
         if "sqlite" in normalized or "database" in normalized:
             return [1.0, 0.0]
         return [0.0, 1.0]
+
+
+def test_public_dense_build_rejects_evidence_projection_target(tmp_path: Path) -> None:
+    manifest = load_manifest(_manifest(tmp_path))
+    database = Database(manifest.database)
+    IngestService(database).ingest(manifest)
+    target = tmp_path / "evidence.db"
+    EvidenceDatabase(target).initialize()
+    with sqlite3.connect(target) as connection:
+        connection.execute("PRAGMA journal_mode=DELETE")
+        before = tuple(connection.iterdump())
+        header = tuple(connection.execute(f"PRAGMA {key}").fetchone()[0] for key in (
+            "application_id", "user_version", "journal_mode",
+        ))
+    service = DenseRetrievalService(database, "test", projection_path=target)
+    with pytest.raises(DenseIndexError, match="Incompatible database format"):
+        service.build_index(FakeEmbeddingProvider())
+    with sqlite3.connect(target) as connection:
+        assert tuple(connection.iterdump()) == before
+        assert tuple(connection.execute(f"PRAGMA {key}").fetchone()[0] for key in (
+            "application_id", "user_version", "journal_mode",
+        )) == header
 
 
 def _manifest(tmp_path: Path) -> Path:

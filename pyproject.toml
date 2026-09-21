@@ -64,6 +64,7 @@ where = ["src"]
 
 [tool.setuptools.package-data]
 kg = ["schema.sql", "py.typed"]
+"kg.evidence" = ["schema.sql"]
 
 [tool.setuptools.exclude-package-data]
 "*" = ["__pycache__/*", "*.pyc"]
