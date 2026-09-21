@@ -4,7 +4,7 @@ import sqlite3
 from datetime import datetime, timedelta
 
 from kg.diagnostics._collector import Capture, CaptureUnavailable
-from kg.diagnostics._targets import ProcessingSelectionTarget, ProcessingTarget, ReportTargets
+from kg.diagnostics._targets import ProcessingTarget, ReportTargets
 from kg.evidence._receipts import clock
 from kg.evidence._values import canonical, sha, timestamp, token
 from kg.evidence.errors import EvidenceServiceError
@@ -19,10 +19,10 @@ from kg.models.processing import (
     ScheduleReceipt,
     ScheduleRequest,
     WorkerRequest,
-    WorkerSelection,
 )
 from kg.models.processing_events import ProcessingDecision, ProcessingRetry
 from kg.processing import _authorization as auth
+from kg.processing import _receipts
 
 CaptureType = Capture | CaptureUnavailable
 
@@ -49,6 +49,8 @@ def view(connection: sqlite3.Connection, row: sqlite3.Row) -> JobView:
         else None,
         next_due_at=datetime.fromisoformat(row["next_due_at"]),
         reason=row["coordination_reason"],
+        failure_code=row["failure_code"],
+        diagnostic_id=row["diagnostic_id"],
     )
 
 
@@ -60,6 +62,7 @@ def schedule(
     capture: CaptureType,
 ) -> ScheduleReceipt | EvidenceServiceError:
     s, scope = request.selection, request.scope
+    plan = auth.selection(connection, identity, scope, s)
     key = connection.execute(
         "SELECT * FROM processing_key WHERE corpus_id=? AND writer_id=? "
         "AND operation='schedule' AND key_hash=?",
@@ -77,68 +80,10 @@ def schedule(
         ).encode()
     )
     if key is not None:
-        if (key["principal_id"], key["owner_id"]) != (identity.principal_id, s.owner_id):
-            raise EvidenceServiceError("forbidden")
-        response = connection.execute(
-            "SELECT * FROM processing_response WHERE key_id=?",
-            (key["key_id"],),
-        ).fetchone()
-        retained = (
-            WorkerSelection.model_validate_json(response["authorization_json"])
-            if response is not None
-            else s
+        return _receipts.replay(
+            connection, identity, request, key, digest, supplied, capture, ScheduleReceipt
         )
-        auth.selection(connection, identity, scope, retained)
-        with capture.guard():
-            capture.retain(
-                ReportTargets(values=(ProcessingSelectionTarget(**retained.model_dump()),))
-            )
-        if response is None and not key["expired"]:
-            raise EvidenceServiceError("internal_error")
-        receipt = None
-        if response is not None:
-            receipt = ScheduleReceipt.model_validate_json(response["response_json"])
-            row = auth.job(connection, scope, retained, receipt.job_id)
-            auth.document(
-                connection, scope, retained, auth.dependency(connection, row), current=False
-            )
-            retain(capture, receipt.job_id)
-        at = clock(connection, supplied)
-        if key["expired"] or timestamp(at) >= key["expires_at"]:
-            connection.execute("DELETE FROM processing_response WHERE key_id=?", (key["key_id"],))
-            connection.execute(
-                "UPDATE processing_key SET expired=1 WHERE key_id=?", (key["key_id"],)
-            )
-            with capture.guard():
-                capture.append(
-                    ProcessingDecision(
-                        kind="processing.settled_retrieval",
-                        decision="expired",
-                    )
-                )
-            return EvidenceServiceError("retry_expired")
-        if digest != key["digest"]:
-            return EvidenceServiceError("retry_conflict")
-        assert receipt is not None
-        with capture.guard():
-            capture.append(
-                ProcessingDecision(
-                    kind="processing.settled_retrieval",
-                    decision="replayed",
-                    job_id=receipt.job_id,
-                )
-            )
-            capture.append(
-                ProcessingDecision(
-                    kind="processing.settled_retrieval",
-                    decision="accepted",
-                    job_id=receipt.job_id,
-                    observation_kind="retained_commit_fact",
-                )
-            )
-        return receipt
 
-    plan = auth.selection(connection, identity, scope, s)
     guard = connection.execute(
         "SELECT * FROM processing_guard WHERE corpus_id=?",
         (scope.corpus_id,),
@@ -211,26 +156,8 @@ def schedule(
                 t.namespace_token,
             ),
         )
-    key_id = token()
-    connection.execute(
-        "INSERT INTO processing_key VALUES "
-        "(?,?,?,?,?,'schedule',?,?,'e4-control-digest/1',?,?,?,0)",
-        (
-            key_id,
-            scope.corpus_id,
-            identity.principal_id,
-            s.owner_id,
-            s.writer_id,
-            sha(request.retry_key.encode()),
-            digest,
-            result.status,
-            timestamp(at),
-            timestamp(at + timedelta(days=30)),
-        ),
-    )
-    connection.execute(
-        "INSERT INTO processing_response VALUES (?,?,'job',?,?)",
-        (key_id, scope.corpus_id, result.model_dump_json(), s.model_dump_json()),
+    _receipts.store(
+        connection, identity, request, "schedule", request.retry_key, digest, result, at
     )
     retain(capture, job_id)
     with capture.guard():
@@ -248,11 +175,16 @@ def transition(
     connection: sqlite3.Connection,
     row: sqlite3.Row,
     status: JobStatus,
-    reason: CoordinationReason,
+    reason: CoordinationReason | None,
     at: datetime,
     *,
     delay: int = 0,
 ) -> None:
+    if row["status"] == status and row["coordination_reason"] == reason:
+        return
+    due = timestamp(at + timedelta(seconds=delay))
+    if status in {"blocked", "queued"}:
+        due = max(due, row["next_due_at"])
     changed = connection.execute(
         "UPDATE processing_job SET status=?,coordination_reason=?,status_version=status_version+1,"
         "worker_id=NULL,lease_deadline=NULL,claim_fence=claim_fence+1,next_due_at=?,updated_at=? "
@@ -260,7 +192,7 @@ def transition(
         (
             status,
             reason,
-            timestamp(at + timedelta(seconds=delay)),
+            due,
             timestamp(at),
             row["job_id"],
             row["status_version"],
@@ -268,6 +200,32 @@ def transition(
     ).rowcount
     if changed != 1:
         raise EvidenceServiceError("state_conflict")
+
+
+def retry_wait(
+    connection: sqlite3.Connection,
+    row: sqlite3.Row,
+    at: datetime,
+    capture: CaptureType,
+) -> None:
+    exhausted = row["episode_attempts"] >= 10
+    delay = min(300, 2 ** (row["episode_attempts"] - 1))
+    transition(
+        connection,
+        row,
+        "failed" if exhausted else "retry_wait",
+        "retry_exhausted" if exhausted else "retry_scheduled",
+        at,
+        delay=0 if exhausted else delay,
+    )
+    with capture.guard():
+        capture.append(
+            ProcessingRetry(
+                classification="exhausted" if exhausted else "transient",
+                due_at=None if exhausted else at + timedelta(seconds=delay),
+                attempt=row["episode_attempts"],
+            )
+        )
 
 
 def eligible(
@@ -363,16 +321,7 @@ def claim(
         if not eligible(connection, request, row, plan, guard, at, capture):
             continue
         if row["status"] == "running":
-            exhausted = row["episode_attempts"] >= 10
-            delay = min(300, 2 ** (row["episode_attempts"] - 1))
-            transition(
-                connection,
-                row,
-                "failed" if exhausted else "retry_wait",
-                "retry_exhausted" if exhausted else "retry_scheduled",
-                at,
-                delay=delay,
-            )
+            retry_wait(connection, row, at, capture)
             with capture.guard():
                 capture.append(
                     ProcessingDecision(
@@ -380,13 +329,6 @@ def claim(
                         decision="expired",
                         job_id=row["job_id"],
                         reason="lease_lost",
-                    )
-                )
-                capture.append(
-                    ProcessingRetry(
-                        classification="exhausted" if exhausted else "transient",
-                        due_at=None if exhausted else at + timedelta(seconds=delay),
-                        attempt=row["episode_attempts"],
                     )
                 )
             continue
@@ -398,7 +340,8 @@ def claim(
             "UPDATE processing_job SET status='running',status_version=status_version+1,"
             "claim_fence=claim_fence+1,worker_id=?,lease_deadline=?,"
             "lifetime_attempts=lifetime_attempts+1,episode_attempts=episode_attempts+1,"
-            "coordination_reason=NULL,updated_at=? WHERE job_id=? AND status_version=?",
+            "coordination_reason=NULL,failure_code=NULL,diagnostic_id=NULL,updated_at=? "
+            "WHERE job_id=? AND status_version=?",
             (s.worker_id, timestamp(deadline), timestamp(at), row["job_id"], row["status_version"]),
         ).rowcount
         if changed != 1:
@@ -428,15 +371,22 @@ def claim(
     )
 
 
-def heartbeat(
+def live_claim(
     connection: sqlite3.Connection,
     identity: LocalIdentity,
     request: HeartbeatRequest,
     supplied: datetime,
     capture: CaptureType,
-) -> Claim | EvidenceServiceError:
+) -> tuple[sqlite3.Row, datetime] | EvidenceServiceError:
     plan = auth.selection(connection, identity, request.scope, request.selection)
     row = auth.job(connection, request.scope, request.selection, request.job_id)
+    auth.document(
+        connection,
+        request.scope,
+        request.selection,
+        auth.dependency(connection, row),
+        current=False,
+    )
     retain(capture, row["job_id"])
     at = clock(connection, supplied)
     if (
@@ -463,6 +413,20 @@ def heartbeat(
         raise EvidenceServiceError("internal_error")
     if not eligible(connection, request, row, plan, guard, at, capture):
         return EvidenceServiceError("state_changed")
+    return row, at
+
+
+def heartbeat(
+    connection: sqlite3.Connection,
+    identity: LocalIdentity,
+    request: HeartbeatRequest,
+    supplied: datetime,
+    capture: CaptureType,
+) -> Claim | EvidenceServiceError:
+    live = live_claim(connection, identity, request, supplied, capture)
+    if isinstance(live, EvidenceServiceError):
+        return live
+    row, at = live
     deadline = at + timedelta(seconds=60)
     changed = connection.execute(
         "UPDATE processing_job SET lease_deadline=?,status_version=status_version+1,updated_at=? "

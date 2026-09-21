@@ -219,7 +219,7 @@ identical bytes still creates distinct work because the activation state changes
 
 Scheduling owns one shared `writing` transaction for job/dependency and
 processing control receipt. It reuses the canonical UTC watermark, 30-day expiry
-and permanent key tombstones. Settled schedule replay authorizes the retained
+and permanent key tombstones. Settled schedule/retry replay authorizes the retained
 selection/document before clock/expiry and incoming digest; it does not require
 the old source to be current or advance job progress. Expired/conflicting retries
 commit required clock/expiry maintenance before raising a typed error.
@@ -232,8 +232,25 @@ recorded as persisted retry delay or ten-attempt exhaustion; old fences cannot
 renew replacement work. The service never executes content or promises resumable
 inference. It exposes no completion/acknowledgement; claims and job history cannot
 establish evidence readiness. Stale source work is superseded, disabled plans
-and corpus guard invalidation block it. Recovery beyond expired claims is not
-exposed in this slice.
+and corpus guard invalidation block it.
+
+Explicit worker failure is a current-claim CAS, not a business owner result.
+Only the registered closed transient resource-budget classification schedules
+retry; permanent validation/unsupported/internal failures remain terminal.
+`retry` requires exhausted failure plus exact status version and all fresh guards.
+The atomic restart resets only episode attempts, increments episode/status/fence,
+and commits its control receipt alongside the job. Replay returns that historical
+receipt even after later job progress; conflicting/expired replay cannot restart it.
+
+Bounded recovery scans nonterminal jobs by creation sequence. It supersedes stale
+dependencies, records expired running leases and requeues eligible disabled-plan/
+authority blocks without resetting counters or shortening a persisted not-before
+time. Current live claims and future retries remain unchanged; repeated recovery
+does not change job versions. Owner-only processor/purge/awaiting-input blocks
+are explicitly unsupported and remain blocked (unless their target becomes stale).
+No availability inference, purge release, guard-epoch adoption or E3 readiness
+mutation occurs. Terminal rows are excluded. Administrative plan toggling uses
+boolean CAS and leaves the immutable definition/logical job identity intact.
 
 Standalone calls share a five-second private budget, not per-helper deadlines.
 Private transaction entry can inherit an existing budget unchanged. Status uses
@@ -243,7 +260,7 @@ including exact selection authority when there is no job. Diagnostic constructio
 is isolated from business execution; commit reports use the owner context only
 after exit. Registration is trusted provisioning outside scoped reports.
 
-Scheduling and heartbeat commits invalidate a concurrent Q1 execution's original
+Scheduling, heartbeat, failure, retry and recovery commits invalidate a concurrent Q1 execution's original
 observer even though they do not change source content or readiness. Q1 withholds
 that execution's data/accounting/report as `state_changed`; a fresh query can
 observe the new generation. E4 status/report inspection performs no canonical
