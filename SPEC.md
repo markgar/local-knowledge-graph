@@ -208,7 +208,8 @@ precede consumption; scratch ownership cannot be copied and release is idempoten
 Private counters are absent from public accounting. The public search schedule
 has five one-passage events: TEMP, lexical, vector, rerank, final evidence.
 Readiness, fusion and counting an existing selection add none. These are shared
-contracts, not an installed generic search or multiprocess query executor.
+contracts, not an installed generic search. The anchor-only query executor below
+consumes the same budget operations through supervisor-owned reservation RPC.
 
 `PrivateBudget.limited(max_visits=10_000)` creates a cumulative local view of the
 same pool/deadline. Visits reserve against every ancestor cap atomically; VM,
@@ -234,6 +235,32 @@ K1 witness/selection DTOs preserve the producer's contribution-sequence witness
 verbatim, including distinct seed and source bases. E3 projection handles contain
 scoped immutable identities and are usable only in their live read session.
 Neither DTOs nor handles install runnable knowledge/indexing adapters.
+
+### Canonical anchor query execution
+
+`kg.query` implements the anchor-evidence slice documented in
+[CONTRACTS.md](CONTRACTS.md#canonical-anchor-queries). It does not install K1/E3
+services, generic query search, record counts or support continuation. Selected
+closure is computed from validated named dependencies; unsupported required
+operations fail before dispatch, while unrelated branches are pruned.
+
+An owner thread holds the original SQLite observer and the authoritative public/
+private ledgers. A spawned process receives only immutable request/session/
+deadline values, never live connections, collectors or local pools. Its bounded
+64KiB synchronous control frames reserve visits, VM quanta, scratch and retained
+local views in that original owner pool. No refund of acknowledged semantic
+charges occurs on death. Scratch handles are reclaimed after verified child
+cleanup. The child uses the shared canonical read context and E1 resolver:
+Q1 does not duplicate evidence eligibility or passage rules. No source text or
+unbounded result frames cross the control pipe.
+
+All target preflight occurs outside the short release fence. Fresh scope
+authorization plus original observer comparison excludes intervening canonical
+changes; prepared report publication reuses that owning fence rather than
+deadlocking by acquiring a second writer connection. Business execution is
+outside the diagnostic allocation guard. Later diagnostic listing/body reads
+share one lookup deadline/private pool across all headers and target checks.
+Report retention failure does not make valid evidence execution fail.
 
 ### Shared execution diagnostics
 

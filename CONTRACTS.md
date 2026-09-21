@@ -125,6 +125,56 @@ records, or expose enrichment, seed replacement or knowledge reads. Existing
 evidence capabilities remain unchanged. See the executable
 [schema example](examples/knowledge_schema.py).
 
+## Canonical anchor queries
+
+`kg.query.QueryService(database, identity)` executes validated `QueryRequest`
+values against the canonical evidence store. `execute(request)` returns
+`kg.models.query.QueryExecution` (`interface_version="query/1"`), containing
+the unchanged foundation `QueryResult`, elapsed milliseconds, ordered step
+telemetry, a safe stop reason and accounting label. `execute_explained(request,
+options=ExplainOptions())` executes once and returns shared `Explained` with
+`.outcome` and `.report`. Ordinary summaries are discoverable through
+`service.diagnostics.report/recent/for_request`; request IDs correlate distinct
+invocations, not durable retries.
+
+The installed capability is **anchor evidence only**, including authorized
+immutable history. The result is one evidence Record identified by anchor ID,
+with its full requested reference in SourceSupport. No quote text is added to
+foundation results or Q1 reports. Detailed reports include the selected ID,
+closure and acknowledged semantic reservation; summary reports omit selected IDs.
+`capabilities(scope)` is authorized and reportable. There is no installed
+support registry or `inspect_support` method in this slice. Required
+resolve/records/count/search/paths and non-null passage references return
+unsupported, never a fake empty result or legacy adapter fallback.
+
+The whole request is reconstructed/validated, even branches not executed.
+Only the selected output's named dependency closure is dispatched. Unrelated
+unsupported branches are `not_needed`. One operation and one eligible evidence
+reservation are charged for a successful anchor read; missing evidence charges
+no public record unit. On any no-data failure, step telemetry is empty and
+foundation counters are zero **redacted sentinels**, not measurements.
+`work_accounting="redacted"` distinguishes these from authorized
+`scoped_semantic_reservations/1`. No private visits/VM/scratch counts are exposed.
+Malformed envelopes raise `QueryServiceError` with safe invalid_request failure.
+
+One owner thread serializes execution and diagnostic access, preserving SQLite
+observer thread affinity. Per service admission is FIFO, one active call and
+eight waiters. A fresh spawned child reads each execution; the owner acknowledges
+bounded reservation RPC before consumption and retains accounting across worker
+failure. Deadline includes queue, startup, SQL, release and inline reporting.
+Close cancels work, withholds staged reports and releases retained observers.
+Use the context manager; spawning requires the usual guarded Python entry point.
+No performance target or warm-worker behavior is promised.
+
+An original observer precedes the worker snapshot; fresh authorization and
+same-connection generation comparison under one short write-excluding fence
+precede data/report release. Any intervening canonical commit invalidates,
+including unrelated writes, heartbeats and same-content restoration. Initial
+denial is forbidden; post-admission policy denial is state_changed. No-data
+report redaction is permanent, including nested staged children after parent
+eviction. Later diagnostic lookup is a separately bounded authorized observation,
+not permission to restore a withheld execution.
+
 ## Execution diagnostics
 
 `kg.models.execution` defines strict frozen `execution-report/1` values, shared by
