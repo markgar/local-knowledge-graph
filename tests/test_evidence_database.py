@@ -2,6 +2,9 @@ from __future__ import annotations
 
 import multiprocessing
 import sqlite3
+import threading
+import time
+from contextlib import contextmanager
 from importlib import resources
 from pathlib import Path
 
@@ -130,6 +133,64 @@ def test_schema_execution_keeps_lock_and_rolls_back(tmp_path: Path) -> None:
     assert (
         "CREATE TABLE revision" in resources.files("kg.evidence").joinpath("schema.sql").read_text()
     )
+
+
+@pytest.mark.parametrize("kind", ["evidence", "legacy"])
+def test_wal_transition_waits_for_post_commit_writer(
+    tmp_path: Path, monkeypatch, kind: str
+) -> None:
+    import kg.db as legacy
+    import kg.evidence.database as evidence
+
+    path = tmp_path / "wal-race.db"
+    module = evidence if kind == "evidence" else legacy
+    transaction = module.write_transaction
+    held, release = threading.Event(), threading.Event()
+
+    def writer():
+        with sqlite3.connect(path) as connection:
+            connection.execute("BEGIN IMMEDIATE")
+            held.set()
+            assert release.wait(5)
+            connection.rollback()
+
+    thread = threading.Thread(target=writer)
+    timer = threading.Timer(0.1, release.set)
+
+    @contextmanager
+    def contended(connection):
+        with transaction(connection):
+            yield
+        thread.start()
+        assert held.wait(5)
+        timer.start()
+
+    monkeypatch.setattr(module, "write_transaction", contended)
+    try:
+        (EvidenceDatabase(path) if kind == "evidence" else Database(path)).initialize()
+    finally:
+        release.set()
+        thread.join(5)
+        timer.cancel()
+    assert not thread.is_alive()
+    assert snapshot(path)[2] == "wal"
+
+
+def test_wal_contention_obeys_timeout_and_does_not_fall_back(tmp_path: Path) -> None:
+    from kg._sqlite import enable_wal
+
+    path = tmp_path / "timeout.db"
+    with sqlite3.connect(path) as writer, sqlite3.connect(path) as waiting:
+        writer.execute("CREATE TABLE retained(value)")
+        writer.execute("BEGIN IMMEDIATE")
+        waiting.execute("PRAGMA busy_timeout=20")
+        started = time.monotonic()
+        with pytest.raises(sqlite3.OperationalError) as error:
+            enable_wal(waiting)
+        assert error.value.sqlite_errorcode == sqlite3.SQLITE_BUSY
+        assert time.monotonic() - started < 1
+        assert waiting.execute("PRAGMA journal_mode").fetchone()[0] == "delete"
+        writer.rollback()
 
 
 def initialize_worker(path: str, kind: str, ready: object = None) -> None:

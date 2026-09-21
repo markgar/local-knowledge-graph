@@ -7,7 +7,7 @@ from contextlib import contextmanager
 from importlib import resources
 from pathlib import Path
 
-from kg._sqlite import execute_schema, legacy_format, write_transaction
+from kg._sqlite import enable_wal, execute_schema, legacy_format, write_transaction
 from kg.aliases import matches_alias
 
 LOGGER = logging.getLogger(__name__)
@@ -27,7 +27,7 @@ class Database:
             connection.execute("PRAGMA foreign_keys = ON")
             connection.execute("PRAGMA busy_timeout = 5000")
             if initialized:
-                connection.execute("PRAGMA journal_mode = WAL")
+                enable_wal(connection)
         except BaseException:
             connection.close()
             raise
@@ -47,7 +47,7 @@ class Database:
             with write_transaction(connection):
                 legacy_format(connection)
                 execute_schema(connection, schema.read_text(encoding="utf-8"))
-            connection.execute("PRAGMA journal_mode=WAL")
+            enable_wal(connection)
             LOGGER.debug("Initialized database schema from schema.sql")
 
     @contextmanager

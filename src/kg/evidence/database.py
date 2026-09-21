@@ -10,6 +10,7 @@ from pydantic import ValidationError
 
 from kg._sqlite import (
     EVIDENCE_APPLICATION_ID,
+    enable_wal,
     execute_schema,
     has_user_schema,
     read_snapshot,
@@ -66,7 +67,7 @@ class EvidenceDatabase:
                         connection.execute(f"PRAGMA application_id={EVIDENCE_APPLICATION_ID}")
                         connection.execute("PRAGMA user_version=1")
                     _check(connection)
-                connection.execute("PRAGMA journal_mode=WAL")
+                enable_wal(connection)
             finally:
                 connection.close()
         except (sqlite3.Error, OSError, ValidationError) as error:

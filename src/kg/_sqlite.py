@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import sqlite3
+import time
 from collections.abc import Iterator
 from contextlib import contextmanager
 
@@ -66,6 +67,26 @@ def execute_schema(connection: sqlite3.Connection, sql: str) -> None:
             statement = ""
     if statement.strip():
         raise ValueError("Incomplete schema statement")
+
+
+def enable_wal(connection: sqlite3.Connection) -> None:
+    """WAL's exclusive-lock upgrade can return BUSY without invoking busy_timeout."""
+    if connection.in_transaction:
+        raise RuntimeError("WAL admission must follow the format transaction")
+    timeout = connection.execute("PRAGMA busy_timeout").fetchone()[0] / 1000
+    deadline = time.monotonic() + timeout
+    while True:
+        try:
+            mode = connection.execute("PRAGMA journal_mode=WAL").fetchone()[0]
+        except sqlite3.OperationalError as error:
+            remaining = deadline - time.monotonic()
+            if getattr(error, "sqlite_errorcode", None) != sqlite3.SQLITE_BUSY or remaining <= 0:
+                raise
+            time.sleep(min(0.01, remaining))
+        else:
+            if mode != "wal":
+                raise sqlite3.OperationalError("WAL journal mode could not be enabled")
+            return
 
 
 @contextmanager

@@ -139,7 +139,9 @@ def _initializer(path, kind, pause_at_schema, entered, release, result):
             finally:
                 connection.close()
         result.put("ok")
-    except (EvidenceServiceError, sqlite3.DatabaseError):
+    except EvidenceServiceError as error:
+        result.put("incompatible" if error.failure.code == "unsupported" else error.failure.code)
+    except sqlite3.DatabaseError:
         result.put("incompatible")
 
 
