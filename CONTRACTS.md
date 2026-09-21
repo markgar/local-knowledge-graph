@@ -78,6 +78,40 @@ See [SPEC.md](SPEC.md#generic-evidence-store) for byte identity, transactions,
 [Python example](examples/evidence_intake.py). There is no sync completion, passage,
 enrichment, indexing/search or purge API in this service.
 
+## Knowledge registry API
+
+`kg.knowledge.KnowledgeAdministration(database, LocalAdminAuthority)` exposes
+`register_knowledge_schema(KnowledgeSchema) -> KnowledgeSchemaRegistration`.
+The corpus must already exist in `EvidenceDatabase`; an unknown corpus raises
+`not_found`. Authority is provisioned by the trusted embedding application, as
+for evidence administration, not inferred from an ordinary caller's identity or
+namespace grants. This is a local trusted boundary, not hosted authentication or
+a per-corpus administrator policy. Bootstrap/schema provisioning is explicitly
+outside the scoped execution-report API.
+
+Strict frozen values live in `kg.models.knowledge`:
+
+| Value | Fields / constraints |
+| --- | --- |
+| `KnowledgeSchema` | `interface_version="knowledge/1"`, `corpus_id`, `schema_version`, 1..1,000 unique `entity_types`, 0..1,000 unique `identifier_schemes`, 0..1,000 uniquely named `predicates`. |
+| `PredicateDefinition` | `name`, 1..100 unique declared `subject_types`, one `object_kind` (`entity`, `string`, `integer`, `boolean`, `timestamp`), `object_types`, optional `record_projection`. Entity objects require 1..100 unique declared object types; other kinds require an empty tuple. Names use foundation `Name` syntax. |
+| `RecordProjection` | Required `encoding="direct-subject-decision/1"` only, on string predicates only. Ordinary predicates have no projection. |
+| `KnowledgeSchemaRegistration` | `interface_version="knowledge/1"`, `corpus_id`, `schema_version`, `status="applied"` or `"unchanged"`. |
+
+Registration revalidates constructed/copied values, uses one canonical write
+transaction and never replaces a corpus's installed definition. Reordered
+registry/type collections represent the same allowed sets and return unchanged;
+changed schema version, types, predicates or descriptor return `state_conflict`.
+Invalid inputs raise `invalid_request` before mutation; corrupt stored definitions
+raise `internal_error`, not an empty registry or permission to overwrite it.
+There is no schema replacement/migration or separate retry ledger for provisioning.
+
+This registers configuration only. It does **not** create entities/assertions,
+enforce a submitted assertion's interpretation/support, produce/count decision
+records, or expose enrichment, seed replacement or knowledge reads. Existing
+evidence capabilities remain unchanged. See the executable
+[schema example](examples/knowledge_schema.py).
+
 ## Execution diagnostics
 
 `kg.models.execution` defines strict frozen `execution-report/1` values, shared by
