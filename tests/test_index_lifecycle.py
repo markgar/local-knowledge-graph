@@ -370,6 +370,28 @@ def test_publication_failure_preserves_old_projection_and_canonical_evidence(tmp
 
 def test_policy_fence_and_effective_default_never_destroy_history(tmp_path):
     env = environment(tmp_path / "access.db")
+    policy = env.policy.model_copy(
+        update={
+            "grants": (
+                *env.policy.grants,
+                *(
+                    PolicyGrant(principal_id="principal", namespace=ns, grant="write_knowledge")
+                    for ns in env.scope.access.namespaces
+                ),
+            )
+        }
+    )
+    version = env.admin.replace_policy(policy, env.scope.access.policy_version).policy_version
+    env.scope = env.scope.model_copy(
+        update={
+            "access": env.scope.access.model_copy(
+                update={
+                    "policy_version": version,
+                    "grants": ("read", "write_documents", "write_knowledge"),
+                }
+            )
+        }
+    )
     value = request(env)
     saved = receipt(env.service.write(value))
     index, _, _ = service(env)
@@ -389,7 +411,21 @@ def test_policy_fence_and_effective_default_never_destroy_history(tmp_path):
     view = env.service.document(env.scope, saved.document_id)
     assert view.processing.indexing == "pending" and view.indexing_reason == "state_changed"
     assert env.service.citation(env.scope, passage.citation).quote == passage.quote
-    assert not env.service.evidence(env.scope, passage.reference).is_current_support
+    dependency = DocumentDependency(
+        source_namespace=passage.reference.source_namespace,
+        document_id=saved.document_id,
+        revision_id=saved.revision_id,
+        state_version=saved.processing.state_version,
+    )
+    with (
+        writing(env.database, env.service.identity) as context,
+        pytest.raises(EvidenceServiceError, match="state_conflict"),
+    ):
+        TransactionEvidence(context).validate_current(
+            env.scope,
+            (dependency,),
+            (passage.reference,),
+        )
     assert process(index, env, value, saved).outcome == "stale"
 
 
@@ -916,3 +952,45 @@ def test_explicit_cleanup_retires_inactive_pointer_within_row_limit(tmp_path):
             == result.passage_set_id
         )
     assert env.service.citation(env.scope, passage.citation).quote == passage.quote
+
+
+def test_postcommit_budget_stop_is_explicit_pending_then_reclaimed(tmp_path, monkeypatch):
+    env = environment(tmp_path / "cleanup-pending.db")
+    value = request(env)
+    saved = receipt(env.service.write(value))
+    index, _, _ = service(env)
+    previous = process(index, env, value, saved)
+    original = Process.cleanup_after_commit
+
+    def expire(self):
+        self.budget.deadline = Deadline(0)
+        return original(self)
+
+    monkeypatch.setattr(Process, "cleanup_after_commit", expire)
+    result = process(index, env, value, saved, mode="rebuild")
+    assert result.outcome == "ready" and result.cleanup_pending
+    assert result.projection_id != previous.projection_id
+    assert index.status(env.scope, saved.document_id).projection_id == result.projection_id
+    with env.database.connection() as connection:
+        assert connection.execute("SELECT count(*) FROM document_projection").fetchone()[0] == 2
+    cleanup = index.cleanup(env.scope, value.attribution, saved.document_id, limit=1)
+    assert cleanup.removed == 1 and cleanup.has_more
+    cleanup = index.cleanup(env.scope, value.attribution, saved.document_id, limit=1)
+    assert cleanup.removed == 1 and not cleanup.has_more
+    assert index.status(env.scope, saved.document_id).projection_id == result.projection_id
+
+
+def test_constructed_configuration_is_revalidated_before_admission(tmp_path):
+    env = environment(tmp_path / "forged.db")
+    value = request(env)
+    saved = receipt(env.service.write(value))
+    index, _, loads = service(env)
+    for configuration in (
+        IndexConfiguration.model_construct(embedding_profile="unregistered"),
+        IndexConfiguration.model_construct(contextual=True, representation="exact-quote/1"),
+    ):
+        with pytest.raises(EvidenceServiceError, match="invalid_request"):
+            process(index, env, value, saved, configuration=configuration)
+    assert not loads
+    with env.database.connection() as connection:
+        assert connection.execute("SELECT count(*) FROM index_attempt").fetchone()[0] == 0
