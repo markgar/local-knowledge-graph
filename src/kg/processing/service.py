@@ -29,19 +29,23 @@ from kg.models.execution import SUMMARY_OPTIONS, Explained, ExplainOptions, Oper
 from kg.models.processing import (
     Claim,
     ClaimResult,
+    FailRequest,
     HeartbeatRequest,
     JobPage,
     JobRequest,
     JobsRequest,
     JobView,
     ProcessingCapabilities,
+    RecoveryResult,
+    RetryReceipt,
+    RetryRequest,
     ScheduleReceipt,
     ScheduleRequest,
     WorkerRequest,
 )
 from kg.models.processing_events import ProcessingDecision
 from kg.processing import _authorization as auth
-from kg.processing import _core
+from kg.processing import _controls, _core
 from kg.processing._diagnostics import ProcessingReportAuthorizer
 
 
@@ -117,7 +121,13 @@ class ProcessingService:
         except BaseException:
             capture.group.close()
             raise
-        capture.finish("succeeded", context.commit_outcome)
+        capture.finish(
+            "succeeded",
+            context.commit_outcome,
+            diagnostic_id=result.diagnostic_id
+            if operation == "fail" and isinstance(result, JobView)
+            else None,
+        )
         reporting.deliver(self.diagnostics._publish(capture))
         return result
 
@@ -129,6 +139,15 @@ class ProcessingService:
 
     def heartbeat(self, request: HeartbeatRequest) -> Claim:
         return self._write("heartbeat", _validate(request, HeartbeatRequest), _core.heartbeat)
+
+    def fail(self, request: FailRequest) -> JobView:
+        return self._write("fail", _validate(request, FailRequest), _controls.fail)
+
+    def retry(self, request: RetryRequest) -> RetryReceipt:
+        return self._write("retry", _validate(request, RetryRequest), _controls.retry)
+
+    def recover(self, request: JobsRequest) -> RecoveryResult:
+        return self._write("recover", _validate(request, JobsRequest), _controls.recover)
 
     def _read[R: WorkerRequest, T](
         self,
@@ -303,6 +322,27 @@ class ProcessingService:
         options: ExplainOptions = SUMMARY_OPTIONS,
     ) -> Explained[JobView]:
         return reporting.explained(options, self.job, request)
+
+    def fail_explained(
+        self,
+        request: FailRequest,
+        options: ExplainOptions = SUMMARY_OPTIONS,
+    ) -> Explained[JobView]:
+        return reporting.explained(options, self.fail, request)
+
+    def retry_explained(
+        self,
+        request: RetryRequest,
+        options: ExplainOptions = SUMMARY_OPTIONS,
+    ) -> Explained[RetryReceipt]:
+        return reporting.explained(options, self.retry, request)
+
+    def recover_explained(
+        self,
+        request: JobsRequest,
+        options: ExplainOptions = SUMMARY_OPTIONS,
+    ) -> Explained[RecoveryResult]:
+        return reporting.explained(options, self.recover, request)
 
     def jobs_explained(
         self,

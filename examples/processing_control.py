@@ -1,4 +1,4 @@
-"""A trusted embedding example: claim/renew only, never process or mark ready."""
+"""A trusted control example: claim, renew and fail, never process or mark ready."""
 
 import argparse
 from pathlib import Path
@@ -10,6 +10,7 @@ from kg.models.evidence import LocalAdminAuthority, LocalIdentity
 from kg.models.foundation import AccessContext, Scope
 from kg.models.processing import (
     DocumentTarget,
+    FailRequest,
     HeartbeatRequest,
     JobRequest,
     PlanRegistration,
@@ -99,6 +100,17 @@ def run(path: Path) -> str:
                 request_id="example-heartbeat",
                 job_id=claimed.claim.job_id,
                 claim_fence=claimed.claim.claim_fence,
+            )
+        )
+        service.fail(
+            FailRequest(
+                scope=scope,
+                selection=selection,
+                request_id="example-fail",
+                job_id=claimed.claim.job_id,
+                claim_fence=claimed.claim.claim_fence,
+                failure_class="transient",
+                failure_code="budget_exceeded",
             )
         )
     return service.job(
