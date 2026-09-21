@@ -59,7 +59,8 @@ The pre-release `evidence/2` representation replaces `processing_reason` with
 stored indexing and enrichment reasons; both currently report
 `processor_not_available`. There is no compatibility alias or migration from
 `evidence-store/1`. Reserved schema tables do not add public knowledge, indexing,
-query or job APIs, nor change the unsupported capability list.
+query APIs, nor change EvidenceService's unsupported capability list. The separate
+processing control API below uses the reserved job tables.
 
 Public inputs are defensively revalidated, including constructed/copied models.
 Invalid envelopes raise `EvidenceServiceError` before mutation; valid failed write
@@ -78,10 +79,66 @@ See [SPEC.md](SPEC.md#generic-evidence-store) for byte identity, transactions,
 [Python example](examples/evidence_intake.py). There is no sync completion, passage,
 enrichment, indexing/search or purge API in this service.
 
+## Processing control API
+
+`kg.processing` exports `ProcessingAdministration(database, LocalAdminAuthority)`
+and `ProcessingService(database, LocalIdentity)`. Strict frozen request/result
+values in `kg.models.processing` carry `processing/1`; invalid or failed calls
+raise `EvidenceServiceError` with a safe code/opaque diagnostic ID. Public inputs
+are defensively revalidated, including copied/constructed models, with a 16 KiB
+serialized control-request limit. This is a local trusted embedding boundary,
+not HTTP authentication.
+
+| API | Delivered result and boundary |
+| --- | --- |
+| `register_plan(PlanRegistration)` | Immutable corpus/plan/version/producer/config definition; identical registration is unchanged, conflicting replacement fails. Kind is currently `index` only. Optional configuration references must already exist; null installs no executable provider. |
+| `register_worker(WorkerRegistration)` | Idempotent exact principal/namespace/plan/version/worker/owner/writer binding; requires existing plan/namespace. Trusted provisioning, no fabricated scoped admin grant/report. |
+| `schedule(ScheduleRequest)` | Applied/unchanged `ScheduleReceipt(job_id,status)`. Exact document/revision/state/namespace-token dependency; 30-day control receipts and logical dedup independent of worker instance. |
+| `claim(WorkerRequest)` | `ClaimResult` with one fenced 60-second lease or `no_work`, inspected count and `scan_truncated`. At most 200 candidate transitions per call; truncation is not proof of no remaining work. |
+| `heartbeat(HeartbeatRequest)` | Renewed `Claim` only for matching worker/fence, unexpired lease and live dependency/plan/corpus guard. Heartbeat at most every 20 seconds while working. |
+| `job(JobRequest)` / `jobs(JobsRequest)` | Current owned `JobView` / creation-sequence-keyset `JobPage`, limits 1..200; no bodies or unfiltered totals. Status inspection does not advance the durable clock. |
+| `capabilities()` | Only delivered operations; `executes_work=False`, `acknowledges_work=False`. |
+
+Every ordinary request carries current `Scope`, real `WorkerSelection` and a
+correlation `request_id`. Authority is current `read` plus exact trusted processing
+registration, including namespace, principal, owner/writer and plan/version.
+Bindings do not confer document/knowledge write grants. Scheduling targets must
+come from the canonical store, never content hashes alone. The example shows
+trusted target construction; the service independently validates ownership and
+the exact immutable state chain. Opaque IDs and a claim are not credentials.
+
+Expired running jobs become `retry_wait` with persisted 1,2,4,...,300-second-capped
+backoff, or `failed` at ten attempts. Reclaim occurs during bounded `claim`;
+after recording expiry the caller waits until `next_due_at` and claims again.
+Fences and lifetime/episode counters persist across process restart. Exact expiry
+is inclusive; shared max-observed UTC prevents backward-clock revival. Source
+changes supersede old work; plan disable/guard invalidation block execution.
+This slice has no explicit retry-episode reset, unblock, cancellation or plan
+update API. Registration does not resurrect work or enqueue a background scanner.
+
+All five ordinary methods also have `_explained(request, options)` wrappers.
+Summaries are captured by default, detail opt-in. Reports record actual calls,
+current status inspection, or explicitly labelled retained receipt facts, never
+invented original execution. Fixed `ProcessingSelectionTarget` retains the real
+selection even for no-work/empty results; existing `ProcessingTarget` retains
+jobs and their historical document dependency. Report bodies/headers/discovery
+reauthorize all current grants, exact enabled plan/worker binding and dependencies
+under one fresh fence. Disabled-plan status can be inspected as business data,
+but its report is unavailable. Denial irreversibly redacts the report group.
+Target capacity exhaustion (for example, 200 job targets plus their selection)
+can make a sidecar unavailable without truncating the business page.
+No source text, durable trace database, new clock or job ledger is introduced.
+
+There is no work executor, success/ack API, provider/knowledge integration,
+checkpoint/batch/scanner completion, snapshot/absence removal, purge or readiness
+writer here. Indexing remains pending. See
+[the example](examples/processing_control.py) and
+[control-plane semantics](SPEC.md#durable-processing-control).
+
 ## Execution diagnostics
 
 `kg.models.execution` defines strict frozen `execution-report/1` values, shared by
-one process-local `kg.diagnostics.DiagnosticService`. The owning `EvidenceService`
+one process-local `kg.diagnostics.DiagnosticService`. The owning service
 constructs `service.diagnostics` with its trusted identity, collector and fixed
 target authorizer; request data cannot supply an authorization callback.
 
@@ -140,8 +197,9 @@ not business work, model input, ranking, counters or a committed write outcome.
 Tracing still consumes real execution time.
 
 The package-owned `knowledge_events`, `indexing_events`, `query_events` and
-`processing_events` modules define closed value unions only. They do not implement
-those services or establish their acceptance. Shared collector/group tests do not
+`processing_events` modules define closed value unions; processing control calls
+now emit actual claim/fence/retry/restart/status events. These values alone do not
+implement executors or establish full package acceptance. Shared collector/group tests do not
 claim real search/provider execution. No private scan/VM meters, raw exceptions,
 request bodies or source quotes by default are retained.
 

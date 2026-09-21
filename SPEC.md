@@ -103,6 +103,49 @@ is not a reusable credential.
 This is the K1 integration boundary, not a graph-write implementation; non-null
 passage references are unsupported. K1 passage mentions require real E3 passages.
 
+## Durable processing control
+
+`kg.processing` uses the existing complete canonical schema, not a second queue
+database. Trusted administration registers immutable plans and exact worker
+bindings without granting source access. Ordinary calls require the current
+principal's read policy plus the exact registered selection. Document targets
+include exact immutable state, revision and namespace policy token; owner,
+namespace and corpus are checked against canonical evidence. Logical work keys
+also include principal/owner/writer, plan version and definition hash. Restoring
+identical bytes still creates distinct work because the activation state changes.
+
+Scheduling owns one shared `writing` transaction for job/dependency and
+processing control receipt. It reuses the canonical UTC watermark, 30-day expiry
+and permanent key tombstones. Settled schedule replay authorizes the retained
+selection/document before clock/expiry and incoming digest; it does not require
+the old source to be current or advance job progress. Expired/conflicting retries
+commit required clock/expiry maintenance before raising a typed error.
+
+Claims serialize with `BEGIN IMMEDIATE`, order due candidates by due time,
+creation sequence and opaque ID, inspect at most 200 candidates, and CAS the
+status/fence. Heartbeats require exact live worker/fence and current dependency,
+enabled plan and corpus guard epoch. A dead worker's inclusive lease expiry is
+recorded as persisted retry delay or ten-attempt exhaustion; old fences cannot
+renew replacement work. The service never executes content or promises resumable
+inference. It exposes no completion/acknowledgement; claims and job history cannot
+establish evidence readiness. Stale source work is superseded, disabled plans
+and corpus guard invalidation block it. Recovery beyond expired claims is not
+exposed in this slice.
+
+Standalone calls share a five-second private budget, not per-helper deadlines.
+Private transaction entry can inherit an existing budget unchanged. Status uses
+the shared observer-before-snapshot and fresh release fence without clock/DML.
+Reports use the same bounded process-local collector and fixed target fence,
+including exact selection authority when there is no job. Diagnostic construction
+is isolated from business execution; commit reports use the owner context only
+after exit. Registration is trusted provisioning outside scoped reports.
+
+No physical schema/format change, second receipt ledger, state-intent scanner,
+batch/checkpoint/snapshot completion, knowledge mutation, provider publication or
+readiness write is included. The reserved participant interfaces below remain
+integration seams, not actual E4 acknowledgements. Public API and limits are in
+[CONTRACTS.md](CONTRACTS.md#processing-control-api).
+
 ### Private shared execution primitives
 
 `_coordination` defines typed write/index participants and exact unit/document/key
