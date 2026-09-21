@@ -30,21 +30,26 @@ uv build
 
 CI remains **manual-only**, not triggered by pushes or pull requests. Dispatch
 the **CI** workflow only for code-affecting changes, using GitHub Actions or
-`gh workflow run ci.yml --ref <branch>`, and inspect its Python 3.12/3.13/3.14
-results before merging. Code-affecting changes include source, tests, source
-fixtures (including Markdown input documents), executable scripts, dependencies,
+`gh workflow run ci.yml --ref <branch>`, and inspect its Python 3.12
+results before merging. Routine CI uses the same version as `.python-version`;
+it still runs the full test suite, lint, type checking and distribution build.
+For Python-version-sensitive changes or a deliberate multi-version compatibility
+check, opt into Python 3.12/3.13/3.14 with
+`gh workflow run ci.yml --ref <branch> -F full_matrix=true` and inspect all
+selected versions before merging. Code-affecting changes include source, tests,
+source fixtures (including Markdown input documents), executable scripts, dependencies,
 build/package configuration and CI configuration.
 
 For documentation-, skill-text-, instruction- or issue-template-only changes,
 review the diff and relevant links/examples instead. Do **not** dispatch CI or
 run the full Python suite merely to merge those changes.
 
-The workflow also guards the Python matrix: a lightweight change check runs
+The workflow also guards the Python checks: a lightweight change check runs
 before dependency installation. It compares feature branches against their
 merge base with the default branch; on the default branch it checks the latest
 commit against its first parent. Documentation-only or empty changes skip the
-matrix, even if manually dispatched. Unknown paths conservatively require CI;
-failure to determine the changed files fails the check rather than claiming a
+checks, even if manually dispatched with `full_matrix=true`. Unknown paths
+conservatively require CI; failure to determine the changed files fails the check rather than claiming a
 documentation-only change. Classification lives in
 [ci_scope.py](.github/scripts/ci_scope.py).
 

@@ -58,8 +58,10 @@ one store, not a destructive rebuild.
 
 ## Install
 
-Python 3.12+ and [uv](https://docs.astral.sh/uv/) are required. The manually
-dispatched CI workflow covers Python 3.12, 3.13, and 3.14.
+Python 3.12+ and [uv](https://docs.astral.sh/uv/) are required. Routine manually
+dispatched CI uses Python 3.12, matching the local default. Enable `full_matrix`
+when dispatching CI to additionally check Python 3.13 and 3.14; those versions
+are not checked on every change.
 
 ```bash
 git clone https://github.com/markgar/local-knowledge-graph.git

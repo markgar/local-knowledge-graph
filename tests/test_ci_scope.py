@@ -27,6 +27,31 @@ def test_workflow_is_manual_and_gates_matrix_before_installation() -> None:
     assert len(steps) == 2
 
 
+def test_workflow_defaults_to_local_python_with_optional_full_matrix() -> None:
+    root = Path(scope.__file__).parents[2]
+    config = yaml.load(
+        (root / ".github/workflows/ci.yml").read_text(), Loader=yaml.BaseLoader,
+    )
+    assert config["on"]["workflow_dispatch"]["inputs"]["full_matrix"] == {
+        "description": "Also check Python 3.13 and 3.14",
+        "type": "boolean",
+        "default": "false",
+    }
+    assert (root / ".python-version").read_text().strip() == "3.12"
+    job = config["jobs"]["test"]
+    assert job["strategy"]["matrix"]["python-version"] == (
+        "${{ fromJSON(inputs.full_matrix && "
+        "'[\"3.12\",\"3.13\",\"3.14\"]' || '[\"3.12\"]') }}"
+    )
+    assert job["strategy"]["fail-fast"] == "false"
+    setup_uv = next(step for step in job["steps"] if step["name"] == "Install uv")
+    assert setup_uv["with"]["python-version"] == "${{ matrix.python-version }}"
+    assert [step["run"] for step in job["steps"] if "run" in step] == [
+        "uv sync --extra dev", "uv run pytest", "uv run ruff check .",
+        "uv run mypy", "uv build",
+    ]
+
+
 @pytest.mark.parametrize("name", [
     "README.md", "CONTRIBUTING.md", "SPEC.md", "CONTRACTS.md",
     ".github/copilot-instructions.md", ".github/skills/work-package/SKILL.md",
