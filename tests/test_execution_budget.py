@@ -143,6 +143,46 @@ def test_busy_timeout_helper_is_metered_before_its_first_instruction() -> None:
         connection.close()
 
 
+def test_precise_progress_prepays_helpers_shrinks_remainder_and_never_refunds():
+    budget = pool()
+    connection = sqlite3.connect(":memory:", factory=AccountedConnection)
+    connection._budget = budget
+    try:
+        budget.reserve_vm(9_996_500)
+        with connection._precise_progress():
+            assert connection.execute("SELECT 1").fetchone()[0] == 1
+            assert budget._vm == 9_998_500
+            with connection._precise_progress():
+                assert connection.execute("SELECT 2").fetchone()[0] == 2
+            assert connection._precise
+            assert budget._vm == 10_000_000
+        assert not connection._precise
+        with pytest.raises(PrivateResourceStop), connection._precise_progress():
+            connection.execute("SELECT 3")
+        assert not connection._precise
+    finally:
+        connection.close()
+
+
+def test_precise_progress_interrupt_preserves_local_pool_and_restores_mode():
+    budget = pool()
+    local = budget.limited(max_visits=10_000)
+    connection = sqlite3.connect(":memory:", factory=AccountedConnection)
+    connection._budget = local
+    try:
+        budget.reserve_vm(9_998_000)
+        with pytest.raises(PrivateResourceStop), connection._precise_progress():
+            connection.execute(
+                "WITH RECURSIVE n(x) AS (VALUES(1) UNION ALL SELECT x+1 FROM n WHERE x<10000) "
+                "SELECT sum(x) FROM n"
+            ).fetchone()
+        assert budget._vm == 10_000_000
+        assert connection._budget is local and local.deadline is budget.deadline
+        assert not connection._precise
+    finally:
+        connection.close()
+
+
 def test_sql_progress_interrupt_is_typed_and_rows_charge_privately() -> None:
     budget = pool()
     connection = sqlite3.connect(":memory:", factory=AccountedConnection)

@@ -37,6 +37,15 @@ Unexpected/missing/altered objects and copied or incomplete manifests fail close
 Foreign keys are enabled and verified on every connection. Competing initializers
 recheck under the write lock; failed initialization rolls back schema, manifest and
 headers together. WAL is enabled only after successful admission.
+Structural PRAGMA reads are batched within each admission snapshot, sharing index
+descriptors only inside that check. Actual metadata, headers and manifest rows are
+read afresh on every admission, including the owner's locked recheck; no schema
+cookie or prior connection admission substitutes for exact verification. All
+batched SQL, timeout helpers and fetched rows retain ordinary private accounting.
+During structural batches, an instruction-level progress callback spends the
+prepaid quanta across SQLite's nested PRAGMA programs, so substatement remainders
+cannot escape accounting. Unused prepayments are not refunded; other statements
+retain the ordinary progress-handler granularity.
 
 External identity is exact `(corpus, namespace, external_id)`, not location or
 content. Each document has an immutable owner and synchronization scope; several
