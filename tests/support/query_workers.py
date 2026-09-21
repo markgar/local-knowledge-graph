@@ -8,6 +8,14 @@ from contextlib import contextmanager
 from kg.evidence import EvidenceDatabase
 from kg.evidence._read_context import read_context, read_evidence
 from kg.query._meter import Frame, RemoteBudget, RemoteStep, send
+from kg.query._worker import run as run_query
+
+
+def gated_clean_exit(*args, finished, release):
+    run_query(*args)
+    finished.set()
+    if not release.wait(5):
+        raise RuntimeError("Test did not release worker shutdown")
 
 
 def die_after_ack(connection, path, identity, scope, session, deadline, step):
