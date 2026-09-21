@@ -134,6 +134,37 @@ and reserves its operation's public event once: direct evidence_reference or
 future search_final_evidence, not both. The latter is only a tested adapter seam,
 not an installed search. Scoped inherited budgets/limited views are never reset.
 
+### Immutable knowledge registry
+
+`kg.knowledge.KnowledgeAdministration` provisions one immutable typed registry per
+existing corpus. Its `knowledge/1` values define allowed entity types, identifier
+schemes and subject/object-typed predicates. The optional string-only
+`direct-subject-decision/1` descriptor is part of immutable configuration identity;
+registration is not record production or a knowledge-write service.
+
+The K1-owned facade uses the existing provisioned `LocalAdminAuthority` and
+canonical `writing` owner. The private kernel requires an active owner context
+whose identity matches that authority and addresses only the supplied corpus.
+Regular `Scope`/`LocalIdentity` values and policy grants are not administrative
+credentials. Trusted bootstrap/provisioning deliberately has no scoped diagnostic
+capture; no administrator namespace grant or audit subsystem is introduced.
+
+Only the existing `knowledge_schema` table is written. Definitions use compact
+canonical JSON with sorted object keys and sorted registry/type collections;
+corpus, schema/interface versions and optional descriptor/nulls are included.
+The stored hash is SHA-256 over those UTF-8 bytes. Repeats validate the persisted
+definition/hash/version and compare full canonical content, not only a digest.
+Equivalent reordered definitions return unchanged without modifying stored bytes;
+any changed definition/version conflicts. Invalid stored state is an explicit
+internal error, never silently repaired.
+
+The owner serializes concurrent registrations with `BEGIN IMMEDIATE`; rollback
+removes an uncommitted registration and reopening retains a committed one.
+Different corpora remain independent. Provisioning adds no contribution, retry
+receipt, seed, state-intent, report or processing-readiness record and performs no
+DDL or migration. See [CONTRACTS.md](CONTRACTS.md#knowledge-registry-api) for exact
+value limits and the delivered API.
+
 ### Private shared execution primitives
 
 `_coordination` defines typed write/index participants and exact unit/document/key

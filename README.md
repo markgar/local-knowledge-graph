@@ -20,6 +20,7 @@ retrieval-quality gates remain unmet.
 | Capability | Current behavior |
 | --- | --- |
 | Generic evidence | `kg.evidence`: atomic supplied-document writes/removal, ordered batches, exact UTF-8 content, scoped history/anchors/citations, durable retry receipts and trusted local policy. |
+| Knowledge registry | `kg.knowledge`: trusted immutable corpus schema registration, with typed predicates and an optional dedicated decision descriptor. No knowledge writes or record production yet. |
 | Markdown demonstration | Manifest-selected local Markdown, explicit records, seed entities, structured reads, source context and revision comparison in its separate database. |
 | Demonstration search | Full local keyword + semantic retrieval, fusion/deduplication and reranking; matching vector preparation is required. No keyword-only fallback. |
 | Foundation values | Strict `foundation/1` request/result validation, including independent entity-support attestations and namespaced seed support. Document operations execute through `EvidenceService`; enrichment and generic queries remain validation-only. |
@@ -78,6 +79,19 @@ performed. Source corpus fixtures and authored evaluation expectations remain
 unchanged. Keep any old inputs/history you need; the service never deletes an
 incompatible file automatically. New evidence IDs survive updates/restores within
 one store, not a destructive rebuild.
+
+## Knowledge schema provisioning example
+
+```bash
+uv run python examples/knowledge_schema.py --database /tmp/knowledge-registry.sqlite3
+```
+
+This self-contained example initializes a fresh store and registers a typed corpus
+schema with provisioned `LocalAdminAuthority`. A repeat is unchanged; a different
+definition/version conflicts. It creates no entities or submitted decisions and
+does not enable enrichment/query capabilities. Trusted schema provisioning has no
+scoped execution report. See the [registry API](CONTRACTS.md#knowledge-registry-api)
+and [storage behavior](SPEC.md#immutable-knowledge-registry).
 
 ## Install
 
