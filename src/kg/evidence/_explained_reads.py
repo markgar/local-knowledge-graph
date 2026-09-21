@@ -13,9 +13,19 @@ from kg.models.evidence import (
 )
 from kg.models.execution import SUMMARY_OPTIONS, Explained, ExplainOptions
 from kg.models.foundation import ContentResult, EvidenceRef, ExternalDocument, Scope
+from kg.models.indexing import PassagePage
 
 
 class ExplainedReads(EvidenceReads):
+    def passages_explained(
+        self, scope: Scope, document_id: str, state_version: str,
+        options: ExplainOptions = SUMMARY_OPTIONS, *, after_ordinal: int = 0, limit: int = 100,
+    ) -> Explained[PassagePage]:
+        return explained(
+            options, self.passages, scope, document_id, state_version,
+            after_ordinal=after_ordinal, limit=limit,
+        )
+
     def current_explained(
         self,
         scope: Scope,

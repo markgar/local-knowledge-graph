@@ -258,44 +258,10 @@ def release_fence(
 def read_evidence(
     context: CanonicalReadContext, reference: EvidenceRef, *, state_version: str | None = None,
 ) -> EvidenceView:
-    from kg.evidence._reads import check_token, evidence_view
+    from kg.evidence._reads import evidence_view
 
     context.check_active()
     reference = validated(EvidenceRef, reference)
-    if (
-        reference.corpus_id != context.scope.corpus_id
-        or reference.source_namespace not in context.scope.access.namespaces
-    ):
-        raise EvidenceServiceError("not_found")
-    if reference.passage_id is not None:
-        raise EvidenceServiceError("unsupported")
-    if state_version is not None:
-        state_version = check_token(state_version)
-    lengths = context.connection.execute(
-        "SELECT r.byte_length,length(r.content),length(CAST(a.quote AS BLOB)),"
-        "length(CAST(m.metadata_json AS BLOB)) "
-        "FROM document d JOIN revision r ON r.document_id=d.document_id "
-        "JOIN anchor a ON a.document_id=d.document_id AND a.revision_id=r.revision_id "
-        "JOIN document_state s ON s.document_id=d.document_id AND s.revision_id=r.revision_id "
-        "JOIN anchor_set_member member ON member.set_id=s.set_id AND member.anchor_id=a.anchor_id "
-        "JOIN metadata_snapshot m ON m.snapshot_id=s.metadata_snapshot_id "
-        "WHERE d.corpus_id=? AND d.namespace=? AND d.document_id=? AND r.revision_id=? "
-        "AND a.anchor_id=? AND s.state_version=coalesce(?,a.origin_state)",
-        (
-            reference.corpus_id, reference.source_namespace, reference.document_id,
-            reference.revision_id, reference.anchor_id, state_version,
-        ),
-    ).fetchone()
-    if lengths is None:
-        raise EvidenceServiceError("not_found")
-    if any(type(size) is not int or size < 0 for size in lengths) or lengths[0] != lengths[1]:
-        raise EvidenceServiceError("internal_error")
-    context.meter.reserve_public("evidence_reference")
-    content_bytes, _, quote_bytes, metadata_bytes = lengths
-    # UTF-8 byte lengths safely bound Python's four-byte character representation,
-    # including NULs. Also prepay simultaneous validation/slicing/JSON copies.
-    context._hold_scratch(4 * content_bytes, "text")
-    context._hold_scratch(4 * quote_bytes, "text")
-    context._hold_scratch(4 * metadata_bytes, "context")
-    context._hold_scratch(content_bytes + 5 * quote_bytes + 8 * metadata_bytes, "general")
-    return evidence_view(context.connection, context.scope, reference, state_version)
+    return evidence_view(
+        context.connection, context.scope, reference, state_version, context=context,
+    )

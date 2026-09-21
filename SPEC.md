@@ -85,7 +85,25 @@ independently in input order, continuing after unit failures. There is no batch
 rollback, generation/snapshot synchronization or absence-based removal.
 All fresh states report pending indexing/enrichment, with separate stored
 `indexing_reason` and `enrichment_reason` values of `processor_not_available`.
-No indexing/search/readiness setter, passage production or enrichment is exposed.
+No indexing/search/readiness setter, public passage production or enrichment is exposed.
+
+The private `kg.indexing._passages` kernel prepares exact authorized source outside
+the publication lock, then reauthorizes the current active state/writer/policy in an
+owner-held transaction. It publishes a whole immutable passage set or compares an
+existing set exactly; partial membership is never committed. Code-point windows
+are contiguous, disjoint 1,024-character slices without trimming/normalization.
+Supplied-anchor policy preserves overlaps, sorting by start/end/local ID; nonempty
+text without anchors explicitly fails `unsupported` with `boundaries_required`.
+Unknown tokens remain valid intake intent but fail processing; empty text produces
+a completed empty set. Publication does not change indexing/enrichment readiness.
+
+Domain-separated deterministic IDs bind revision, policy definition and ordered
+exact boundaries. Generated anchors occupy a separate origin domain and revision
+inventory, never the owner's supplied set. A state cannot swap published sets.
+Metadata/policy/boundary changes require ordinary new E1 states; metadata-only
+publication can reuse the same canonical set without rewriting its first-publication
+history. Private `prepare`/`publish`/`produce` are kernel seams, not full processing
+or claim/attempt/search implementations.
 
 Current/history/content/citation reads use one authorized SQLite snapshot and a
 fresh policy-version check before release; a concurrent policy change returns
@@ -100,8 +118,21 @@ dependencies and full reference chains on the transaction owner's connection:
 exact revision/state, namespace policy token, current anchor membership and stored
 byte/quote integrity. Validation rejects use after the context exits; returned data
 is not a reusable credential.
-This is the K1 integration boundary, not a graph-write implementation; non-null
-passage references are unsupported. K1 passage mentions require real E3 passages.
+This is the K1 integration boundary, not a graph-write implementation. Passage
+references require real published state/set/passage/anchor membership. Historical
+evidence remains readable, but new support requires the exact current active state.
+Generated anchor-only citations use that state's passage membership; ordinary
+supplied-anchor support is unchanged. Vectors and disposable projections never
+participate in these dependencies.
+
+`EvidenceService.passages` and its explained wrapper expose bounded immutable
+source-order pages and distinguish not_processed from a published empty set.
+Evidence/citation/revision-inventory and diagnostic retained-target checks use the
+same exact membership resolver. Snapshot hydration preflights source, quote and
+metadata lengths before decoding, keeps scratch ownership until snapshot exit,
+and reserves its operation's public event once: direct evidence_reference or
+future search_final_evidence, not both. The latter is only a tested adapter seam,
+not an installed search. Scoped inherited budgets/limited views are never reset.
 
 ### Immutable knowledge registry
 

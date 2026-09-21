@@ -107,6 +107,8 @@ def run(path: Path) -> str:
     if not isinstance(outcome.receipt, DocumentReceipt):
         raise RuntimeError(outcome.model_dump_json())
     saved = outcome.receipt
+    passages = service.passages(scope, saved.document_id, saved.processing.state_version)
+    assert passages.status == "not_processed"  # Intake does not run the private passage kernel.
     headers = service.diagnostics.for_request(scope, outcome.request_id)
     if headers.entries:
         report = service.diagnostics.report(scope, headers.entries[0].report_id)

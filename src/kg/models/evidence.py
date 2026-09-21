@@ -226,11 +226,11 @@ class EvidenceCapabilities(EvidenceValue):
         "revision_anchors",
         "evidence",
         "citation",
+        "passages",
     )
     unsupported: tuple[str, ...] = (
         "enrich",
         "synchronization",
-        "passages",
         "indexing",
         "search",
         "purge",

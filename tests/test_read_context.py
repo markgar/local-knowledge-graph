@@ -127,7 +127,7 @@ def test_read_local_cap_uses_same_snapshot_meter_and_accounted_helpers(tmp_path)
             pytest.raises(PrivateResourceStop),
         ):
             read_evidence(context, reference)
-        assert meter.public_accounting().items_consumed == 1
+        assert meter.public_accounting().items_consumed == 0
         assert context.connection is connection and connection.in_transaction
     with pytest.raises(EvidenceServiceError), context.using_budget(local):
         pytest.fail("Expired context admitted a cap")
@@ -294,7 +294,7 @@ def test_expired_context_and_deadline_cannot_be_reset(tmp_path, monkeypatch) -> 
 def test_evidence_preflight_reserves_before_content_or_quote_decode(
     tmp_path, monkeypatch, exhausted,
 ) -> None:
-    from kg.evidence import _reads
+    from kg.evidence import _store
 
     env = environment(tmp_path / "preflight.db")
     saved = receipt(env.service.write(put(env.scope, text="x" * (1 << 20))))
@@ -310,7 +310,7 @@ def test_evidence_preflight_reserves_before_content_or_quote_decode(
         def unexpected(*args, **kwargs):
             pytest.fail("Evidence decoded before reservation")
 
-        monkeypatch.setattr(_reads, "evidence_view", unexpected)
+        monkeypatch.setattr(_store, "content_bytes", unexpected)
         if exhausted == "scratch":
             held = budget.reserve_scratch(64 << 20, "general")
         else:
