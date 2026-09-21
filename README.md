@@ -22,7 +22,7 @@ retrieval-quality gates remain unmet.
 | Generic evidence | `kg.evidence`: atomic supplied-document writes/removal, ordered batches, exact UTF-8 content, scoped history/anchors/citations, durable retry receipts and trusted local policy. |
 | Markdown demonstration | Manifest-selected local Markdown, explicit records, seed entities, structured reads, source context and revision comparison in its separate database. |
 | Demonstration search | Full local keyword + semantic retrieval, fusion/deduplication and reranking; matching vector preparation is required. No keyword-only fallback. |
-| Foundation values | Strict `foundation/1` request/result validation and synthetic inputs. Document operations execute through `EvidenceService`; enrichment and generic queries remain validation-only. |
+| Foundation values | Strict `foundation/1` request/result validation, including independent entity-support attestations and namespaced seed support. Document operations execute through `EvidenceService`; enrichment and generic queries remain validation-only. |
 
 There are no live email/Teams connectors, agent-authored graph writes, general
 query planner, continuation service, or source-level ACL/purge service.

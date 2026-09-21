@@ -7,12 +7,13 @@ They are parsed by the implemented
 | Fixture | Value |
 | --- | --- |
 | [`enrichment.json`](enrichment.json) | A multi-document enrichment request with request-local entity references and source-state dependencies. |
+| [`entity-support.json`](entity-support.json) | An independent stored-entity attestation with explicitly namespaced seed-set support. |
 | [`query.json`](query.json) | An exact-ID resolve/records/count plan. |
 | [`query-ambiguous.json`](query-ambiguous.json) | The same dependent plan with a name selector for the workload's two distinct Sam entities. |
 
 Contract tests parse, reject mutations and round-trip these values. They do
-**not** commit or execute them; no generic write service or query executor is
-implemented. Namespaced predicates demonstrate syntax, not a registered business
+**not** commit or execute enrichment or queries; document writes have a separate
+implemented evidence service. Namespaced predicates demonstrate syntax, not a registered business
 ontology or authorization policy.
 
 The [workload generator](../../benchmarks/foundation/README.md) supplies 1,000

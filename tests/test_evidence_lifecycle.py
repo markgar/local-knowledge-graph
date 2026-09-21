@@ -7,6 +7,7 @@ import pytest
 from support.evidence import environment, put, receipt
 
 from kg.evidence import EvidenceServiceError
+from kg.evidence._sql import AccountedConnection
 from kg.models.evidence import LocalPolicy, PolicyGrant, WriterBinding
 from kg.models.foundation import ExpectedState, RemoveDocument
 
@@ -215,13 +216,13 @@ def test_intent_failure_rolls_back_epoch_state_and_policy(
     with env.database.connection() as connection:
         before = tuple(connection.iterdump())
 
-    class FaultConnection(sqlite3.Connection):
+    class FaultConnection(AccountedConnection):
         def execute(self, sql, parameters=()):
             if sql.startswith("INSERT INTO state_intent"):
                 raise sqlite3.OperationalError("injected between epoch and intent")
             return super().execute(sql, parameters)
 
-    def open_fault(*, create):
+    def open_fault(*, create, budget=None):
         connection = sqlite3.connect(env.database.path, factory=FaultConnection)
         connection.row_factory = sqlite3.Row
         connection.execute("PRAGMA foreign_keys=ON")
@@ -272,3 +273,54 @@ def test_supplied_anchor_reuse_checks_immutable_origin(tmp_path: Path, column, v
     assert result.status == "failed"
     assert result.error.code == "internal_error"
     assert _bookkeeping(env) == before
+
+
+@pytest.mark.parametrize("rollback", [False, True])
+def test_absence_primitive_is_atomic_and_has_no_synthetic_retry_key(tmp_path, rollback) -> None:
+    from kg.evidence._coordination import DocumentTarget
+    from kg.evidence._lifecycle import deactivate_absent
+    from kg.evidence._transactions import writing
+
+    env = environment(tmp_path / "absence.db")
+    request = put(env.scope)
+    saved = receipt(env.service.write(request))
+    with env.database.transaction() as connection:
+        namespace_token = connection.execute(
+            "SELECT policy_token FROM source_namespace WHERE namespace='markdown'",
+        ).fetchone()[0]
+        # Only the E1 hook is under test; E4 will own real run admission and completion.
+        connection.execute(
+            "INSERT INTO sync_run(run_id,corpus_id,namespace,owner_id,synchronization_scope,"
+            "writer_id,principal_id,generation,expected_epoch,namespace_token,guard_epoch,status,"
+            "admitted_pages,admitted_units,admitted_documents,created_at) "
+            "VALUES ('run','work','markdown','owner','all','writer','principal',1,1,?,0,'open',"
+            "0,0,0,'2026-01-01T00:00:00.000000+00:00')", (namespace_token,),
+        )
+    target = DocumentTarget(
+        corpus_id="work", namespace="markdown", document_id=saved.document_id,
+        revision_id=saved.revision_id, state_version=saved.processing.state_version,
+        namespace_token=namespace_token,
+    )
+    before = _bookkeeping(env)
+    try:
+        with writing(env.database, env.service.identity) as context:
+            removed = deactivate_absent(context, target, request.attribution, "run")
+            assert removed.processing.source == "inactive"
+            assert removed.revision_id == saved.revision_id
+            if rollback:
+                raise RuntimeError("finish acknowledgement failed")
+    except RuntimeError:
+        assert rollback
+    with env.database.connection() as connection:
+        assert connection.execute("PRAGMA foreign_key_check").fetchall() == []
+        assert connection.execute("SELECT count(*) FROM write_key").fetchone()[0] == 1
+        assert connection.execute(
+            "SELECT count(*) FROM sync_removal_provenance",
+        ).fetchone()[0] == (0 if rollback else 1)
+    if rollback:
+        assert _bookkeeping(env) == before
+    else:
+        assert len(_bookkeeping(env)[0]) == 2
+        assert _bookkeeping(env)[1][0][-1] == 2
+    with pytest.raises(EvidenceServiceError):
+        deactivate_absent(context, target, request.attribution, "run")

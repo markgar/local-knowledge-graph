@@ -103,6 +103,51 @@ is not a reusable credential.
 This is the K1 integration boundary, not a graph-write implementation; non-null
 passage references are unsupported. K1 passage mentions require real E3 passages.
 
+### Private shared execution primitives
+
+`_coordination` defines typed write/index participants and exact unit/document/key
+values. `_dispatch` runs optional trusted document participants on E1's own
+transaction, never an outer transaction. Classification precedes replay; settled
+success reauthorizes retained targets before durable clock/expiry and digest checks.
+It does not run new-work guards or acknowledge again. First observation of an
+ordinary document receipt requires its accepted state still be current before
+acknowledgement. New writes atomically include content, state intent, epoch,
+provenance and receipt. The participant's final guard/settlement is immediately
+followed by owner commit. Participants cannot commit, roll back or retain a live
+connection past owner exit. Commit exceptions remain `unknown`, not assumed rollback.
+
+`_lifecycle.deactivate_absent` creates an inactive immutable E1 state and exact
+run-linked removal provenance in a caller's live canonical owner context, without
+inventing retry keys. It is not a public snapshot-completion API. The schema and
+installed capabilities are unchanged; controlled participants are not an E4 service.
+
+`_read_context` provides private observer-before-snapshot admission, one authorized
+snapshot and a fresh `BEGIN IMMEDIATE` release fence. The observer compares
+`data_version` only on its original persistent connection, including commits in
+the observer/snapshot gap. Every canonical commit invalidates that generation.
+Release reauthorizes the exact identity/scope while writers are excluded and
+unlocks by rollback, without canonical DML. Retained references explicitly own the
+observer lifetime; a later inspection can use a new call's budget, never reset an
+existing one. Read adapters cannot mutate canonical data or end the snapshot;
+connection-local TEMP is allowed with a verified 128 MiB page cap.
+
+`kg._execution_budget` separates semantic reservations from inherited private
+visits, SQL VM, scratch/provider and absolute-deadline allowances. Local step
+views share one private pool: 100,000 visits, 10,000,000 prepaid VM instructions
+(quanta at most 1,000), and 64 MiB aggregate scratch. Individual text/context and
+reranker reservations are at most 8 MiB; vector batches at most 16 MiB, with
+provider batches at most eight sequences/8,192 padded token positions. Reservations
+precede consumption; scratch ownership cannot be copied and release is idempotent.
+Private counters are absent from public accounting. The public search schedule
+has five one-passage events: TEMP, lexical, vector, rerank, final evidence.
+Readiness, fusion and counting an existing selection add none. These are shared
+contracts, not an installed generic search or multiprocess query executor.
+
+K1 witness/selection DTOs preserve the producer's contribution-sequence witness
+verbatim, including distinct seed and source bases. E3 projection handles contain
+scoped immutable identities and are usable only in their live read session.
+Neither DTOs nor handles install runnable knowledge/indexing adapters.
+
 The following sections describe the **separate Markdown demonstration**, unless
 explicitly referring to `kg.evidence`. Its fixture/gold assets are preserved; its
 databases and APIs are not a migration/compatibility contract for the new engine.

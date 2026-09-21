@@ -40,6 +40,13 @@ class WriterBinding(Value):
     synchronization_scope: Token
 
 
+class KnowledgeWriterBinding(Value):
+    namespace: Token
+    principal_id: Token
+    owner_id: Token
+    writer_id: Token
+
+
 class PolicyGrant(Value):
     principal_id: Token
     namespace: Token
@@ -62,13 +69,14 @@ class PolicyGrant(Value):
 class LocalPolicy(EvidenceValue):
     corpus_id: Token
     bindings: tuple[WriterBinding, ...] = ()
+    knowledge_bindings: tuple[KnowledgeWriterBinding, ...] = ()
     grants: tuple[PolicyGrant, ...] = ()
 
     @model_validator(mode="after")
     def unique_bindings(self) -> Self:
-        if len(set(self.bindings)) != len(self.bindings) or len(set(self.grants)) != len(
-            self.grants
-        ):
+        if any(len(set(items)) != len(items) for items in (
+            self.bindings, self.knowledge_bindings, self.grants,
+        )):
             raise ValueError("Duplicate policy entries")
         for grant in self.grants:
             if grant.grant == "write_documents" and not any(
@@ -93,7 +101,10 @@ class CorpusRegistration(EvidenceValue):
             raise ValueError("Duplicate namespaces")
         if self.corpus_id != self.policy.corpus_id:
             raise ValueError("Policy corpus mismatch")
-        if any(item.namespace not in self.namespaces for item in self.policy.bindings) or any(
+        entries: tuple[WriterBinding | KnowledgeWriterBinding, ...] = (
+            *self.policy.bindings, *self.policy.knowledge_bindings,
+        )
+        if any(item.namespace not in self.namespaces for item in entries) or any(
             item.namespace not in self.namespaces for item in self.policy.grants
         ):
             raise ValueError("Policy namespace not registered")

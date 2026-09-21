@@ -2,8 +2,11 @@ from __future__ import annotations
 
 import sqlite3
 from datetime import datetime
+from typing import Literal
 
+from kg.evidence._coordination import DocumentTarget
 from kg.evidence._lifecycle import state_created
+from kg.evidence._transactions import CanonicalWriteContext
 from kg.evidence._values import sha, timestamp, token
 from kg.evidence.errors import EvidenceServiceError
 from kg.models.foundation import DocumentReceipt, ProcessingState
@@ -49,7 +52,7 @@ def content_bytes(connection: sqlite3.Connection, document_id: str, revision_id:
 
 
 def add_state(
-    connection: sqlite3.Connection,
+    context: CanonicalWriteContext,
     *,
     document_id: str,
     revision_id: str,
@@ -58,11 +61,12 @@ def add_state(
     source: str,
     namespace_token: str,
     passage_policy: str,
-    kind: str,
+    kind: Literal["put", "remove", "policy"],
     at: datetime,
     state_version: str | None = None,
     previous: sqlite3.Row | None = None,
 ) -> str:
+    connection = context.connection
     state_version = state_version or token()
     snapshot = token()
     sequence = int(previous["sequence"]) + 1 if previous else 1
@@ -104,10 +108,15 @@ def add_state(
         )
         if cursor.rowcount != 1:
             raise EvidenceServiceError("state_conflict")
-    state_created(
-        connection, document_id=document_id, revision_id=revision_id,
-        state_version=state_version, change_kind=kind, committed_at=timestamp(at),
-    )
+    doc = connection.execute(
+        "SELECT * FROM document WHERE document_id=?", (document_id,),
+    ).fetchone()
+    if doc is None:
+        raise EvidenceServiceError("internal_error")
+    state_created(context, DocumentTarget(
+        corpus_id=doc["corpus_id"], namespace=doc["namespace"], document_id=document_id,
+        revision_id=revision_id, state_version=state_version, namespace_token=namespace_token,
+    ), doc["owner_id"], doc["synchronization_scope"], kind, at)
     return state_version
 
 

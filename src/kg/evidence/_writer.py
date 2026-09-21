@@ -5,6 +5,7 @@ from datetime import datetime
 from typing import Literal
 
 from kg.evidence import _store
+from kg.evidence._transactions import CanonicalWriteContext
 from kg.evidence._values import metadata_json, sha, timestamp, token
 from kg.evidence.errors import EvidenceServiceError
 from kg.ids import digest
@@ -139,10 +140,11 @@ def _content(
 
 
 def apply(
-    connection: sqlite3.Connection,
+    context: CanonicalWriteContext,
     request: WriteRequest,
     at: datetime,
 ) -> tuple[str, Literal["applied", "unchanged"]]:
+    connection = context.connection
     payload = request.payload
     if not isinstance(payload, (PutDocument, RemoveDocument)):
         raise EvidenceServiceError("unsupported")
@@ -207,7 +209,7 @@ def apply(
     ) == (revision_id, set_id, metadata, source, policy, namespace[0]):
         return doc, "unchanged"
     _store.add_state(
-        connection,
+        context,
         document_id=doc,
         revision_id=revision_id,
         set_id=set_id,

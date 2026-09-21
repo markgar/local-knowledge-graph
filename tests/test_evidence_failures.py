@@ -1,13 +1,13 @@
 from __future__ import annotations
 
 import sqlite3
-from contextlib import contextmanager
 from pathlib import Path
 
 import pytest
 from support.evidence import environment, put
 
-from kg.evidence import _receipts, _store, _writer, database
+from kg.evidence import _receipts, _store, _writer
+from kg.evidence._sql import AccountedConnection
 from kg.models.foundation import WriteBatch
 
 
@@ -15,21 +15,16 @@ from kg.models.foundation import WriteBatch
 def test_failure_boundaries_leave_no_unit_rows(tmp_path: Path, monkeypatch, stage: str) -> None:
     env = environment(tmp_path / "e.db")
     if stage == "commit":
-        transaction = database.write_transaction
-
-        @contextmanager
         def fail_commit(connection):
-            with transaction(connection):
-                yield
-                raise sqlite3.OperationalError("injected before commit")
+            raise sqlite3.OperationalError("injected before commit")
 
-        monkeypatch.setattr(database, "write_transaction", fail_commit)
+        monkeypatch.setattr(AccountedConnection, "commit", fail_commit)
     else:
         module, name = {
             "content": (_writer, "_content"),
             "state": (_store, "add_state"),
             "receipt": (_store, "receipt"),
-            "ledger": (_receipts, "save"),
+            "ledger": (_receipts, "save_document"),
         }[stage]
         original = getattr(module, name)
 
