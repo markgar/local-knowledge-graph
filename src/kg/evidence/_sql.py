@@ -85,6 +85,19 @@ class AccountedConnection(sqlite3.Connection):
     _closed = False
     _participant = False
     _read_only = False
+    _precise = False
+    _remaining = 0
+
+    @contextmanager
+    def _precise_progress(self) -> Iterator[None]:
+        """Count nested PRAGMA VMs without losing each substatement's partial quantum."""
+        self._check_active()
+        previous = self._precise
+        self._precise = True
+        try:
+            yield
+        finally:
+            self._precise = previous
 
     @contextmanager
     def _using_budget(self, budget: PrivateBudget) -> Iterator[None]:
@@ -120,7 +133,24 @@ class AccountedConnection(sqlite3.Connection):
     def _prepay_statement(self) -> None:
         assert self._budget is not None
         quantum = self._budget.reserve_sql_quantum()
-        self.set_progress_handler(self._progress, quantum)
+        if self._precise:
+            self._remaining = quantum
+            self.set_progress_handler(self._precise_step, 1)
+        else:
+            self.set_progress_handler(self._progress, quantum)
+
+    def _precise_step(self) -> int:
+        if self._stop is not None:
+            return 1
+        self._remaining -= 1
+        if self._remaining > 0:
+            return 0
+        try:
+            self._prepay_statement()
+            return 0
+        except (DeadlineStop, PrivateResourceStop) as error:
+            self._stop = error
+            return 1
 
     def _progress(self) -> int:
         assert self._budget is not None

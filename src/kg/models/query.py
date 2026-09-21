@@ -78,8 +78,8 @@ class QueryCapabilities(Value):
     interface_version: Literal["query/1"] = "query/1"
     scope: Scope
     operations: tuple[Literal["evidence"], ...] = ("evidence",)
-    evidence_kinds: tuple[Literal["anchor"], ...] = ("anchor",)
-    adapter_version: Literal["canonical-anchor/1"] = "canonical-anchor/1"
+    evidence_kinds: tuple[Literal["anchor", "passage"], ...] = ("anchor", "passage")
+    adapter_version: Literal["canonical-evidence/1"] = "canonical-evidence/1"
     maximum_budget: QueryBudget = QueryBudget(
         max_operations=16,
         max_records=10_000,

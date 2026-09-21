@@ -346,7 +346,7 @@ def test_empty_processing_reports_and_passage_reports_keep_separate_authority(
         query.diagnostics.report(env.scope, anchor.report.report_id),
         ExecutionReport,
     )
-    denied = query_request.model_copy(
+    passage_request = query_request.model_copy(
         update={
             "steps": (
                 query_request.steps[0].model_copy(
@@ -355,4 +355,13 @@ def test_empty_processing_reports_and_passage_reports_keep_separate_authority(
             )
         }
     )
-    assert query.execute(denied).stop_reason == "unsupported_restriction"
+    executed = query.execute_explained(passage_request)
+    assert executed.outcome.result.outcome == "complete"
+    assert executed.outcome.result.data.records[0].support.evidence == (passage.reference,)
+    assert executed.outcome.result.records_examined == 1
+    assert isinstance(executed.report, ExecutionReport)
+    assert [
+        (event.event.stage, event.event.reservations)
+        for event in executed.report.events
+        if event.event.kind == "query.budget"
+    ] == [("evidence_reference", 1)]

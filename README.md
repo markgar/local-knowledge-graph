@@ -24,16 +24,16 @@ retrieval-quality gates remain unmet.
 | Owned knowledge | Atomic anchor-backed entities, independent entity support, aliases, identifiers and typed assertions through `EvidenceService.write`; `KnowledgeService` current/history reads and immutable schema registration. Explicit decision assertions produce distinct submitted records. |
 | Markdown demonstration | Manifest-selected local Markdown, explicit records, seed entities, structured reads, source context and revision comparison in its separate database. |
 | Demonstration search | Full local keyword + semantic retrieval, fusion/deduplication and reranking; matching vector preparation is required. No keyword-only fallback. |
-| Foundation values | Strict `foundation/1` request/result validation. Document and bounded enrichment operations execute through `EvidenceService`; canonical anchor-evidence plans execute through `QueryService`. Enrichment does not implement mentions or whole-set seed replacement. |
-| Canonical queries | `kg.query.QueryService`: selected plan closure, actual historical anchor reads, spawned deadline supervision, inherited accounting and fresh release authorization. Required resolve/records/count/search/paths and passage evidence are explicitly unsupported. |
+| Foundation values | Strict `foundation/1` request/result validation. Document and bounded enrichment operations execute through `EvidenceService`; canonical anchor/passage-evidence plans execute through `QueryService`. Enrichment does not implement mentions or whole-set seed replacement. |
+| Canonical queries | `kg.query.QueryService`: selected plan closure, actual historical anchor/passage reads, spawned deadline supervision, inherited accounting and fresh release authorization. Required resolve/records/count/search/paths remain explicitly unsupported. |
 | Execution diagnostics | Evidence, processing and query calls retain bounded, authorized in-memory summaries. Named explained wrappers execute once; detailed traces and source quotes require opt-in. |
 
 There are no live email/Teams connectors, inference/extraction providers, general
 query planner, continuation service, or source-level ACL/purge service.
 The CLI is a local tool, not an authenticated network service.
 
-For canonical anchor queries, see [the Python example](examples/query_anchor.py)
-and [the executable query contract](CONTRACTS.md#canonical-anchor-queries).
+For canonical evidence queries, see [the Python example](examples/query_anchor.py)
+and [the executable query contract](CONTRACTS.md#canonical-evidence-queries).
 Use the service as a context manager and guard executable Python entry points
 with `if __name__ == "__main__":` because each execution spawns a fresh worker.
 

@@ -225,8 +225,6 @@ class QueryService:
                     output = next(s for s in request.steps if s.step_id == request.output_step)
                     if len(required) != 1 or not isinstance(output, EvidenceStep):
                         raise Stopped("unsupported", "unsupported_operation")
-                    if output.evidence.passage_id is not None:
-                        raise Stopped("unsupported", "unsupported_restriction")
                     ledger = Ledger(
                         budget,
                         request.budget.max_operations,
@@ -378,7 +376,6 @@ class QueryService:
                 step,
             ),
         )
-        done = False
         channel: Channel | None = None
         stop: StopReason = "resource_budget"
         try:
@@ -390,14 +387,13 @@ class QueryService:
                 remaining = ledger.budget.deadline.remaining()
                 frame = channel.receive(min(0.02, remaining))
                 if frame is None:
-                    if not process.is_alive():
-                        raise Stopped("internal_error", "internal_error")
+                    # Exit can precede the pump delivering a buffered terminal frame.
+                    # Only ordered frame/EOF delivery, not liveness, ends the drain.
                     continue
                 ledger.budget.check_deadline()
                 if frame.action == "done":
                     if ledger.operations != 1 or ledger.records != 1:
                         raise Stopped("internal_error", "internal_error")
-                    done = True
                     break
                 if frame.action == "error":
                     if frame.code == "budget_exceeded":
@@ -417,20 +413,17 @@ class QueryService:
                 channel.reply(reply)
                 if reply.state != "ok":
                     raise Stopped("budget_exceeded", stop)
+            while process.is_alive():
+                self._check_open()
+                remaining = ledger.budget.deadline.remaining()
+                process.join(timeout=min(0.02, remaining))
+            self._check_open()
+            ledger.budget.check_deadline()
+            if process.exitcode != 0:
+                raise Stopped("internal_error", "internal_error")
         finally:
             child.close()
             if process.pid is not None:
-                if done:
-                    process.join(
-                        timeout=min(
-                            0.1,
-                            max(
-                                0,
-                                ledger.budget.deadline.expires_at_monotonic - time.monotonic(),
-                            ),
-                        )
-                    )
-                    done = not process.is_alive() and process.exitcode == 0
                 if process.is_alive():
                     process.terminate()
                     process.join(timeout=0.5)
@@ -451,8 +444,6 @@ class QueryService:
                 parent.close()
             ledger.close()
         ledger.budget.check_deadline()
-        if not done:
-            raise Stopped("internal_error", "internal_error")
         return (time.monotonic() - start) * 1000
 
     def capabilities(self, scope: Scope) -> QueryCapabilities:

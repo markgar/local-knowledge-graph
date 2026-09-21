@@ -37,6 +37,15 @@ Unexpected/missing/altered objects and copied or incomplete manifests fail close
 Foreign keys are enabled and verified on every connection. Competing initializers
 recheck under the write lock; failed initialization rolls back schema, manifest and
 headers together. WAL is enabled only after successful admission.
+Structural PRAGMA reads are batched within each admission snapshot, sharing index
+descriptors only inside that check. Actual metadata, headers and manifest rows are
+read afresh on every admission, including the owner's locked recheck; no schema
+cookie or prior connection admission substitutes for exact verification. All
+batched SQL, timeout helpers and fetched rows retain ordinary private accounting.
+During structural batches, an instruction-level progress callback spends the
+prepaid quanta across SQLite's nested PRAGMA programs, so substatement remainders
+cannot escape accounting. Unused prepayments are not refunded; other statements
+retain the ordinary progress-handler granularity.
 
 External identity is exact `(corpus, namespace, external_id)`, not location or
 content. Each document has an immutable owner and synchronization scope; several
@@ -318,7 +327,7 @@ precede consumption; scratch ownership cannot be copied and release is idempoten
 Private counters are absent from public accounting. The public search schedule
 has five one-passage events: TEMP, lexical, vector, rerank, final evidence.
 Readiness, fusion and counting an existing selection add none. These are shared
-contracts, not an installed generic search. The anchor-only query executor below
+contracts, not an installed generic search. The evidence query executor below
 consumes the same budget operations through supervisor-owned reservation RPC.
 
 `PrivateBudget.limited(max_visits=10_000)` creates a cumulative local view of the
@@ -346,11 +355,12 @@ verbatim, including distinct seed and source bases. E3 projection handles contai
 scoped immutable identities and are usable only in their live read session.
 Neither DTOs nor handles install runnable knowledge/indexing adapters.
 
-### Canonical anchor query execution
+### Canonical evidence query execution
 
-`kg.query` implements the anchor-evidence slice documented in
-[CONTRACTS.md](CONTRACTS.md#canonical-anchor-queries). It does not install K1/E3
-services, generic query search, record counts or support continuation. Selected
+`kg.query` implements the anchor/passage-evidence slice documented in
+[CONTRACTS.md](CONTRACTS.md#canonical-evidence-queries). It consumes the actual
+E3 passage resolver, but does not install knowledge/indexing services, generic
+query search, record counts or support continuation. Selected
 closure is computed from validated named dependencies; unsupported required
 operations fail before dispatch, while unrelated branches are pruned.
 
@@ -360,9 +370,15 @@ deadline values, never live connections, collectors or local pools. Its bounded
 64KiB synchronous control frames reserve visits, VM quanta, scratch and retained
 local views in that original owner pool. No refund of acknowledged semantic
 charges occurs on death. Scratch handles are reclaimed after verified child
-cleanup. The child uses the shared canonical read context and E1 resolver:
+cleanup. The child uses the shared canonical read context and evidence resolver:
 Q1 does not duplicate evidence eligibility or passage rules. No source text or
 unbounded result frames cross the control pipe.
+
+Published generated anchors and passage references use the same operation-specific
+hydration as supplied anchors: exact historical membership and byte validation,
+one `evidence_reference` charge, and retained scratch in the original pool.
+The supervisor retains the complete reference for data and diagnostic release.
+No passage rows, citation contexts or search results are synthesized by Q1.
 
 All target preflight occurs outside the short release fence. Fresh scope
 authorization plus original observer comparison excludes intervening canonical
