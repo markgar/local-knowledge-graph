@@ -1,8 +1,9 @@
 """Execute one foundation plan against an already provisioned canonical store.
 
 Usage: uv run python examples/query_anchor.py STORE REQUEST_JSON PRINCIPAL
-The request must select an anchor evidence step; other required operations are
-unsupported. Provision trusted identity/policy separately through kg.evidence.
+The request must select an anchor or published passage evidence step; other required
+operations are unsupported. Provision trusted identity/policy through kg.evidence.
+Passage references come from EvidenceService.passages after kernel publication.
 """
 
 import argparse

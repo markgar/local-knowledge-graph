@@ -126,7 +126,9 @@ records, or expose enrichment, seed replacement or knowledge reads. Existing
 evidence capabilities remain unchanged. See the executable
 [schema example](examples/knowledge_schema.py).
 
-## Canonical anchor queries
+<a id="canonical-anchor-queries"></a>
+
+## Canonical evidence queries
 
 `kg.query.QueryService(database, identity)` executes validated `QueryRequest`
 values against the canonical evidence store. `execute(request)` returns
@@ -138,20 +140,34 @@ options=ExplainOptions())` executes once and returns shared `Explained` with
 `service.diagnostics.report/recent/for_request`; request IDs correlate distinct
 invocations, not durable retries.
 
-The installed capability is **anchor evidence only**, including authorized
-immutable history. The result is one evidence Record identified by anchor ID,
+The installed capability is **anchor and published passage evidence**, including
+generated anchors and authorized immutable history (`canonical-evidence/1`).
+The result is one evidence Record identified by anchor ID,
 with its full requested reference in SourceSupport. No quote text is added to
 foundation results or Q1 reports. Detailed reports include the selected ID,
 closure and acknowledged semantic reservation; summary reports omit selected IDs.
 `capabilities(scope)` is authorized and reportable. There is no installed
 support registry or `inspect_support` method in this slice. Required
-resolve/records/count/search/paths and non-null passage references return
-unsupported, never a fake empty result or legacy adapter fallback.
+resolve/records/count/search/paths return unsupported, never a fake empty result
+or legacy adapter fallback. Missing or mismatched passage references return
+`not_found`. Passage evidence requires its real state/set/passage/anchor chain,
+not vector readiness. Both `codepoint-window/1` and `supplied-anchors/1` kernel
+outputs are readable.
+
+An evidence step accepts an `EvidenceRef`, not a `StoredCitation` or explicit
+state/set selector. It preserves the entire requested reference, including
+`passage_id`; default passage context is its first publication state. Exact
+quote/range/hash and origin metadata remain accessible through
+`EvidenceService.evidence`, and saved state/metadata contexts through
+`EvidenceService.citation`. A later edit, removal, policy change or restoration
+does not rewrite that history. Readability alone does not establish current
+support: that requires the current active revision and actual set membership.
 
 The whole request is reconstructed/validated, even branches not executed.
 Only the selected output's named dependency closure is dispatched. Unrelated
 unsupported branches are `not_needed`. One operation and one eligible evidence
-reservation are charged for a successful anchor read; missing evidence charges
+`evidence_reference` reservation are charged for a successful evidence read;
+there is no additional search-final charge. Missing evidence charges
 no public record unit. On any no-data failure, step telemetry is empty and
 foundation counters are zero **redacted sentinels**, not measurements.
 `work_accounting="redacted"` distinguishes these from authorized
