@@ -106,15 +106,18 @@ then `/skills info work-package` to confirm discovery.
 4. **Revise and approve.** Address findings in that same file, record dispositions,
    and re-review material changes. Resolve blocking decisions and obtain explicit
    approval of the design and first implementation slice before coding.
-5. **Preserve the approved spec on the package issue.** Attach its full content as
-   a named issue artifact, including revision/baseline and review outcome, and link
-   it from the issue. A local file path alone is not a durable handoff. The issue
-   artifact is the approved design record; the local file is its working copy.
-   For design changes, revise the file, review and approve them, then update the
-   same artifact rather than creating competing approved versions. Preserve this
-   record before archiving the design session.
+5. **Publish the full approved spec on the package issue.** Post an ordinary issue
+   comment containing the full spec, revision/baseline, critic findings/dispositions
+   and user approval record. This is required after approval; do not ask separately
+   whether to publish it or block on the special issue-artifact feature. A summary
+   or local file path alone is not a durable handoff. Read the comment back to
+   verify publication before implementation or handoff, and save its URL/ID in the
+   local working file. For later approved revisions, update that same spec comment,
+   preserving revision/approval history and any concurrent edits. Never replace an
+   approved record with an unapproved draft. Preserve this record before archiving
+   the work session.
 6. **Implement an approved slice.** Continue in the same work session with the issue,
-   approved artifact and stopping point; no new session is required. If main has
+   approved spec comment and stopping point; no new session is required. If main has
    changed, check the design against it before coding. Run applicable acceptance tests and the validation
    commands above, obtain independent complete-diff review, resolve findings and
    re-review fixes before merge. Link each PR to the package issue; update repo

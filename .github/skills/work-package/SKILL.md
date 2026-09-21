@@ -1,6 +1,6 @@
 ---
 name: work-package
-description: Organize a Local Knowledge Graph package issue into a file-based implementation spec, independent critic review, and durable issue artifact. Use when starting or resuming a package design, preparing a spec for criticism, or handing an approved design to implementation. Stop for approval before coding; do not treat skill invocation as permission to implement or merge.
+description: Organize a Local Knowledge Graph package issue into a file-based implementation spec, independent critic review, and a full approved spec published on the issue. Use when starting or resuming a package design, preparing a spec for criticism, or handing an approved design to implementation. Stop for approval before coding; do not treat skill invocation as permission to implement or merge.
 ---
 
 # Work package
@@ -10,7 +10,8 @@ This skill is the agent checklist, not a second roadmap.
 
 ## Input and boundaries
 
-- Accept a package issue number or URL and, when resuming, its spec file/artifact.
+- Accept a package issue number or URL and, when resuming, its spec file and
+  published spec comment.
   Example: `Use /work-package for issue #24. Design and critic review only.`
 - If no issue is selected, inspect the
   [tracking issue](https://github.com/markgar/local-knowledge-graph/issues/28),
@@ -19,7 +20,7 @@ This skill is the agent checklist, not a second roadmap.
   dependencies or repository planning files, start implementation, close issues,
   commit, or merge merely because this skill was invoked.
 - Issues own scope, dependencies and progress. Session-local Markdown files are
-  working designs. The approved issue artifact is the durable design record.
+  working designs. The full approved spec on the issue is the durable design record.
   Repository docs describe delivered behavior and development procedures.
 
 ## 1. Establish the work
@@ -42,9 +43,9 @@ general-purpose subagent with a read-only review assignment. Any delegated work
 inherits the same approval boundaries; a design request does not authorize
 implementation.
 
-Use an issue-linked session when publishing issue artifacts, and verify it targets
-the selected issue. If session tools are unavailable, report that limitation;
-never attach to an unrelated issue.
+Verify the repository and owning issue before publishing. An ordinary issue
+comment does not require an issue-linked app session or the special issue-artifact
+feature; do not create another session or block on enabling that feature.
 
 ## 2. Write or resume the spec file
 
@@ -58,7 +59,7 @@ Include these sections, using `Not applicable` with a reason where appropriate:
 
 | Section | Required content |
 | --- | --- |
-| Identity and status | Package/issue link, revision, inspected commit, draft/reviewed/approved status, existing artifact reference. |
+| Identity and status | Package/issue link, revision, inspected commit, draft/reviewed/approved status, published spec comment URL/ID if one exists. |
 | Goal and boundaries | Deliverable, non-goals, dependencies and unresolved prerequisites; links to shared requirements. |
 | Current behavior | Relevant code paths, existing contracts and concrete gaps; distinguish validation from service enforcement. |
 | Proposed design | Public APIs, types, storage/schema, ownership and service boundaries. |
@@ -97,26 +98,31 @@ Present the spec path/revision, review outcome and remaining decisions. Ask for
 explicit approval of the reviewed revision. A critic's approval is not user
 authorization to code, and approving a design is not permission to merge.
 
-After approval, publish the full spec and review/approval record as a named
-artifact on the selected package issue. Use the issue-artifact tools when
-available and verify the session is linked to that issue before writing. Retain
-the returned artifact identity; update that same artifact for later approved
-revisions, rather than creating duplicates. Never label an unapproved revision
-approved or overwrite the approved artifact with a draft.
+After approval, publish the **full spec**, including revision, inspected baseline,
+critic findings/dispositions and user approval record, as an ordinary comment on
+the owning package issue. This is the default workflow, not an optional extra:
+do not ask again whether the approved spec should go on the issue. A summary,
+local path or promise to publish later is not a substitute for the full content.
 
-Verify publication and record the artifact reference on the issue. An absolute
-local path alone is not durable publication. If publishing is blocked, retain the
-file and report the blocker. Do not archive the design session before its design
-and review record are preserved.
+Retain the comment URL and ID in the local working file. For later approved
+revisions, update that same designated spec comment rather than creating competing
+current versions; retain a concise revision/approval history. Read the existing
+comment before editing and preserve any concurrent changes. Never label an
+unapproved revision approved or replace the approved record with a draft.
+
+Read the published comment back to verify the full approved content is present
+on the correct issue before implementation or handoff. If publication is blocked,
+retain the local file and report the blocker; do not claim a durable handoff.
+Do not archive the work session before its design and review record are preserved.
 
 ## 5. Stop or hand off
 
 Default completion is a reviewed spec awaiting approval, or an approved spec
 published to its issue, with implementation not started. Report the file/revision,
-issue/artifact reference, review state and blockers concisely.
+issue/spec-comment reference, review state and blockers concisely.
 
 Only after an explicit instruction to implement the approved slice, continue in
-the same work session using its issue, approved artifact, inspected baseline,
+the same work session using its issue, approved spec comment, inspected baseline,
 acceptance criteria and stopping point. If a handoff is actually needed, provide
 that same context; a new session is not required. Reconcile changes on main first.
 Follow `CONTRIBUTING.md` for tests, independent complete-diff review, fix review
@@ -129,10 +135,10 @@ design-only request.
 ## 6. Clean up the issue
 
 Before handing back work, make the package issue reflect its actual state: link
-the current spec artifact and relevant PRs, record review outcomes and decisions,
+the current spec comment and relevant PRs, record review outcomes and decisions,
 update completed checklist items, and state remaining work or blockers clearly.
 Correct stale status and superseded guidance without deleting useful history or
-another contributor's work. Keep one clearly identified current design artifact.
+another contributor's work. Keep one clearly identified current design record.
 
 After implementation, record delivered behavior and acceptance evidence. Close
 the issue only when its completion criteria are met and closure is authorized;
