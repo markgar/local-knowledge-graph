@@ -70,6 +70,18 @@ class ProcessingTarget(Value):
     run_id: Token | None = None
 
 
+class ProcessingSelectionTarget(Value):
+    """Exact registered selection, including operations with no durable job."""
+
+    kind: Literal["processing_selection"] = "processing_selection"
+    namespace: Token
+    owner_id: Token
+    writer_id: Token
+    plan_id: Token
+    plan_version: Token
+    worker_id: Token
+
+
 ReportTarget = Annotated[
     DocumentTarget
     | EvidenceTarget
@@ -78,7 +90,8 @@ ReportTarget = Annotated[
     | KnowledgeWriterTarget
     | SeedSetTarget
     | IndexTarget
-    | ProcessingTarget,
+    | ProcessingTarget
+    | ProcessingSelectionTarget,
     Field(discriminator="kind"),
 ]
 
@@ -103,6 +116,8 @@ class ReportAuthorizer(Protocol):
     Knowledge writer/set checks must bind the originating corpus/principal,
     namespace, grants and exact owner/writer (and set), even for empty results.
     A target describes a dependency; constructing one grants no authority.
+    Processing selections require current read grants and the exact enabled
+    plan/worker registration, even when the operation returned no jobs.
     """
 
     def fence(

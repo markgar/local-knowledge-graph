@@ -20,12 +20,13 @@ retrieval-quality gates remain unmet.
 | Capability | Current behavior |
 | --- | --- |
 | Generic evidence | `kg.evidence`: atomic supplied-document writes/removal, ordered batches, exact UTF-8 content, scoped history/anchors/citations, durable retry receipts and trusted local policy. |
+| Processing control | `kg.processing`: trusted plan/worker registration, document scheduling/deduplication, fenced claims, heartbeats, bounded status and expired-claim recovery. Claims do not execute or acknowledge work. |
 | Knowledge registry | `kg.knowledge`: trusted immutable corpus schema registration, with typed predicates and an optional dedicated decision descriptor. No knowledge writes or record production yet. |
 | Markdown demonstration | Manifest-selected local Markdown, explicit records, seed entities, structured reads, source context and revision comparison in its separate database. |
 | Demonstration search | Full local keyword + semantic retrieval, fusion/deduplication and reranking; matching vector preparation is required. No keyword-only fallback. |
 | Foundation values | Strict `foundation/1` request/result validation, including independent entity-support attestations and namespaced seed support. Document operations execute through `EvidenceService`; canonical anchor-evidence plans execute through `QueryService`. Other query operations and enrichment remain unimplemented. |
 | Canonical queries | `kg.query.QueryService`: selected plan closure, actual historical anchor reads, spawned deadline supervision, inherited accounting and fresh release authorization. Required resolve/records/count/search/paths and passage evidence are explicitly unsupported. |
-| Execution diagnostics | Evidence calls retain bounded, authorized in-memory summaries. Named explained wrappers execute once; detailed traces and source quotes require opt-in. |
+| Execution diagnostics | Evidence, processing and query calls retain bounded, authorized in-memory summaries. Named explained wrappers execute once; detailed traces and source quotes require opt-in. |
 
 There are no live email/Teams connectors, agent-authored graph writes, general
 query planner, continuation service, or source-level ACL/purge service.
@@ -74,7 +75,8 @@ Fresh stores use the complete `evidence-store/2` schema and the `evidence/2`
 service interface. Initialization verifies the actual schema and its recorded
 manifest, not just a version marker. Older or altered stores are refused without
 repair: use a fresh path and resupply sources. Reserved knowledge, indexing and
-processing tables do not enable those services.
+processing tables do not themselves enable those services. The separate
+`ProcessingService` exposes only the control-plane operations below.
 There is no snapshot-completion or purge API; omitted batch documents stay active.
 The existing CLI and search pipeline below operate on the Markdown demonstration,
 not on `EvidenceDatabase`.
@@ -85,6 +87,16 @@ performed. Source corpus fixtures and authored evaluation expectations remain
 unchanged. Keep any old inputs/history you need; the service never deletes an
 incompatible file automatically. New evidence IDs survive updates/restores within
 one store, not a destructive rebuild.
+
+## Processing control
+
+For the Python processing control plane, run
+`uv run python examples/processing_control.py --database /tmp/processing-demo.sqlite3`
+with a fresh path. It provisions one document plan/worker, schedules and claims
+exact source state, then renews/inspects the lease. It does **not** process content
+or mark indexing ready. See [processing API](CONTRACTS.md#processing-control-api)
+for registration authority, lease/retry limits, and the explicitly absent
+completion/batch/snapshot operations.
 
 ## Knowledge schema provisioning example
 
