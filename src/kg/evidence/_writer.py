@@ -33,7 +33,8 @@ def _content(
             (doc,),
         ).fetchone()[0]
         connection.execute(
-            "INSERT INTO revision VALUES (?,?,?,?,?,?,?)",
+            "INSERT INTO revision(revision_id,document_id,sequence,content_hash,content,"
+            "byte_length,created_at) VALUES (?,?,?,?,?,?,?)",
             (revision_id, doc, sequence, sha(content), content, len(content), timestamp(at)),
         )
     anchors = sorted(payload.content.anchors, key=lambda item: item.local_id)
@@ -57,7 +58,9 @@ def _content(
         if stored_ids != ids:
             raise EvidenceServiceError("internal_error")
     else:
-        connection.execute("INSERT INTO anchor_set VALUES (?,?)", (set_id, revision_id))
+        connection.execute(
+            "INSERT INTO anchor_set(set_id,revision_id) VALUES (?,?)", (set_id, revision_id)
+        )
     ordinal = connection.execute(
         "SELECT coalesce(max(ordinal),0) FROM anchor WHERE revision_id=?",
         (revision_id,),
@@ -76,6 +79,8 @@ def _content(
                 a.end,
                 a.quote,
                 sha(a.quote.encode()),
+                "supplied",
+                anchor_id,
             )
             actual = tuple(
                 stored_anchor[key]
@@ -87,6 +92,8 @@ def _content(
                     "end_offset",
                     "quote",
                     "quote_hash",
+                    "origin_kind",
+                    "origin_key",
                 )
             )
             if actual != expected:
@@ -94,7 +101,9 @@ def _content(
         else:
             ordinal += 1
             connection.execute(
-                "INSERT INTO anchor VALUES (?,?,?,?,?,?,?,?,?,?)",
+                "INSERT INTO anchor(anchor_id,document_id,revision_id,local_id,ordinal,"
+                "start_offset,end_offset,quote,quote_hash,origin_state,origin_kind,origin_key) "
+                "VALUES (?,?,?,?,?,?,?,?,?,?,'supplied',?)",
                 (
                     anchor_id,
                     doc,
@@ -106,6 +115,7 @@ def _content(
                     a.quote,
                     sha(a.quote.encode()),
                     state,
+                    anchor_id,
                 ),
             )
     if not existing_set:
@@ -118,7 +128,8 @@ def _content(
             ),
         )
         connection.executemany(
-            "INSERT INTO anchor_set_member VALUES (?,?,?,?,?)",
+            "INSERT INTO anchor_set_member(set_id,revision_id,anchor_id,local_id,ordinal) "
+            "VALUES (?,?,?,?,?)",
             [
                 (set_id, revision_id, anchor_id, anchor.local_id, index)
                 for index, (anchor, anchor_id) in enumerate(ordered, start=1)
@@ -164,7 +175,8 @@ def apply(
     state = token()
     if not existing:
         connection.execute(
-            "INSERT INTO document VALUES (?,?,?,?,?,?,?)",
+            "INSERT INTO document(document_id,corpus_id,namespace,external_id,owner_id,"
+            "synchronization_scope,current_state) VALUES (?,?,?,?,?,?,?)",
             (
                 doc,
                 request.scope.corpus_id,

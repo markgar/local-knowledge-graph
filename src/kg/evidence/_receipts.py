@@ -101,7 +101,8 @@ def save(
 ) -> None:
     key_id = token()
     connection.execute(
-        "INSERT INTO write_key VALUES (?,?,?,?,?,?,?,?,?,?,0)",
+        "INSERT INTO write_key(key_id,corpus_id,writer_id,operation,key_hash,digest,digest_version,"
+        "status,committed_at,expires_at,expired) VALUES (?,?,?,?,?,?,?,?,?,?,0)",
         (
             key_id,
             request.scope.corpus_id,
@@ -116,10 +117,12 @@ def save(
         ),
     )
     connection.execute(
-        "INSERT INTO write_response VALUES (?,?,?)",
-        (key_id, receipt.document_id, receipt.model_dump_json()),
+        "INSERT INTO write_response(key_id,corpus_id,document_id,receipt_json) VALUES (?,?,?,?)",
+        (key_id, request.scope.corpus_id, receipt.document_id, receipt.model_dump_json()),
     )
     connection.execute(
-        "INSERT INTO write_provenance VALUES (?,?,?)",
-        (key_id, receipt.processing.state_version, request.attribution.model_dump_json()),
+        "INSERT INTO write_provenance(key_id,corpus_id,document_id,state_version,attribution_json) "
+        "VALUES (?,?,?,?,?)",
+        (key_id, request.scope.corpus_id, receipt.document_id, receipt.processing.state_version,
+         request.attribution.model_dump_json()),
     )

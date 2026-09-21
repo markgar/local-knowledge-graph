@@ -121,8 +121,12 @@ class EvidenceAdministration:
                 )
             version = token()
             connection.execute(
-                "INSERT INTO corpus VALUES (?,?,?)",
+                "INSERT INTO corpus(corpus_id,policy_version,registration_json) VALUES (?,?,?)",
                 (registration.corpus_id, version, definition),
+            )
+            connection.execute(
+                "INSERT INTO processing_guard(corpus_id,epoch,blocked) VALUES (?,0,0)",
+                (registration.corpus_id,),
             )
             connection.executemany(
                 "INSERT INTO source_namespace VALUES (?,?,?)",

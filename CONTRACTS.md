@@ -21,17 +21,17 @@ and delivery planning are tracked in
 `kg.evidence` exports `EvidenceDatabase(Path)`, `EvidenceAdministration(database,
 LocalAdminAuthority)`, `EvidenceService(database, LocalIdentity)` and
 `EvidenceServiceError`. Administrative/read values live in `kg.models.evidence`;
-top-level service values carry `interface_version="evidence/1"`. Existing
+top-level service values carry `interface_version="evidence/2"`. Existing
 `foundation/1` write/result shapes are unchanged.
 
 | API | Result / behavior |
 | --- | --- |
-| `database.initialize()` | Initialize empty or verify E1 format; incompatible targets raise `unsupported`. Use a fresh file and resupply sources. |
+| `database.initialize()` | Initialize empty or verify the complete `evidence-store/2` schema and manifest; incompatible targets raise `unsupported`. Use a fresh file and resupply sources. |
 | `admin.register(CorpusRegistration)` | Register namespaces, writer bindings and explicit `LocalPolicy`; identical original registration is unchanged and returns the **current** policy version, without restoring old grants. Conflicting registration fails. |
 | `admin.replace_policy(LocalPolicy, expected_policy_version)` | Atomic policy/state rotation; returns version, affected namespaces and changed-document count. |
 | `service.write(WriteRequest)` | `put_document` / `remove_document` -> `WriteOutcome`. `enrich` is rejected as unsupported. |
 | `service.write_batch(WriteBatch)` | Ordered `BatchResult`; complete envelope validation precedes independent unit transactions. |
-| `current(scope, ExternalDocument)` / `document(scope, document_id)` | Current `DocumentView`, including inactive sources and explicit pending processing reason. |
+| `current(scope, ExternalDocument)` / `document(scope, document_id)` | Current `DocumentView`, including inactive sources and separate `indexing_reason` / `enrichment_reason` fields. |
 | `state(scope, document_id, state_version)` | Immutable historical state/metadata context plus latest-state flag. |
 | `history(scope, document_id, *, after_sequence=0, limit=100)` | Ascending `StatePage`, including predecessor, change kind, snapshot and activity. |
 | `revisions(scope, document_id, *, after_sequence=0, limit=100)` | Insertion-ordered `RevisionPage` with exact byte length/hash; restores do not duplicate revisions. |
@@ -46,6 +46,12 @@ All reads need current trusted `read` authority. Writes need `write_documents`
 and an owner/writer/synchronization binding; they do not confer full-text access.
 Attribution is not a credential. Namespace policy changes rotate affected document
 states independently of corpus-wide access-context freshness.
+
+The pre-release `evidence/2` representation replaces `processing_reason` with
+stored indexing and enrichment reasons; both currently report
+`processor_not_available`. There is no compatibility alias or migration from
+`evidence-store/1`. Reserved schema tables do not add public knowledge, indexing,
+query or job APIs, nor change the unsupported capability list.
 
 Public inputs are defensively revalidated, including constructed/copied models.
 Invalid envelopes raise `EvidenceServiceError` before mutation; valid failed write

@@ -13,12 +13,30 @@ they are not implemented capabilities.
 
 `kg.evidence.EvidenceDatabase`, `EvidenceAdministration` and `EvidenceService`
 implement the new Python-only canonical evidence engine. Its packaged
-`kg/evidence/schema.sql` uses SQLite application ID `0x4b474531`, user version 1
-and `evidence-store/1`. Initialization atomically creates an empty target or
-verifies that exact format. Old/unknown nonempty files are rejected without
+`kg/evidence/schema.sql` uses SQLite application ID `0x4b474531`, user version 2
+and `evidence-store/2`. Initialization atomically creates an empty target or
+verifies that exact format. Old/unknown nonempty files (including version 1) are rejected without
 changing headers, journal mode, schema or rows. There is no migration/reset API:
 use a fresh path and explicitly resupply content. Old canonical and independent
 dense-projection writers also reject this format under their schema/write lock.
+
+The format contains the complete 65-table, 29-explicit-index canonical schema,
+including reserved knowledge, passage/index and processing/synchronization storage.
+There are no canonical views or triggers, query-result tables, report tables or
+FTS virtual tables. Their absence is part of admission, not permission to create
+partial variants under version 2. Schema presence never enables a service.
+
+`canonical-sqlite-manifest/1` records every explicit object's definition hash and
+the whole-schema signature in the same transaction as DDL and headers. The
+signature covers ordered SQLite schema SQL, columns, foreign keys, and explicit
+and implicit index structure; implicit autoindex names are not identity.
+Descriptors use canonical compact ASCII JSON and SHA-256 with the manifest
+version plus a NUL separator as the domain. Admission compares actual structure,
+the exact format row and every manifest row against the packaged schema.
+Unexpected/missing/altered objects and copied or incomplete manifests fail closed.
+Foreign keys are enabled and verified on every connection. Competing initializers
+recheck under the write lock; failed initialization rolls back schema, manifest and
+headers together. WAL is enabled only after successful admission.
 
 External identity is exact `(corpus, namespace, external_id)`, not location or
 content. Each document has an immutable owner and synchronization scope; several
@@ -42,6 +60,14 @@ sequence orders states; no-op writes retain state. Remove retains content/histor
 restore reuses an identical revision but never its old activation state.
 Metadata equality sorts attribute keys and preserves scalar types/source strings.
 Attribution-only changes add committed provenance/receipts without state churn.
+Every new state also inserts one content-free `state_intent` and increments the
+mutation epoch for its exact `(corpus, namespace, owner, synchronization_scope)`
+inside that same transaction. This includes policy rotations of inactive sources.
+Writers sharing that owner/scope share an epoch; other scopes are isolated.
+No-op writes, receipt replays and unchanged policy replacements do neither.
+New scope rows start at generation zero; this bookkeeping does not complete a
+snapshot or schedule a job. New corpus registration creates an unblocked
+processing guard at epoch zero.
 
 Each write owns one `BEGIN IMMEDIATE` transaction with CAS checks and an atomic
 receipt/provenance ledger. Only committed applied/unchanged units reserve a retry
@@ -57,7 +83,8 @@ After an uncertain commit, retry the same key, not a new one.
 Batches revalidate the entire envelope before item zero, then commit valid units
 independently in input order, continuing after unit failures. There is no batch
 rollback, generation/snapshot synchronization or absence-based removal.
-All fresh states report pending indexing/enrichment and `processor_not_available`.
+All fresh states report pending indexing/enrichment, with separate stored
+`indexing_reason` and `enrichment_reason` values of `processor_not_available`.
 No indexing/search/readiness setter, passage production or enrichment is exposed.
 
 Current/history/content/citation reads use one authorized SQLite snapshot and a

@@ -54,6 +54,8 @@ def test_failure_boundaries_leave_no_unit_rows(tmp_path: Path, monkeypatch, stag
             "write_response",
             "write_provenance",
             "receipt_clock",
+            "state_intent",
+            "sync_scope",
         ):
             assert connection.execute(f"SELECT count(*) FROM {table}").fetchone()[0] == 0
 
