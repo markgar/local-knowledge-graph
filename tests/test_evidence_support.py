@@ -1,10 +1,12 @@
 from __future__ import annotations
 
+import time
 from pathlib import Path
 
 import pytest
 from support.evidence import environment, put, receipt
 
+from kg._execution_budget import Deadline, PrivateBudget, PrivateResourceStop
 from kg.evidence import EvidenceServiceError
 from kg.evidence._support import TransactionEvidence
 from kg.evidence._transactions import writing
@@ -70,7 +72,8 @@ def test_real_multidocument_current_support_and_stale_dependency(
         )
         for ref, item in zip(references, saved, strict=True)
     )
-    with writing(env.database, env.service.identity) as context:
+    budget = PrivateBudget(Deadline(time.monotonic() + 30))
+    with writing(env.database, env.service.identity, budget=budget) as context:
         validator = TransactionEvidence(context)
         supports = validator.validate_current(scope, dependencies, references)
         assert [support.metadata_snapshot_id for support in supports] == [
@@ -78,6 +81,11 @@ def test_real_multidocument_current_support_and_stale_dependency(
         ]
         assert all(support.quote == "A\r\nCafe\u0301 \U0001f680" for support in supports)
         assert context.connection.in_transaction
+        with (
+            context.using_budget(budget.limited(max_visits=1)),
+            pytest.raises(PrivateResourceStop),
+        ):
+            validator.validate_current(scope, dependencies, references)
         with pytest.raises(EvidenceServiceError) as error:
             validator.validate_current(
                 scope,

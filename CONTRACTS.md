@@ -95,8 +95,11 @@ target authorizer; request data cannot supply an authorization callback.
 | `diagnostics.for_request(scope, request_id, *, limit=20)` | Same headers, restricted to correlation within the originating identity/exact scope. Reused request IDs identify separate invocations. |
 
 Ordinary scoped evidence reads/writes attempt summaries without changing their
-outcomes. Unscoped static `capabilities()` and trusted administrative provisioning
-are not captured. A same-scope batch has one report correlated by `batch_id`;
+outcomes. Unscoped static `capabilities()` and trusted bootstrap/schema
+provisioning are excluded from this scoped execution-report API. This does not
+exclude ordinary scoped knowledge read/write/seed operations or change their
+authorization/errors; no admin `Scope`/namespace grant or audit subsystem is
+invented. A same-scope batch has one report correlated by `batch_id`;
 mixed-scope batches return a `not_collected` sidecar, not a misleading single-scope
 report. Their independent unit transactions and result order are unchanged.
 Invalid input rejected before capture does not promise a retained diagnostic.
@@ -141,6 +144,28 @@ The package-owned `knowledge_events`, `indexing_events`, `query_events` and
 those services or establish their acceptance. Shared collector/group tests do not
 claim real search/provider execution. No private scan/VM meters, raw exceptions,
 request bodies or source quotes by default are retained.
+
+The closed operation vocabulary includes K1 `entity`, `entities`, `contributions`
+and E4 `register_batch`, `resume_batch`, `batch_status`, `unit_receipt`, `schedule`,
+`fail`, `begin_snapshot`, `observe_page`, `finish_snapshot`. Processing decisions
+retain exact `queued`, `retry_wait`, `superseded`, `cancelled` observations, in
+addition to existing names. Closed reasons include `awaiting_input`,
+`dependency_changed`, `retry_scheduled`, `retry_exhausted`, `purge_blocked`,
+`plan_disabled`, `authority_unavailable`. Unknown operation/event/status/reason
+strings remain invalid. Q1 can represent ambiguity as `stopped` with a
+`QueryDecision`, resource limits as `budget_exceeded`, and time as `deadline`;
+ordinary query results retain their more specific distinctions. E3 policy details
+use `unsupported_policy`, not a new free-form reason.
+
+Private retained targets in `kg.diagnostics._targets` include
+`KnowledgeWriterTarget(namespace, owner_id, writer_id)` and
+`SeedSetTarget(namespace, owner_id, writer_id, seed_set_id)`. Corpus and principal
+are inherited from `AuthorizationBinding`, never invented document/contribution
+IDs. The latter represents the exact owned set even when it is empty. Both require
+fixed owner authorization of current grants, namespace, exact owner/writer/set
+and origin identity/scope; value construction is not proof of authority. K1 owns
+those service checks; E1 deliberately rejects these unimplemented target kinds.
+All-target checks, group bounds and irreversible redaction apply unchanged.
 
 ## Validation and serialization APIs
 

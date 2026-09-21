@@ -16,6 +16,7 @@ from kg._execution_budget import (
     PublicBudgetStop,
 )
 from kg.evidence._sql import AccountedConnection
+from kg.evidence.errors import EvidenceServiceError
 
 
 def pool() -> PrivateBudget:
@@ -155,5 +156,90 @@ def test_sql_progress_interrupt_is_typed_and_rows_charge_privately() -> None:
                 "SELECT sum(x) FROM n"
             ).fetchone()
         assert budget._vm == 10_000_000
+    finally:
+        connection.close()
+
+
+ROWS = (
+    "WITH RECURSIVE n(x) AS (VALUES(1) UNION ALL SELECT x+1 FROM n WHERE x<100001) "
+    "SELECT x FROM n"
+)
+
+
+def test_nested_local_caps_enforce_actual_fetches_and_do_not_reset_global_pool():
+    budget = pool()
+    connection = sqlite3.connect(":memory:", factory=AccountedConnection)
+    connection._budget = budget
+    try:
+        # Independent selections share the same 100k pool, not ten new pools.
+        for _ in range(10):
+            local = budget.limited(max_visits=10_000)
+            with connection._using_budget(local):
+                cursor = connection.execute(ROWS)
+                assert len(cursor.fetchmany(9999)) == 9999
+                with connection._using_budget(local.limited(max_visits=1)):
+                    assert cursor.fetchone()[0] == 10000
+                    with pytest.raises(PrivateResourceStop):
+                        cursor.fetchone()
+                with pytest.raises(PrivateResourceStop):
+                    cursor.fetchone()
+            # Re-entering a retained cap cannot reset it.
+            with connection._using_budget(local), pytest.raises(PrivateResourceStop):
+                cursor.fetchone()
+        assert budget._visits == 100_000
+        with (
+            connection._using_budget(budget.limited(max_visits=10_000)),
+            pytest.raises(PrivateResourceStop),
+        ):
+            connection.execute("SELECT 1").fetchone()
+    finally:
+        connection.close()
+
+
+def test_local_siblings_share_vm_scratch_and_deadline(monkeypatch):
+    budget = pool()
+    first = budget.limited(max_visits=2)
+    second = budget.limited(max_visits=2)
+    first.reserve_visits(2)
+    second.reserve_visits(2)
+    assert budget._visits == 4
+    with first.reserve_scratch(64 << 20, "general"), pytest.raises(PrivateResourceStop):
+        second.reserve_scratch(1, "text")
+    with second.reserve_scratch(64 << 20, "general"):
+        pass
+    first.reserve_vm(9_999_999)
+    assert second.reserve_sql_quantum() == 1
+    with pytest.raises(PrivateResourceStop):
+        first.reserve_vm(1)
+    for child in (first, second):
+        assert child.deadline is budget.deadline
+        with pytest.raises(TypeError):
+            copy.copy(child)
+        with pytest.raises(TypeError):
+            copy.deepcopy(child)
+    monkeypatch.setattr(time, "monotonic", lambda: budget.deadline.expires_at_monotonic)
+    with pytest.raises(DeadlineStop):
+        second.reserve_visits()
+    with pytest.raises(DeadlineStop):
+        first.limited(max_visits=1)
+
+
+@pytest.mark.parametrize("amount", [0, -1, True, 1.5, 100_001])
+def test_invalid_local_caps(amount):
+    with pytest.raises(ValueError):
+        pool().limited(max_visits=amount)
+
+
+def test_connection_cannot_widen_or_replace_local_pool():
+    budget = pool()
+    local = budget.limited(max_visits=1)
+    connection = sqlite3.connect(":memory:", factory=AccountedConnection)
+    connection._budget = local
+    try:
+        for invalid in (budget, pool(), budget.limited(max_visits=1)):
+            with pytest.raises(EvidenceServiceError) as error, connection._using_budget(invalid):
+                pytest.fail("Unrelated/widened budget admitted")
+            assert error.value.failure.code == "invalid_request"
+        assert connection._budget is local
     finally:
         connection.close()

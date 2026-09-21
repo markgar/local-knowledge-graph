@@ -19,11 +19,13 @@ from kg._execution_budget import (
 from kg.evidence import EvidenceServiceError
 from kg.evidence._read_context import (
     ReadSessionId,
+    _limit_temp,
     observe,
     read_context,
     read_evidence,
     release_fence,
 )
+from kg.evidence._sql import AccountedConnection
 from kg.indexing._selection import ProjectionHandle
 from kg.models.evidence import PolicyGrant
 
@@ -33,6 +35,102 @@ def execution():
     budget = PrivateBudget(deadline)
     meter = LocalExecutionMeter(budget, max_operations=16, max_items=100)
     return deadline, budget, meter
+
+
+@pytest.mark.parametrize("option", ["TEMP_STORE=3", "TEMP_STORE=unknown", None])
+def test_temp_rejects_forced_memory_or_unverifiable_builds(monkeypatch, option):
+    original = AccountedConnection.execute
+
+    def execute(connection, sql, parameters=()):
+        if sql == "PRAGMA compile_options":
+            return original(
+                connection, "SELECT ? WHERE ? IS NOT NULL", (option, option),
+            )
+        return original(connection, sql, parameters)
+
+    monkeypatch.setattr(AccountedConnection, "execute", execute)
+    connection = sqlite3.connect(":memory:", factory=AccountedConnection)
+    try:
+        with pytest.raises(EvidenceServiceError) as error:
+            _limit_temp(connection)
+        assert error.value.failure.code == "unsupported"
+    finally:
+        connection.close()
+
+
+@pytest.mark.parametrize("mode", [None, 0, 2])
+def test_temp_rejects_missing_or_incorrect_file_mode_readback(monkeypatch, mode):
+    original = AccountedConnection.execute
+
+    def execute(connection, sql, parameters=()):
+        if sql == "PRAGMA temp_store":
+            return original(connection, "SELECT ? WHERE ? IS NOT NULL", (mode, mode))
+        return original(connection, sql, parameters)
+
+    monkeypatch.setattr(AccountedConnection, "execute", execute)
+    connection = sqlite3.connect(":memory:", factory=AccountedConnection)
+    try:
+        with pytest.raises(EvidenceServiceError) as error:
+            _limit_temp(connection)
+        assert error.value.failure.code == "unsupported"
+    finally:
+        connection.close()
+
+
+def test_temp_file_mode_is_selected_before_controls_and_page_limit_is_real(tmp_path):
+    env = environment(tmp_path / "temp.db")
+    deadline, _, meter = execution()
+    with read_context(
+        env.database, env.service.identity, env.scope, ReadSessionId(),
+        deadline, meter.begin_step("temp"),
+    ) as context:
+        connection = context.connection
+        assert connection.execute("PRAGMA temp_store").fetchone()[0] == 1
+        connection.execute("CREATE TEMP TABLE spill(payload BLOB)")
+        # Exceeds the usual TEMP page cache; FILE mode still permits caching.
+        connection.execute("INSERT INTO spill VALUES (zeroblob(4 * 1024 * 1024))")
+        assert connection.execute("SELECT length(payload) FROM spill").fetchone()[0] == 4 << 20
+        with pytest.raises(PrivateResourceStop):
+            connection.execute("INSERT INTO spill VALUES (zeroblob(128 * 1024 * 1024))")
+
+
+def test_read_local_cap_uses_same_snapshot_meter_and_accounted_helpers(tmp_path):
+    env = environment(tmp_path / "local.db")
+    saved = receipt(env.service.write(put(env.scope)))
+    reference = env.service.anchors(
+        env.scope, saved.document_id, saved.processing.state_version,
+    ).entries[0].reference
+    deadline, budget, meter = execution()
+    step = meter.begin_step("read")
+    with read_context(
+        env.database, env.service.identity, env.scope, ReadSessionId(), deadline, step,
+    ) as context:
+        connection = context.connection
+        local = budget.limited(max_visits=2)
+        with context.using_budget(local):
+            assert context.connection is connection
+            assert context.meter.private_budget is local
+            cursor = connection.execute("SELECT 1 UNION ALL SELECT 2")
+            assert next(cursor)[0] == 1
+            with context.using_budget(local.limited(max_visits=1)):
+                assert cursor.fetchone()[0] == 2
+                with pytest.raises(PrivateResourceStop):
+                    context.meter.reserve_visits()
+            with pytest.raises(PrivateResourceStop):
+                cursor.fetchone()
+        assert context.meter is step and connection._budget is budget
+        with context.using_budget(local), pytest.raises(PrivateResourceStop):
+            cursor.fetchone()
+        # The public adapter's nested SQL cannot escape a cap on the connection.
+        with (
+            context.using_budget(budget.limited(max_visits=1)),
+            pytest.raises(PrivateResourceStop),
+        ):
+            read_evidence(context, reference)
+        assert meter.public_accounting().items_consumed == 1
+        assert context.connection is connection and connection.in_transaction
+    with pytest.raises(EvidenceServiceError), context.using_budget(local):
+        pytest.fail("Expired context admitted a cap")
 
 
 def test_observer_snapshot_temp_and_fresh_release_have_no_canonical_writes(tmp_path) -> None:
@@ -52,6 +150,7 @@ def test_observer_snapshot_temp_and_fresh_release_have_no_canonical_writes(tmp_p
                 value = read_evidence(context, reference)
                 assert value.quote == "A\r\nCafe\u0301 \U0001f680"
                 connection = context.connection
+                assert connection.execute("PRAGMA temp_store").fetchone()[0] == 1
                 connection.execute("CREATE TEMP TABLE candidates(id TEXT)")
                 connection.execute("INSERT INTO temp.candidates VALUES (?)", (reference.anchor_id,))
                 assert connection.execute("SELECT count(*) FROM candidates").fetchone()[0] == 1
@@ -65,6 +164,7 @@ def test_observer_snapshot_temp_and_fresh_release_have_no_canonical_writes(tmp_p
                     "CREATE TABLE main.unwanted(id TEXT)", "COMMIT", "ROLLBACK",
                     "SAVEPOINT escaped", "PRAGMA user_version=3",
                     "PRAGMA temp.max_page_count=999999", "ATTACH ':memory:' AS escaped",
+                    "PRAGMA temp_store=MEMORY",
                 ):
                     with pytest.raises(sqlite3.DatabaseError):
                         connection.execute(sql)

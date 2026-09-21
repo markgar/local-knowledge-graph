@@ -36,6 +36,9 @@ OperationName = Literal[
     "resolve",
     "records",
     "contribution",
+    "entity",
+    "entities",
+    "contributions",
     "seed_set",
     "produce",
     "process",
@@ -55,6 +58,15 @@ OperationName = Literal[
     "jobs",
     "retry",
     "recover",
+    "register_batch",
+    "resume_batch",
+    "batch_status",
+    "unit_receipt",
+    "schedule",
+    "fail",
+    "begin_snapshot",
+    "observe_page",
+    "finish_snapshot",
 ]
 
 

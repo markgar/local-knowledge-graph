@@ -49,6 +49,8 @@ Evidence operations preserve their ordinary result shapes. Discover summaries wi
 Use `write_explained(request)` or `citation_explained(scope, citation, options)`
 for the ordinary outcome plus an `execution-report/1` sidecar. Reports expire
 after five minutes, remain scope/target-authorized, and are not durable audit logs.
+Trusted bootstrap/schema provisioning is outside this scoped reporting API;
+ordinary scoped read/write/seed operations are not excluded.
 See [execution diagnostics](CONTRACTS.md#execution-diagnostics) for limits,
 quote opt-in and unavailable/redacted results.
 

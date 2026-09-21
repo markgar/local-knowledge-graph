@@ -7,19 +7,128 @@ from types import SimpleNamespace
 from unittest.mock import patch
 
 import pytest
+from pydantic import ValidationError
 from support.evidence import environment, put, receipt
 
 from kg._execution_budget import Deadline, PrivateBudget
 from kg.diagnostics import DiagnosticService, _collector
 from kg.diagnostics._bounds import REPORT_BYTES, TOTAL_BYTES, bounded_size
 from kg.diagnostics._collector import Capture, CaptureUnavailable, Collector
-from kg.diagnostics._targets import DocumentTarget, EvidenceTarget, ReportTargets
+from kg.diagnostics._targets import (
+    DocumentTarget,
+    EvidenceTarget,
+    KnowledgeWriterTarget,
+    ReportTargets,
+    SeedSetTarget,
+)
 from kg.evidence._diagnostic_authorization import EvidenceReportAuthorizer
 from kg.evidence._read_context import observe
 from kg.evidence.errors import EvidenceServiceError
 from kg.models.execution import ExecutionReport, ExplainOptions, QuoteEvent
 from kg.models.execution_events import EvidenceEvent
 from kg.models.foundation import EvidenceRef
+
+OWNED_WRITER = KnowledgeWriterTarget(namespace="markdown", owner_id="owner", writer_id="writer")
+EMPTY_SET = SeedSetTarget(
+    namespace="markdown", owner_id="owner", writer_id="writer", seed_set_id="empty",
+)
+
+
+@pytest.mark.parametrize("target", [OWNED_WRITER, EMPTY_SET])
+def test_owned_targets_round_trip_without_fabricated_document_or_contribution(target):
+    values = ReportTargets(values=(target,))
+    assert ReportTargets.model_validate_json(values.model_dump_json()) == values
+    assert "document_id" not in target.model_dump()
+    assert "contribution_id" not in target.model_dump()
+    for field in type(target).model_fields:
+        data = target.model_dump()
+        data[field] = " " if field != "kind" else "unknown"
+        with pytest.raises(ValidationError):
+            ReportTargets.model_validate({"values": (data,)})
+    with pytest.raises(ValidationError):
+        ReportTargets.model_validate({"values": (target.model_dump() | {"fake_id": "secret"},)})
+
+
+@pytest.mark.parametrize("target", [OWNED_WRITER, EMPTY_SET])
+def test_e1_rejects_unimplemented_owned_target_authorization(tmp_path, target):
+    env = environment(tmp_path / "owned.db")
+    capture = begin(env)
+    assert capture.retain(ReportTargets(values=(target,)))
+    assert complete(env, capture).state == "unavailable"
+    assert capture.group.state == "redacted"
+    assert env.service.diagnostics.recent(env.scope).entries == ()
+
+
+class OwnedTargetGate(EvidenceReportAuthorizer):
+    """Controlled owner seam, not K1's eventual SQL authorization implementation."""
+
+    allowed = {("work", "principal", OWNED_WRITER), ("work", "principal", EMPTY_SET)}
+
+    def authorize_target(self, connection, binding, target):
+        if isinstance(target, (KnowledgeWriterTarget, SeedSetTarget)):
+            if (
+                target.namespace not in binding.scope.access.namespaces
+                or (binding.scope.corpus_id, binding.identity.principal_id, target)
+                not in self.allowed
+            ):
+                raise EvidenceServiceError("forbidden")
+            return
+        super().authorize_target(connection, binding, target)
+
+
+def test_owned_empty_target_all_binding_gate_redacts_children_after_parent_eviction(tmp_path):
+    env = environment(tmp_path / "owned.db")
+    owner = Collector("knowledge", env.service.identity)
+    nested = Collector("query", env.service.identity)
+    gate = OwnedTargetGate(env.database)
+    parents, children = DiagnosticService(owner, gate), DiagnosticService(nested, gate)
+    parent = owner.begin_capture("seed_set", env.scope, required="read")
+    assert parent.retain(ReportTargets(values=(EMPTY_SET, OWNED_WRITER)))
+    child = nested.begin_capture("execute", env.scope, required="read", group=parent.group)
+    child.finish("empty")
+    assert children._publish(child).state == "unavailable"
+    parent.finish("empty")
+    report = parents._publish(parent)
+    assert isinstance(report, ExecutionReport)
+    assert report.operation == "seed_set" and report.outcome == "empty"
+    assert "empty" not in report.model_dump_json(exclude={"outcome"})
+    assert isinstance(children.report(env.scope, child.report_id), ExecutionReport)
+    owner._remove(parent)
+    gate.allowed = {("work", "principal", EMPTY_SET)}  # Writer binding was revoked.
+    assert children.recent(env.scope).entries == ()
+    assert children.report(env.scope, child.report_id).state == "unavailable"
+    gate.allowed = OwnedTargetGate.allowed
+    assert children.report(env.scope, child.report_id).state == "redacted"
+    assert child.events == [] and child.prepared is None
+    nested._remove(child)
+    assert child.group.bindings == []
+
+
+@pytest.mark.parametrize("updates", [
+    {"namespace": "email"}, {"owner_id": "other"}, {"writer_id": "other"},
+    {"seed_set_id": "other"},
+])
+def test_exact_owned_set_identity_is_not_origin_scope_alone(tmp_path, updates):
+    env = environment(tmp_path / "owned.db")
+    collector = Collector("knowledge", env.service.identity)
+    facade = DiagnosticService(collector, OwnedTargetGate(env.database))
+    capture = collector.begin_capture("seed_set", env.scope, required="read")
+    capture.retain(ReportTargets(values=(EMPTY_SET.model_copy(update=updates),)))
+    capture.finish("empty")
+    assert facade._publish(capture).state == "unavailable"
+    assert facade.recent(env.scope).entries == ()
+
+
+def test_owned_target_capacity_precedes_copy_and_failure_stays_diagnostic(tmp_path):
+    env = environment(tmp_path / "owned.db")
+    capture = begin(env)
+    oversized = ReportTargets.model_construct(
+        values=(EMPTY_SET.model_copy(update={"seed_set_id": "X" * REPORT_BYTES}),),
+    )
+    with patch.object(ReportTargets, "model_dump", side_effect=AssertionError("copied oversized")):
+        assert not capture.retain(oversized)
+    assert receipt(env.service.write(put(env.scope))).document_id
+    assert complete(env, capture).state == "unavailable"
 
 
 def begin(env, *, collector=None, group=None, options=None, observer=None):

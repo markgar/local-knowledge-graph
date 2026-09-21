@@ -14,8 +14,8 @@ from kg.models.execution_events import EvidenceEvent
 from kg.models.foundation import EvidenceRef
 from kg.models.indexing_events import IndexCandidate, IndexPhase
 from kg.models.knowledge_events import KnowledgeValidation
-from kg.models.processing_events import ProcessingAck
-from kg.models.query_events import QueryBudget
+from kg.models.processing_events import ProcessingAck, ProcessingDecision
+from kg.models.query_events import QueryBudget, QueryDecision
 
 
 def report(**updates):
@@ -145,3 +145,73 @@ def test_approved_index_failure_distinctions_round_trip(reason):
             captured_event_count=1,
             displayed_event_count=1,
         )
+
+
+@pytest.mark.parametrize("operation", [
+    "entity", "entities", "contributions", "register_batch", "resume_batch",
+    "batch_status", "unit_receipt", "schedule", "fail", "begin_snapshot",
+    "observe_page", "finish_snapshot",
+])
+def test_approved_operation_names_round_trip(operation):
+    value = report(operation=operation)
+    assert ExecutionReport.model_validate_json(value.model_dump_json()) == value
+
+
+@pytest.mark.parametrize("decision", ["queued", "retry_wait", "superseded", "cancelled"])
+@pytest.mark.parametrize("reason", [
+    "awaiting_input", "dependency_changed", "retry_scheduled", "retry_exhausted",
+    "purge_blocked", "plan_disabled", "authority_unavailable",
+])
+def test_processing_status_and_reasons_round_trip(decision, reason):
+    event = ProcessingDecision(
+        kind="processing.status_observation", decision=decision,
+        observation_kind="current_inspection", reason=reason,
+    )
+    assert TypeAdapter(ExecutionEvent).validate_json(event.model_dump_json()) == event
+    envelope = report(
+        owning_service="processing", operation="job", reason=reason,
+        events=(RecordedEvent(sequence=0, event=event),),
+        captured_event_count=1, displayed_event_count=1,
+    )
+    assert ExecutionReport.model_validate_json(envelope.model_dump_json()) == envelope
+    availability = ReportAvailability(state="redacted", reason=reason)
+    assert ReportAvailability.model_validate_json(availability.model_dump_json()) == availability
+
+
+@pytest.mark.parametrize("updates", [
+    {"decision": "RAW-SECRET-STATE"},
+    {"reason": "RAW-SECRET-REASON"},
+    {"reason": "boundaries_required"},
+    {"kind": "processing.user_supplied"},
+    {"private_visits": 100},
+])
+def test_processing_vocabulary_stays_closed(updates):
+    with pytest.raises(ValidationError):
+        ProcessingDecision(**{
+            "kind": "processing.status_observation", "decision": "queued", **updates,
+        })
+
+
+def test_query_ambiguity_uses_existing_outcome_and_typed_decision():
+    event = QueryDecision(kind="query.resolution", step_id="resolve", state="ambiguous")
+    envelope = report(
+        owning_service="query", operation="execute", outcome="stopped",
+        events=(RecordedEvent(sequence=0, event=event),),
+        captured_event_count=1, displayed_event_count=1,
+    )
+    assert ExecutionReport.model_validate_json(envelope.model_dump_json()) == envelope
+    with pytest.raises(ValidationError):
+        report(outcome="ambiguous")
+
+
+@pytest.mark.parametrize("reason", ["budget_exceeded", "deadline"])
+def test_query_limit_mapping_does_not_disclose_private_work(reason):
+    envelope = report(owning_service="query", operation="execute", outcome="stopped", reason=reason)
+    assert ExecutionReport.model_validate_json(envelope.model_dump_json()) == envelope
+    availability = ReportAvailability(state="redacted", reason=reason)
+    assert ReportAvailability.model_validate_json(availability.model_dump_json()) == availability
+    for value in (envelope, availability):
+        assert "private" not in value.model_dump_json()
+    for private_reason in ("operation_budget", "record_budget", "time_budget"):
+        with pytest.raises(ValidationError):
+            report(reason=private_reason)
