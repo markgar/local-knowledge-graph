@@ -28,6 +28,8 @@ from kg.models.execution import (
 )
 from kg.models.execution_events import EvidenceEvent
 from kg.models.foundation import ContentResult, Scope
+from kg.models.indexing import PassagePage
+from kg.models.indexing_events import IndexPhase
 
 if TYPE_CHECKING:
     from kg.diagnostics._collector import Capture, CaptureUnavailable
@@ -105,6 +107,18 @@ def retain_result(capture: Capture | CaptureUnavailable, result: object) -> None
                 )
             )
         )
+    elif isinstance(result, PassagePage):
+        capture.retain(ReportTargets(values=(DocumentTarget(
+            document_id=result.document_id, revision_id=result.revision_id,
+            state_version=result.state_version,
+        ),)))
+        capture.append(IndexPhase(
+            phase="passage", status="complete" if result.status == "complete" else "not_ready",
+            passage_set_id=result.passage_set_id,
+            reason=None if result.status == "complete" else "not_processed",
+        ))
+        for passage in result.entries:
+            retain_result(capture, passage)
     elif isinstance(result, (AnchorPage, RevisionAnchorPage, StatePage, RevisionPage)):
         capture.retain(ReportTargets(values=(DocumentTarget(document_id=result.document_id),)))
         if isinstance(result, RevisionPage):

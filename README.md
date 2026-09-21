@@ -21,14 +21,21 @@ retrieval-quality gates remain unmet.
 | --- | --- |
 | Generic evidence | `kg.evidence`: atomic supplied-document writes/removal, ordered batches, exact UTF-8 content, scoped history/anchors/citations, durable retry receipts and trusted local policy. |
 | Processing control | `kg.processing`: trusted plan/worker registration, document scheduling/deduplication, fenced claims, heartbeats, bounded status and expired-claim recovery. Claims do not execute or acknowledge work. |
+| Knowledge registry | `kg.knowledge`: trusted immutable corpus schema registration, with typed predicates and an optional dedicated decision descriptor. No knowledge writes or record production yet. |
 | Markdown demonstration | Manifest-selected local Markdown, explicit records, seed entities, structured reads, source context and revision comparison in its separate database. |
 | Demonstration search | Full local keyword + semantic retrieval, fusion/deduplication and reranking; matching vector preparation is required. No keyword-only fallback. |
-| Foundation values | Strict `foundation/1` request/result validation, including independent entity-support attestations and namespaced seed support. Document operations execute through `EvidenceService`; enrichment and generic queries remain validation-only. |
-| Execution diagnostics | Evidence and processing calls retain bounded, authorized in-memory summaries. Named explained wrappers execute once; detailed traces and source quotes require opt-in. |
+| Foundation values | Strict `foundation/1` request/result validation, including independent entity-support attestations and namespaced seed support. Document operations execute through `EvidenceService`; canonical anchor-evidence plans execute through `QueryService`. Other query operations and enrichment remain unimplemented. |
+| Canonical queries | `kg.query.QueryService`: selected plan closure, actual historical anchor reads, spawned deadline supervision, inherited accounting and fresh release authorization. Required resolve/records/count/search/paths and passage evidence are explicitly unsupported. |
+| Execution diagnostics | Evidence, processing and query calls retain bounded, authorized in-memory summaries. Named explained wrappers execute once; detailed traces and source quotes require opt-in. |
 
 There are no live email/Teams connectors, agent-authored graph writes, general
 query planner, continuation service, or source-level ACL/purge service.
 The CLI is a local tool, not an authenticated network service.
+
+For canonical anchor queries, see [the Python example](examples/query_anchor.py)
+and [the executable query contract](CONTRACTS.md#canonical-anchor-queries).
+Use the service as a context manager and guard executable Python entry points
+with `if __name__ == "__main__":` because each execution spawns a fresh worker.
 
 ## Generic evidence service
 
@@ -55,9 +62,14 @@ ordinary scoped read/write/seed operations are not excluded.
 See [execution diagnostics](CONTRACTS.md#execution-diagnostics) for limits,
 quote opt-in and unavailable/redacted results.
 
-The service does not read source files, parse Markdown, generate passages, enrich
-knowledge, index or search. Every new state reports indexing/enrichment **pending**
-with `processor_not_available`. Supplied passage policy is retained intent only.
+The service does not read source files, parse Markdown, enrich knowledge, index
+or search. Every new state reports indexing/enrichment **pending** with
+`processor_not_available`. Intake retains passage policy intent without running
+processing. The private canonical passage kernel supports `codepoint-window/1`
+and `supplied-anchors/1`; it does not expose a public process command.
+`service.passages(scope, document_id, state_version)` reads an immutable published
+set, or explicitly reports `not_processed`. Published passage and generated-anchor
+citations also resolve through ordinary evidence reads, independently of vectors.
 
 Fresh stores use the complete `evidence-store/2` schema and the `evidence/2`
 service interface. Initialization verifies the actual schema and its recorded
@@ -85,6 +97,19 @@ exact source state, then renews/inspects the lease. It does **not** process cont
 or mark indexing ready. See [processing API](CONTRACTS.md#processing-control-api)
 for registration authority, lease/retry limits, and the explicitly absent
 completion/batch/snapshot operations.
+
+## Knowledge schema provisioning example
+
+```bash
+uv run python examples/knowledge_schema.py --database /tmp/knowledge-registry.sqlite3
+```
+
+This self-contained example initializes a fresh store and registers a typed corpus
+schema with provisioned `LocalAdminAuthority`. A repeat is unchanged; a different
+definition/version conflicts. It creates no entities or submitted decisions and
+does not enable enrichment/query capabilities. Trusted schema provisioning has no
+scoped execution report. See the [registry API](CONTRACTS.md#knowledge-registry-api)
+and [storage behavior](SPEC.md#immutable-knowledge-registry).
 
 ## Install
 

@@ -14,7 +14,7 @@ from kg.diagnostics._targets import (
 )
 from kg.evidence._authorization import authorize, authorize_writer
 from kg.evidence._read_context import ObserverReference, ReadSessionId, ReleaseFence
-from kg.evidence._reads import scoped_document, state_row
+from kg.evidence._reads import evidence_location, scoped_document, state_row
 from kg.evidence._sql import AccountedConnection
 from kg.evidence.database import EvidenceDatabase
 from kg.evidence.errors import EvidenceServiceError
@@ -62,41 +62,16 @@ class EvidenceReportAuthorizer:
                 raise EvidenceServiceError("not_found")
         elif isinstance(target, EvidenceTarget):
             reference = target.reference
-            document = scoped_document(connection, scope, reference.document_id)
-            if (
-                reference.corpus_id != scope.corpus_id
-                or document["namespace"] != reference.source_namespace
-            ):
-                raise EvidenceServiceError("not_found")
-            if reference.passage_id is not None:
-                raise EvidenceServiceError("unsupported")
-            row = connection.execute(
-                "SELECT origin_state FROM anchor "
-                "WHERE document_id=? AND revision_id=? AND anchor_id=?",
-                (reference.document_id, reference.revision_id, reference.anchor_id),
-            ).fetchone()
-            if row is None:
-                raise EvidenceServiceError("not_found")
             citation = target.citation
             if citation is not None and citation.reference != reference:
                 raise EvidenceServiceError("not_found")
-            state = state_row(
-                connection,
-                reference.document_id,
-                citation.state_version if citation is not None else row[0],
+            _, state = evidence_location(
+                connection, scope, reference,
+                citation.state_version if citation is not None else None,
             )
             if (
-                state["revision_id"] != reference.revision_id
-                or (
-                    citation is not None
-                    and state["metadata_snapshot_id"] != citation.metadata_snapshot_id
-                )
-                or connection.execute(
-                    "SELECT 1 FROM anchor_set_member "
-                    "WHERE set_id=? AND revision_id=? AND anchor_id=?",
-                    (state["set_id"], reference.revision_id, reference.anchor_id),
-                ).fetchone()
-                is None
+                citation is not None
+                and state["metadata_snapshot_id"] != citation.metadata_snapshot_id
             ):
                 raise EvidenceServiceError("not_found")
         else:

@@ -50,8 +50,6 @@ class TransactionEvidence:
             raise EvidenceServiceError("invalid_request")
         connection = self.context.connection
         authorize(connection, self.context.identity, scope, "write_knowledge")
-        if any(reference.passage_id is not None for reference in references):
-            raise EvidenceServiceError("unsupported")
         for dependency in dependencies:
             doc = scoped_document(connection, scope, dependency.document_id)
             if doc["namespace"] != dependency.source_namespace:
