@@ -20,7 +20,7 @@ retrieval-quality gates remain unmet.
 | Capability | Current behavior |
 | --- | --- |
 | Generic evidence | `kg.evidence`: atomic supplied-document writes/removal, ordered batches, exact UTF-8 content, scoped history/anchors/citations, durable retry receipts and trusted local policy. |
-| Processing control | `kg.processing`: trusted plan/worker registration, document scheduling/deduplication, fenced claims, heartbeats, bounded status and expired-claim recovery. Claims do not execute or acknowledge work. |
+| Processing control | `kg.processing`: trusted plan/worker registration, scheduling/deduplication, fenced claims/heartbeats/failure, bounded recovery, and idempotent retry episodes. Controls do not execute or acknowledge work. |
 | Knowledge registry | `kg.knowledge`: trusted immutable corpus schema registration, with typed predicates and an optional dedicated decision descriptor. No knowledge writes or record production yet. |
 | Markdown demonstration | Manifest-selected local Markdown, explicit records, seed entities, structured reads, source context and revision comparison in its separate database. |
 | Demonstration search | Full local keyword + semantic retrieval, fusion/deduplication and reranking; matching vector preparation is required. No keyword-only fallback. |
@@ -93,7 +93,8 @@ one store, not a destructive rebuild.
 For the Python processing control plane, run
 `uv run python examples/processing_control.py --database /tmp/processing-demo.sqlite3`
 with a fresh path. It provisions one document plan/worker, schedules and claims
-exact source state, then renews/inspects the lease. It does **not** process content
+exact source state, renews the lease and reports an explicit resource-budget
+failure with a persisted retry due time. It does **not** process content
 or mark indexing ready. See [processing API](CONTRACTS.md#processing-control-api)
 for registration authority, lease/retry limits, and the explicitly absent
 completion/batch/snapshot operations.
