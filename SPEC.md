@@ -85,7 +85,25 @@ independently in input order, continuing after unit failures. There is no batch
 rollback, generation/snapshot synchronization or absence-based removal.
 All fresh states report pending indexing/enrichment, with separate stored
 `indexing_reason` and `enrichment_reason` values of `processor_not_available`.
-No indexing/search/readiness setter, passage production or enrichment is exposed.
+No indexing/search/readiness setter, public passage production or enrichment is exposed.
+
+The private `kg.indexing._passages` kernel prepares exact authorized source outside
+the publication lock, then reauthorizes the current active state/writer/policy in an
+owner-held transaction. It publishes a whole immutable passage set or compares an
+existing set exactly; partial membership is never committed. Code-point windows
+are contiguous, disjoint 1,024-character slices without trimming/normalization.
+Supplied-anchor policy preserves overlaps, sorting by start/end/local ID; nonempty
+text without anchors explicitly fails `unsupported` with `boundaries_required`.
+Unknown tokens remain valid intake intent but fail processing; empty text produces
+a completed empty set. Publication does not change indexing/enrichment readiness.
+
+Domain-separated deterministic IDs bind revision, policy definition and ordered
+exact boundaries. Generated anchors occupy a separate origin domain and revision
+inventory, never the owner's supplied set. A state cannot swap published sets.
+Metadata/policy/boundary changes require ordinary new E1 states; metadata-only
+publication can reuse the same canonical set without rewriting its first-publication
+history. Private `prepare`/`publish`/`produce` are kernel seams, not full processing
+or claim/attempt/search implementations.
 
 Current/history/content/citation reads use one authorized SQLite snapshot and a
 fresh policy-version check before release; a concurrent policy change returns
@@ -100,8 +118,52 @@ dependencies and full reference chains on the transaction owner's connection:
 exact revision/state, namespace policy token, current anchor membership and stored
 byte/quote integrity. Validation rejects use after the context exits; returned data
 is not a reusable credential.
-This is the K1 integration boundary, not a graph-write implementation; non-null
-passage references are unsupported. K1 passage mentions require real E3 passages.
+This is the K1 integration boundary, not a graph-write implementation. Passage
+references require real published state/set/passage/anchor membership. Historical
+evidence remains readable, but new support requires the exact current active state.
+Generated anchor-only citations use that state's passage membership; ordinary
+supplied-anchor support is unchanged. Vectors and disposable projections never
+participate in these dependencies.
+
+`EvidenceService.passages` and its explained wrapper expose bounded immutable
+source-order pages and distinguish not_processed from a published empty set.
+Evidence/citation/revision-inventory and diagnostic retained-target checks use the
+same exact membership resolver. Snapshot hydration preflights source, quote and
+metadata lengths before decoding, keeps scratch ownership until snapshot exit,
+and reserves its operation's public event once: direct evidence_reference or
+future search_final_evidence, not both. The latter is only a tested adapter seam,
+not an installed search. Scoped inherited budgets/limited views are never reset.
+
+### Immutable knowledge registry
+
+`kg.knowledge.KnowledgeAdministration` provisions one immutable typed registry per
+existing corpus. Its `knowledge/1` values define allowed entity types, identifier
+schemes and subject/object-typed predicates. The optional string-only
+`direct-subject-decision/1` descriptor is part of immutable configuration identity;
+registration is not record production or a knowledge-write service.
+
+The K1-owned facade uses the existing provisioned `LocalAdminAuthority` and
+canonical `writing` owner. The private kernel requires an active owner context
+whose identity matches that authority and addresses only the supplied corpus.
+Regular `Scope`/`LocalIdentity` values and policy grants are not administrative
+credentials. Trusted bootstrap/provisioning deliberately has no scoped diagnostic
+capture; no administrator namespace grant or audit subsystem is introduced.
+
+Only the existing `knowledge_schema` table is written. Definitions use compact
+canonical JSON with sorted object keys and sorted registry/type collections;
+corpus, schema/interface versions and optional descriptor/nulls are included.
+The stored hash is SHA-256 over those UTF-8 bytes. Repeats validate the persisted
+definition/hash/version and compare full canonical content, not only a digest.
+Equivalent reordered definitions return unchanged without modifying stored bytes;
+any changed definition/version conflicts. Invalid stored state is an explicit
+internal error, never silently repaired.
+
+The owner serializes concurrent registrations with `BEGIN IMMEDIATE`; rollback
+removes an uncommitted registration and reopening retains a committed one.
+Different corpora remain independent. Provisioning adds no contribution, retry
+receipt, seed, state-intent, report or processing-readiness record and performs no
+DDL or migration. See [CONTRACTS.md](CONTRACTS.md#knowledge-registry-api) for exact
+value limits and the delivered API.
 
 ### Private shared execution primitives
 

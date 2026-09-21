@@ -10,6 +10,7 @@ from threading import Event
 
 import pytest
 from support.evidence import environment, put, receipt
+from support.knowledge import schema
 from support.query_workers import (
     die_after_ack,
     false_completion,
@@ -24,6 +25,8 @@ import kg.query.service as query_module
 from kg._execution_budget import Deadline, PrivateBudget
 from kg.diagnostics._collector import Collector
 from kg.diagnostics.service import DiagnosticService
+from kg.indexing._passages import produce
+from kg.knowledge import KnowledgeAdministration
 from kg.models.execution import ExecutionReport, ExplainOptions
 from kg.models.foundation import (
     CountStep,
@@ -429,3 +432,89 @@ def test_python_example_executes_real_canonical_anchor(query, tmp_path):
     value = json.loads(completed.stdout)
     assert value["outcome"]["result"]["outcome"] == "complete"
     assert value["report"]["owning_service"] == "query"
+
+
+def test_delivered_passage_resolver_keeps_query_anchor_only(query):
+    env, service, request = query
+    value = put(env.scope, external="published-passages")
+    value = value.model_copy(
+        update={
+            "payload": value.payload.model_copy(
+                update={
+                    "content": value.payload.content.model_copy(
+                        update={"passage_policy": "supplied-anchors/1"}
+                    ),
+                }
+            )
+        }
+    )
+    saved = receipt(env.service.write(value))
+    produce(
+        env.database,
+        env.service.identity,
+        env.scope,
+        value.attribution,
+        saved.document_id,
+        saved.processing.state_version,
+    )
+    reference = (
+        env.service.passages(
+            env.scope,
+            saved.document_id,
+            saved.processing.state_version,
+        )
+        .entries[0]
+        .reference
+    )
+    assert reference.passage_id is not None
+    assert env.service.evidence(env.scope, reference).quote == value.payload.content.text
+    anchor = reference.model_copy(update={"passage_id": None})
+    direct = request.model_copy(
+        update={
+            "budget": QueryBudget(max_records=1),
+            "steps": (EvidenceStep(operation="evidence", step_id="e", evidence=anchor),),
+        }
+    )
+    explained = service.execute_explained(direct)
+    assert explained.outcome.result.outcome == "complete"
+    assert explained.outcome.result.records_examined == 1
+    assert isinstance(explained.report, ExecutionReport)
+    assert isinstance(
+        service.diagnostics.report(direct.scope, explained.report.report_id),
+        ExecutionReport,
+    )
+    passage = direct.model_copy(
+        update={
+            "steps": (EvidenceStep(operation="evidence", step_id="e", evidence=reference),),
+        }
+    )
+    assert_redacted(service.execute(passage), "unsupported_restriction")
+    assert service.capabilities(env.scope).evidence_kinds == ("anchor",)
+
+
+def test_shared_resolver_scratch_uses_original_supervisor_pool(query, monkeypatch):
+    _, service, request = query
+    original = service._run_worker
+
+    def occupied(observer, step, ledger):
+        with ledger.budget.reserve_scratch(64 << 20, "general"):
+            return original(observer, step, ledger)
+
+    monkeypatch.setattr(service, "_run_worker", occupied)
+    assert_redacted(service.execute(request), "resource_budget")
+    assert service.diagnostics.for_request(request.scope, request.request_id).entries == ()
+
+
+def test_actual_knowledge_registry_commit_invalidates_query_release(query, monkeypatch):
+    env, service, request = query
+    admin = KnowledgeAdministration(env.database, env.admin.authority)
+    original = service._run_worker
+
+    def register(*args):
+        elapsed = original(*args)
+        assert admin.register_knowledge_schema(schema()).status == "applied"
+        return elapsed
+
+    monkeypatch.setattr(service, "_run_worker", register)
+    assert_redacted(service.execute(request), "state_changed")
+    assert service.diagnostics.for_request(request.scope, request.request_id).entries == ()

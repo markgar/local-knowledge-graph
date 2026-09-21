@@ -111,7 +111,7 @@ def test_historical_inventory_citations_and_chain_validation(tmp_path: Path) -> 
         assert error.value.failure.code == "not_found"
     with pytest.raises(EvidenceServiceError) as error:
         env.service.evidence(env.scope, old.reference.model_copy(update={"passage_id": "future"}))
-    assert error.value.failure.code == "unsupported"
+    assert error.value.failure.code == "not_found"
 
 
 def test_content_corruption_fails_without_success_shaped_fallback(tmp_path: Path) -> None:

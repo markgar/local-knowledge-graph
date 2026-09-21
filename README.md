@@ -20,6 +20,7 @@ retrieval-quality gates remain unmet.
 | Capability | Current behavior |
 | --- | --- |
 | Generic evidence | `kg.evidence`: atomic supplied-document writes/removal, ordered batches, exact UTF-8 content, scoped history/anchors/citations, durable retry receipts and trusted local policy. |
+| Knowledge registry | `kg.knowledge`: trusted immutable corpus schema registration, with typed predicates and an optional dedicated decision descriptor. No knowledge writes or record production yet. |
 | Markdown demonstration | Manifest-selected local Markdown, explicit records, seed entities, structured reads, source context and revision comparison in its separate database. |
 | Demonstration search | Full local keyword + semantic retrieval, fusion/deduplication and reranking; matching vector preparation is required. No keyword-only fallback. |
 | Foundation values | Strict `foundation/1` request/result validation, including independent entity-support attestations and namespaced seed support. Document operations execute through `EvidenceService`; canonical anchor-evidence plans execute through `QueryService`. Other query operations and enrichment remain unimplemented. |
@@ -60,9 +61,14 @@ ordinary scoped read/write/seed operations are not excluded.
 See [execution diagnostics](CONTRACTS.md#execution-diagnostics) for limits,
 quote opt-in and unavailable/redacted results.
 
-The service does not read source files, parse Markdown, generate passages, enrich
-knowledge, index or search. Every new state reports indexing/enrichment **pending**
-with `processor_not_available`. Supplied passage policy is retained intent only.
+The service does not read source files, parse Markdown, enrich knowledge, index
+or search. Every new state reports indexing/enrichment **pending** with
+`processor_not_available`. Intake retains passage policy intent without running
+processing. The private canonical passage kernel supports `codepoint-window/1`
+and `supplied-anchors/1`; it does not expose a public process command.
+`service.passages(scope, document_id, state_version)` reads an immutable published
+set, or explicitly reports `not_processed`. Published passage and generated-anchor
+citations also resolve through ordinary evidence reads, independently of vectors.
 
 Fresh stores use the complete `evidence-store/2` schema and the `evidence/2`
 service interface. Initialization verifies the actual schema and its recorded
@@ -79,6 +85,19 @@ performed. Source corpus fixtures and authored evaluation expectations remain
 unchanged. Keep any old inputs/history you need; the service never deletes an
 incompatible file automatically. New evidence IDs survive updates/restores within
 one store, not a destructive rebuild.
+
+## Knowledge schema provisioning example
+
+```bash
+uv run python examples/knowledge_schema.py --database /tmp/knowledge-registry.sqlite3
+```
+
+This self-contained example initializes a fresh store and registers a typed corpus
+schema with provisioned `LocalAdminAuthority`. A repeat is unchanged; a different
+definition/version conflicts. It creates no entities or submitted decisions and
+does not enable enrichment/query capabilities. Trusted schema provisioning has no
+scoped execution report. See the [registry API](CONTRACTS.md#knowledge-registry-api)
+and [storage behavior](SPEC.md#immutable-knowledge-registry).
 
 ## Install
 
