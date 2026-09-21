@@ -6,11 +6,63 @@ enforce ACLs or ownership, execute writes or queries, synchronize sources, proce
 content, implement retries, or retain snapshots/continuations. Declared grants,
 state tokens, receipts and result-set IDs are values, not proof of those services.
 
+The separate `kg.evidence` service now executes document writes and evidence reads
+using these values. That does not turn foundation enrichment/query/synchronization
+descriptions into implemented operations.
+
 See [the models](src/kg/models/foundation.py) for exact fields and defaults,
 [focused tests](tests/test_foundation_contracts.py) for executable checks, and
 [SPEC.md](SPEC.md) for implemented product behavior. Future service obligations
 and delivery planning are tracked in
 [issue #28](https://github.com/markgar/local-knowledge-graph/issues/28), not here.
+
+## Evidence service API
+
+`kg.evidence` exports `EvidenceDatabase(Path)`, `EvidenceAdministration(database,
+LocalAdminAuthority)`, `EvidenceService(database, LocalIdentity)` and
+`EvidenceServiceError`. Administrative/read values live in `kg.models.evidence`;
+top-level service values carry `interface_version="evidence/1"`. Existing
+`foundation/1` write/result shapes are unchanged.
+
+| API | Result / behavior |
+| --- | --- |
+| `database.initialize()` | Initialize empty or verify E1 format; incompatible targets raise `unsupported`. Use a fresh file and resupply sources. |
+| `admin.register(CorpusRegistration)` | Register namespaces, writer bindings and explicit `LocalPolicy`; identical original registration is unchanged and returns the **current** policy version, without restoring old grants. Conflicting registration fails. |
+| `admin.replace_policy(LocalPolicy, expected_policy_version)` | Atomic policy/state rotation; returns version, affected namespaces and changed-document count. |
+| `service.write(WriteRequest)` | `put_document` / `remove_document` -> `WriteOutcome`. `enrich` is rejected as unsupported. |
+| `service.write_batch(WriteBatch)` | Ordered `BatchResult`; complete envelope validation precedes independent unit transactions. |
+| `current(scope, ExternalDocument)` / `document(scope, document_id)` | Current `DocumentView`, including inactive sources and explicit pending processing reason. |
+| `state(scope, document_id, state_version)` | Immutable historical state/metadata context plus latest-state flag. |
+| `history(scope, document_id, *, after_sequence=0, limit=100)` | Ascending `StatePage`, including predecessor, change kind, snapshot and activity. |
+| `revisions(scope, document_id, *, after_sequence=0, limit=100)` | Insertion-ordered `RevisionPage` with exact byte length/hash; restores do not duplicate revisions. |
+| `content(scope, document_id, revision_id)` | `ContentResult(available, text)`; exact empty text is available, corruption is an error. |
+| `anchors(scope, document_id, state_version, *, after_ordinal=0, limit=100)` | `AnchorPage` for that state's immutable set. |
+| `revision_anchors(scope, document_id, revision_id, *, after_ordinal=0, limit=100)` | `RevisionAnchorPage` including former members, complete references and origin citations. |
+| `evidence(scope, EvidenceRef, *, state_version=None)` | Exact quote/range/hash and metadata. Default context is the anchor's creation state; explicit state must contain it. |
+| `citation(scope, StoredCitation)` | Round-trip the exact required reference/state/metadata-snapshot relationship. |
+| `capabilities()` | `EvidenceCapabilities`, not `FoundationCapabilities`: implemented operations, unsupported features and limits. |
+
+All reads need current trusted `read` authority. Writes need `write_documents`
+and an owner/writer/synchronization binding; they do not confer full-text access.
+Attribution is not a credential. Namespace policy changes rotate affected document
+states independently of corpus-wide access-context freshness.
+
+Public inputs are defensively revalidated, including constructed/copied models.
+Invalid envelopes raise `EvidenceServiceError` before mutation; valid failed write
+units return typed outcomes. Read/admin errors raise the same exception, whose
+`.failure` has a code and opaque diagnostic ID, never input-bearing exception text.
+Unexpected exceptions propagate after rollback; they never become success.
+
+Pages accept limits 1..200 and nonnegative cursors. Later appends may appear on
+later pages. Inventory existence is not current support: flags separately report
+current revision, active document and current anchor membership. `is_current_support`
+describes the anchor's eligibility **now**, not validity of an old dependency state.
+K1 must use the private same-transaction validator rather than that informational flag.
+
+See [SPEC.md](SPEC.md#generic-evidence-store) for byte identity, transactions,
+30-day retry/tombstone behavior and clean rebuild policy, and the executable
+[Python example](examples/evidence_intake.py). There is no sync completion, passage,
+enrichment, indexing/search or purge API in this service.
 
 ## Validation and serialization APIs
 
