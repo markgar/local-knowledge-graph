@@ -16,6 +16,7 @@ from kg.models.foundation import (
     ExternalDocument,
     Failure,
     PutDocument,
+    Receipt,
     RemoveDocument,
     WriteOutcome,
     WriteRequest,
@@ -31,7 +32,7 @@ class ReplayMissing:
 class ReplaySuccess:
     key_id: str
     status: Literal["applied", "unchanged"]
-    receipt: DocumentReceipt
+    receipt: Receipt
 
     def outcome(self, request_id: str) -> WriteOutcome:
         return WriteOutcome(request_id=request_id, status=self.status, receipt=self.receipt)
@@ -52,8 +53,10 @@ ReplayResult = ReplayMissing | ReplaySuccess | ReplayExpired | ReplayConflict
 
 def canonical_key(request: WriteRequest) -> CanonicalKey:
     return CanonicalKey(
-        corpus_id=request.scope.corpus_id, writer_id=request.attribution.writer_id,
-        operation=request.payload.operation, retry_key_hash=sha(request.retry_key.encode()),
+        corpus_id=request.scope.corpus_id,
+        writer_id=request.attribution.writer_id,
+        operation=request.payload.operation,
+        retry_key_hash=sha(request.retry_key.encode()),
     )
 
 
@@ -83,8 +86,13 @@ def clock(connection: sqlite3.Connection, supplied: datetime) -> datetime:
 
 
 def replay_only(
-    context: CanonicalWriteContext, identity: LocalIdentity, request: WriteRequest,
-    key_id: str, observed_at: datetime, *, capture: Capture | CaptureUnavailable | None = None,
+    context: CanonicalWriteContext,
+    identity: LocalIdentity,
+    request: WriteRequest,
+    key_id: str,
+    observed_at: datetime,
+    *,
+    capture: Capture | CaptureUnavailable | None = None,
 ) -> ReplayResult:
     connection = context.connection
     if identity != context.identity:
@@ -121,14 +129,27 @@ def replay_only(
         from kg.diagnostics._targets import DocumentTarget, ReportTargets, WriterTarget
 
         with capture.guard():
-            capture.retain(ReportTargets(values=(WriterTarget(
-                document=document, owner_id=request.attribution.owner_id,
-                writer_id=request.attribution.writer_id,
-            ),)))
+            capture.retain(
+                ReportTargets(
+                    values=(
+                        WriterTarget(
+                            document=document,
+                            owner_id=request.attribution.owner_id,
+                            writer_id=request.attribution.writer_id,
+                        ),
+                    )
+                )
+            )
             if response is not None:
-                capture.retain(ReportTargets(values=(DocumentTarget(
-                    document_id=response["document_id"],
-                ),)))
+                capture.retain(
+                    ReportTargets(
+                        values=(
+                            DocumentTarget(
+                                document_id=response["document_id"],
+                            ),
+                        )
+                    )
+                )
     if response is None and not key["expired"]:
         raise EvidenceServiceError("internal_error")
     at = clock(connection, observed_at)
@@ -146,8 +167,11 @@ def replay_only(
 
 
 def save_document(
-    context: CanonicalWriteContext, request: WriteRequest, receipt: DocumentReceipt,
-    status: Literal["applied", "unchanged"], committed_at: datetime,
+    context: CanonicalWriteContext,
+    request: WriteRequest,
+    receipt: DocumentReceipt,
+    status: Literal["applied", "unchanged"],
+    committed_at: datetime,
 ) -> str:
     connection = context.connection
     key_id = token()
@@ -155,9 +179,15 @@ def save_document(
         "INSERT INTO write_key(key_id,corpus_id,writer_id,operation,key_hash,digest,digest_version,"
         "status,committed_at,expires_at,expired) VALUES (?,?,?,?,?,?,?,?,?,?,0)",
         (
-            key_id, request.scope.corpus_id, request.attribution.writer_id,
-            request.payload.operation, sha(request.retry_key.encode()), request_digest(request),
-            "e1-request-digest/1", status, timestamp(committed_at),
+            key_id,
+            request.scope.corpus_id,
+            request.attribution.writer_id,
+            request.payload.operation,
+            sha(request.retry_key.encode()),
+            request_digest(request),
+            "e1-request-digest/1",
+            status,
+            timestamp(committed_at),
             timestamp(committed_at + timedelta(days=30)),
         ),
     )
@@ -169,10 +199,15 @@ def save_document(
         "INSERT INTO write_provenance(key_id,corpus_id,document_id,state_version,attribution_json) "
         "VALUES (?,?,?,?,?)",
         (
-            key_id, request.scope.corpus_id, receipt.document_id,
-            receipt.processing.state_version, request.attribution.model_dump_json(),
+            key_id,
+            request.scope.corpus_id,
+            receipt.document_id,
+            receipt.processing.state_version,
+            request.attribution.model_dump_json(),
         ),
     )
     return key_id
+
+
 if TYPE_CHECKING:
     from kg.diagnostics._collector import Capture, CaptureUnavailable

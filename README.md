@@ -21,14 +21,14 @@ retrieval-quality gates remain unmet.
 | --- | --- |
 | Generic evidence | `kg.evidence`: atomic supplied-document writes/removal, ordered batches, exact UTF-8 content, scoped history/anchors/citations, durable retry receipts and trusted local policy. |
 | Processing control | `kg.processing`: trusted plan/worker registration, document scheduling/deduplication, fenced claims, heartbeats, bounded status and expired-claim recovery. Claims do not execute or acknowledge work. |
-| Knowledge registry | `kg.knowledge`: trusted immutable corpus schema registration, with typed predicates and an optional dedicated decision descriptor. No knowledge writes or record production yet. |
+| Owned knowledge | Atomic anchor-backed entities, independent entity support, aliases, identifiers and typed assertions through `EvidenceService.write`; `KnowledgeService` current/history reads and immutable schema registration. Explicit decision assertions produce distinct submitted records. |
 | Markdown demonstration | Manifest-selected local Markdown, explicit records, seed entities, structured reads, source context and revision comparison in its separate database. |
 | Demonstration search | Full local keyword + semantic retrieval, fusion/deduplication and reranking; matching vector preparation is required. No keyword-only fallback. |
-| Foundation values | Strict `foundation/1` request/result validation, including independent entity-support attestations and namespaced seed support. Document operations execute through `EvidenceService`; canonical anchor-evidence plans execute through `QueryService`. Other query operations and enrichment remain unimplemented. |
+| Foundation values | Strict `foundation/1` request/result validation. Document and bounded enrichment operations execute through `EvidenceService`; canonical anchor-evidence plans execute through `QueryService`. Enrichment does not implement mentions or whole-set seed replacement. |
 | Canonical queries | `kg.query.QueryService`: selected plan closure, actual historical anchor reads, spawned deadline supervision, inherited accounting and fresh release authorization. Required resolve/records/count/search/paths and passage evidence are explicitly unsupported. |
 | Execution diagnostics | Evidence, processing and query calls retain bounded, authorized in-memory summaries. Named explained wrappers execute once; detailed traces and source quotes require opt-in. |
 
-There are no live email/Teams connectors, agent-authored graph writes, general
+There are no live email/Teams connectors, inference/extraction providers, general
 query planner, continuation service, or source-level ACL/purge service.
 The CLI is a local tool, not an authenticated network service.
 
@@ -62,8 +62,9 @@ ordinary scoped read/write/seed operations are not excluded.
 See [execution diagnostics](CONTRACTS.md#execution-diagnostics) for limits,
 quote opt-in and unavailable/redacted results.
 
-The service does not read source files, parse Markdown, enrich knowledge, index
-or search. Every new state reports indexing/enrichment **pending** with
+The service does not read source files, parse Markdown, infer knowledge, index
+or search. Submitted enrichment does not mark a source fully processed.
+Every new state reports indexing/enrichment **pending** with
 `processor_not_available`. Intake retains passage policy intent without running
 processing. The private canonical passage kernel supports `codepoint-window/1`
 and `supplied-anchors/1`; it does not expose a public process command.
@@ -110,6 +111,16 @@ definition/version conflicts. It creates no entities or submitted decisions and
 does not enable enrichment/query capabilities. Trusted schema provisioning has no
 scoped execution report. See the [registry API](CONTRACTS.md#knowledge-registry-api)
 and [storage behavior](SPEC.md#immutable-knowledge-registry).
+
+For real source-backed enrichment, run
+`uv run python examples/knowledge_enrichment.py --database /tmp/knowledge-demo.sqlite3`.
+It discovers an actual supplied anchor, atomically submits an entity and explicit
+decision, and reads the assertion's immutable provenance. Repeating it replays the
+same durable IDs. Typed predicates and decision encoding come from the registered
+schema, not language inference. Current/history reads and ordinary scoped write
+reports are available; passage-backed contributions, whole-set seed replacement,
+corrections, traversal and public decision queries remain unsupported.
+See [knowledge service contracts](CONTRACTS.md#knowledge-enrichment-and-reads).
 
 ## Install
 

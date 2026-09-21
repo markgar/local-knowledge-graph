@@ -4,7 +4,8 @@ from typing import Literal, Self
 
 from pydantic import Field, model_validator
 
-from kg.models.foundation import Name, Token, Value
+from kg.knowledge._selection import CapturedEvidence, EntityWitness
+from kg.models.foundation import Attribution, Change, Label, Name, Token, Value
 
 
 class KnowledgeValue(Value):
@@ -63,3 +64,45 @@ class KnowledgeSchemaRegistration(KnowledgeValue):
     corpus_id: Token
     schema_version: Token
     status: Literal["applied", "unchanged"]
+
+
+class KnowledgeCapabilities(KnowledgeValue):
+    change_kinds: tuple[str, ...] = ("entity", "entity_support", "alias", "identifier", "assertion")
+    support: Literal["anchors_and_seed_add"] = "anchors_and_seed_add"
+    reads: tuple[str, ...] = ("entity", "entities", "contribution", "contributions")
+    unsupported: tuple[str, ...] = (
+        "mention",
+        "passage_support",
+        "replace_seed_set",
+        "retraction",
+        "traversal",
+    )
+    decision_encoding: Literal["direct-subject-decision/1"] | None
+
+
+class EntityView(KnowledgeValue):
+    entity_id: Token
+    name: Label
+    entity_type: Name
+    sequence: int = Field(ge=1)
+    is_current: bool
+    witness: EntityWitness
+    has_more_support: bool
+
+
+class ContributionView(KnowledgeValue):
+    contribution_id: Token
+    sequence: int = Field(ge=1)
+    schema_version: Token
+    attribution: Attribution
+    committed_at: str
+    payload: Change
+    evidence: tuple[CapturedEvidence, ...] = Field(max_length=200)
+    is_current: bool
+    witnesses: tuple[EntityWitness, ...] = Field(max_length=2)
+
+
+class KnowledgePage[T](KnowledgeValue):
+    entries: tuple[T, ...] = Field(max_length=200)
+    has_more: bool
+    next_after_sequence: int | None = Field(default=None, ge=1)
