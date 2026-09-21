@@ -3,12 +3,15 @@ from __future__ import annotations
 import sqlite3
 
 from kg.evidence import _store
+from kg.evidence._transactions import writing
 from kg.evidence._values import canonical, now, token, validated
 from kg.evidence.database import EvidenceDatabase
 from kg.evidence.errors import EvidenceServiceError
 from kg.models.evidence import (
     CorpusRegistration,
+    KnowledgeWriterBinding,
     LocalAdminAuthority,
+    LocalIdentity,
     LocalPolicy,
     PolicyChangeResult,
     PolicyGrant,
@@ -25,6 +28,14 @@ def _policy_value(policy: LocalPolicy, namespace: str | None = None) -> str:
                 (
                     item.model_dump(mode="json")
                     for item in policy.bindings
+                    if namespace is None or item.namespace == namespace
+                ),
+                key=canonical,
+            ),
+            "knowledge_bindings": sorted(
+                (
+                    item.model_dump(mode="json")
+                    for item in policy.knowledge_bindings
                     if namespace is None or item.namespace == namespace
                 ),
                 key=canonical,
@@ -64,12 +75,34 @@ def _read_policy(connection: sqlite3.Connection, corpus_id: str) -> LocalPolicy:
         )
         for row in connection.execute("SELECT * FROM policy_grant WHERE corpus_id=?", (corpus_id,))
     )
-    return LocalPolicy(corpus_id=corpus_id, bindings=bindings, grants=grants)
+    knowledge_bindings = tuple(
+        KnowledgeWriterBinding(
+            namespace=row["namespace"], principal_id=row["principal_id"],
+            owner_id=row["owner_id"], writer_id=row["writer_id"],
+        )
+        for row in connection.execute(
+            "SELECT * FROM knowledge_writer_binding WHERE corpus_id=?", (corpus_id,)
+        )
+    )
+    return LocalPolicy(
+        corpus_id=corpus_id, bindings=bindings,
+        knowledge_bindings=knowledge_bindings, grants=grants,
+    )
 
 
 def _write_policy(connection: sqlite3.Connection, policy: LocalPolicy) -> None:
     connection.execute("DELETE FROM policy_grant WHERE corpus_id=?", (policy.corpus_id,))
     connection.execute("DELETE FROM writer_binding WHERE corpus_id=?", (policy.corpus_id,))
+    connection.execute(
+        "DELETE FROM knowledge_writer_binding WHERE corpus_id=?", (policy.corpus_id,),
+    )
+    connection.executemany(
+        "INSERT INTO knowledge_writer_binding VALUES (?,?,?,?,?)",
+        [
+            (policy.corpus_id, b.namespace, b.principal_id, b.owner_id, b.writer_id)
+            for b in policy.knowledge_bindings
+        ],
+    )
     connection.executemany(
         "INSERT INTO writer_binding VALUES (?,?,?,?,?)",
         [
@@ -107,7 +140,9 @@ class EvidenceAdministration:
                 "policy": _policy_value(registration.policy),
             }
         )
-        with self.database.transaction() as connection:
+        identity = LocalIdentity(principal_id=self.authority.principal_id)
+        with writing(self.database, identity) as context:
+            connection = context.connection
             existing = connection.execute(
                 "SELECT * FROM corpus WHERE corpus_id=?", (registration.corpus_id,)
             ).fetchone()
@@ -148,7 +183,9 @@ class EvidenceAdministration:
         expected_policy_version: str,
     ) -> PolicyChangeResult:
         policy = validated(LocalPolicy, policy)
-        with self.database.transaction() as connection:
+        identity = LocalIdentity(principal_id=self.authority.principal_id)
+        with writing(self.database, identity) as context:
+            connection = context.connection
             corpus = connection.execute(
                 "SELECT * FROM corpus WHERE corpus_id=?", (policy.corpus_id,)
             ).fetchone()
@@ -163,7 +200,10 @@ class EvidenceAdministration:
                     (policy.corpus_id,),
                 )
             }
-            if any(item.namespace not in namespaces for item in policy.bindings) or any(
+            entries: tuple[WriterBinding | KnowledgeWriterBinding, ...] = (
+                *policy.bindings, *policy.knowledge_bindings,
+            )
+            if any(item.namespace not in namespaces for item in entries) or any(
                 item.namespace not in namespaces for item in policy.grants
             ):
                 raise EvidenceServiceError("invalid_request")
@@ -197,7 +237,7 @@ class EvidenceAdministration:
                     for doc in documents:
                         old = _store.head(connection, doc[0])
                         _store.add_state(
-                            connection,
+                            context,
                             document_id=doc[0],
                             revision_id=old["revision_id"],
                             set_id=old["set_id"],

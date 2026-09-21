@@ -154,7 +154,13 @@ def evidence_view(
         or sha(anchor["quote"].encode()) != anchor["quote_hash"]
     ):
         raise EvidenceServiceError("internal_error")
-    current = _store.head(connection, reference.document_id)
+    current = connection.execute(
+        "SELECT s.revision_id,s.source,s.set_id FROM document d "
+        "JOIN document_state s ON s.document_id=d.document_id AND s.state_version=d.current_state "
+        "WHERE d.document_id=?", (reference.document_id,),
+    ).fetchone()
+    if current is None:
+        raise EvidenceServiceError("internal_error")
     current_member = (
         connection.execute(
             "SELECT 1 FROM anchor_set_member WHERE set_id=? AND anchor_id=?",

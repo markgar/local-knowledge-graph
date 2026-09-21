@@ -34,8 +34,7 @@ class TransactionEvidence:
         dependencies: tuple[DocumentDependency, ...],
         references: tuple[EvidenceRef, ...],
     ) -> tuple[ValidatedSupport, ...]:
-        if not self.context.active:
-            raise EvidenceServiceError("invalid_request")
+        self.context.check_active()
         scope = validated(Scope, scope)
         if (
             type(dependencies) is not tuple

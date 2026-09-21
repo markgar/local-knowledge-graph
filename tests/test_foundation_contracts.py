@@ -156,7 +156,10 @@ def test_seed_support_requires_explicit_grant_and_no_dependencies() -> None:
     request["payload"]["dependencies"] = []
     request["payload"]["changes"] = [{
         "kind": "entity", "local_id": "seed", "name": "Sam", "entity_type": "person",
-        "support": {"kind": "seed", "seed_key": "manifest:1"},
+        "support": {
+            "kind": "seed", "source_namespace": "email",
+            "seed_set_id": "manifest", "seed_key": "manifest:1",
+        },
     }]
     with pytest.raises(ValidationError, match="seed grant"):
         parse_request(request)

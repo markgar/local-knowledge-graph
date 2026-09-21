@@ -343,7 +343,7 @@ def test_fault_rolls_back_content_state_and_receipt(tmp_path: Path, monkeypatch)
     def broken(*args, **kwargs):
         raise sqlite3.OperationalError("source text must not appear in logs")
 
-    monkeypatch.setattr(_receipts, "save", broken)
+    monkeypatch.setattr(_receipts, "save_document", broken)
     result = env.service.write(put(env.scope))
     assert result.status == "failed" and result.error.code == "internal_error"
     with env.database.connection() as connection:

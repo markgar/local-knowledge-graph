@@ -22,7 +22,8 @@ and delivery planning are tracked in
 LocalAdminAuthority)`, `EvidenceService(database, LocalIdentity)` and
 `EvidenceServiceError`. Administrative/read values live in `kg.models.evidence`;
 top-level service values carry `interface_version="evidence/2"`. Existing
-`foundation/1` write/result shapes are unchanged.
+`foundation/1` document write/result shapes are unchanged. The pre-release
+enrichment values include independent entity support and explicitly namespaced seeds.
 
 | API | Result / behavior |
 | --- | --- |
@@ -46,6 +47,13 @@ All reads need current trusted `read` authority. Writes need `write_documents`
 and an owner/writer/synchronization binding; they do not confer full-text access.
 Attribution is not a credential. Namespace policy changes rotate affected document
 states independently of corpus-wide access-context freshness.
+
+`LocalPolicy.knowledge_bindings` defaults to `()` and contains strict
+`KnowledgeWriterBinding(namespace, principal_id, owner_id, writer_id)` values.
+Registration, canonical policy equality, persistence and replacement include these
+bindings. Changing one rotates only the affected namespace's token/document states,
+as well as corpus policy freshness. A binding does not grant knowledge/seed access
+by itself or install a knowledge service.
 
 The pre-release `evidence/2` representation replaces `processing_reason` with
 stored indexing and enrichment reasons; both currently report
@@ -179,15 +187,21 @@ namespace included in `scope.access.namespaces`. Enrichment requires
 and a declared namespace. Any seed-supported change additionally requires `seed`.
 These are checks of caller-supplied values, not authorization.
 
-Enrichment change kinds are `entity`, `alias`, `identifier`, `mention` and
+Enrichment change kinds are `entity`, `entity_support`, `alias`, `identifier`, `mention` and
 `assertion`. Each has a unique change-set `local_id`. Entity references use
 `{"kind": "local", "local_id": "..."}` or
 `{"kind": "stored", "entity_id": "..."}`. Local references must name an
 entity-creation change in the same set; forward references are valid.
 
-- Entities, aliases and identifiers accept either `SourceSupport` (an evidence
-  tuple) or `SeedSupport` (a seed key). Mentions and assertions require source
+- Entities, entity-support attestations, aliases and identifiers accept either
+  `SourceSupport` (an evidence tuple) or `SeedSupport` (required `source_namespace`,
+  `seed_set_id` and `seed_key`). The seed namespace must be declared in the request.
+  Mentions and assertions require source
   support. Every mention evidence reference must have a non-null passage ID.
+- `AddEntitySupport` requires a stored entity reference, name, entity type, local ID
+  and support. It represents an independent creation-support attestation, not an
+  alias or merge; only an `entity` creation may be a local-reference target.
+  Validation does not check the stored entity's existence or name/type equality.
 - Assertions have a subject, syntactically validated predicate, `explicit` or
   `inferred` interpretation and a typed object. Object kinds are `entity`,
   `string`, `integer`, `boolean`, `timestamp`; strings use `Label` and timestamps
@@ -202,6 +216,9 @@ entity-creation change in the same set; forward references are valid.
 Attribution belongs to the request, not each change. Validation does not check
 stored entity existence, evidence relationships in a database, ownership,
 semantic support, precondition freshness or retry-key reuse.
+The [entity-support fixture](corpora/foundation/entity-support.json) and
+[validation example](examples/foundation_values.py) demonstrate the amended values,
+not executable enrichment.
 
 ## Write outcomes, errors and correlation
 

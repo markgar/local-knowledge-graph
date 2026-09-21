@@ -244,6 +244,8 @@ class SourceSupport(Value):
 
 class SeedSupport(Value):
     kind: Literal["seed"]
+    source_namespace: Token
+    seed_set_id: Token
     seed_key: Token
 
 
@@ -253,6 +255,15 @@ Support = Annotated[SourceSupport | SeedSupport, Field(discriminator="kind")]
 class CreateEntity(Value):
     kind: Literal["entity"]
     local_id: Token
+    name: Label
+    entity_type: Name
+    support: Support
+
+
+class AddEntitySupport(Value):
+    kind: Literal["entity_support"]
+    local_id: Token
+    entity: StoredEntity
     name: Label
     entity_type: Name
     support: Support
@@ -330,7 +341,7 @@ class AddAssertion(Value):
 
 
 Change = Annotated[
-    CreateEntity | AddAlias | AddIdentifier | AddMention | AddAssertion,
+    CreateEntity | AddEntitySupport | AddAlias | AddIdentifier | AddMention | AddAssertion,
     Field(discriminator="kind"),
 ]
 
@@ -398,6 +409,8 @@ class WriteRequest(Versioned):
                 if isinstance(change.support, SeedSupport):
                     if "seed" not in access.grants:
                         raise ValueError("seed grant required")
+                    if change.support.source_namespace not in access.namespaces:
+                        raise ValueError("seed outside declared namespaces")
                 else:
                     for ref in change.support.evidence:
                         if ref.corpus_id != self.scope.corpus_id:
