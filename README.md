@@ -20,6 +20,7 @@ retrieval-quality gates remain unmet.
 | Capability | Current behavior |
 | --- | --- |
 | Generic evidence | `kg.evidence`: atomic supplied-document writes/removal, ordered batches, exact UTF-8 content, scoped history/anchors/citations, durable retry receipts and trusted local policy. |
+| Standalone indexing | `kg.indexing.IndexService`: immutable passages, fenced attempts, actual pinned-provider vector projections, incremental reuse/rebuild, model-free readiness and bounded cleanup. No canonical search or coordinated job execution. |
 | Processing control | `kg.processing`: trusted plan/worker registration, document scheduling/deduplication, fenced claims, heartbeats, bounded status and expired-claim recovery. Claims do not execute or acknowledge work. |
 | Knowledge registry | `kg.knowledge`: trusted immutable corpus schema registration, with typed predicates and an optional dedicated decision descriptor. No knowledge writes or record production yet. |
 | Markdown demonstration | Manifest-selected local Markdown, explicit records, seed entities, structured reads, source context and revision comparison in its separate database. |
@@ -63,13 +64,22 @@ See [execution diagnostics](CONTRACTS.md#execution-diagnostics) for limits,
 quote opt-in and unavailable/redacted results.
 
 The service does not read source files, parse Markdown, enrich knowledge, index
-or search. Every new state reports indexing/enrichment **pending** with
+or search. Every new state initially reports indexing/enrichment **pending** with
 `processor_not_available`. Intake retains passage policy intent without running
 processing. The private canonical passage kernel supports `codepoint-window/1`
-and `supplied-anchors/1`; it does not expose a public process command.
+and `supplied-anchors/1`. The separate `IndexService.process` runs the standalone
+index lifecycle; it is not an E4 worker or a CLI command.
 `service.passages(scope, document_id, state_version)` reads an immutable published
 set, or explicitly reports `not_processed`. Published passage and generated-anchor
 citations also resolve through ordinary evidence reads, independently of vectors.
+
+For an existing supplied document, see [the indexing example](examples/indexing_lifecycle.py)
+and [standalone indexing contract](CONTRACTS.md#standalone-indexing-api).
+Processing initializes the configured local embedding model even when checking an
+unchanged projection or processing an empty document. Prepare only approved model
+caches; there is no lexical fallback. `status` and `pending` do not load models:
+ready means durable completeness, with provider compatibility explicitly unverified.
+Indexing does not change enrichment or invalidate knowledge when rebuilding vectors.
 
 Fresh stores use the complete `evidence-store/2` schema and the `evidence/2`
 service interface. Initialization verifies the actual schema and its recorded

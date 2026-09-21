@@ -57,8 +57,10 @@ as well as corpus policy freshness. A binding does not grant knowledge/seed acce
 by itself or install a knowledge service.
 
 The pre-release `evidence/2` representation replaces `processing_reason` with
-stored indexing and enrichment reasons; both currently report
-`processor_not_available`. There is no compatibility alias or migration from
+separate indexing and enrichment reasons; fresh states report
+`processor_not_available`. Current default indexing readiness reflects the actual
+projection and source/namespace state; historical completion remains historical.
+There is no compatibility alias or migration from
 `evidence-store/1`. Reserved schema tables do not add public knowledge, indexing,
 query APIs, nor change EvidenceService's unsupported capability list. The separate
 processing control API below uses the reserved job tables.
@@ -91,6 +93,65 @@ Neither requires vector readiness. Same-transaction support still requires an
 exact active dependency state and namespace token, not merely this read-time flag.
 The private producer is not a public API; intake capability `passage_policy`
 remains `retained_intent_only`.
+
+## Standalone indexing API
+
+`kg.indexing.IndexService(database, identity)` executes the `indexing/1` standalone
+lifecycle on the canonical evidence store. It does not execute processing claims,
+acknowledge jobs, expose full search or interpret/enrich knowledge. The existing
+typed coordinated participant contract is retained but its entry point fails
+`unsupported`: no fake participant constitutes E4 integration.
+
+| Call | Executed behavior |
+| --- | --- |
+| `process(scope, attribution, document_id, expected_state, configuration=DEFAULT_CONFIGURATION, *, mode="incremental")` | Requires read and exact bound document-writer authority. Admits a monotonic attempt fence, publishes immutable passages, initializes the pinned embedding provider, stages exact quote lexical input and normalized vectors, then atomically publishes a complete projection. `rebuild` recomputes every vector. |
+| `status(scope, document_id, configuration=DEFAULT_CONFIGURATION)` | Verifies current source, policy, configuration, immutable set, projection membership, representation/vector hashes, dimensions and finite normalization. Reports pending/ready/failed/inactive plus latest attempt independently; never loads a provider. |
+| `pending(scope, configuration=DEFAULT_CONFIGURATION, *, after_document_id=None, limit=100)` | Bounded keyset scan of up to 1..200 active scoped documents. Returns incomplete entries; ready documents can make a page empty. Follow the returned cursor while `has_more`, not the last returned entry. No retained snapshot across pages. |
+| `cleanup(scope, attribution, document_id, configuration=DEFAULT_CONFIGURATION, *, limit=1000)` | Reauthorizes read/writer ownership, retires provably stale attempts, and removes at most 1..1000 obsolete derived rows. Preserves canonical evidence, active projection and live staging. Reports `removed` and `has_more`. |
+
+Each call has a named `_explained` wrapper with keyword `options=ExplainOptions()`.
+Ordinary calls also retain bounded actual-execution summaries when admitted by the
+shared collector, available through `service.diagnostics`. Detailed events report
+only observed phases and reuse/publication facts; no additional inference runs.
+Source text is absent from these lifecycle reports, including detailed reports.
+
+`IndexConfiguration` defaults to pinned `gte-modernbert`, noncontextual exact
+quotes, `generic-lexical/1` and `generic-dense-dot/1`. The alternative profile is
+`qwen3-embedding-0.6b`. Contextual configuration requires both `contextual=True`
+and `representation="generic-title-quote/1"`; its exact input is title, two LF
+characters, then untouched quote. Lexical input is always the exact quote.
+The full descriptor determines `configuration_id`; initialized runtime/device/dtype
+and encoding identity are separately retained. Unknown or forged configurations
+are rejected, not silently downgraded.
+
+`ProcessResult` distinguishes `ready`, `unchanged`, `stale` and `failed`, with exact
+state/configuration/attempt IDs, successful set/projection IDs, observed produced/
+reused counts, safe failure reason and bounded-cleanup status. Provider failure
+can coexist with an older valid complete projection; status reports that projection
+ready and the later failed attempt separately. Incremental unchanged still loads
+the provider and verifies its actual identity and complete stored projection.
+Wrong count/dimension, nonfinite or zero-norm vectors never become ready.
+
+Only the default configuration updates the evidence default indexing summary.
+Alternate configurations do not mark that summary ready; enrichment remains
+independent. Saved evidence receipts remain original write-time observations.
+Rebuilds and cleanup do not rotate source states, passage identities or knowledge
+dependencies. Canonical passages committed before provider failure remain readable.
+
+Every invocation shares one private 30-second deadline and the existing 100,000
+visit, 10-million SQL instruction and 64-MiB logical scratch allowances. No stage
+gets a fresh pool. Provider batches use at most eight sequences (below the
+32-passage process ceiling), at most 8,192 conservatively preflighted padded
+UTF-8-byte positions including special-token allowance, and 16 MiB provider scratch.
+An oversized single representation fails `budget_exceeded`; it is not cropped,
+split into different model inputs or silently skipped. Host model memory is extra.
+Native provider calls are not preemptible; late output is discarded on return.
+Unexpected errors propagate after rollback; failure-status persistence errors
+also propagate rather than pretending a failure was durably recorded.
+
+Routine controlled-provider tests establish lifecycle behavior, not real-model
+quality, memory or workload acceptance. See [the Python example](examples/indexing_lifecycle.py)
+for an actual provider invocation using an existing trusted supplied document.
 
 ## Knowledge registry API
 

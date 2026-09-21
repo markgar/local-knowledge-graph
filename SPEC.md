@@ -85,7 +85,8 @@ independently in input order, continuing after unit failures. There is no batch
 rollback, generation/snapshot synchronization or absence-based removal.
 All fresh states report pending indexing/enrichment, with separate stored
 `indexing_reason` and `enrichment_reason` values of `processor_not_available`.
-No indexing/search/readiness setter, public passage production or enrichment is exposed.
+EvidenceService has no indexing/search/readiness setter or enrichment operation.
+The separate IndexService owns standalone processing and default index readiness.
 
 The private `kg.indexing._passages` kernel prepares exact authorized source outside
 the publication lock, then reauthorizes the current active state/writer/policy in an
@@ -133,6 +134,46 @@ metadata lengths before decoding, keeps scratch ownership until snapshot exit,
 and reserves its operation's public event once: direct evidence_reference or
 future search_final_evidence, not both. The latter is only a tested adapter seam,
 not an installed search. Scoped inherited budgets/limited views are never reset.
+
+### Standalone canonical indexing
+
+`kg.indexing.IndexService` executes document-sized incremental/rebuild units.
+One logical configuration binds fixed embedding model pins, dimensions, exact
+representation, lexical and dense-scoring versions. Each initialized provider
+supplies its separate runtime/encoding identity. Durable status is explicitly
+`provider_compatibility="unverified"`; status/pending do not initialize models.
+Full canonical search and coordinated E4 completion remain unsupported.
+
+Admission advances the document/configuration slot's persistent fence and retires
+an unfinished predecessor. Obsolete payload drains in transactions deleting at
+most 1,000 derived rows before replacement staging starts. Each durable phase
+rechecks exact writer/scope, current active source state and namespace token, plus
+the latest nonterminal attempt. Models run outside write locks. Superseded workers
+cannot regrow staging or overwrite a newer result, including through failure writes.
+
+The passage kernel publishes one immutable state/set association before vector
+work. Projection members contain quote-only lexical input, exact representation
+hashes and finite L2-normalized little-endian float32 vectors. Publication verifies
+the complete manifest and atomically installs all rows and the active pointer,
+completes the attempt and updates default indexing readiness. No partial stage is
+search-ready. Empty membership is complete only after actual passage publication,
+provider initialization/identity validation and projection publication.
+
+Incremental reuse is document-local and requires identical passage identity,
+representation bytes/hash and full provider identity with vector integrity checks.
+Metadata-only noncontextual changes can reuse vectors but require a new state-bound
+projection. Rebuild recomputes vectors without rewriting canonical evidence or
+knowledge dependencies. Repeated incremental processing verifies a matching complete
+projection before returning unchanged. Crashed staging is discarded by a new fenced
+attempt; inference never resumes from a fake checkpoint.
+
+Cleanup is separately authorized, preserves active projections/live staging and
+canonical history, and retains at most 100 payload-free terminal summaries after
+draining. The fence counter survives pruning. Interrupted postpublication cleanup
+can leave `cleanup_pending`; explicit bounded cleanup converges without treating
+physical disk/WAL reclamation as complete. Historical citations continue to resolve
+after projection removal. All process/read/cleanup paths inherit their invocation's
+single private budget and deadline; exhaustion is explicit, not partial readiness.
 
 ### Immutable knowledge registry
 
