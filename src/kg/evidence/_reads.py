@@ -59,7 +59,8 @@ def scoped_document(connection: sqlite3.Connection, scope: Scope, doc: str) -> s
 
 def state_row(connection: sqlite3.Connection, doc: str, state: str) -> sqlite3.Row:
     row = connection.execute(
-        "SELECT s.*, m.metadata_json, p.indexing, p.enrichment FROM document_state s "
+        "SELECT s.*, m.metadata_json, p.indexing, p.enrichment, p.indexing_reason, "
+        "p.enrichment_reason FROM document_state s "
         "JOIN metadata_snapshot m ON m.snapshot_id=s.metadata_snapshot_id "
         "JOIN processing_state p ON p.state_version=s.state_version "
         "WHERE s.document_id=? AND s.state_version=?",
@@ -108,6 +109,8 @@ def document_view(connection: sqlite3.Connection, doc: sqlite3.Row, state: str) 
         anchor_set_id=row["set_id"],
         passage_policy=row["passage_policy"],
         is_latest_state=state == doc["current_state"],
+        indexing_reason=row["indexing_reason"],
+        enrichment_reason=row["enrichment_reason"],
     )
 
 

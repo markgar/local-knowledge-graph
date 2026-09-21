@@ -20,7 +20,7 @@ Grant = Literal["read", "write_documents", "write_knowledge", "seed"]
 
 
 class EvidenceValue(Value):
-    interface_version: Literal["evidence/1"] = "evidence/1"
+    interface_version: Literal["evidence/2"] = "evidence/2"
 
 
 class LocalIdentity(Value):
@@ -128,7 +128,12 @@ class DocumentView(EvidenceValue):
     anchor_set_id: Token
     passage_policy: Token
     is_latest_state: bool
-    processing_reason: Literal["processor_not_available"] = "processor_not_available"
+    indexing_reason: Literal[
+        "processor_not_available", "not_processed", "unsupported_policy",
+        "provider_unavailable", "invalid_provider_output", "state_changed",
+        "storage_failure", "superseded_attempt", "claim_lost", "inactive", "ready",
+    ]
+    enrichment_reason: Literal["processor_not_available"]
 
 
 class StatePage(EvidenceValue):

@@ -45,6 +45,12 @@ and [storage semantics](SPEC.md#generic-evidence-store).
 The service does not read source files, parse Markdown, generate passages, enrich
 knowledge, index or search. Every new state reports indexing/enrichment **pending**
 with `processor_not_available`. Supplied passage policy is retained intent only.
+
+Fresh stores use the complete `evidence-store/2` schema and the `evidence/2`
+service interface. Initialization verifies the actual schema and its recorded
+manifest, not just a version marker. Older or altered stores are refused without
+repair: use a fresh path and resupply sources. Reserved knowledge, indexing and
+processing tables do not enable those services.
 There is no snapshot-completion or purge API; omitted batch documents stay active.
 The existing CLI and search pipeline below operate on the Markdown demonstration,
 not on `EvidenceDatabase`.
@@ -397,7 +403,7 @@ Authored fixtures, reviewed gold, citations and component assertions are preserv
 | Document | Purpose |
 | --- | --- |
 | [SPEC.md](SPEC.md) | Implemented ingestion, retrieval, evidence, CLI and validation contracts. |
-| [CONTRACTS.md](CONTRACTS.md) | Foundation values, validation limits, serialization and the `evidence/1` service API. |
+| [CONTRACTS.md](CONTRACTS.md) | Foundation values, validation limits, serialization and the `evidence/2` service API. |
 | [CONTRIBUTING.md](CONTRIBUTING.md) | Development layout, validation and contribution rules. |
 
 Planned work, implementation designs and delivery progress live in the

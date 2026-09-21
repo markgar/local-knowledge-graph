@@ -201,7 +201,7 @@ def test_initializers_contend_after_empty_admission(
         names = {row[0] for row in connection.execute("SELECT name FROM sqlite_master")}
         if winner == "evidence":
             assert application == 0x4B474531
-            assert connection.execute("PRAGMA user_version").fetchone()[0] == 1
+            assert connection.execute("PRAGMA user_version").fetchone()[0] == 2
             assert "revision" in names and "dense_projection" not in names
             assert "source_document" not in names
         else:

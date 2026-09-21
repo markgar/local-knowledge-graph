@@ -3,7 +3,6 @@ from __future__ import annotations
 import sqlite3
 from collections.abc import Iterator
 from contextlib import contextmanager
-from importlib import resources
 from pathlib import Path
 
 from pydantic import ValidationError
@@ -12,31 +11,11 @@ from kg._sqlite import (
     EVIDENCE_APPLICATION_ID,
     enable_wal,
     execute_schema,
-    has_user_schema,
-    read_snapshot,
-    tables,
     write_transaction,
 )
+from kg.evidence._format import USER_VERSION, install_manifest, schema_sql
+from kg.evidence._format import check as _check
 from kg.evidence.errors import EvidenceServiceError, storage_error
-
-
-def _check(connection: sqlite3.Connection, *, allow_empty: bool = False) -> bool:
-    with read_snapshot(connection):
-        return _format(connection, allow_empty=allow_empty)
-
-
-def _format(connection: sqlite3.Connection, *, allow_empty: bool) -> bool:
-    application = connection.execute("PRAGMA application_id").fetchone()[0]
-    version = connection.execute("PRAGMA user_version").fetchone()[0]
-    names = tables(connection)
-    if allow_empty and application == 0 and version == 0 and not has_user_schema(connection):
-        return False
-    if application != EVIDENCE_APPLICATION_ID or version != 1 or "store_format" not in names:
-        raise EvidenceServiceError("unsupported")
-    rows = connection.execute("SELECT format FROM store_format").fetchall()
-    if [row[0] for row in rows] != ["evidence-store/1"]:
-        raise EvidenceServiceError("unsupported")
-    return True
 
 
 class EvidenceDatabase:
@@ -50,6 +29,9 @@ class EvidenceDatabase:
         connection = sqlite3.connect(uri, uri=True)
         connection.row_factory = sqlite3.Row
         connection.execute("PRAGMA foreign_keys=ON")
+        if connection.execute("PRAGMA foreign_keys").fetchone()[0] != 1:
+            connection.close()
+            raise EvidenceServiceError("unsupported")
         connection.execute("PRAGMA busy_timeout=5000")
         return connection
 
@@ -60,12 +42,10 @@ class EvidenceDatabase:
                 _check(connection, allow_empty=True)
                 with write_transaction(connection):
                     if not _check(connection, allow_empty=True):
-                        execute_schema(
-                            connection,
-                            resources.files("kg.evidence").joinpath("schema.sql").read_text(),
-                        )
+                        execute_schema(connection, schema_sql())
+                        install_manifest(connection)
                         connection.execute(f"PRAGMA application_id={EVIDENCE_APPLICATION_ID}")
-                        connection.execute("PRAGMA user_version=1")
+                        connection.execute(f"PRAGMA user_version={USER_VERSION}")
                     _check(connection)
                 enable_wal(connection)
             finally:

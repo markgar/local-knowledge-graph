@@ -3,6 +3,7 @@ from __future__ import annotations
 import sqlite3
 from datetime import datetime
 
+from kg.evidence._lifecycle import state_created
 from kg.evidence._values import sha, timestamp, token
 from kg.evidence.errors import EvidenceServiceError
 from kg.models.foundation import DocumentReceipt, ProcessingState
@@ -67,7 +68,9 @@ def add_state(
     sequence = int(previous["sequence"]) + 1 if previous else 1
     previous_id = previous["state_version"] if previous else None
     connection.execute(
-        "INSERT INTO document_state VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
+        "INSERT INTO document_state(state_version,document_id,sequence,previous_state,"
+        "revision_id,set_id,metadata_snapshot_id,source,namespace_token,passage_policy,"
+        "change_kind,committed_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
         (
             state_version,
             document_id,
@@ -84,11 +87,14 @@ def add_state(
         ),
     )
     connection.execute(
-        "INSERT INTO metadata_snapshot VALUES (?,?,?,?,?)",
+        "INSERT INTO metadata_snapshot(snapshot_id,document_id,revision_id,state_version,"
+        "metadata_json) VALUES (?,?,?,?,?)",
         (snapshot, document_id, revision_id, state_version, metadata),
     )
     connection.execute(
-        "INSERT INTO processing_state VALUES (?, 'pending', 'pending', 'processor_not_available')",
+        "INSERT INTO processing_state(state_version,indexing,enrichment,indexing_reason,"
+        "enrichment_reason) VALUES (?, 'pending', 'pending', 'processor_not_available',"
+        "'processor_not_available')",
         (state_version,),
     )
     if previous is not None:
@@ -98,6 +104,10 @@ def add_state(
         )
         if cursor.rowcount != 1:
             raise EvidenceServiceError("state_conflict")
+    state_created(
+        connection, document_id=document_id, revision_id=revision_id,
+        state_version=state_version, change_kind=kind, committed_at=timestamp(at),
+    )
     return state_version
 
 
