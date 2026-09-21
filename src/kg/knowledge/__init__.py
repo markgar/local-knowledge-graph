@@ -1,1 +1,5 @@
-"""Knowledge-owned value contracts; no executable knowledge service is installed."""
+"""Trusted immutable schema registration; knowledge writes/reads are not installed."""
+
+from kg.knowledge.administration import KnowledgeAdministration
+
+__all__ = ["KnowledgeAdministration"]
