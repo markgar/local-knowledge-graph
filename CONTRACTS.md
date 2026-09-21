@@ -239,7 +239,11 @@ One owner thread serializes execution and diagnostic access, preserving SQLite
 observer thread affinity. Per service admission is FIFO, one active call and
 eight waiters. A fresh spawned child reads each execution; the owner acknowledges
 bounded reservation RPC before consumption and retains accounting across worker
-failure. Deadline includes queue, startup, SQL, release and inline reporting.
+failure. Deadline includes queue, startup, SQL, terminal-frame delivery, clean
+worker exit, release and inline reporting. Success requires a valid completion
+frame with acknowledged accounting and exit status zero; process exit or pipe
+EOF alone cannot establish success. Terminal delivery and exit waits consume the
+original remaining deadline and remain cancellable.
 Close cancels work, withholds staged reports and releases retained observers.
 Use the context manager; spawning requires the usual guarded Python entry point.
 No performance target or warm-worker behavior is promised.
