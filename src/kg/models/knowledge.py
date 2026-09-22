@@ -67,12 +67,12 @@ class KnowledgeSchemaRegistration(KnowledgeValue):
 
 
 class KnowledgeCapabilities(KnowledgeValue):
-    change_kinds: tuple[str, ...] = ("entity", "entity_support", "alias", "identifier", "assertion")
-    support: Literal["anchors_and_seed_add"] = "anchors_and_seed_add"
+    change_kinds: tuple[str, ...] = (
+        "entity", "entity_support", "alias", "identifier", "mention", "assertion",
+    )
+    support: Literal["anchors_passages_and_seed_add"] = "anchors_passages_and_seed_add"
     reads: tuple[str, ...] = ("entity", "entities", "contribution", "contributions")
     unsupported: tuple[str, ...] = (
-        "mention",
-        "passage_support",
         "replace_seed_set",
         "retraction",
         "traversal",

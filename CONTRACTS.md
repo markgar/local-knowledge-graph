@@ -248,10 +248,12 @@ See the executable
 ## Knowledge enrichment and reads
 
 `EvidenceService.write` accepts a bounded `ChangeSet` atomically: `CreateEntity`,
-`AddEntitySupport`, `AddAlias`, `AddIdentifier`, and `AddAssertion`. References must
-be actual canonical anchors with exact current document dependencies. Passage
-references and mentions reject the whole unit as `unsupported`; no subset is
-silently accepted. Every input change has one input-ordered mapping. CreateEntity
+`AddEntitySupport`, `AddAlias`, `AddIdentifier`, `AddMention`, and `AddAssertion`.
+References must be actual canonical anchors or E3-produced passages with exact
+current document dependencies. E3's common resolver validates the full immutable
+source/state/set/passage/anchor chain on the owner's authorized write transaction.
+`AddMention` requires passage evidence for every reference; it creates no factual
+edge or identity merge. Every input change has one input-ordered mapping. CreateEntity
 maps an entity ID; all other changes map contribution IDs. There is no inference,
 identity merging, automatic deduplication or document-readiness update.
 
@@ -283,12 +285,30 @@ All methods have named `_explained` wrappers; ordinary calls retain scoped summa
 Trusted schema provisioning remains excluded from scoped reports.
 
 Source support is conjunctive. Any stale supporting state makes the contribution
-ineligible. Aliases/identifiers/assertions cannot activate an unsupported entity.
+ineligible. Aliases/identifiers/mentions/assertions cannot activate an unsupported entity.
 History still requires current access to every support namespace and a historically
 visible creation basis for each endpoint. Missing/inaccessible direct IDs return
 `not_found`. New AddEntitySupport may reactivate an historically visible identity
 and supply another change's endpoint within the same atomic unit, including forward
 references. It never revives an old stale assertion.
+
+`KnowledgeCapabilities.support` is `anchors_passages_and_seed_add`. Supported
+variants are explicit rather than inferred from validation-only foundation values:
+
+| Change | Anchor support | Passage support | Seed ADD support |
+| --- | --- | --- | --- |
+| `entity`, `entity_support`, `alias`, `identifier` | Yes | Yes | Yes |
+| `assertion` | Yes | Yes | No |
+| `mention` | No | Yes (all references) | No |
+
+Anchor and passage references may be mixed conjunctively except in mentions.
+Current/history contribution pages include mentions and accept `kind="mention"`.
+Captured evidence retains exact passage IDs, state and metadata provenance; quotes
+resolve from the immutable input, not regenerated text. Passage publication is
+independent of vector readiness. Vector-only rebuild/reclamation does not stale
+knowledge, whereas source, metadata, boundaries or policy A-to-B-to-A transitions
+never reactivate an old contribution. Independent current creation support may
+keep an entity eligible, but cannot repair another contribution's stale evidence.
 
 The private `kg.knowledge._reader.KnowledgeReader(context, identity)` implements
 the existing snapshot selection protocol: `resolve_entity(EntitySelector)`,
@@ -306,8 +326,8 @@ read admission/release uses the root; its selection uses the 10,000-visit view.
 Standalone calls use a 30-second deadline. Resource failures return no read data
 and roll back write units. Receipts use the existing shared key/clock ledger,
 expiry-before-digest and full retained-target authorization. A coordinated call
-cannot adopt an unlinked ordinary knowledge receipt. Actual E4 lifecycle and
-passage-backed acceptance are not claimed by the optional participant seam.
+cannot adopt an unlinked ordinary knowledge receipt. Actual E4 lifecycle acceptance
+is not claimed by the optional participant seam.
 
 <a id="canonical-anchor-queries"></a>
 

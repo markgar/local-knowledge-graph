@@ -266,14 +266,23 @@ value limits and the delivered API.
 
 ### Atomic owned knowledge
 
-Anchor-backed enrichment uses the existing canonical schema and the evidence
+Anchor/passage-backed enrichment uses the existing canonical schema and the evidence
 dispatcher's single write owner. It revalidates exact namespace/owner/writer
 bindings, the immutable registry, all direct support, stored endpoints and the
 whole planned post-state before committing mappings, provenance and a complete
 receipt together. Independent creation-support contributions activate identity;
-aliases, identifiers and assertions do not. Forward AddEntitySupport can supply
+aliases, identifiers, mentions and assertions do not. Forward AddEntitySupport can supply
 a stored endpoint within the unit, but only for an historically visible,
 nonretired identity with exactly matching name/type.
+
+Passage support uses E3's exact immutable membership resolver on that same
+authorized transaction, with the validated passage/set IDs persisted alongside
+source state, anchor and metadata snapshot. Explicit mentions use only passages
+and do not create assertions, deduplicate identities or link same-named entities.
+They have the same conjunctive support, endpoint eligibility, scoped history and
+durable retry rules as other contributions. Passage publication suffices before
+vectors are ready. Vector-only rebuild preserves knowledge; source, metadata,
+boundary and policy changes followed by restoration cannot resurrect stale support.
 
 The assertion row is the submitted decision record when its immutable predicate
 descriptor is `direct-subject-decision/1`. Explicit string submissions are distinct
@@ -286,7 +295,7 @@ claiming current support and still require complete present-day read access.
 Seed additions maintain owned slots and append membership events in that same
 transaction. Exact active repeats preserve IDs/generation; changes conflict.
 Omission does not withdraw anything. The supported kernel does not expose
-whole-set replacement, mentions, passage-backed contributions, correction,
+whole-set replacement, correction,
 retraction, traversal or inference.
 
 Operation-specific retained manifests authorize ordinary writes, retries and

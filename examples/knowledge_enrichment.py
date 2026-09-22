@@ -5,6 +5,7 @@ from pathlib import Path
 from uuid import uuid4
 
 from kg.evidence import EvidenceAdministration, EvidenceDatabase, EvidenceService
+from kg.indexing._passages import produce
 from kg.knowledge import KnowledgeAdministration, KnowledgeService
 from kg.models.evidence import (
     CorpusRegistration,
@@ -18,6 +19,7 @@ from kg.models.evidence import (
 from kg.models.foundation import (
     AccessContext,
     AddAssertion,
+    AddMention,
     Attribution,
     ChangeSet,
     ChangeSetReceipt,
@@ -39,7 +41,7 @@ from kg.models.foundation import (
 from kg.models.knowledge import KnowledgeSchema, PredicateDefinition, RecordProjection
 
 
-def run(path: Path) -> str:
+def run(path: Path, *, passages: bool = False) -> str:
     database = EvidenceDatabase(path)
     database.initialize()
     authority = LocalAdminAuthority(principal_id="trusted-local-app")
@@ -144,13 +146,24 @@ def run(path: Path) -> str:
     if not isinstance(written.receipt, DocumentReceipt):
         raise RuntimeError(written.model_dump_json())
     doc = written.receipt
-    reference = evidence.anchors(scope, doc.document_id, doc.processing.state_version).entries[0]
+    if passages:
+        # Trusted integration with the private E3 producer; no model/vector work.
+        produce(
+            database, identity, scope, attribution, doc.document_id, doc.processing.state_version
+        )
+        reference = evidence.passages(scope, doc.document_id, doc.processing.state_version).entries[
+            0
+        ]
+    else:
+        reference = evidence.anchors(scope, doc.document_id, doc.processing.state_version).entries[
+            0
+        ]
     support = SourceSupport(kind="source", evidence=(reference.reference,))
     enriched = evidence.write(
         WriteRequest(
             contract_version="foundation/1",
             request_id=str(uuid4()),
-            retry_key="knowledge/1",
+            retry_key="knowledge/passages/1" if passages else "knowledge/1",
             scope=scope,
             attribution=attribution,
             payload=ChangeSet(
@@ -183,6 +196,18 @@ def run(path: Path) -> str:
                         interpretation="explicit",
                         support=support,
                     ),
+                )
+                + (
+                    (
+                        AddMention(
+                            kind="mention",
+                            local_id="mention",
+                            entity=LocalEntity(kind="local", local_id="project"),
+                            support=support,
+                        ),
+                    )
+                    if passages
+                    else ()
                 ),
             ),
         )
@@ -196,4 +221,8 @@ def run(path: Path) -> str:
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--database", type=Path, required=True)
-    print(run(parser.parse_args().database))
+    parser.add_argument(
+        "--passages", action="store_true", help="Produce real passages without vectors"
+    )
+    args = parser.parse_args()
+    print(run(args.database, passages=args.passages))

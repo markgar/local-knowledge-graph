@@ -23,10 +23,10 @@ retrieval-quality gates remain unmet.
 | Standalone indexing | `kg.indexing.IndexService`: immutable passages, fenced attempts, actual pinned-provider vector projections, incremental reuse/rebuild, model-free readiness and bounded cleanup. No coordinated job execution. |
 | Canonical search | `kg.indexing.EvidenceSearchService`: scoped lexical/dense candidates, fusion/deduplication, reranking and exact supplied-source citations in one guarded snapshot. Both providers and complete matching projections are mandatory. |
 | Processing control | `kg.processing`: trusted plan/worker registration, scheduling/deduplication, fenced claims/heartbeats/failure, bounded recovery, and idempotent retry episodes. Controls do not execute or acknowledge work. |
-| Owned knowledge | Atomic anchor-backed entities, independent entity support, aliases, identifiers and typed assertions through `EvidenceService.write`; `KnowledgeService` current/history reads and immutable schema registration. Explicit decision assertions produce distinct submitted records. |
+| Owned knowledge | Atomic anchor/passage-backed entities, independent entity support, aliases, identifiers, explicit passage mentions and typed assertions through `EvidenceService.write`; `KnowledgeService` current/history reads and immutable schema registration. Explicit decision assertions produce distinct submitted records. |
 | Markdown demonstration | Manifest-selected local Markdown, explicit records, seed entities, structured reads, source context and revision comparison in its separate database. |
 | Demonstration search | Full local keyword + semantic retrieval, fusion/deduplication and reranking; matching vector preparation is required. No keyword-only fallback. |
-| Foundation values | Strict `foundation/1` request/result validation. Document and bounded enrichment operations execute through `EvidenceService`; canonical anchor/passage-evidence plans execute through `QueryService`. Enrichment does not implement mentions or whole-set seed replacement. |
+| Foundation values | Strict `foundation/1` request/result validation. Document and bounded enrichment operations execute through `EvidenceService`; canonical anchor/passage-evidence plans execute through `QueryService`. Whole-set seed replacement is not implemented. |
 | Canonical queries | `kg.query.QueryService`: full canonical ranked search, historical anchor/passage reads and actual K1 exact entity resolution, explicit decision records/counts, bounded retained support inspection, spawned deadline supervision and fresh release authorization. Paths remain unsupported. |
 | Execution diagnostics | Evidence, indexing, processing and query calls retain bounded, authorized in-memory summaries. Named explained wrappers execute once; detailed traces and source quotes require opt-in. |
 
@@ -168,10 +168,16 @@ It discovers an actual supplied anchor, atomically submits an entity and explici
 decision, and reads the assertion's immutable provenance. Repeating it replays the
 same durable IDs. Typed predicates and decision encoding come from the registered
 schema, not language inference. Current/history reads and ordinary scoped write
-reports are available; passage-backed contributions, whole-set seed replacement,
-corrections and traversal remain unsupported. `QueryService` composes the real
+reports are available; whole-set seed replacement, corrections and traversal
+remain unsupported. `QueryService` composes the real
 entity/decision reader for public decision selections and counts.
 See [knowledge service contracts](CONTRACTS.md#knowledge-enrichment-and-reads).
+
+Add `--passages` to that example to use the private E3 passage producer and submit
+an explicit mention alongside the decision. It needs no models or vectors.
+Passage support preserves exact immutable source/state membership; mentions do
+not infer relationships or merge same-named entities. Vector-only rebuilds keep
+knowledge valid, while source/metadata/passage-policy changes require fresh support.
 
 ## Install
 

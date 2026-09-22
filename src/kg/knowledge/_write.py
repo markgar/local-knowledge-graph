@@ -150,15 +150,6 @@ def apply(
         schema = store.schema()
         _observed(capture, KnowledgeValidation(phase="schema", status="passed"))
         changes = request.payload.changes
-        if any(
-            isinstance(c, AddMention)
-            or (
-                isinstance(c.support, SourceSupport)
-                and any(r.passage_id is not None for r in c.support.evidence)
-            )
-            for c in changes
-        ):
-            raise EvidenceServiceError("unsupported")
         references = tuple(
             dict.fromkeys(
                 r
@@ -266,7 +257,7 @@ def apply(
         predicates = {p.name: p for p in schema.predicates}
         for change in planned:
             endpoints = []
-            if isinstance(change, (AddAlias, AddIdentifier)):
+            if isinstance(change, (AddAlias, AddIdentifier, AddMention)):
                 assert isinstance(change.entity, StoredEntity)
                 endpoints.append(change.entity.entity_id)
             elif isinstance(change, AddAssertion):
@@ -368,6 +359,12 @@ def apply(
                     "INSERT INTO entity_support VALUES (?,?,'entity_support',?,?,?)",
                     (scope.corpus_id, cid, entity_id, change.name, change.entity_type),
                 )
+            elif isinstance(change, AddMention):
+                assert isinstance(change.entity, StoredEntity)
+                connection.execute(
+                    "INSERT INTO mention VALUES (?,?,'mention',?)",
+                    (scope.corpus_id, cid, change.entity.entity_id),
+                )
             elif isinstance(change, (AddAlias, AddIdentifier)):
                 assert isinstance(change.entity, StoredEntity)
                 if isinstance(change, AddAlias):
@@ -418,9 +415,19 @@ def apply(
             if isinstance(change.support, SourceSupport):
                 for ordinal, reference in enumerate(change.support.evidence, 1):
                     proof = proofs[reference]
+                    passage_set_id = None
+                    if reference.passage_id is not None:
+                        # Membership was validated by E3 on this same owner transaction.
+                        passage = connection.execute(
+                            "SELECT passage_set_id FROM passage WHERE passage_id=?",
+                            (reference.passage_id,),
+                        ).fetchone()
+                        if passage is None:
+                            raise EvidenceServiceError("internal_error")
+                        passage_set_id = passage[0]
                     connection.execute(
                         "INSERT INTO contribution_evidence "
-                        "VALUES (?,?,?,'source',?,?,?,?,?,?,NULL,NULL)",
+                        "VALUES (?,?,?,'source',?,?,?,?,?,?,?,?)",
                         (
                             scope.corpus_id,
                             cid,
@@ -431,6 +438,8 @@ def apply(
                             reference.anchor_id,
                             proof.state_version,
                             proof.metadata_snapshot_id,
+                            passage_set_id,
+                            reference.passage_id,
                         ),
                     )
             else:
