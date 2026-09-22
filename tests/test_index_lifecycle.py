@@ -8,6 +8,7 @@ from threading import Event
 import pytest
 from support.evidence import environment, receipt
 from support.indexing import ControlledProvider, process, request, service
+from support.knowledge import schema
 
 from kg._execution_budget import Deadline, PrivateBudget, PrivateResourceStop
 from kg.evidence._sql import AccountedConnection
@@ -18,9 +19,19 @@ from kg.evidence.errors import EvidenceServiceError
 from kg.indexing import _storage, _vectors
 from kg.indexing._configuration import configuration_id
 from kg.indexing._process import Process
-from kg.models.evidence import PolicyGrant
+from kg.knowledge import KnowledgeAdministration, KnowledgeService
+from kg.models.evidence import KnowledgeWriterBinding, LocalAdminAuthority, PolicyGrant
 from kg.models.execution import ExecutionReport, ExplainOptions
-from kg.models.foundation import DocumentDependency, ExpectedState, RemoveDocument, SuppliedAnchor
+from kg.models.foundation import (
+    ChangeSet,
+    ChangeSetReceipt,
+    CreateEntity,
+    DocumentDependency,
+    ExpectedState,
+    RemoveDocument,
+    SourceSupport,
+    SuppliedAnchor,
+)
 from kg.models.indexing import DEFAULT_CONFIGURATION, IndexConfiguration, ProcessResult
 from kg.retrieval.dense import DenseIndexError, EmbeddingProfile
 
@@ -734,6 +745,132 @@ def test_vector_rebuild_keeps_actual_same_transaction_support_valid(tmp_path):
             )
             == support
         )
+
+
+@pytest.mark.parametrize("index_first", [False, True])
+def test_vector_rebuild_preserves_committed_k1_anchor_support(tmp_path, monkeypatch, index_first):
+    env = environment(tmp_path / "committed-support.db")
+    policy = env.policy.model_copy(
+        update={
+            "grants": env.policy.grants
+            + tuple(
+                PolicyGrant(principal_id="principal", namespace=ns, grant="write_knowledge")
+                for ns in env.scope.access.namespaces
+            ),
+            "knowledge_bindings": tuple(
+                KnowledgeWriterBinding(
+                    namespace=ns, principal_id="principal", owner_id="owner", writer_id="writer"
+                )
+                for ns in env.scope.access.namespaces
+            ),
+        }
+    )
+    version = env.admin.replace_policy(policy, env.scope.access.policy_version).policy_version
+    env.scope = env.scope.model_copy(
+        update={
+            "access": env.scope.access.model_copy(
+                update={
+                    "policy_version": version,
+                    "grants": ("read", "write_documents", "write_knowledge"),
+                }
+            )
+        }
+    )
+    KnowledgeAdministration(
+        env.database, LocalAdminAuthority(principal_id="admin")
+    ).register_knowledge_schema(schema())
+    value = request(
+        env,
+        text="supported source",
+        anchors=(SuppliedAnchor(local_id="proof", start=0, end=9, quote="supported"),),
+    )
+    saved = receipt(env.service.write(value))
+    anchor = env.service.anchors(
+        env.scope, saved.document_id, saved.processing.state_version
+    ).entries[0]
+    index, provider, _ = service(env)
+    budgets = []
+    budget_factory = index._budget
+
+    def budget():
+        root = budget_factory()
+        budgets.append(root)
+        return root
+
+    monkeypatch.setattr(index, "_budget", budget)
+    if index_first:
+        assert process(index, env, value, saved).outcome == "ready"
+    before_enrich = env.service.document(env.scope, saved.document_id).processing
+    enrichment = value.model_copy(
+        update={
+            "request_id": "enrich",
+            "retry_key": "enrich",
+            "payload": ChangeSet(
+                operation="enrich",
+                dependencies=(
+                    DocumentDependency(
+                        source_namespace=anchor.reference.source_namespace,
+                        document_id=saved.document_id,
+                        revision_id=saved.revision_id,
+                        state_version=saved.processing.state_version,
+                    ),
+                ),
+                changes=(
+                    CreateEntity(
+                        kind="entity",
+                        local_id="project",
+                        name="Supported project",
+                        entity_type="project",
+                        support=SourceSupport(kind="source", evidence=(anchor.reference,)),
+                    ),
+                ),
+            ),
+        }
+    )
+    outcome = env.service.write(enrichment)
+    assert outcome.error is None
+    assert isinstance(outcome.receipt, ChangeSetReceipt)
+    entity_id = outcome.receipt.mappings[0].stored_id
+    knowledge = KnowledgeService(env.database, env.service.identity)
+    entity = knowledge.entity(env.scope, entity_id)
+    contribution = knowledge.contribution(env.scope, entity.witness.contribution_id)
+    assert entity.is_current and contribution.is_current and contribution.evidence
+    assert env.service.document(env.scope, saved.document_id).processing == before_enrich
+    initial = process(index, env, value, saved)
+    assert initial.outcome == ("unchanged" if index_first else "ready")
+    ready = env.service.document(env.scope, saved.document_id).processing
+    assert ready.indexing == "ready" and ready.enrichment == "pending"
+    alternate = process(
+        index,
+        env,
+        value,
+        saved,
+        configuration=IndexConfiguration(contextual=True, representation="generic-title-quote/1"),
+    )
+    assert alternate.outcome == "ready"
+    assert env.service.document(env.scope, saved.document_id).processing == ready
+
+    def during_inference():
+        assert knowledge.contribution(env.scope, contribution.contribution_id) == contribution
+
+    provider.before_encode = during_inference
+    rebuilt = process(index, env, value, saved, mode="rebuild")
+    assert rebuilt.outcome == "ready" and not rebuilt.cleanup_pending
+    assert rebuilt.projection_id != initial.projection_id
+    assert rebuilt.passage_set_id == initial.passage_set_id
+    assert knowledge.entity(env.scope, entity_id) == entity
+    assert knowledge.contribution(env.scope, contribution.contribution_id) == contribution
+    assert env.service.citation(env.scope, anchor.citation).quote == anchor.quote
+    assert env.service.document(env.scope, saved.document_id).processing == ready
+    assert env.service.write(enrichment).receipt == outcome.receipt
+    assert len(budgets) == 3 + int(index_first)
+    assert all(
+        root._root is root
+        and 0 < root._vm <= 10_000_000
+        and 0 < root._visits <= 100_000
+        and root._scratch == 0
+        for root in budgets
+    )
 
 
 def test_expired_root_deadline_discards_late_provider_output(tmp_path, monkeypatch):
