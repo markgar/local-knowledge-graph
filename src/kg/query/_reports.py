@@ -6,12 +6,14 @@ from collections.abc import Iterator
 from contextlib import contextmanager
 
 from kg._execution_budget import PrivateBudget
-from kg.diagnostics._targets import AuthorizationBinding, EvidenceTarget
+from kg.diagnostics._targets import AuthorizationBinding, EvidenceTarget, KnowledgeTarget
 from kg.evidence._authorization import authorize
 from kg.evidence._diagnostic_authorization import EvidenceReportAuthorizer
 from kg.evidence._read_context import ObserverReference, ReleaseFence, release_fence
 from kg.evidence.database import EvidenceDatabase
 from kg.evidence.errors import EvidenceServiceError
+from kg.knowledge._reports import authorize_target
+from kg.knowledge._store import Store
 
 
 class QueryAuthorizer:
@@ -36,20 +38,33 @@ class QueryAuthorizer:
         bindings: tuple[AuthorizationBinding, ...],
         observers: tuple[ObserverReference, ...],
         budget: PrivateBudget,
+        *,
+        targets_verified: bool = False,
     ) -> Iterator[ReleaseFence]:
         if not bindings or not observers:
             raise EvidenceServiceError("forbidden")
-        with self.database.connection(budget=budget) as connection:
-            connection.execute("BEGIN")
-            try:
-                for binding in bindings:
-                    authorize(connection, binding.identity, binding.scope, binding.required)
-                    for target in binding.targets:
-                        if not isinstance(target, EvidenceTarget):
-                            raise EvidenceServiceError("unsupported")
-                        self.targets.authorize_target(connection, binding, target)
-            finally:
-                connection.rollback()
+        # Inline K1 targets are derived only from the worker's validated members.
+        # The original observer below makes that proof current at release. Later
+        # diagnostic lookup has no such live proof and must hydrate every target.
+        if not targets_verified:
+            with self.database.connection(budget=budget) as connection:
+                connection.execute("BEGIN")
+                try:
+                    for binding in bindings:
+                        authorize(connection, binding.identity, binding.scope, binding.required)
+                        store = Store(connection, binding.scope, budget)
+                        try:
+                            for target in binding.targets:
+                                if isinstance(target, KnowledgeTarget):
+                                    authorize_target(store, binding.identity, target)
+                                elif isinstance(target, EvidenceTarget):
+                                    self.targets.authorize_target(connection, binding, target)
+                                else:
+                                    raise EvidenceServiceError("unsupported")
+                        finally:
+                            store.close()
+                finally:
+                    connection.rollback()
         first = observers[0].observer
         with release_fence(
             first,

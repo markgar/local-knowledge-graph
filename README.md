@@ -26,7 +26,7 @@ retrieval-quality gates remain unmet.
 | Markdown demonstration | Manifest-selected local Markdown, explicit records, seed entities, structured reads, source context and revision comparison in its separate database. |
 | Demonstration search | Full local keyword + semantic retrieval, fusion/deduplication and reranking; matching vector preparation is required. No keyword-only fallback. |
 | Foundation values | Strict `foundation/1` request/result validation. Document and bounded enrichment operations execute through `EvidenceService`; canonical anchor/passage-evidence plans execute through `QueryService`. Enrichment does not implement mentions or whole-set seed replacement. |
-| Canonical queries | `kg.query.QueryService`: selected plan closure, actual historical anchor/passage reads, spawned deadline supervision, inherited accounting and fresh release authorization. Required resolve/records/count/search/paths remain explicitly unsupported. |
+| Canonical queries | `kg.query.QueryService`: historical anchor/passage reads and actual K1 exact entity resolution, explicit decision records/counts, bounded retained support inspection, spawned deadline supervision and fresh release authorization. Search and paths remain unsupported. |
 | Execution diagnostics | Evidence, indexing, processing and query calls retain bounded, authorized in-memory summaries. Named explained wrappers execute once; detailed traces and source quotes require opt-in. |
 
 There are no live email/Teams connectors, inference/extraction providers, general
@@ -37,6 +37,13 @@ For canonical evidence queries, see [the Python example](examples/query_anchor.p
 and [the executable query contract](CONTRACTS.md#canonical-evidence-queries).
 Use the service as a context manager and guard executable Python entry points
 with `if __name__ == "__main__":` because each execution spawns a fresh worker.
+
+For dependent decision counts, see [the count and support example](examples/query_decisions.py).
+Counts cover distinct submitted assertion IDs, not inferred real-world events.
+Records display at most 1,000; counts enumerate the eligible selection to EOF or
+an explicit public-budget lower bound. The same service can inspect retained
+membership in ordinal slices of at most 1,000 for five minutes. Any canonical
+write invalidates the set; close/restart loses it. This is not durable continuation.
 
 ## Generic evidence service
 
@@ -130,7 +137,8 @@ decision, and reads the assertion's immutable provenance. Repeating it replays t
 same durable IDs. Typed predicates and decision encoding come from the registered
 schema, not language inference. Current/history reads and ordinary scoped write
 reports are available; passage-backed contributions, whole-set seed replacement,
-corrections, traversal and public decision queries remain unsupported.
+corrections and traversal remain unsupported. `QueryService` composes the real
+entity/decision reader for public decision selections and counts.
 See [knowledge service contracts](CONTRACTS.md#knowledge-enrichment-and-reads).
 
 ## Install

@@ -4,7 +4,7 @@ from typing import Literal, Self
 
 from pydantic import Field, model_validator
 
-from kg.models.foundation import QueryBudget, QueryResult, Scope, Token, Value
+from kg.models.foundation import Failure, QueryBudget, QueryResult, Record, Scope, Token, Value
 
 StopReason = Literal[
     "unsupported_operation",
@@ -77,7 +77,14 @@ class QueryExecution(Value):
 class QueryCapabilities(Value):
     interface_version: Literal["query/1"] = "query/1"
     scope: Scope
-    operations: tuple[Literal["evidence"], ...] = ("evidence",)
+    operations: tuple[Literal["evidence", "resolve", "records", "count"], ...] = (
+        "evidence",
+        "resolve",
+    )
+    record_types: tuple[Literal["decision"], ...] = ()
+    association: Literal["direct_explicit_association/1"] | None = None
+    count_identity: Literal["submitted_assertion_id"] | None = None
+    support_inspection: bool = True
     evidence_kinds: tuple[Literal["anchor", "passage"], ...] = ("anchor", "passage")
     adapter_version: Literal["canonical-evidence/1"] = "canonical-evidence/1"
     maximum_budget: QueryBudget = QueryBudget(
@@ -85,3 +92,70 @@ class QueryCapabilities(Value):
         max_records=10_000,
         max_milliseconds=30_000,
     )
+
+
+class SupportInspectionRequest(Value):
+    interface_version: Literal["query/1"] = "query/1"
+    request_id: Token
+    scope: Scope
+    result_set_id: Token
+    records_step_id: Token
+    start_ordinal: int = Field(default=0, ge=0)
+    limit: int = Field(default=1000, ge=1, le=1000)
+    budget: QueryBudget = Field(default_factory=QueryBudget)
+
+
+class SupportInspection(Value):
+    interface_version: Literal["query/1"] = "query/1"
+    request_id: Token
+    scope: Scope
+    outcome: Literal["complete", "empty", "failed", "state_changed", "unsupported"]
+    read_state_id: Token | None = None
+    result_set_id: Token | None = None
+    records_step_id: Token | None = None
+    exact: bool | None = None
+    total: int | None = Field(default=None, ge=0)
+    records: tuple[Record, ...] = Field(default=(), max_length=1000)
+    next_ordinal: int | None = Field(default=None, ge=0)
+    exhausted: bool | None = None
+    operations_executed: int = Field(default=0, ge=0, le=1)
+    records_examined: int = Field(default=0, ge=0, le=1000)
+    elapsed_milliseconds: float = Field(ge=0, allow_inf_nan=False)
+    work_accounting: Literal["scoped_semantic_reservations/1", "redacted"]
+    stop_reason: StopReason | None = None
+    error: Failure | None = None
+
+    @model_validator(mode="after")
+    def disclosure(self) -> Self:
+        if self.error is not None:
+            if (
+                self.outcome not in ("failed", "state_changed", "unsupported")
+                or self.work_accounting != "redacted"
+                or self.records
+                or self.total is not None
+                or self.exact is not None
+                or self.next_ordinal is not None
+                or self.exhausted is not None
+                or self.read_state_id
+                or self.result_set_id
+                or self.records_step_id
+                or self.operations_executed
+                or self.records_examined
+            ):
+                raise ValueError("Inspection failure must withhold retained membership")
+        elif (
+            self.outcome not in ("complete", "empty")
+            or self.work_accounting != "scoped_semantic_reservations/1"
+            or self.total is None
+            or self.exact is None
+            or self.exhausted is None
+            or not self.read_state_id
+            or not self.result_set_id
+            or not self.records_step_id
+            or self.operations_executed != 1
+            or self.records_examined != len(self.records)
+            or (self.outcome == "empty") != (not self.records)
+            or self.exhausted != (self.next_ordinal is None)
+        ):
+            raise ValueError("Inspection success requires correlated membership and accounting")
+        return self

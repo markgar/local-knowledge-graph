@@ -304,7 +304,7 @@ def test_empty_processing_reports_and_passage_reports_keep_separate_authority(
         ExecutionReport,
     )
     assert not processing.capabilities().acknowledges_work
-    assert query.capabilities(env.scope).operations == ("evidence",)
+    assert query.capabilities(env.scope).operations == ("evidence", "resolve")
 
     # A valid new union member still grants no authority to another owning service.
     selection = ProcessingSelectionTarget(**scheduled.selection.model_dump())

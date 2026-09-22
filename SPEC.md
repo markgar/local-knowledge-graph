@@ -398,10 +398,11 @@ Neither DTOs nor handles install runnable knowledge/indexing adapters.
 
 ### Canonical evidence query execution
 
-`kg.query` implements the anchor/passage-evidence slice documented in
+`kg.query` implements anchor/passage evidence and actual K1-dependent
+resolution/decision records/counts documented in
 [CONTRACTS.md](CONTRACTS.md#canonical-evidence-queries). It consumes the actual
-E3 passage resolver, but does not install knowledge/indexing services, generic
-query search, record counts or support continuation. Selected
+E3 passage resolver and K1 snapshot readers, not an alternate producer or legacy
+adapter. Generic search, paths and durable continuation remain unsupported. Selected
 closure is computed from validated named dependencies; unsupported required
 operations fail before dispatch, while unrelated branches are pruned.
 
@@ -414,6 +415,23 @@ charges occurs on death. Scratch handles are reclaimed after verified child
 cleanup. The child uses the shared canonical read context and evidence resolver:
 Q1 does not duplicate evidence eligibility or passage rules. No source text or
 unbounded result frames cross the control pipe.
+
+Dependent K1 steps share one spawned canonical snapshot and one supervisor-owned
+pool/deadline. Synchronous, size-declared JSON chunks carry exact producer witness
+bundles into a private staged registry. Only a successfully validated result and
+original-observer release fence can atomically publish a count's support identity.
+Private/deadline failure discards any earlier prefix; a public-budget prefix is
+explicitly inexact. The count adds no semantic reservations and never counts the
+displayed page. Complete standalone records display at most 1,000.
+
+The owner-thread registry retains immutable canonical member payloads, not live
+SQLite snapshots, for five minutes with 32-set/8-MiB-per-set/32-MiB-aggregate
+ceilings including in-flight copies. Inspection sends bounded slices to a new
+supervised worker for exact K1 revalidation under its fresh request budget, then
+uses the original observer at release. Writers are not blocked during membership
+validation. Scope/step mismatch, expiry, close/restart and generation invalidation
+cannot trigger a rerun under an old identity. Report target saturation discards
+diagnostic capture only; it does not shorten or invalidate count membership.
 
 Published generated anchors and passage references use the same operation-specific
 hydration as supplied anchors: exact historical membership and byte validation,

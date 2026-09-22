@@ -1,4 +1,4 @@
-"""Bounded canonical query execution (anchor-evidence slice)."""
+"""Bounded canonical evidence and dependent decision query execution."""
 
 from kg.query.service import QueryService, QueryServiceError
 

@@ -267,19 +267,65 @@ options=ExplainOptions())` executes once and returns shared `Explained` with
 `service.diagnostics.report/recent/for_request`; request IDs correlate distinct
 invocations, not durable retries.
 
-The installed capability is **anchor and published passage evidence**, including
+Installed evidence capability is **anchor and published passage evidence**, including
 generated anchors and authorized immutable history (`canonical-evidence/1`).
 The result is one evidence Record identified by anchor ID,
 with its full requested reference in SourceSupport. No quote text is added to
 foundation results or Q1 reports. Detailed reports include the selected ID,
 closure and acknowledged semantic reservation; summary reports omit selected IDs.
-`capabilities(scope)` is authorized and reportable. There is no installed
-support registry or `inspect_support` method in this slice. Required
-resolve/records/count/search/paths return unsupported, never a fake empty result
-or legacy adapter fallback. Missing or mismatched passage references return
+`capabilities(scope)` is authorized and reportable. Exact K1 entity resolution is
+installed; decision records/counts are enabled only for a registered
+`direct-subject-decision/1` predicate. Search and paths return unsupported, never a
+fake empty result or legacy adapter fallback. Missing or mismatched passage references return
 `not_found`. Passage evidence requires its real state/set/passage/anchor chain,
 not vector readiness. Both `codepoint-window/1` and `supplied-anchors/1` kernel
 outputs are readable.
+
+`resolve` consumes K1's exact ID or case-sensitive name/approved-alias selector.
+IDs never fall back to names; aliases do not multiply entities. Multiple eligible
+IDs return ambiguity and stop dependent steps. Incomplete resolution cannot
+establish uniqueness/absence for records/count, even with a single candidate.
+Only direct-subject explicit string decisions are supported: action/status,
+blocker/conflict and path semantics are not approximated. Unsupported required
+semantics are checked even for an empty subject. A configured empty selection
+counts exactly zero.
+
+Each eligible assertion ID is a distinct submitted record instance. Duplicate
+text, different writers, and independent fresh submissions are not semantic
+deduplication. Counts consume the full K1 selection, not the 1,000-record display.
+Standalone records above 1,000 are partial/display-truncated with eligible-set
+exhaustion. Public record-budget interruption yields a retained lower-bound
+count (`exact=false`, exhaustion `none`); private safety or deadline interruption
+discards all previously captured members and returns no data. Semantic accounting
+is one unit per eligible resolved entity and decision; count adds none.
+
+`inspect_support(SupportInspectionRequest)` returns `SupportInspection`, both
+`query/1`; the explained form executes once with ordinary diagnostic capture.
+Requests carry request ID, exact original scope, `result_set_id`,
+`records_step_id`, `start_ordinal` (default 0), `limit` (1..1,000; default 1,000),
+and a fresh `QueryBudget`. Successful output preserves read-state/set/step
+correlation, selection exactness, total retained members, ordered records, next
+ordinal/null, exhausted flag and public accounting. One operation and one public
+unit per inspected member are charged. Insufficient budget fails the whole slice;
+it never returns a partly revalidated page. Failure withholds membership, total,
+ordinal, IDs and accounting, apart from the marked zero sentinels.
+
+Membership retains K1's exact assertion dependencies and sequence-selected source
+or seed activation witness, not a later witness reconstructed by Q1. Revalidation
+uses the real K1 reader. Sets are service/principal/exact-scope/step bound, expire
+after five monotonic minutes, and disappear on close/restart. Unknown, expired or
+mismatched IDs return not_found after scope authorization. Every canonical commit
+invalidates the original observer, including same-content restore and unrelated
+writes. Ordinal replay reads retained membership; it is not a new selection.
+Foundation continuation remains null.
+
+Retention is bounded to 32 live sets, 8 MiB canonical UTF-8 compact sorted-key JSON
+per set/output, and 32 MiB aggregate including staged/transferred copies. Admission
+is incremental before serialization/retention; no eviction makes a count succeed.
+Quota failure publishes no data or partial support ID. Diagnostics have independent
+unchanged target/byte limits: large valid counts may have unavailable reports
+(notably 1,001 targets), without changing their business results or support.
+See [the executable count/inspection example](examples/query_decisions.py).
 
 An evidence step accepts an `EvidenceRef`, not a `StoredCitation` or explicit
 state/set selector. It preserves the entire requested reference, including

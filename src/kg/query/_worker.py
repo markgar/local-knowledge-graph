@@ -8,7 +8,9 @@ from kg.evidence._read_context import ReadSessionId, read_context, read_evidence
 from kg.evidence.database import EvidenceDatabase
 from kg.evidence.errors import EvidenceServiceError
 from kg.models.evidence import LocalIdentity
-from kg.models.foundation import EvidenceStep, Scope
+from kg.models.foundation import EvidenceStep, QueryRequest, Scope
+from kg.models.query import SupportInspectionRequest
+from kg.query._dispatch import Stopped
 from kg.query._meter import Frame, RemoteBudget, RemoteStep, send
 
 
@@ -19,7 +21,7 @@ def run(
     scope: Scope,
     session: ReadSessionId,
     deadline: Deadline,
-    step: EvidenceStep,
+    step: EvidenceStep | QueryRequest | SupportInspectionRequest,
 ) -> None:
     budget = RemoteBudget(connection, deadline)
     try:
@@ -31,12 +33,22 @@ def run(
             deadline,
             RemoteStep(budget),
         ) as context:
-            budget.rpc(Frame(action="begin"))
-            read_evidence(context, step.evidence)
+            if isinstance(step, EvidenceStep):
+                budget.rpc(Frame(action="begin"))
+                read_evidence(context, step.evidence)
+            else:
+                from kg.query._plan_worker import execute, inspect
+
+                if isinstance(step, QueryRequest):
+                    execute(context, budget, step)
+                else:
+                    inspect(context, budget, step)
         budget.check_deadline()
         send(connection, Frame(action="done"))
     except EvidenceServiceError as error:
         send(connection, Frame(action="error", code=error.failure.code))
+    except Stopped as error:
+        send(connection, Frame(action="error", code=error.code, reason=error.reason))
     except (DeadlineStop, PrivateResourceStop, PublicBudgetStop):
         send(connection, Frame(action="error", code="budget_exceeded"))
     finally:
