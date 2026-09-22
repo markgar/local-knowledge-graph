@@ -77,9 +77,10 @@ class QueryExecution(Value):
 class QueryCapabilities(Value):
     interface_version: Literal["query/1"] = "query/1"
     scope: Scope
-    operations: tuple[Literal["evidence", "resolve", "records", "count"], ...] = (
+    operations: tuple[Literal["evidence", "resolve", "records", "count", "search"], ...] = (
         "evidence",
         "resolve",
+        "search",
     )
     record_types: tuple[Literal["decision"], ...] = ()
     association: Literal["direct_explicit_association/1"] | None = None

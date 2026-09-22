@@ -12,6 +12,7 @@ from kg.models.foundation import EvidenceStep, QueryRequest, Scope
 from kg.models.query import SupportInspectionRequest
 from kg.query._dispatch import Stopped
 from kg.query._meter import Frame, RemoteBudget, RemoteStep, send
+from kg.query._search import SearchWork
 
 
 def run(
@@ -21,12 +22,13 @@ def run(
     scope: Scope,
     session: ReadSessionId,
     deadline: Deadline,
-    step: EvidenceStep | QueryRequest | SupportInspectionRequest,
+    step: EvidenceStep | QueryRequest | SupportInspectionRequest | SearchWork,
 ) -> None:
     budget = RemoteBudget(connection, deadline)
+    database = EvidenceDatabase(path)
     try:
         with read_context(
-            EvidenceDatabase(path),
+            database,
             identity,
             scope,
             session,
@@ -36,6 +38,10 @@ def run(
             if isinstance(step, EvidenceStep):
                 budget.rpc(Frame(action="begin"))
                 read_evidence(context, step.evidence)
+            elif isinstance(step, SearchWork):
+                from kg.query._search_worker import execute as search
+
+                search(database, context, budget, step)
             else:
                 from kg.query._plan_worker import execute, inspect
 

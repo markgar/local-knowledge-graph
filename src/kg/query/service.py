@@ -36,8 +36,10 @@ from kg.models.foundation import (
     RecordsResult,
     RecordsStep,
     Scope,
+    SearchStep,
     SourceSupport,
 )
+from kg.models.indexing import DEFAULT_CONFIGURATION, IndexConfiguration
 from kg.models.query import (
     QueryCapabilities,
     QueryExecution,
@@ -54,6 +56,7 @@ from kg.query._dispatch import Dispatcher, Stopped
 from kg.query._meter import Ledger
 from kg.query._reports import QueryAuthorizer
 from kg.query._retention import Registry
+from kg.query._search import SearchWork
 
 LOGGER = logging.getLogger(__name__)
 
@@ -85,6 +88,8 @@ def failure(
         scope=request.scope,
         outcome="state_changed"
         if code == "state_changed"
+        else "stale_index"
+        if code == "stale_index"
         else ("unsupported" if code == "unsupported" else "failed"),
         read_state_id=None,
         result_set_id=None,
@@ -107,9 +112,13 @@ class QueryDiagnostics:
         self._service: QueryService = service
 
     def report(self, scope: Scope, report_id: str) -> ExecutionReport | ReportAvailability:
-        return self._call(
-            lambda: self._service._diagnostics.report(scope, report_id),
-        )
+        def inspect() -> ExecutionReport | ReportAvailability:
+            report = self._service._diagnostics.report(scope, report_id)
+            if isinstance(report, ExecutionReport) or report.state == "redacted":
+                return report
+            return self._service._search_diagnostics.report(scope, report_id)
+
+        return self._call(inspect)
 
     def recent(self, scope: Scope, *, limit: int = 20) -> ReportHeaderPage:
         return self._call(
@@ -143,21 +152,28 @@ class QueryDiagnostics:
 
 
 class QueryService:
-    def __init__(self, database: EvidenceDatabase, identity: LocalIdentity) -> None:
+    def __init__(
+        self, database: EvidenceDatabase, identity: LocalIdentity, *,
+        search_configuration: IndexConfiguration = DEFAULT_CONFIGURATION,
+    ) -> None:
         self.database = database
         self.identity = validated(LocalIdentity, identity)
+        self.search_configuration = validated(IndexConfiguration, search_configuration)
         self._collector = Collector("query", self.identity)
+        self._search_collector = Collector("indexing", self.identity)
         self._authorizer = QueryAuthorizer(database)
         self._diagnostics: DiagnosticService = DiagnosticService(self._collector, self._authorizer)
+        self._search_diagnostics = DiagnosticService(self._search_collector, self._authorizer)
         self._support = Registry()
         self._dispatcher = Dispatcher(self._cleanup)
         self.diagnostics = QueryDiagnostics(self)
 
     def _cleanup(self) -> None:
         self._support.close()
-        for capture in tuple(self._collector._captures.values()):
-            capture.group.close()
-            self._collector._remove(capture)
+        for collector in (self._collector, self._search_collector):
+            for capture in tuple(collector._captures.values()):
+                capture.group.close()
+                collector._remove(capture)
 
     def close(self) -> None:
         self._dispatcher.close()
@@ -233,6 +249,13 @@ class QueryService:
                     )
                     required = closure(request)
                     output = next(s for s in request.steps if s.step_id == request.output_step)
+                    if isinstance(output, SearchStep):
+                        from kg.query._search import execute as search
+
+                        return search(
+                            self, request, output, options, start, observer, budget,
+                            capture, reference,
+                        )
                     if not isinstance(output, EvidenceStep):
                         from kg.query._plans import execute
 
@@ -370,6 +393,7 @@ class QueryService:
             LOGGER.error("Query failure class=%s", type(error).__name__)
         if capture is not None:
             capture.group.redact()
+            capture.group.close()
             if isinstance(capture, Capture) and capture.active:
                 capture.finish("failed", reason=code)
         outcome = failure(request, start, code, reason)
@@ -384,7 +408,7 @@ class QueryService:
     def _run_worker(
         self,
         observer: ReadObserver,
-        step: EvidenceStep | QueryRequest | SupportInspectionRequest,
+        step: EvidenceStep | QueryRequest | SupportInspectionRequest | SearchWork,
         ledger: Ledger,
     ) -> float:
         start = time.monotonic()
@@ -418,9 +442,9 @@ class QueryService:
                     continue
                 ledger.budget.check_deadline()
                 if frame.action == "done":
-                    if not isinstance(step, (QueryRequest, SupportInspectionRequest)) and (
-                        ledger.operations != 1 or ledger.records != 1
-                    ):
+                    if not isinstance(
+                        step, (QueryRequest, SupportInspectionRequest, SearchWork)
+                    ) and (ledger.operations != 1 or ledger.records != 1):
                         raise Stopped("internal_error", "internal_error")
                     break
                 if frame.action == "error":
@@ -431,11 +455,14 @@ class QueryService:
                     raise EvidenceServiceError(frame.code or "internal_error")
                 reply = (
                     ledger.transfer(frame)
-                    if frame.action in ("payload", "chunk", "fetch", "fetch_chunk")
+                    if frame.action in (
+                        "payload", "chunk", "fetch", "fetch_chunk",
+                        "capture_drop", "capture_reclaimed",
+                    )
                     and ledger.transfer is not None
                     else ledger.reserve(frame)
                 )
-                if reply.state != "ok":
+                if reply.state not in ("ok", "capture_reclaim"):
                     stop = (
                         "time_budget"
                         if reply.state == "deadline"
@@ -446,7 +473,7 @@ class QueryService:
                         else "record_budget"
                     )
                 channel.reply(reply)
-                if reply.state != "ok" and not (
+                if reply.state not in ("ok", "capture_reclaim") and not (
                     reply.state == "public"
                     and isinstance(step, QueryRequest)
                     and frame.action == "public"
@@ -566,9 +593,9 @@ class QueryService:
                         deadline.remaining()
                         return QueryCapabilities(
                             scope=scope,
-                            operations=("evidence", "resolve", "records", "count")
+                            operations=("evidence", "resolve", "records", "count", "search")
                             if enabled
-                            else ("evidence", "resolve"),
+                            else ("evidence", "resolve", "search"),
                             record_types=("decision",) if enabled else (),
                             association="direct_explicit_association/1" if enabled else None,
                             count_identity="submitted_assertion_id" if enabled else None,

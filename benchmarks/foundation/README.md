@@ -83,3 +83,49 @@ Record misses as misses. Changes to workload/hardware/model/limits require a new
 labeled run and reviewed rationale; changing a target never retroactively passes
 a prior run. Evaluation ownership and pending service/live acceptance live in the
 [tracking issue](https://github.com/markgar/local-knowledge-graph/issues/28#evaluation-ownership).
+
+## Controlled Q1 composition measurements
+
+`measure_query_search.py` exercises actual E1 intake, IndexService, full E3 search
+and the spawned QueryService with deterministic controlled providers. It also
+measures the real 25/1,001 decision counts and retained support inspections.
+Run from the repository root with development dependencies and a fresh directory:
+
+```bash
+uv run python benchmarks/foundation/measure_query_search.py \
+  --directory /tmp/q1-composition-measurements --samples 20 > /tmp/q1-composition.json
+```
+
+The record includes source hashes, environment, every call's outcome/latency,
+public reservations (null when redacted), exact quotes/membership, per-scenario
+timeout/partial/invalidation rates, 50-ms process-tree RSS samples plus OS
+high-water marks, and logical SQLite/WAL/SHM sizes before/after checkpoint.
+Induced public-budget failures, model stalls and actual E4 heartbeat invalidation
+are separate scenarios, not failures removed from a favorable pooled average.
+
+Every call spawns fresh controlled providers. Repetition is **not warm-model
+search**, and filesystem-cache warmth is not controlled. Canonical/vector rows
+share SQLite files; no fictional disk split is reported. This smaller workload is
+not the 1,000-document foundation workload and cannot establish its targets,
+real-model quality, checkpoint integration or wider V1 acceptance. Resource
+measurements include setup/count production as labeled in each record.
+
+The [2026-09-22 controlled record](q1-controlled-composition.json) contains 20
+successful cold-process searches (nearest-rank p95 606.6 ms), each with one exact
+hit and five reservations. The 25/1,001 submitted-decision counts and inspected
+ID sets matched actual producer receipts. All four induced public limits failed
+without data, the injected model stall timed out, and the heartbeat case returned
+`state_changed`. Conservative measured parent-plus-child peak was 137,199,616
+bytes; combined managed SQLite/WAL/SHM after checkpoint was 4,792,320 bytes.
+These are observations on the labeled smaller controlled workload, **not passes
+of the reference workload or real-model targets**. The record identifies the
+working-tree source hashes used; it is not a claim that its baseline commit alone
+contains the composed implementation.
+
+The [review-fix and passage-support reconciliation run](q1-controlled-composition-reviewed.json)
+preserves a separate 20-sample record rather than overwriting the initial run.
+Its cold-process search p95 was 654.0 ms, with the same exact-hit/five-reservation,
+25/1,001 membership and injected-failure outcomes. Conservative peak was
+141,656,064 bytes and post-checkpoint managed disk was 4,780,032 bytes. Its baseline
+commit includes the reconciled runtime; source hashes identify the measured files.
+Neither run is a reference-workload target result.
