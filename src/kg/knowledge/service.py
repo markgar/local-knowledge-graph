@@ -36,7 +36,7 @@ from kg.models.knowledge import (
 from kg.models.knowledge_events import KnowledgeSelection
 
 Mode = Literal["current", "history"]
-Kind = Literal["entity_support", "alias", "identifier", "assertion"]
+Kind = Literal["entity_support", "alias", "identifier", "mention", "assertion"]
 
 
 def _history(mode: Mode) -> bool:
@@ -257,7 +257,7 @@ class KnowledgeService:
         history, entity_id = _history(mode), check_token(entity_id)
         if kind is not None and (
             type(kind) is not str
-            or kind not in {"entity_support", "alias", "identifier", "assertion"}
+            or kind not in {"entity_support", "alias", "identifier", "mention", "assertion"}
         ):
             raise EvidenceServiceError("invalid_request")
 
@@ -273,11 +273,13 @@ class KnowledgeService:
                 "AND s.contribution_id=c.contribution_id AND s.entity_id=?) OR "
                 "EXISTS(SELECT 1 FROM identifier s WHERE s.corpus_id=c.corpus_id "
                 "AND s.contribution_id=c.contribution_id AND s.entity_id=?) OR "
+                "EXISTS(SELECT 1 FROM mention s WHERE s.corpus_id=c.corpus_id "
+                "AND s.contribution_id=c.contribution_id AND s.entity_id=?) OR "
                 "EXISTS(SELECT 1 FROM assertion s WHERE s.corpus_id=c.corpus_id "
                 "AND s.contribution_id=c.contribution_id "
                 "AND (s.subject_id=? OR s.object_entity_id=?))) "
                 "ORDER BY c.sequence",
-                (store.scope.corpus_id, after_sequence, kind, kind, *(entity_id,) * 5),
+                (store.scope.corpus_id, after_sequence, kind, kind, *(entity_id,) * 6),
             ):
                 try:
                     entries.append(store.contribution(row[0], history=history))
