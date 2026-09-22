@@ -267,3 +267,76 @@ def test_optional_transport_scratch_refusal_does_not_spend_business_allowance(
         assert explained.outcome.result.outcome == "complete", explained
         assert explained.outcome.result.records_examined == 5
         assert not isinstance(explained.report, ExecutionReport)
+
+
+def test_ranked_passage_backs_real_knowledge_and_retained_query_support(tmp_path, controlled):
+    from support.indexing import process
+    from support.query_knowledge import plan, produce, setup
+
+    from kg.models.foundation import DocumentDependency, SourceSupport
+    from kg.models.query import SupportInspectionRequest
+
+    env = setup(tmp_path / "passage-knowledge-query.db")
+    _, index, _, _, document, saved = prepared(env, namespace="email", text="alpha decision")
+    env.scope = env.scope.model_copy(update={
+        "access": env.scope.access.model_copy(update={"namespaces": ("email",)}),
+    })
+    with QueryService(env.database, env.service.identity) as service:
+        ranked = service.execute(request(env, records=5))
+        assert ranked.result.error is None, ranked
+        ref = ranked.result.data.hits[0].evidence
+        assert ref.passage_id is not None
+        env.support = SourceSupport(kind="source", evidence=(ref,))
+        env.dependency = DocumentDependency(
+            source_namespace=ref.source_namespace, document_id=ref.document_id,
+            revision_id=ref.revision_id, state_version=saved.processing.state_version,
+        )
+        subject, expected = produce(env, 25)
+        value = plan(env, subject)
+        counted = service.execute(value)
+        assert counted.result.error is None, counted
+        assert counted.result.data.count == 25 and counted.result.data.exact
+        inspect = SupportInspectionRequest(
+            request_id="passage-support", scope=env.scope,
+            result_set_id=counted.result.result_set_id, records_step_id="decisions",
+            budget=value.budget,
+        )
+        page = service.inspect_support(inspect)
+        assert page.error is None, page
+        assert {record.record_id for record in page.records} == expected
+        assert all(record.support == env.support for record in page.records)
+        assert env.service.evidence(env.scope, ref).quote == "alpha decision"
+        assert process(index, env, document, saved, mode="rebuild").outcome == "ready"
+        # Retained reads invalidate on any commit; current passage knowledge does not.
+        assert service.inspect_support(inspect).error.code == "state_changed"
+        fresh = service.execute(value)
+        assert fresh.result.error is None, fresh
+        assert fresh.result.data.count == 25 and fresh.result.data.exact
+
+
+def test_nondefault_contextual_profile_reaches_spawned_search(tmp_path, controlled):
+    from support.evidence import receipt
+    from support.index_search import SearchProvider
+    from support.indexing import process
+    from support.indexing import request as document_request
+    from support.indexing import service as index_service
+
+    from kg.models.indexing import IndexConfiguration
+    from kg.retrieval.dense import EmbeddingProfile
+
+    env = environment(tmp_path / "alternate-profile.db")
+    configuration = IndexConfiguration(
+        embedding_profile="qwen3-embedding-0.6b", contextual=True,
+        representation="generic-title-quote/1",
+    )
+    provider = SearchProvider(EmbeddingProfile(configuration.embedding_profile))
+    index, _, _ = index_service(env, provider)
+    document = document_request(env, text="alpha")
+    saved = receipt(env.service.write(document))
+    assert process(index, env, document, saved, configuration=configuration).outcome == "ready"
+    with QueryService(
+        env.database, env.service.identity, search_configuration=configuration,
+    ) as service:
+        result = service.execute(request(env, records=5))
+        assert result.result.error is None, result
+        assert len(result.result.data.hits) == 1 and result.result.records_examined == 5

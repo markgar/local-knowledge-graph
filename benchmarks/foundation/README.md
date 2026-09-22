@@ -121,3 +121,11 @@ These are observations on the labeled smaller controlled workload, **not passes
 of the reference workload or real-model targets**. The record identifies the
 working-tree source hashes used; it is not a claim that its baseline commit alone
 contains the composed implementation.
+
+The [review-fix and passage-support reconciliation run](q1-controlled-composition-reviewed.json)
+preserves a separate 20-sample record rather than overwriting the initial run.
+Its cold-process search p95 was 654.0 ms, with the same exact-hit/five-reservation,
+25/1,001 membership and injected-failure outcomes. Conservative peak was
+141,656,064 bytes and post-checkpoint managed disk was 4,780,032 bytes. Its baseline
+commit includes the reconciled runtime; source hashes identify the measured files.
+Neither run is a reference-workload target result.

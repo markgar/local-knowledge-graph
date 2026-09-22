@@ -224,7 +224,8 @@ existing `RankedSelection`/session-bound `ProjectionHandle` and exact hydrated
 response. It neither creates a pool nor releases/closes the caller's snapshot.
 The caller must retain the original observer and perform final release. Child
 captures join the existing disclosure group and cannot publish independently.
-This is an integration seam, not a delivered `QueryService` search consumer.
+`QueryService` consumes this seam in its spawned worker; its supervisor retains
+the original observer and owns final disclosure.
 
 Ordinary summaries and detailed candidate events describe the actual single
 execution. Detailed events preserve stage absence, scores, ranks, RRF contributions
@@ -497,7 +498,10 @@ operation, not current index/provider readiness.
 Worker-local actual E3 capture is transported as size-declared bounded chunks
 into a supervisor-owned indexing child in the existing parent disclosure group.
 Q1 reserves its transport/copy allowance before enabling capture; allocation
-failure discards only optional diagnostics. The child has the original observer,
+failure discards only optional diagnostics. Business scratch can reclaim this
+allowance after the worker discards capture and acknowledges that discard; the
+same rejected reservation is retried without refunding public work or resetting
+the deadline/private pool. The child has the original observer,
 exact document/evidence targets and parent step linkage. It cannot publish from
 the worker or before parent release. The supervisor's existing short fence
 authorizes both data and prepared reports; later child lookup rechecks the

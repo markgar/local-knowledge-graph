@@ -4,10 +4,15 @@ import json
 import math
 from pathlib import Path
 
+import pytest
 
-def test_controlled_record_preserves_samples_and_redacted_accounting():
+
+@pytest.mark.parametrize("filename", [
+    "q1-controlled-composition.json", "q1-controlled-composition-reviewed.json",
+])
+def test_controlled_record_preserves_samples_and_redacted_accounting(filename):
     record = json.loads(
-        Path("benchmarks/foundation/q1-controlled-composition.json").read_text(),
+        (Path("benchmarks/foundation") / filename).read_text(),
     )
     assert record["record_version"] == "q1-controlled-composition/1"
     assert record["recorded_at_utc"] and record["git_head"] and record["source_sha256"]

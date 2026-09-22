@@ -202,8 +202,9 @@ without an extra `evidence_reference`. Repeated calls inherit all remaining
 allowances. The owner must discard the snapshot on failure and perform original-
 observer/fresh-authorization release before disclosing successful results.
 `_begin_child_capture` stages a report in the parent's existing disclosure group;
-the parent owns finishing/release or irreversible redaction. Neither this seam nor
-standalone search enables `QueryService` search, which remains unsupported.
+the parent owns finishing/release or irreversible redaction. `QueryService` uses
+the borrowed search seam in its spawned worker, with Q1-owned bounded capture
+transport rather than transferring a live observer across processes.
 
 The shared diagnostic facade retains bounded ordinary summaries and optional
 detailed actual candidate memberships/scores/ranks. Explained search executes
@@ -389,7 +390,10 @@ its report, retrievable through `service.diagnostics.report`; query discovery li
 parent calls. Detailed quote opt-in applies to that child, not foundation output.
 Bounded capture transport is admitted against the original scratch pool before
 collection; optional capture capacity failures withhold diagnostics without changing
-ranking. Both reports remain provisional until the parent's one fenced release.
+ranking. If business scratch needs that capacity, the worker discards its capture
+and acknowledges reclamation before the supervisor releases the optional reservation
+and retries the same scratch request. Both reports remain provisional until the
+parent's one fenced release.
 Failure or subsequent observer invalidation permanently withholds both, including
 after parent eviction. Reports and retained decision support have separate lifetimes.
 
