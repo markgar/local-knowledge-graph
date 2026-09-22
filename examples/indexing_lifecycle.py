@@ -4,7 +4,7 @@ Usage: uv run python examples/indexing_lifecycle.py STORE SCOPE_JSON ATTRIBUTION
        PRINCIPAL DOCUMENT_ID STATE_VERSION
 
 This initializes the pinned local embedding provider. Prepare an approved model cache
-first; HF_HUB_OFFLINE=1 prevents downloads. No canonical full search is exposed.
+first; HF_HUB_OFFLINE=1 prevents downloads. See canonical_search.py for full search.
 """
 
 import argparse
