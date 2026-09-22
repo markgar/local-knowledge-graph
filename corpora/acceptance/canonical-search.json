@@ -1,0 +1,10 @@
+{
+  "case": "canonical-controlled-full-search/1",
+  "boundary": "Controlled providers prove service composition and exact provenance, not model quality.",
+  "text": "A\r\nCafe\u0301 \ud83d\ude80",
+  "query": "A",
+  "passage_policy": "codepoint-window/1",
+  "expected_start": 0,
+  "expected_end": 10,
+  "expected_items": 5
+}

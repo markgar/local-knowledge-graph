@@ -1,4 +1,4 @@
-"""Public bounded standalone index lifecycle; coordinated processing and search are absent."""
+"""Public bounded standalone index lifecycle; full search has a separate facade."""
 
 import sqlite3
 import time

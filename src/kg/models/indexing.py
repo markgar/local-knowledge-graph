@@ -5,7 +5,7 @@ from typing import Literal, Self
 from pydantic import Field, model_validator
 
 from kg.models.evidence import EvidenceView
-from kg.models.foundation import Token, Value
+from kg.models.foundation import Scope, Token, Value
 
 
 class PassageEntry(EvidenceView):
@@ -172,3 +172,27 @@ class IndexCapabilities(Value):
         "search",
         "coordinated_process",
     )
+
+
+class CanonicalSearchHit(Value):
+    evidence: EvidenceView
+    score: float = Field(allow_inf_nan=False)
+
+
+class CanonicalSearchResult(Value):
+    interface_version: Literal["indexing/1"] = "indexing/1"
+    scope: Scope
+    hits: tuple[CanonicalSearchHit, ...] = Field(max_length=100)
+    configuration_id: Token
+    execution_identity: ExecutionIdentity
+    reranker_pipeline: str = Field(min_length=1, max_length=2048)
+    read_state_id: Token
+    projection_ids: tuple[Token, ...]
+    items_consumed: int | None = Field(default=None, ge=0, le=10_000)
+    candidate_limit: int = Field(ge=50, le=100)
+    lexical_truncated: bool
+    dense_truncated: bool
+    fusion_truncated: bool
+    sqlite_version: Token
+    unicode_version: Token
+    python_version: Token
