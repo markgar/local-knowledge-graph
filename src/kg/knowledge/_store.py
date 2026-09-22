@@ -8,7 +8,8 @@ from typing import TYPE_CHECKING
 
 from pydantic import TypeAdapter
 
-from kg._execution_budget import PrivateBudget
+from kg._execution_budget import PrivateBudget, ScratchReservation
+from kg.diagnostics._bounds import bounded_size
 from kg.evidence._reads import evidence_location, evidence_view
 from kg.evidence._sql import AccountedConnection
 from kg.evidence._values import sha
@@ -32,6 +33,43 @@ if TYPE_CHECKING:
     from kg.evidence._read_context import CanonicalReadContext
 
 
+class RevalidationCache:
+    """Bounded immutable proofs for one reader in one live read context."""
+
+    def __init__(self, context: CanonicalReadContext) -> None:
+        self.context = context
+        self.proofs: dict[tuple[EvidenceRef, str], tuple[CapturedEvidence, bool]] = {}
+        self.bases: dict[tuple[str, bool], EntityWitness | None] = {}
+        self.witnesses: set[EntityWitness] = set()
+        self.schema: KnowledgeSchema | None = None
+        self.reservations: list[ScratchReservation] = []
+        self.closed = False
+
+    def check(self) -> None:
+        self.context.check_active()
+        if self.closed:
+            raise EvidenceServiceError("invalid_request")
+
+    def hold(self, size: int) -> None:
+        self.check()
+        reservation = self.context.meter.reserve_scratch(max(1, size), "general")
+        self.reservations.append(reservation)
+        self.context._scratch.append(reservation)
+
+    def hold_witness(self, witness: EntityWitness | None) -> None:
+        self.hold(4096 + bounded_size(witness, 64 << 20))
+
+    def close(self) -> None:
+        self.closed = True
+        self.proofs.clear()
+        self.bases.clear()
+        self.witnesses.clear()
+        self.schema = None
+        for reservation in self.reservations:
+            reservation.release()
+        self.reservations.clear()
+
+
 class Store:
     def __init__(
         self,
@@ -40,16 +78,27 @@ class Store:
         budget: PrivateBudget,
         *,
         context: CanonicalReadContext | None = None,
+        cache: RevalidationCache | None = None,
     ) -> None:
+        if cache is not None:
+            cache.check()
+            if cache.context is not context:
+                raise EvidenceServiceError("invalid_request")
         self.connection, self.scope, self.budget = connection, scope, budget
         self._scratch = ExitStack()
-        self._proofs: dict[tuple[EvidenceRef, str], tuple[CapturedEvidence, bool]] = {}
-        self._bases: dict[tuple[str, bool], EntityWitness | None] = {}
+        self._proofs: dict[tuple[EvidenceRef, str], tuple[CapturedEvidence, bool]] = (
+            {} if cache is None else cache.proofs
+        )
+        self._bases: dict[tuple[str, bool], EntityWitness | None] = (
+            {} if cache is None else cache.bases
+        )
         self._context = context
+        self._cache = cache
 
     def close(self) -> None:
-        self._proofs.clear()
-        self._bases.clear()
+        if self._cache is None:
+            self._proofs.clear()
+            self._bases.clear()
         self._scratch.close()
 
     def refresh_entities(self) -> None:
@@ -63,6 +112,10 @@ class Store:
             self._context._scratch.append(reservation)
 
     def schema(self) -> KnowledgeSchema:
+        if self._cache is not None:
+            self._cache.check()
+            if self._cache.schema is not None:
+                return self._cache.schema
         size = self.connection.execute(
             "SELECT length(CAST(definition_json AS BLOB)) FROM knowledge_schema WHERE corpus_id=?",
             (self.scope.corpus_id,),
@@ -84,6 +137,9 @@ class Store:
             or sha(row["definition_json"].encode()) != row["definition_hash"]
         ):
             raise EvidenceServiceError("internal_error")
+        if self._cache is not None:
+            self._cache.hold(size[0] * 8)
+            self._cache.schema = schema
         return schema
 
     def row(self, table: str, identifier: str) -> sqlite3.Row:
@@ -158,7 +214,12 @@ class Store:
             ),
         )
         if len(self._proofs) < 200:
-            self.hold(4096)
+            if self._cache is None:
+                self.hold(4096)
+            else:
+                self._cache.hold(
+                    bounded_size(key, 64 << 20) + bounded_size(result, 64 << 20),
+                )
             self._proofs[key] = result
         return result
 
@@ -265,7 +326,10 @@ class Store:
                 )
                 break
         if len(self._bases) < 200:
-            self.hold(4096)
+            if self._cache is None:
+                self.hold(4096)
+            else:
+                self._cache.hold_witness(result)
             self._bases[key] = result
         return result
 

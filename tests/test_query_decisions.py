@@ -39,7 +39,9 @@ def test_real_produced_count_display_and_full_inspection(tmp_path, count, monkey
     from kg.query._meter import Ledger
 
     stops = []
+    cleanup = []
     reserve = Ledger.reserve
+    close = Ledger.close
 
     def recorded(ledger, frame):
         reply = reserve(ledger, frame)
@@ -48,6 +50,12 @@ def test_real_produced_count_display_and_full_inspection(tmp_path, count, monkey
         return reply
 
     monkeypatch.setattr(Ledger, "reserve", recorded)
+
+    def released(ledger):
+        close(ledger)
+        cleanup.append((ledger.budget._vm, ledger.budget._visits, ledger.budget._scratch))
+
+    monkeypatch.setattr(Ledger, "close", released)
     env = setup(tmp_path / "decisions.db")
     entity_id, expected = produce(env, count)
     request = plan(env, entity_id)
@@ -93,6 +101,11 @@ def test_real_produced_count_display_and_full_inspection(tmp_path, count, monkey
             "count",
         )
         assert len(service._support.sets) == 1
+        assert not stops
+        assert all(
+            vm <= 10_000_000 and visits <= 100_000 and scratch == 0
+            for vm, visits, scratch in cleanup
+        )
 
 
 @pytest.mark.parametrize("limit", [1, 2, 25, 26])

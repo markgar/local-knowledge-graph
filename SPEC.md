@@ -396,6 +396,18 @@ verbatim, including distinct seed and source bases. E3 projection handles contai
 scoped immutable identities and are usable only in their live read session.
 Neither DTOs nor handles install runnable knowledge/indexing adapters.
 
+K1 retained-member revalidation uses a reader-local cache tied to one live
+canonical context: immutable schema, at most 200 source proofs, 200 activation
+bases and 200 exact full witness proofs. Each member still reads its actual
+assertion and complete support, under the original root budget and its local
+10,000-visit view. Exact supplied sequence/basis/dependency bundles are compared;
+a cached alternative activation never replaces the retained witness.
+Cache reservations are separate from transient per-member scratch and are
+released on reader close, with context teardown reclaiming outstanding handles.
+Inspection closes the reader on every exit. No cache transfers authority across
+contexts, scopes, calls or workers, and the shared 100,000-visit/10-million-VM
+ceilings are unchanged.
+
 ### Canonical evidence query execution
 
 `kg.query` implements anchor/passage evidence and actual K1-dependent

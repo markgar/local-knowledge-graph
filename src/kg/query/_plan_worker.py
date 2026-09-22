@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import time
+from contextlib import closing
 from typing import Literal
 
 from pydantic import Field
@@ -169,27 +170,27 @@ def inspect(
     request: SupportInspectionRequest,
 ) -> None:
     budget.rpc(Frame(action="begin", step_id=request.records_step_id))
-    reader = KnowledgeReader(context, context.identity)
-    for index in range(request.limit):
-        length = budget.rpc(Frame(action="fetch", view=index))
-        if not length:
-            break
-        with budget.reserve_scratch(length * 3, "general"):
-            chunks: list[str] = []
-            offset = 0
-            while True:
-                reply = budget.exchange(Frame(action="fetch_chunk", n=offset + 1))
-                chunks.append(reply.text)
-                offset += len(reply.text)
-                if reply.value:
-                    break
-            payload = "".join(chunks)
-            if len(payload.encode()) != length:
-                raise ValueError("Inspection payload mismatch")
-            member = DecisionSelectionItem.model_validate_json(payload)
-            try:
-                context.meter.reserve_public("support_member")
-            except PublicBudgetStop:
-                raise Stopped("budget_exceeded", "record_budget") from None
-            reader.revalidate_member(member)
+    with closing(KnowledgeReader(context, context.identity)) as reader:
+        for index in range(request.limit):
+            length = budget.rpc(Frame(action="fetch", view=index))
+            if not length:
+                break
+            with budget.reserve_scratch(length * 3, "general"):
+                chunks: list[str] = []
+                offset = 0
+                while True:
+                    reply = budget.exchange(Frame(action="fetch_chunk", n=offset + 1))
+                    chunks.append(reply.text)
+                    offset += len(reply.text)
+                    if reply.value:
+                        break
+                payload = "".join(chunks)
+                if len(payload.encode()) != length:
+                    raise ValueError("Inspection payload mismatch")
+                member = DecisionSelectionItem.model_validate_json(payload)
+                try:
+                    context.meter.reserve_public("support_member")
+                except PublicBudgetStop:
+                    raise Stopped("budget_exceeded", "record_budget") from None
+                reader.revalidate_member(member)
     context.check_active()
