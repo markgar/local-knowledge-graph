@@ -38,6 +38,7 @@ from kg.models.foundation import (
     Scope,
     SourceSupport,
 )
+from kg.models.indexing import DEFAULT_CONFIGURATION, IndexConfiguration
 from kg.models.query import (
     QueryCapabilities,
     QueryExecution,
@@ -54,6 +55,7 @@ from kg.query._dispatch import Dispatcher, Stopped
 from kg.query._meter import Ledger
 from kg.query._reports import QueryAuthorizer
 from kg.query._retention import Registry
+from kg.query._search import SearchWork
 
 LOGGER = logging.getLogger(__name__)
 
@@ -107,9 +109,13 @@ class QueryDiagnostics:
         self._service: QueryService = service
 
     def report(self, scope: Scope, report_id: str) -> ExecutionReport | ReportAvailability:
-        return self._call(
-            lambda: self._service._diagnostics.report(scope, report_id),
-        )
+        def inspect() -> ExecutionReport | ReportAvailability:
+            report = self._service._diagnostics.report(scope, report_id)
+            if isinstance(report, ExecutionReport) or report.state == "redacted":
+                return report
+            return self._service._search_diagnostics.report(scope, report_id)
+
+        return self._call(inspect)
 
     def recent(self, scope: Scope, *, limit: int = 20) -> ReportHeaderPage:
         return self._call(
@@ -143,21 +149,28 @@ class QueryDiagnostics:
 
 
 class QueryService:
-    def __init__(self, database: EvidenceDatabase, identity: LocalIdentity) -> None:
+    def __init__(
+        self, database: EvidenceDatabase, identity: LocalIdentity, *,
+        search_configuration: IndexConfiguration = DEFAULT_CONFIGURATION,
+    ) -> None:
         self.database = database
         self.identity = validated(LocalIdentity, identity)
+        self.search_configuration = validated(IndexConfiguration, search_configuration)
         self._collector = Collector("query", self.identity)
+        self._search_collector = Collector("indexing", self.identity)
         self._authorizer = QueryAuthorizer(database)
         self._diagnostics: DiagnosticService = DiagnosticService(self._collector, self._authorizer)
+        self._search_diagnostics = DiagnosticService(self._search_collector, self._authorizer)
         self._support = Registry()
         self._dispatcher = Dispatcher(self._cleanup)
         self.diagnostics = QueryDiagnostics(self)
 
     def _cleanup(self) -> None:
         self._support.close()
-        for capture in tuple(self._collector._captures.values()):
-            capture.group.close()
-            self._collector._remove(capture)
+        for collector in (self._collector, self._search_collector):
+            for capture in tuple(collector._captures.values()):
+                capture.group.close()
+                collector._remove(capture)
 
     def close(self) -> None:
         self._dispatcher.close()
@@ -384,7 +397,7 @@ class QueryService:
     def _run_worker(
         self,
         observer: ReadObserver,
-        step: EvidenceStep | QueryRequest | SupportInspectionRequest,
+        step: EvidenceStep | QueryRequest | SupportInspectionRequest | SearchWork,
         ledger: Ledger,
     ) -> float:
         start = time.monotonic()
@@ -418,9 +431,9 @@ class QueryService:
                     continue
                 ledger.budget.check_deadline()
                 if frame.action == "done":
-                    if not isinstance(step, (QueryRequest, SupportInspectionRequest)) and (
-                        ledger.operations != 1 or ledger.records != 1
-                    ):
+                    if not isinstance(
+                        step, (QueryRequest, SupportInspectionRequest, SearchWork)
+                    ) and (ledger.operations != 1 or ledger.records != 1):
                         raise Stopped("internal_error", "internal_error")
                     break
                 if frame.action == "error":
@@ -431,7 +444,7 @@ class QueryService:
                     raise EvidenceServiceError(frame.code or "internal_error")
                 reply = (
                     ledger.transfer(frame)
-                    if frame.action in ("payload", "chunk", "fetch", "fetch_chunk")
+                    if frame.action in ("payload", "chunk", "fetch", "fetch_chunk", "capture_drop")
                     and ledger.transfer is not None
                     else ledger.reserve(frame)
                 )

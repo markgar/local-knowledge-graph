@@ -49,3 +49,18 @@ def test_expired_deadline_cannot_be_reset_by_view_or_frame():
     ledger = Ledger(pool, 1, 1)
     assert ledger.reserve(Frame(action="limited", n=100)).state == "deadline"
     assert ledger.reserve(Frame(action="begin")).state == "deadline"
+
+
+def test_stage_facts_record_only_acknowledged_reservations():
+    ledger = Ledger(PrivateBudget(Deadline(time.monotonic() + 10)), 2, 5)
+    assert ledger.reserve(Frame(action="begin", step_id="first")).state == "ok"
+    for stage in (
+        "search_temp", "search_lexical", "search_vector", "search_rerank",
+        "search_final_evidence",
+    ):
+        assert ledger.reserve(Frame(action="public", stage=stage)).state == "ok"
+    assert ledger.reserve(Frame(action="begin", step_id="second")).state == "ok"
+    assert ledger.reserve(Frame(action="public", stage="search_temp")).state == "public"
+    assert sum(ledger.by_stage.values()) == ledger.records == 5
+    assert all(step_id == "first" and count == 1 for (step_id, _), count in ledger.by_stage.items())
+    assert ledger.by_step == {"first": (1, 5), "second": (1, 0)}

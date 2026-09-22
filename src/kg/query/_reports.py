@@ -6,7 +6,12 @@ from collections.abc import Iterator
 from contextlib import contextmanager
 
 from kg._execution_budget import PrivateBudget
-from kg.diagnostics._targets import AuthorizationBinding, EvidenceTarget, KnowledgeTarget
+from kg.diagnostics._targets import (
+    AuthorizationBinding,
+    DocumentTarget,
+    EvidenceTarget,
+    KnowledgeTarget,
+)
 from kg.evidence._authorization import authorize
 from kg.evidence._diagnostic_authorization import EvidenceReportAuthorizer
 from kg.evidence._read_context import ObserverReference, ReleaseFence, release_fence
@@ -57,7 +62,7 @@ class QueryAuthorizer:
                             for target in binding.targets:
                                 if isinstance(target, KnowledgeTarget):
                                     authorize_target(store, binding.identity, target)
-                                elif isinstance(target, EvidenceTarget):
+                                elif isinstance(target, (DocumentTarget, EvidenceTarget)):
                                     self.targets.authorize_target(connection, binding, target)
                                 else:
                                     raise EvidenceServiceError("unsupported")

@@ -41,6 +41,7 @@ class Frame(Value):
         "chunk",
         "fetch",
         "fetch_chunk",
+        "capture_drop",
     ]
     view: int = Field(default=0, ge=0, le=100_000)
     n: int = Field(default=1, ge=1, le=64 << 20)
@@ -49,7 +50,7 @@ class Frame(Value):
     code: ErrorCode | None = None
     step_id: str | None = Field(default=None, max_length=256)
     text: str = Field(default="", max_length=4096)
-    kind: Literal["entity", "decision", "summary"] = "summary"
+    kind: Literal["entity", "decision", "summary", "ranked", "capture"] = "summary"
     reason: StopReason | None = None
 
 
@@ -159,6 +160,7 @@ class Ledger:
         self.max_records = max_records
         self.current_step: str | None = None
         self.by_step: dict[str, tuple[int, int]] = {}
+        self.by_stage: dict[tuple[str | None, SemanticStage], int] = {}
         self.transfer: Callable[[Frame], Reply] | None = None
 
     def reserve(self, frame: Frame) -> Reply:
@@ -193,6 +195,8 @@ class Ledger:
             if self.records + frame.n > self.max_records:
                 raise PublicBudgetStop()
             self.records += frame.n
+            stage_key = (self.current_step, frame.stage)
+            self.by_stage[stage_key] = self.by_stage.get(stage_key, 0) + frame.n
             if self.current_step is not None:
                 operations, records = self.by_step[self.current_step]
                 self.by_step[self.current_step] = (operations, records + frame.n)
