@@ -20,13 +20,14 @@ retrieval-quality gates remain unmet.
 | Capability | Current behavior |
 | --- | --- |
 | Generic evidence | `kg.evidence`: atomic supplied-document writes/removal, ordered batches, exact UTF-8 content, scoped history/anchors/citations, durable retry receipts and trusted local policy. |
+| Standalone indexing | `kg.indexing.IndexService`: immutable passages, fenced attempts, actual pinned-provider vector projections, incremental reuse/rebuild, model-free readiness and bounded cleanup. No canonical search or coordinated job execution. |
 | Processing control | `kg.processing`: trusted plan/worker registration, scheduling/deduplication, fenced claims/heartbeats/failure, bounded recovery, and idempotent retry episodes. Controls do not execute or acknowledge work. |
 | Owned knowledge | Atomic anchor-backed entities, independent entity support, aliases, identifiers and typed assertions through `EvidenceService.write`; `KnowledgeService` current/history reads and immutable schema registration. Explicit decision assertions produce distinct submitted records. |
 | Markdown demonstration | Manifest-selected local Markdown, explicit records, seed entities, structured reads, source context and revision comparison in its separate database. |
 | Demonstration search | Full local keyword + semantic retrieval, fusion/deduplication and reranking; matching vector preparation is required. No keyword-only fallback. |
 | Foundation values | Strict `foundation/1` request/result validation. Document and bounded enrichment operations execute through `EvidenceService`; canonical anchor/passage-evidence plans execute through `QueryService`. Enrichment does not implement mentions or whole-set seed replacement. |
 | Canonical queries | `kg.query.QueryService`: selected plan closure, actual historical anchor/passage reads, spawned deadline supervision, inherited accounting and fresh release authorization. Required resolve/records/count/search/paths remain explicitly unsupported. |
-| Execution diagnostics | Evidence, processing and query calls retain bounded, authorized in-memory summaries. Named explained wrappers execute once; detailed traces and source quotes require opt-in. |
+| Execution diagnostics | Evidence, indexing, processing and query calls retain bounded, authorized in-memory summaries. Named explained wrappers execute once; detailed traces and source quotes require opt-in. |
 
 There are no live email/Teams connectors, inference/extraction providers, general
 query planner, continuation service, or source-level ACL/purge service.
@@ -64,13 +65,22 @@ quote opt-in and unavailable/redacted results.
 
 The service does not read source files, parse Markdown, infer knowledge, index
 or search. Submitted enrichment does not mark a source fully processed.
-Every new state reports indexing/enrichment **pending** with
+Every new state initially reports indexing/enrichment **pending** with
 `processor_not_available`. Intake retains passage policy intent without running
 processing. The private canonical passage kernel supports `codepoint-window/1`
-and `supplied-anchors/1`; it does not expose a public process command.
+and `supplied-anchors/1`. The separate `IndexService.process` runs the standalone
+index lifecycle; it is not an E4 worker or a CLI command.
 `service.passages(scope, document_id, state_version)` reads an immutable published
 set, or explicitly reports `not_processed`. Published passage and generated-anchor
 citations also resolve through ordinary evidence reads, independently of vectors.
+
+For an existing supplied document, see [the indexing example](examples/indexing_lifecycle.py)
+and [standalone indexing contract](CONTRACTS.md#standalone-indexing-api).
+Processing initializes the configured local embedding model even when checking an
+unchanged projection or processing an empty document. Prepare only approved model
+caches; there is no lexical fallback. `status` and `pending` do not load models:
+ready means durable completeness, with provider compatibility explicitly unverified.
+Indexing does not change enrichment or invalidate knowledge when rebuilding vectors.
 
 Fresh stores use the complete `evidence-store/2` schema and the `evidence/2`
 service interface. Initialization verifies the actual schema and its recorded

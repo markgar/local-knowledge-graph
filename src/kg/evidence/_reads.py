@@ -91,7 +91,10 @@ def metadata_snapshot(row: sqlite3.Row) -> MetadataSnapshot:
 
 
 def document_view(connection: sqlite3.Connection, doc: sqlite3.Row, state: str) -> DocumentView:
+    from kg.indexing._inspection import effective_default
+
     row = state_row(connection, doc["document_id"], state)
+    indexing, indexing_reason = effective_default(connection, doc, row)
     return DocumentView(
         corpus_id=doc["corpus_id"],
         document=ExternalDocument(
@@ -110,14 +113,14 @@ def document_view(connection: sqlite3.Connection, doc: sqlite3.Row, state: str) 
         processing=ProcessingState(
             state_version=state,
             source=row["source"],
-            indexing=row["indexing"],
+            indexing=indexing,
             enrichment=row["enrichment"],
         ),
         metadata=metadata_snapshot(row),
         anchor_set_id=row["set_id"],
         passage_policy=row["passage_policy"],
         is_latest_state=state == doc["current_state"],
-        indexing_reason=row["indexing_reason"],
+        indexing_reason=indexing_reason,
         enrichment_reason=row["enrichment_reason"],
     )
 

@@ -7,6 +7,7 @@ import sqlite3
 from dataclasses import dataclass
 from typing import Literal
 
+from kg._execution_budget import PrivateBudget
 from kg.evidence import _store
 from kg.evidence._authorization import authorize, authorize_writer
 from kg.evidence._reads import check_token, scoped_document
@@ -56,6 +57,18 @@ class PassagePublication:
     outcome: Literal["produced", "reused"]
 
 
+def current_state(connection: sqlite3.Connection, document_id: str) -> sqlite3.Row:
+    row = connection.execute(
+        "SELECT s.* FROM document d JOIN document_state s "
+        "ON s.document_id=d.document_id AND s.state_version=d.current_state "
+        "WHERE d.document_id=?",
+        (document_id,),
+    ).fetchone()
+    if not isinstance(row, sqlite3.Row):
+        raise EvidenceServiceError("internal_error")
+    return row
+
+
 def _authorized_state(
     connection: sqlite3.Connection,
     identity: LocalIdentity,
@@ -79,7 +92,7 @@ def _authorized_state(
     )
     if doc["owner_id"] != attribution.owner_id:
         raise EvidenceServiceError("forbidden")
-    state = _store.head(connection, document_id)
+    state = current_state(connection, document_id)
     namespace = connection.execute(
         "SELECT policy_token FROM source_namespace WHERE corpus_id=? AND namespace=?",
         (scope.corpus_id, doc["namespace"]),
@@ -101,12 +114,14 @@ def prepare(
     attribution: Attribution,
     document_id: str,
     expected_state: str,
+    *,
+    budget: PrivateBudget | None = None,
 ) -> PreparedPassages:
     identity, scope = validated(LocalIdentity, identity), validated(Scope, scope)
     attribution = validated(Attribution, attribution)
     check_token(document_id)
     check_token(expected_state)
-    with database.connection() as connection:
+    with database.connection(budget=budget) as connection:
         connection.execute("BEGIN")
         state = _authorized_state(
             connection,
