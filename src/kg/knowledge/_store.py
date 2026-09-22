@@ -231,7 +231,8 @@ class Store:
         if row["support_kind"] == "source":
             size = self.connection.execute(
                 "SELECT COALESCE(sum(length(namespace)+length(document_id)+length(revision_id)+"
-                "length(anchor_id)+length(state_version)+length(metadata_snapshot_id)),0),count(*) "
+                "length(anchor_id)+length(state_version)+length(metadata_snapshot_id)+"
+                "COALESCE(length(passage_set_id),0)+COALESCE(length(passage_id),0)),0),count(*) "
                 "FROM contribution_evidence WHERE corpus_id=? AND contribution_id=?",
                 (self.scope.corpus_id, cid),
             ).fetchone()
@@ -264,6 +265,13 @@ class Store:
                 )
                 if proof.metadata_snapshot_id != ref["metadata_snapshot_id"]:
                     raise EvidenceServiceError("internal_error")
+                if ref["passage_id"] is not None:
+                    passage = self.connection.execute(
+                        "SELECT passage_set_id FROM passage WHERE passage_id=?",
+                        (ref["passage_id"],),
+                    ).fetchone()
+                    if passage is None or passage[0] != ref["passage_set_id"]:
+                        raise EvidenceServiceError("internal_error")
                 proofs.append(proof)
                 current = current and active
             return SourceWitness(evidence=tuple(proofs)), current
@@ -372,12 +380,13 @@ class Store:
         row = self.row("contribution", cid)
         basis, current = self.support(row)
         kind = row["kind"]
-        if kind not in {"entity_support", "alias", "identifier", "assertion"}:
+        if kind not in {"entity_support", "alias", "identifier", "mention", "assertion"}:
             raise EvidenceServiceError("unsupported")
         text_columns = {
             "entity_support": ("attested_name", "attested_type"),
             "alias": ("alias",),
             "identifier": ("scheme", "value"),
+            "mention": (),
             "assertion": (
                 "predicate",
                 "object_string",
@@ -385,7 +394,7 @@ class Store:
                 "object_timestamp",
             ),
         }[kind]
-        size_expr = "+".join(f"COALESCE(length(CAST({c} AS BLOB)),0)" for c in text_columns)
+        size_expr = "+".join(f"COALESCE(length(CAST({c} AS BLOB)),0)" for c in text_columns) or "0"
         size = self.connection.execute(
             f"SELECT {size_expr} FROM {kind} WHERE corpus_id=? AND contribution_id=?",
             (self.scope.corpus_id, cid),
@@ -448,7 +457,7 @@ class Store:
                 payload.update(name=detail["attested_name"], entity_type=detail["attested_type"])
             elif kind == "alias":
                 payload["alias"] = detail["alias"]
-            else:
+            elif kind == "identifier":
                 payload.update(scheme=detail["scheme"], value=detail["value"])
         witnesses = tuple(self.require_entity(e, history=history) for e in endpoints)
         current = current and all(self.basis(e) is not None for e in endpoints)

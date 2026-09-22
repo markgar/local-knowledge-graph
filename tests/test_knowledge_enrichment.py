@@ -647,7 +647,7 @@ def test_retained_reader_deadline_and_inherited_write_exhaustion(env):
         cursor.close()
 
 
-def test_passage_and_mention_are_explicit_atomic_unsupported(env):
+def test_fabricated_passage_and_mention_reject_atomically(env):
     from kg.models.foundation import AddMention
 
     support, dep = source(env)
@@ -668,12 +668,12 @@ def test_passage_and_mention_are_explicit_atomic_unsupported(env):
             ),
         ),
     ):
-        assert env.service.write(request(env, changes, (dep,))).error.code == "unsupported"
+        assert env.service.write(request(env, changes, (dep,))).error.code == "not_found"
     with env.database.connection() as connection:
         assert connection.execute("SELECT count(*) FROM entity").fetchone()[0] == 0
     caps = KnowledgeService(env.database, env.service.identity).capabilities(env.scope)
-    assert "mention" not in caps.change_kinds
-    assert "mention" in caps.unsupported
+    assert "mention" in caps.change_kinds
+    assert "mention" not in caps.unsupported
 
 
 def test_whole_batch_forged_shape_rejected_before_item_zero(env):
@@ -798,7 +798,8 @@ def test_linked_settled_expiry_maintenance_never_checks_new_work(env):
     assert env.service.write(req).error.code == "retry_expired"
 
 
-def test_example_reopens_and_replays_exact_record(tmp_path):
+@pytest.mark.parametrize("passages", [False, True])
+def test_example_reopens_and_replays_exact_record(tmp_path, passages):
     import json
     import subprocess
     import sys
@@ -809,11 +810,14 @@ def test_example_reopens_and_replays_exact_record(tmp_path):
         "--database",
         str(tmp_path / "example.db"),
     ]
+    if passages:
+        command.append("--passages")
     first = json.loads(subprocess.check_output(command))
     second = json.loads(subprocess.check_output(command))
     assert first == second
     assert first["payload"]["predicate"] == "work:decision"
     assert first["evidence"][0]["reference"]["anchor_id"]
+    assert bool(first["evidence"][0]["reference"]["passage_id"]) == passages
 
 
 def test_every_typed_scalar_round_trips_without_bool_integer_coercion(env):
