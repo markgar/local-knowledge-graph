@@ -6,9 +6,9 @@
 
 A local-first, evidence-backed knowledge engine. The new generic Python evidence
 service stores exact supplied text, immutable revisions and citation context in
-SQLite. The separate Markdown demonstration includes structured reads and a full
-keyword + semantic search, fusion and reranking pipeline; it is not yet connected
-to the new evidence store.
+SQLite. Canonical supplied-document search runs scoped keyword and semantic
+retrieval, fusion and reranking against that store. The separate Markdown
+demonstration retains its own database and search facade.
 
 **Pre-alpha:** this is evidence retrieval, not a production question-answering
 system. It does not generate answers, infer entities or contradictions, or
@@ -20,7 +20,8 @@ retrieval-quality gates remain unmet.
 | Capability | Current behavior |
 | --- | --- |
 | Generic evidence | `kg.evidence`: atomic supplied-document writes/removal, ordered batches, exact UTF-8 content, scoped history/anchors/citations, durable retry receipts and trusted local policy. |
-| Standalone indexing | `kg.indexing.IndexService`: immutable passages, fenced attempts, actual pinned-provider vector projections, incremental reuse/rebuild, model-free readiness and bounded cleanup. No canonical search or coordinated job execution. |
+| Standalone indexing | `kg.indexing.IndexService`: immutable passages, fenced attempts, actual pinned-provider vector projections, incremental reuse/rebuild, model-free readiness and bounded cleanup. No coordinated job execution. |
+| Canonical search | `kg.indexing.EvidenceSearchService`: scoped lexical/dense candidates, fusion/deduplication, reranking and exact supplied-source citations in one guarded snapshot. Both providers and complete matching projections are mandatory. |
 | Processing control | `kg.processing`: trusted plan/worker registration, scheduling/deduplication, fenced claims/heartbeats/failure, bounded recovery, and idempotent retry episodes. Controls do not execute or acknowledge work. |
 | Owned knowledge | Atomic anchor/passage-backed entities, independent entity support, aliases, identifiers, explicit passage mentions and typed assertions through `EvidenceService.write`; `KnowledgeService` current/history reads and immutable schema registration. Explicit decision assertions produce distinct submitted records. |
 | Markdown demonstration | Manifest-selected local Markdown, explicit records, seed entities, structured reads, source context and revision comparison in its separate database. |
@@ -88,6 +89,23 @@ unchanged projection or processing an empty document. Prepare only approved mode
 caches; there is no lexical fallback. `status` and `pending` do not load models:
 ready means durable completeness, with provider compatibility explicitly unverified.
 Indexing does not change enrichment or invalidate knowledge when rebuilding vectors.
+
+For an actual supply -> index -> search example, use a fresh database and approved
+local model caches:
+
+```bash
+HF_HUB_OFFLINE=1 uv run python examples/canonical_search.py --database /tmp/canonical-search.sqlite3
+```
+
+`EvidenceSearchService(database, identity).search(scope, query)` returns exact
+quotes, immutable citations, raw reranker scores and a read witness. Any visible
+active document without a matching complete projection blocks the whole search.
+Empty scopes still initialize both providers and encode the query; there is no
+keyword fallback. Calls have a 30-second deadline and bounded work allowances;
+source, policy or other canonical commits during a search withhold all results.
+See [canonical search contracts](CONTRACTS.md#canonical-full-search).
+This standalone API does not enable `QueryService` search, processing coordination
+or establish real-model quality/workload acceptance.
 
 Fresh stores use the complete `evidence-store/2` schema and the `evidence/2`
 service interface. Initialization verifies the actual schema and its recorded

@@ -142,8 +142,8 @@ Evidence/citation/revision-inventory and diagnostic retained-target checks use t
 same exact membership resolver. Snapshot hydration preflights source, quote and
 metadata lengths before decoding, keeps scratch ownership until snapshot exit,
 and reserves its operation's public event once: direct evidence_reference or
-future search_final_evidence, not both. The latter is only a tested adapter seam,
-not an installed search. Scoped inherited budgets/limited views are never reset.
+search_final_evidence, not both. Canonical search uses that same resolver.
+Scoped inherited budgets/limited views are never reset.
 
 ### Standalone canonical indexing
 
@@ -152,7 +152,8 @@ One logical configuration binds fixed embedding model pins, dimensions, exact
 representation, lexical and dense-scoring versions. Each initialized provider
 supplies its separate runtime/encoding identity. Durable status is explicitly
 `provider_compatibility="unverified"`; status/pending do not initialize models.
-Full canonical search and coordinated E4 completion remain unsupported.
+The separate `EvidenceSearchService` consumes those projections; coordinated E4
+completion remains unsupported.
 
 Admission advances the document/configuration slot's persistent fence and retires
 an unfinished predecessor. Obsolete payload drains in transactions deleting at
@@ -184,6 +185,53 @@ can leave `cleanup_pending`; explicit bounded cleanup converges without treating
 physical disk/WAL reclamation as complete. Historical citations continue to resolve
 after projection removal. All process/read/cleanup paths inherit their invocation's
 single private budget and deadline; exhaustion is explicit, not partial readiness.
+
+### Scoped canonical full search
+
+`kg.indexing.EvidenceSearchService` executes one full search on a canonical read
+snapshot. It uses the existing observer-before-snapshot admission and original
+observer release fence. Search creates no canonical rows or durable leases.
+Current, active, authorized documents must all have complete projections matching
+both logical configuration and initialized embedding identity. A later failed
+attempt does not invalidate a still-valid complete projection. Empty membership
+still requires both pinned providers and a valid encoded query.
+
+Private FILE TEMP FTS5 contains only visible current projection quotes, with
+`unicode61 remove_diacritics 0` and BM25 weight 1.0. Titles never enter lexical
+statistics. Natural query tokens use Python Unicode `\w+`, casefold and ordered
+deduplication; tokenizer-empty tokens are discarded by a same-tokenizer probe.
+Quoted token phrases are OR-combined, never interpreted as caller-provided FTS
+syntax. No surviving token is `invalid_request`.
+
+Dense retrieval scans every scoped normalized float32 vector using `math.fsum`
+dot products and a bounded top-k heap. Both streams retain `max(50, limit)` with
+passage-ID ties; weighted reciprocal-rank fusion uses lexical 1.0, dense 0.5 and
+constant 20. Deduplication is by passage ID, not quote equality. At most that same
+candidate limit goes to pinned MiniLM, using configured exact quote or title/two-LF/
+quote representation. Reranker calls use one sequence, bounded UTF-8 input-position
+preflight, and unchanged native encoding. Scores remain raw, not confidence.
+
+The original private row/VM/scratch/provider/deadline allowances cover readiness,
+TEMP, vector decoding, ranking and the shared final evidence resolver. Only five
+semantic stages reserve public units: eligible TEMP insertion, lexical admission,
+every eligible dense evaluation, deduplicated rerank input and final evidence.
+The controlled one-passage case consumes five, not six. Incomplete execution has
+no ranked-result fallback. TEMP is connection-local and drops after success;
+failed snapshots must be discarded by their owner, closing TEMP and scratch.
+
+The private borrowed-context entry returns a `SearchSelection` containing the
+existing `RankedSelection`/session-bound `ProjectionHandle` and exact hydrated
+response. It neither creates a pool nor releases/closes the caller's snapshot.
+The caller must retain the original observer and perform final release. Child
+captures join the existing disclosure group and cannot publish independently.
+This is an integration seam, not a delivered `QueryService` search consumer.
+
+Ordinary summaries and detailed candidate events describe the actual single
+execution. Detailed events preserve stage absence, scores, ranks, RRF contributions
+and return-limit decisions. Quote capture is opt-in. No-data failures irreversibly
+redact candidates/configurations; report capacity failure cannot alter ranking.
+Controlled-provider tests demonstrate mechanics and exact provenance only, not
+real-model quality, representative workload performance or complete E3 acceptance.
 
 ### Immutable knowledge registry
 

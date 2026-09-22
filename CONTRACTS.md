@@ -101,7 +101,8 @@ remains `retained_intent_only`.
 
 `kg.indexing.IndexService(database, identity)` executes the `indexing/1` standalone
 lifecycle on the canonical evidence store. It does not execute processing claims,
-acknowledge jobs, expose full search or interpret/enrich knowledge. The existing
+acknowledge jobs or interpret/enrich knowledge. Full search is exposed separately
+by `EvidenceSearchService`. The existing
 typed coordinated participant contract is retained but its entry point fails
 `unsupported`: no fake participant constitutes E4 integration.
 
@@ -155,6 +156,61 @@ also propagate rather than pretending a failure was durably recorded.
 Routine controlled-provider tests establish lifecycle behavior, not real-model
 quality, memory or workload acceptance. See [the Python example](examples/indexing_lifecycle.py)
 for an actual provider invocation using an existing trusted supplied document.
+
+## Canonical full search
+
+`kg.indexing.EvidenceSearchService(database, identity)` exposes
+`search(scope, query, configuration=DEFAULT_CONFIGURATION, *, limit=20)` and
+`search_explained(..., options=ExplainOptions())`. Query is a nonblank, valid
+Unicode string of at most 4,096 code points with at least one FTS-tokenizable
+natural token; limit is an integer 1..100. Both configured local providers must
+initialize, including empty scopes. No keyword-only, partial-ranked or stale-index
+fallback exists.
+
+`CanonicalSearchResult` (`indexing/1`) contains the effective scope, ordered
+`CanonicalSearchHit` values, logical and actual embedding identities, actual
+reranker pipeline identity, SQLite/Python/Unicode versions, snapshot read witness
+and projection IDs. Each hit contains the full exact `EvidenceView` (including
+immutable stored citation and offsets) and finite raw reranker score. Scores are
+not confidence. Candidate limits and stream/fusion truncation flags describe
+bounded ranking pools, not whole-corpus exhaustion. Standalone `items_consumed`
+is acknowledged semantic work, not the number of hits.
+
+Missing, stale or differently initialized current projections raise
+`EvidenceServiceError("stale_index")`; unsupported/provider-unavailable execution
+raises `unsupported`; malformed provider output fails explicitly. Changed
+source/policy/projection or any other canonical commit yields `state_changed`
+(authorization failures can be `forbidden`), never ranked data. Invalid or
+tokenless queries yield `invalid_request`. Public/private/provider/FILE TEMP or
+deadline exhaustion yields `budget_exceeded`, with no private meter disclosure.
+Valid existing projections and historical citations are never mutated by search.
+
+Standalone allowances are 10,000 semantic units and one shared private 30-second
+deadline, 100,000 visits, 10-million SQL instructions and 64-MiB logical scratch.
+The existing verified FILE TEMP cap is 128 MiB. Provider inputs are preflighted
+before inference; each reranker call is one sequence, at most 8,192 conservative
+padded token positions and 8 MiB scratch, with no input cropping or omission.
+Native provider calls are not preemptible in standalone mode; late results are
+discarded on return. These are logical bounds, not an RSS/model-cache guarantee.
+
+The private `_search_in_context` entry borrows a live `CanonicalReadContext` and
+capture, returns `SearchSelection`, and does not release the result. Its response
+has `items_consumed=None`: composed accounting remains the caller's meter. It
+reserves only `search_temp`, `search_lexical`, `search_vector`, `search_rerank`,
+and `search_final_evidence`; final hydration uses the shared authorized resolver
+without an extra `evidence_reference`. Repeated calls inherit all remaining
+allowances. The owner must discard the snapshot on failure and perform original-
+observer/fresh-authorization release before disclosing successful results.
+`_begin_child_capture` stages a report in the parent's existing disclosure group;
+the parent owns finishing/release or irreversible redaction. Neither this seam nor
+standalone search enables `QueryService` search, which remains unsupported.
+
+The shared diagnostic facade retains bounded ordinary summaries and optional
+detailed actual candidate memberships/scores/ranks. Explained search executes
+once; quote opt-in does not affect business hit quotes. Private/no-data failures
+withhold stage, projection, candidate and counter detail across later discovery.
+The [supplied-document example](examples/canonical_search.py) runs actual intake,
+indexing and search; its controlled-provider test is not real-model acceptance.
 
 ## Knowledge registry API
 
