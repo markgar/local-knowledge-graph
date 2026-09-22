@@ -24,9 +24,9 @@ from kg.knowledge._selection import (
     SelectionTerminal,
     SourceWitness,
 )
-from kg.knowledge._store import Store
+from kg.knowledge._store import RevalidationCache, Store
 from kg.models.evidence import LocalIdentity
-from kg.models.foundation import AddAssertion, Record, SourceSupport, StoredEntity, StringObject
+from kg.models.foundation import Record, SourceSupport
 
 
 class Cursor[T]:
@@ -97,6 +97,11 @@ class KnowledgeReader:
         if validated(LocalIdentity, identity) != context.identity:
             raise EvidenceServiceError("forbidden")
         self.context = context
+        self._revalidation: RevalidationCache | None = None
+
+    def close(self) -> None:
+        if self._revalidation is not None:
+            self._revalidation.close()
 
     def resolve_entity(self, selector: EntitySelector) -> Cursor[EntitySelectionItem]:
         selector = validated(EntitySelector, selector)
@@ -196,6 +201,10 @@ class KnowledgeReader:
     def revalidate_member(self, member: DecisionSelectionItem) -> None:
         member = validated(DecisionSelectionItem, member)
         self.context.check_active()
+        if self._revalidation is None:
+            self._revalidation = RevalidationCache(self.context)
+        cache = self._revalidation
+        cache.check()
         budget = self.context.meter.private_budget.limited(max_visits=10_000)
         with self.context.using_budget(budget):
             store = Store(
@@ -203,24 +212,38 @@ class KnowledgeReader:
                 self.context.scope,
                 budget,
                 context=self.context,
+                cache=cache,
             )
             try:
-                view = store.contribution(member.record.record_id)
                 schema = store.schema()
-                payload = view.payload
+                store.require_entity(member.subject_id)
+                row = store.connection.execute(
+                    "SELECT c.*,a.subject_id,a.predicate,a.object_kind,a.interpretation "
+                    "FROM assertion a JOIN contribution c USING(corpus_id,contribution_id) "
+                    "WHERE a.corpus_id=? AND a.contribution_id=?",
+                    (store.scope.corpus_id, member.record.record_id),
+                ).fetchone()
+                if row is None:
+                    raise EvidenceServiceError("not_found")
+                support, current = store.support(row)
                 if (
-                    not isinstance(payload, AddAssertion)
-                    or not isinstance(payload.subject, StoredEntity)
-                    or payload.subject.entity_id != member.subject_id
-                    or not isinstance(payload.object, StringObject)
-                    or payload.interpretation != "explicit"
+                    row["subject_id"] != member.subject_id
+                    or row["object_kind"] != "string"
+                    or row["interpretation"] != "explicit"
+                    or row["schema_version"] != schema.schema_version
+                    or row["schema_version"] != member.schema_version
+                    or not current
+                    or not isinstance(support, SourceWitness)
+                    or support.evidence != member.dependencies.assertion_support
                     or not any(
-                        p.name == payload.predicate and p.record_projection is not None
+                        p.name == row["predicate"] and p.record_projection is not None
                         for p in schema.predicates
                     )
                 ):
                     raise EvidenceServiceError("state_changed")
                 witness = member.dependencies.subject_witness
+                if witness in cache.witnesses:
+                    return
                 row = store.row("contribution", witness.contribution_id)
                 basis, current = store.support(row)
                 endpoint = store.connection.execute(
@@ -233,9 +256,10 @@ class KnowledgeReader:
                     or not current
                     or basis != witness.basis
                     or row["sequence"] != witness.contribution_sequence
-                    or view.evidence != member.dependencies.assertion_support
-                    or view.schema_version != member.schema_version
                 ):
                     raise EvidenceServiceError("state_changed")
+                if len(cache.witnesses) < 200:
+                    cache.hold_witness(witness)
+                    cache.witnesses.add(witness)
             finally:
                 store.close()

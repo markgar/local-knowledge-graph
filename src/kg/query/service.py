@@ -38,7 +38,14 @@ from kg.models.foundation import (
     Scope,
     SourceSupport,
 )
-from kg.models.query import QueryCapabilities, QueryExecution, StepTelemetry, StopReason
+from kg.models.query import (
+    QueryCapabilities,
+    QueryExecution,
+    StepTelemetry,
+    StopReason,
+    SupportInspection,
+    SupportInspectionRequest,
+)
 from kg.models.query_events import QueryBudget as BudgetEvent
 from kg.models.query_events import QueryDecision, QueryPlan
 from kg.query import _worker
@@ -46,6 +53,7 @@ from kg.query._channel import Channel
 from kg.query._dispatch import Dispatcher, Stopped
 from kg.query._meter import Ledger
 from kg.query._reports import QueryAuthorizer
+from kg.query._retention import Registry
 
 LOGGER = logging.getLogger(__name__)
 
@@ -141,10 +149,12 @@ class QueryService:
         self._collector = Collector("query", self.identity)
         self._authorizer = QueryAuthorizer(database)
         self._diagnostics: DiagnosticService = DiagnosticService(self._collector, self._authorizer)
+        self._support = Registry()
         self._dispatcher = Dispatcher(self._cleanup)
         self.diagnostics = QueryDiagnostics(self)
 
     def _cleanup(self) -> None:
+        self._support.close()
         for capture in tuple(self._collector._captures.values()):
             capture.group.close()
             self._collector._remove(capture)
@@ -223,8 +233,19 @@ class QueryService:
                     )
                     required = closure(request)
                     output = next(s for s in request.steps if s.step_id == request.output_step)
-                    if len(required) != 1 or not isinstance(output, EvidenceStep):
-                        raise Stopped("unsupported", "unsupported_operation")
+                    if not isinstance(output, EvidenceStep):
+                        from kg.query._plans import execute
+
+                        return execute(
+                            self,
+                            request,
+                            options,
+                            start,
+                            observer,
+                            budget,
+                            capture,
+                            reference,
+                        )
                     ledger = Ledger(
                         budget,
                         request.budget.max_operations,
@@ -360,7 +381,12 @@ class QueryService:
             ),
         )
 
-    def _run_worker(self, observer: ReadObserver, step: EvidenceStep, ledger: Ledger) -> float:
+    def _run_worker(
+        self,
+        observer: ReadObserver,
+        step: EvidenceStep | QueryRequest | SupportInspectionRequest,
+        ledger: Ledger,
+    ) -> float:
         start = time.monotonic()
         context = multiprocessing.get_context("spawn")
         parent, child = context.Pipe()
@@ -392,14 +418,23 @@ class QueryService:
                     continue
                 ledger.budget.check_deadline()
                 if frame.action == "done":
-                    if ledger.operations != 1 or ledger.records != 1:
+                    if not isinstance(step, (QueryRequest, SupportInspectionRequest)) and (
+                        ledger.operations != 1 or ledger.records != 1
+                    ):
                         raise Stopped("internal_error", "internal_error")
                     break
                 if frame.action == "error":
+                    if frame.reason is not None:
+                        raise Stopped(frame.code or "internal_error", frame.reason)
                     if frame.code == "budget_exceeded":
                         raise Stopped("budget_exceeded", stop)
                     raise EvidenceServiceError(frame.code or "internal_error")
-                reply = ledger.reserve(frame)
+                reply = (
+                    ledger.transfer(frame)
+                    if frame.action in ("payload", "chunk", "fetch", "fetch_chunk")
+                    and ledger.transfer is not None
+                    else ledger.reserve(frame)
+                )
                 if reply.state != "ok":
                     stop = (
                         "time_budget"
@@ -411,7 +446,11 @@ class QueryService:
                         else "record_budget"
                     )
                 channel.reply(reply)
-                if reply.state != "ok":
+                if reply.state != "ok" and not (
+                    reply.state == "public"
+                    and isinstance(step, QueryRequest)
+                    and frame.action == "public"
+                ):
                     raise Stopped("budget_exceeded", stop)
             while process.is_alive():
                 self._check_open()
@@ -446,6 +485,38 @@ class QueryService:
         ledger.budget.check_deadline()
         return (time.monotonic() - start) * 1000
 
+    def inspect_support(self, request: SupportInspectionRequest) -> SupportInspection:
+        return self.inspect_support_explained(request).outcome
+
+    def inspect_support_explained(
+        self,
+        request: SupportInspectionRequest,
+        options: ExplainOptions = SUMMARY_OPTIONS,
+    ) -> Explained[SupportInspection]:
+        from kg.query._plans import inspect, inspection_failure
+
+        start = time.monotonic()
+        try:
+            request = validated(SupportInspectionRequest, request)
+            options = validated(ExplainOptions, options)
+        except EvidenceServiceError:
+            raise QueryServiceError("invalid_request") from None
+        deadline = Deadline(start + request.budget.max_milliseconds / 1000)
+        try:
+            return self._dispatcher.call(
+                lambda: inspect(self, request, options, start, deadline),
+                deadline,
+            )
+        except DeadlineStop:
+            code: ErrorCode = "budget_exceeded"
+            reason: StopReason = "time_budget"
+        except Stopped as error:
+            code, reason = error.code, error.reason
+        return Explained(
+            outcome=inspection_failure(request, start, code, reason),
+            report=ReportAvailability(state="unavailable"),
+        )
+
     def capabilities(self, scope: Scope) -> QueryCapabilities:
         scope = validated(Scope, scope)
         deadline = Deadline(time.monotonic() + 5)
@@ -456,6 +527,24 @@ class QueryService:
                 reference = observer.retain()
                 capture: Capture | CaptureUnavailable | None = None
                 try:
+                    from kg.knowledge._store import Store
+
+                    with self.database.connection(budget=budget) as connection:
+                        connection.execute("BEGIN")
+                        store = Store(connection, scope, budget)
+                        try:
+                            try:
+                                enabled = any(
+                                    p.record_projection is not None
+                                    for p in store.schema().predicates
+                                )
+                            except EvidenceServiceError as error:
+                                if error.failure.code != "unsupported":
+                                    raise
+                                enabled = False
+                        finally:
+                            store.close()
+                            connection.rollback()
                     capture = self._collector.begin_capture(
                         "capabilities",
                         scope,
@@ -475,7 +564,15 @@ class QueryService:
                         self._check_open()
                         self._diagnostics._publish(capture)
                         deadline.remaining()
-                        return QueryCapabilities(scope=scope)
+                        return QueryCapabilities(
+                            scope=scope,
+                            operations=("evidence", "resolve", "records", "count")
+                            if enabled
+                            else ("evidence", "resolve"),
+                            record_types=("decision",) if enabled else (),
+                            association="direct_explicit_association/1" if enabled else None,
+                            count_identity="submitted_assertion_id" if enabled else None,
+                        )
                 except (EvidenceServiceError, DeadlineStop, PrivateResourceStop, Stopped):
                     if capture is not None:
                         capture.group.close()

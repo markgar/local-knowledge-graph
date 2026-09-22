@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from contextlib import suppress
 from multiprocessing.connection import Connection
 from typing import Literal
@@ -19,6 +20,7 @@ from kg._execution_budget import (
     SemanticStage,
 )
 from kg.models.foundation import ErrorCode, Value
+from kg.models.query import StopReason
 
 FRAME_BYTES = 64 << 10
 
@@ -35,17 +37,26 @@ class Frame(Value):
         "limited",
         "done",
         "error",
+        "payload",
+        "chunk",
+        "fetch",
+        "fetch_chunk",
     ]
     view: int = Field(default=0, ge=0, le=100_000)
     n: int = Field(default=1, ge=1, le=64 << 20)
     stage: SemanticStage = "evidence_reference"
     unit: ScratchUnit = "general"
     code: ErrorCode | None = None
+    step_id: str | None = Field(default=None, max_length=256)
+    text: str = Field(default="", max_length=4096)
+    kind: Literal["entity", "decision", "summary"] = "summary"
+    reason: StopReason | None = None
 
 
 class Reply(Value):
     state: Literal["ok", "public", "private", "deadline"]
     value: int = 0
+    text: str = Field(default="", max_length=4096)
 
 
 def send(connection: Connection, value: Value) -> None:
@@ -69,7 +80,7 @@ class RemoteBudget(PrivateBudget):
         self._parent = parent
         self._root = parent._root if parent else self
 
-    def rpc(self, frame: Frame) -> int:
+    def exchange(self, frame: Frame) -> Reply:
         self.check_deadline()
         send(self.connection, frame)
         if not self.connection.poll(self.deadline.remaining()):
@@ -82,7 +93,10 @@ class RemoteBudget(PrivateBudget):
         if reply.state == "deadline":
             raise DeadlineStop()
         self.check_deadline()
-        return reply.value
+        return reply
+
+    def rpc(self, frame: Frame) -> int:
+        return self.exchange(frame).value
 
     def limited(self, *, max_visits: int) -> PrivateBudget:
         view = self.rpc(Frame(action="limited", view=self.view, n=max_visits))
@@ -143,6 +157,9 @@ class Ledger:
         self.records = 0
         self.max_operations = max_operations
         self.max_records = max_records
+        self.current_step: str | None = None
+        self.by_step: dict[str, tuple[int, int]] = {}
+        self.transfer: Callable[[Frame], Reply] | None = None
 
     def reserve(self, frame: Frame) -> Reply:
         try:
@@ -165,12 +182,20 @@ class Ledger:
             if self.operations >= self.max_operations:
                 raise PublicBudgetStop()
             self.operations += 1
+            self.current_step = frame.step_id
+            if frame.step_id is not None:
+                if frame.step_id in self.by_step:
+                    raise ValueError("Repeated step")
+                self.by_step[frame.step_id] = (1, 0)
         elif frame.action == "public":
             if not self.operations or frame.n > 64:
                 raise ValueError("Invalid semantic reservation")
             if self.records + frame.n > self.max_records:
                 raise PublicBudgetStop()
             self.records += frame.n
+            if self.current_step is not None:
+                operations, records = self.by_step[self.current_step]
+                self.by_step[self.current_step] = (operations, records + frame.n)
         elif frame.action == "visits":
             view.reserve_visits(frame.n)
         elif frame.action == "vm":
@@ -178,13 +203,13 @@ class Ledger:
         elif frame.action == "quantum":
             return view.reserve_sql_quantum()
         elif frame.action == "limited":
-            if len(self.views) >= 1000:
+            if len(self.views) >= 100_000:
                 raise PrivateResourceStop()
             key = len(self.views)
             self.views[key] = view.limited(max_visits=frame.n)
             return key
         elif frame.action == "scratch":
-            if len(self.scratch) >= 1000 or self.next_scratch > 100_000:
+            if len(self.scratch) >= 100_000 or self.next_scratch > 100_000:
                 raise PrivateResourceStop()
             key = self.next_scratch
             self.next_scratch += 1

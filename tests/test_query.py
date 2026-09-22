@@ -115,7 +115,7 @@ def test_real_anchor_history_and_pruned_unsupported(query):
     assert result.result.data.records[0].support.evidence == (request.steps[1].evidence,)
     assert [s.state for s in result.steps] == ["not_needed", "complete"]
     assert result.result.records_examined == result.result.operations_executed == 1
-    assert service.capabilities(request.scope).operations == ("evidence",)
+    assert service.capabilities(request.scope).operations == ("evidence", "resolve")
 
 
 def test_summary_discovery_detailed_single_execution_and_owner_thread(query, monkeypatch):
