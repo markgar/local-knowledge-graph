@@ -438,11 +438,11 @@ def test_schema_presence_does_not_enable_services(tmp_path: Path) -> None:
     capabilities = env.service.capabilities()
     assert capabilities.interface_version == "evidence/2"
     assert "passages" in capabilities.operations
-    assert {"enrich", "indexing", "search", "synchronization", "purge"} <= set(
+    assert "enrich" in capabilities.operations
+    assert {"indexing", "search", "synchronization", "purge"} <= set(
         capabilities.unsupported
     )
     assert not set(capabilities.operations) & {
-        "enrich",
         "process",
         "search",
         "execute",

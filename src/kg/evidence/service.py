@@ -14,6 +14,7 @@ from kg.models.evidence import EvidenceCapabilities, LocalIdentity
 from kg.models.execution import SUMMARY_OPTIONS, Explained, ExplainOptions
 from kg.models.foundation import (
     BatchResult,
+    ChangeSet,
     DocumentReceipt,
     PutDocument,
     RemoveDocument,
@@ -25,10 +26,11 @@ from kg.models.foundation import (
 if TYPE_CHECKING:
     from kg.diagnostics._collector import Capture, CaptureUnavailable
 
-_BATCH_CAPTURE: ContextVar[
-    tuple[EvidenceService, Capture | CaptureUnavailable] | None
-] = ContextVar(
-    "evidence_batch_capture", default=None,
+_BATCH_CAPTURE: ContextVar[tuple[EvidenceService, Capture | CaptureUnavailable] | None] = (
+    ContextVar(
+        "evidence_batch_capture",
+        default=None,
+    )
 )
 
 
@@ -36,16 +38,20 @@ class EvidenceService(ExplainedReads):
     def __init__(self, database: EvidenceDatabase, identity: LocalIdentity) -> None:
         from kg.diagnostics import DiagnosticService
         from kg.diagnostics._collector import Collector
-        from kg.evidence._diagnostic_authorization import EvidenceReportAuthorizer
+        from kg.knowledge._reports import KnowledgeReportAuthorizer
 
         self.database = database
         self.identity = validated(LocalIdentity, identity)
         self._clock: Callable[[], datetime] = now
         self._collector = Collector("evidence", self.identity)
-        self.diagnostics = DiagnosticService(self._collector, EvidenceReportAuthorizer(database))
+        self.diagnostics = DiagnosticService(self._collector, KnowledgeReportAuthorizer(database))
 
     def capabilities(self) -> EvidenceCapabilities:
-        return EvidenceCapabilities()
+        base = EvidenceCapabilities()
+        return EvidenceCapabilities(
+            operations=(*base.operations, "enrich"),
+            unsupported=tuple(x for x in base.unsupported if x != "enrich"),
+        )
 
     def write(self, request: WriteRequest) -> WriteOutcome:
         request = validated(WriteRequest, request)
@@ -55,7 +61,9 @@ class EvidenceService(ExplainedReads):
         capture = self._collector.begin_capture(
             "write",
             request.scope,
-            required="write_documents",
+            required="write_knowledge"
+            if isinstance(request.payload, ChangeSet)
+            else "write_documents",
             request_id=request.request_id,
             options=reporting.options(),
         )
@@ -77,6 +85,23 @@ class EvidenceService(ExplainedReads):
     ) -> WriteOutcome:
         from kg.diagnostics._targets import DocumentTarget, ReportTargets, WriterTarget
 
+        if isinstance(request.payload, ChangeSet):
+            from kg.diagnostics._targets import KnowledgeWriterTarget
+            from kg.knowledge._write import writer_targets
+
+            with capture.guard():
+                for target in writer_targets(request):
+                    capture.retain(
+                        ReportTargets(
+                            values=(
+                                KnowledgeWriterTarget(
+                                    namespace=target.namespace,
+                                    owner_id=target.owner_id,
+                                    writer_id=target.writer_id,
+                                ),
+                            )
+                        )
+                    )
         if isinstance(request.payload, (PutDocument, RemoveDocument)):
             with capture.guard():
                 capture.retain(
@@ -114,6 +139,7 @@ class EvidenceService(ExplainedReads):
             "forbidden",
             "not_found",
             "state_changed",
+            "budget_exceeded",
         }:
             capture.group.redact(result.error.code)
         return result
@@ -128,7 +154,11 @@ class EvidenceService(ExplainedReads):
             capture = self._collector.begin_capture(
                 "write_batch",
                 scope,
-                required="write_documents",
+                required=(
+                    "write_knowledge"
+                    if all(isinstance(i.payload, ChangeSet) for i in batch.items)
+                    else "write_documents"
+                ),
                 request_id=batch.batch_id,
                 options=reporting.options(),
             )
