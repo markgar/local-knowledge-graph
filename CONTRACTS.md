@@ -6,9 +6,10 @@ enforce ACLs or ownership, execute writes or queries, synchronize sources, proce
 content, implement retries, or retain snapshots/continuations. Declared grants,
 state tokens, receipts and result-set IDs are values, not proof of those services.
 
-The separate `kg.evidence` service now executes document writes and evidence reads
-using these values. That does not turn foundation enrichment/query/synchronization
-descriptions into implemented operations.
+The separate `kg.evidence` service executes document writes, bounded enrichment
+and evidence reads using these values. Only the service operations explicitly
+listed below are executable; broader foundation query/synchronization descriptions
+remain validation contracts.
 
 See [the models](src/kg/models/foundation.py) for exact fields and defaults,
 [focused tests](tests/test_foundation_contracts.py) for executable checks, and
@@ -30,7 +31,7 @@ enrichment values include independent entity support and explicitly namespaced s
 | `database.initialize()` | Initialize empty or verify the complete `evidence-store/2` schema and manifest; incompatible targets raise `unsupported`. Use a fresh file and resupply sources. |
 | `admin.register(CorpusRegistration)` | Register namespaces, writer bindings and explicit `LocalPolicy`; identical original registration is unchanged and returns the **current** policy version, without restoring old grants. Conflicting registration fails. |
 | `admin.replace_policy(LocalPolicy, expected_policy_version)` | Atomic policy/state rotation; returns version, affected namespaces and changed-document count. |
-| `service.write(WriteRequest)` | `put_document` / `remove_document` -> `WriteOutcome`. `enrich` is rejected as unsupported. |
+| `service.write(WriteRequest)` | `put_document` / `remove_document` / bounded `enrich` -> `WriteOutcome`. Enrichment supports the change kinds described below, not mentions. |
 | `service.write_batch(WriteBatch)` | Ordered `BatchResult`; complete envelope validation precedes independent unit transactions. |
 | `current(scope, ExternalDocument)` / `document(scope, document_id)` | Current `DocumentView`, including inactive sources and separate `indexing_reason` / `enrichment_reason` fields. |
 | `state(scope, document_id, state_version)` | Immutable historical state/metadata context plus latest-state flag. |
@@ -44,8 +45,10 @@ enrichment values include independent entity support and explicitly namespaced s
 | `passages(scope, document_id, state_version, *, after_ordinal=0, limit=100)` | `indexing/1` `PassagePage`: policy, set identity, complete saved evidence/citations in source order; `not_processed` differs from a completed empty set. Limit 1..200. |
 | `capabilities()` | `EvidenceCapabilities`, not `FoundationCapabilities`: implemented operations, unsupported features and limits. |
 
-All reads need current trusted `read` authority. Writes need `write_documents`
+All reads need current trusted `read` authority. Document writes need `write_documents`
 and an owner/writer/synchronization binding; they do not confer full-text access.
+Enrichment instead needs `read`, `write_knowledge` and exact knowledge bindings,
+plus `seed` for seed-backed contributions; it never requires `write_documents`.
 Attribution is not a credential. Namespace policy changes rotate affected document
 states independently of corpus-wide access-context freshness.
 
@@ -54,15 +57,15 @@ states independently of corpus-wide access-context freshness.
 Registration, canonical policy equality, persistence and replacement include these
 bindings. Changing one rotates only the affected namespace's token/document states,
 as well as corpus policy freshness. A binding does not grant knowledge/seed access
-by itself or install a knowledge service.
+by itself.
 
 The pre-release `evidence/2` representation replaces `processing_reason` with
 separate indexing and enrichment reasons; fresh states report
 `processor_not_available`. Current default indexing readiness reflects the actual
 projection and source/namespace state; historical completion remains historical.
 There is no compatibility alias or migration from
-`evidence-store/1`. Reserved schema tables do not add public knowledge, indexing,
-query APIs, nor change EvidenceService's unsupported capability list. The separate
+`evidence-store/1`. Reserved schema tables alone do not enable services.
+The operations below, not table presence, determine runtime capabilities. The separate
 processing control API below uses the reserved job tables.
 
 Public inputs are defensively revalidated, including constructed/copied models.
@@ -80,7 +83,7 @@ K1 must use the private same-transaction validator rather than that informationa
 See [SPEC.md](SPEC.md#generic-evidence-store) for byte identity, transactions,
 30-day retry/tombstone behavior and clean rebuild policy, and the executable
 [Python example](examples/evidence_intake.py). There is no sync completion, public
-passage-production, enrichment, indexing/search or purge API in this service.
+passage-production, indexing/search or purge API in this service.
 
 Passage reads use the immutable state-to-set association. Generated anchor-only
 references require membership through that state's published passage set; supplied
@@ -181,11 +184,74 @@ Invalid inputs raise `invalid_request` before mutation; corrupt stored definitio
 raise `internal_error`, not an empty registry or permission to overwrite it.
 There is no schema replacement/migration or separate retry ledger for provisioning.
 
-This registers configuration only. It does **not** create entities/assertions,
-enforce a submitted assertion's interpretation/support, produce/count decision
-records, or expose enrichment, seed replacement or knowledge reads. Existing
-evidence capabilities remain unchanged. See the executable
+Registration itself creates no entities/assertions or decisions. The separate
+enrichment and read operations below consume this immutable definition.
+See the executable
 [schema example](examples/knowledge_schema.py).
+
+## Knowledge enrichment and reads
+
+`EvidenceService.write` accepts a bounded `ChangeSet` atomically: `CreateEntity`,
+`AddEntitySupport`, `AddAlias`, `AddIdentifier`, and `AddAssertion`. References must
+be actual canonical anchors with exact current document dependencies. Passage
+references and mentions reject the whole unit as `unsupported`; no subset is
+silently accepted. Every input change has one input-ordered mapping. CreateEntity
+maps an entity ID; all other changes map contribution IDs. There is no inference,
+identity merging, automatic deduplication or document-readiness update.
+
+An immutable string predicate registered with `direct-subject-decision/1` accepts
+only explicit string assertions. Its assertion ID is the submitted record ID.
+Fresh retry keys produce distinct records even for identical text/support;
+same-key retries return the original complete receipt. Ordinary predicates cannot
+be relabeled as decisions at read time.
+
+Entity support, aliases and identifiers may instead use namespaced `SeedSupport`.
+An exact active slot/definition/attribution repeat is unchanged; changed definitions
+conflict. A membership-changing unit advances each affected set's generation once.
+Each owner/writer/set permits at most 100 active slots. Omitting a slot never
+withdraws it. Whole-set replacement is not installed.
+
+`kg.knowledge.KnowledgeService(database, LocalIdentity)` exposes:
+
+| Method | Result |
+| --- | --- |
+| `capabilities(scope)` | Authorized `KnowledgeCapabilities`: installed change kinds, support boundary and registered decision encoding. |
+| `entity(scope, entity_id, *, mode="current")` | `EntityView`: immutable identity, eligibility, a sequence-selected visible support witness and visible-only more-support flag. |
+| `entities(scope, *, name=None, scheme=None, identifier=None, after_sequence=0, limit=100)` | Current exact identity/name/eligible-alias or scheme+identifier selection. At most one selector; no normalization or fuzzy matching. |
+| `contribution(scope, contribution_id, *, mode="current")` | `ContributionView`: typed resolved payload, full attribution, schema version, captured evidence and endpoint witnesses. |
+| `contributions(scope, entity_id, *, kind=None, mode="current", after_sequence=0, limit=100)` | Attached contributions and incoming/outgoing entity-object assertions, once each in sequence order. |
+
+Modes are `current` and `history`. Pages use limits 1..200, nonnegative keyset
+cursors, visible-only `has_more`/`next_after_sequence`, and no hidden totals.
+All methods have named `_explained` wrappers; ordinary calls retain scoped summaries.
+Trusted schema provisioning remains excluded from scoped reports.
+
+Source support is conjunctive. Any stale supporting state makes the contribution
+ineligible. Aliases/identifiers/assertions cannot activate an unsupported entity.
+History still requires current access to every support namespace and a historically
+visible creation basis for each endpoint. Missing/inaccessible direct IDs return
+`not_found`. New AddEntitySupport may reactivate an historically visible identity
+and supply another change's endpoint within the same atomic unit, including forward
+references. It never revives an old stale assertion.
+
+The private `kg.knowledge._reader.KnowledgeReader(context, identity)` implements
+the existing snapshot selection protocol: `resolve_entity(EntitySelector)`,
+`select_decisions(subject_id)`, cursor `read(limit=200)`/`close()`, and exact
+`revalidate_member(member)`. Decision pages order by assertion ID (BINARY), retain
+complete assertion support and the subject witness selected by contribution
+sequence, and distinguish EOF, public budget stop, private/deadline stop and typed
+failure. It uses the owner's live context and inherited meter, not another
+snapshot. Nested support is privately accounted, never charged as a public
+evidence request. This is not a public Q1 records/count implementation.
+
+Each selection retains one 10,000-visit view across pages and nested SQL, within
+the existing 100,000-visit root, VM/scratch pool and original deadline. Standalone
+read admission/release uses the root; its selection uses the 10,000-visit view.
+Standalone calls use a 30-second deadline. Resource failures return no read data
+and roll back write units. Receipts use the existing shared key/clock ledger,
+expiry-before-digest and full retained-target authorization. A coordinated call
+cannot adopt an unlinked ordinary knowledge receipt. Actual E4 lifecycle and
+passage-backed acceptance are not claimed by the optional participant seam.
 
 <a id="canonical-anchor-queries"></a>
 

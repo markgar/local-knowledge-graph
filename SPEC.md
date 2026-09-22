@@ -94,8 +94,9 @@ independently in input order, continuing after unit failures. There is no batch
 rollback, generation/snapshot synchronization or absence-based removal.
 All fresh states report pending indexing/enrichment, with separate stored
 `indexing_reason` and `enrichment_reason` values of `processor_not_available`.
-EvidenceService has no indexing/search/readiness setter or enrichment operation.
+EvidenceService has no indexing/search/readiness setter or public passage production.
 The separate IndexService owns standalone processing and default index readiness.
+Explicit bounded enrichment uses the same owner transaction and shared key ledger.
 
 The private `kg.indexing._passages` kernel prepares exact authorized source outside
 the publication lock, then reauthorizes the current active state/writer/policy in an
@@ -128,7 +129,7 @@ dependencies and full reference chains on the transaction owner's connection:
 exact revision/state, namespace policy token, current anchor membership and stored
 byte/quote integrity. Validation rejects use after the context exits; returned data
 is not a reusable credential.
-This is the K1 integration boundary, not a graph-write implementation. Passage
+This is the K1 integration boundary. Passage
 references require real published state/set/passage/anchor membership. Historical
 evidence remains readable, but new support requires the exact current active state.
 Generated anchor-only citations use that state's passage membership; ordinary
@@ -214,6 +215,46 @@ Different corpora remain independent. Provisioning adds no contribution, retry
 receipt, seed, state-intent, report or processing-readiness record and performs no
 DDL or migration. See [CONTRACTS.md](CONTRACTS.md#knowledge-registry-api) for exact
 value limits and the delivered API.
+
+### Atomic owned knowledge
+
+Anchor-backed enrichment uses the existing canonical schema and the evidence
+dispatcher's single write owner. It revalidates exact namespace/owner/writer
+bindings, the immutable registry, all direct support, stored endpoints and the
+whole planned post-state before committing mappings, provenance and a complete
+receipt together. Independent creation-support contributions activate identity;
+aliases, identifiers and assertions do not. Forward AddEntitySupport can supply
+a stored endpoint within the unit, but only for an historically visible,
+nonretired identity with exactly matching name/type.
+
+The assertion row is the submitted decision record when its immutable predicate
+descriptor is `direct-subject-decision/1`. Explicit string submissions are distinct
+by assertion ID, not statement text. Subject association is the stored subject,
+not a query-time interpretation. Current eligibility requires the full original
+source support and a visible current creation witness, selected by contribution
+sequence. Historical reads retain stale payloads/citation identities without
+claiming current support and still require complete present-day read access.
+
+Seed additions maintain owned slots and append membership events in that same
+transaction. Exact active repeats preserve IDs/generation; changes conflict.
+Omission does not withdraw anything. The supported kernel does not expose
+whole-set replacement, mentions, passage-backed contributions, correction,
+retraction, traversal or inference.
+
+Operation-specific retained manifests authorize ordinary writes, retries and
+scoped reports without document-write grants or fabricated target IDs. Settled
+linked replay preserves expiry-before-digest and performs no new acknowledgement;
+unlinked ordinary knowledge receipts cannot be adopted by coordination.
+Controlled participant tests are not actual E4 acceptance.
+
+Read services use the actual authorized snapshot and a fresh release fence.
+Snapshot selection retains one 10,000-visit child allowance across all pages and
+nested work; admission/release retains the original 100,000 root/deadline.
+Shared VM and scratch allowances remain cumulative. Every eligible entity/decision
+admitted to a composed selection reserves its public event once; internal
+support checks do not masquerade as public evidence requests. The private adapter
+produces real selection records but does not itself implement Q1 count or retained
+query support. See [knowledge contracts](CONTRACTS.md#knowledge-enrichment-and-reads).
 
 ## Durable processing control
 
