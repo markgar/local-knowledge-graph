@@ -99,6 +99,7 @@ def test_real_produced_count_display_and_full_inspection(tmp_path, count, monkey
             "resolve",
             "records",
             "count",
+            "search",
         )
         assert len(service._support.sets) == 1
         assert not stops
@@ -217,13 +218,11 @@ def test_exact_alias_ambiguity_incomplete_dependency_and_output_correlation(tmp_
         assert ambiguous.result.operations_executed == 1
 
 
-@pytest.mark.parametrize("kind", ["action", "blocker", "conflict", "paths", "search"])
+@pytest.mark.parametrize("kind", ["action", "blocker", "conflict", "paths"])
 def test_unsupported_semantics_preflight_even_empty(tmp_path, kind):
     env = setup(tmp_path / "unsupported.db")
     request = plan(env, "absent")
-    if kind == "search":
-        step = SearchStep(operation="search", step_id="unsupported", text="No fallback")
-    elif kind == "paths":
+    if kind == "paths":
         step = PathsStep(
             operation="paths", step_id="unsupported", entity_step="subject", predicate="work:owns"
         )
@@ -242,7 +241,7 @@ def test_unsupported_semantics_preflight_even_empty(tmp_path, kind):
         result = service.execute(request)
         no_data(
             result,
-            "unsupported_operation" if kind in ("search", "paths") else "unsupported_restriction",
+            "unsupported_operation" if kind == "paths" else "unsupported_restriction",
         )
         assert not service._support.sets
 
@@ -638,3 +637,20 @@ def test_ambiguity_report_labels_actual_entity_output(tmp_path):
         assert event.semantics == "entity"
         assert event.selected_ids == tuple(sorted((first, second)))
         assert event.support_set_id is None
+
+
+def test_report_eviction_does_not_remove_valid_retained_support(tmp_path):
+    env = setup(tmp_path / "independent-retention.db")
+    subject, expected = produce(env, 25)
+    request = plan(env, subject)
+    with QueryService(env.database, env.service.identity) as service:
+        explained = service.execute_explained(request)
+        assert isinstance(explained.report, ExecutionReport)
+        for _ in range(33):
+            service.capabilities(env.scope)
+        assert not isinstance(
+            service.diagnostics.report(env.scope, explained.report.report_id), ExecutionReport,
+        )
+        inspected = service.inspect_support(inspection(request, explained.outcome.result))
+        assert inspected.error is None
+        assert {record.record_id for record in inspected.records} == expected

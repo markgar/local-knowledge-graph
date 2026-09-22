@@ -52,14 +52,24 @@ def execute(
     allocation = Allocation(service._support)
     scratch: ScratchReservation | None = None
     try:
+        service._support.expire()
         if child.group.state == "provisional":
             try:
                 scratch = budget.reserve_scratch(CAPTURE_SCRATCH, "general")
             except PrivateResourceStop:
                 LOGGER.warning("Query search report unavailable: scratch capacity")
                 child.group.discard()
-        transfer = SearchTransfer(allocation, child)
         ledger = Ledger(budget, request.budget.max_operations, request.budget.max_records)
+        ledger.reclaim_capture = scratch is not None
+
+        def drop_scratch() -> None:
+            nonlocal scratch
+            ledger.reclaim_capture = False
+            if scratch is not None:
+                scratch.release()
+                scratch = None
+
+        transfer = SearchTransfer(allocation, child, drop_scratch)
         ledger.transfer = transfer.receive
         work = SearchWork(
             request=request, configuration=service.search_configuration,

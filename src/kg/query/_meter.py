@@ -42,6 +42,7 @@ class Frame(Value):
         "fetch",
         "fetch_chunk",
         "capture_drop",
+        "capture_reclaimed",
     ]
     view: int = Field(default=0, ge=0, le=100_000)
     n: int = Field(default=1, ge=1, le=64 << 20)
@@ -55,7 +56,7 @@ class Frame(Value):
 
 
 class Reply(Value):
-    state: Literal["ok", "public", "private", "deadline"]
+    state: Literal["ok", "public", "private", "deadline", "capture_reclaim"]
     value: int = 0
     text: str = Field(default="", max_length=4096)
 
@@ -68,6 +69,8 @@ def send(connection: Connection, value: Value) -> None:
 
 
 class RemoteBudget(PrivateBudget):
+    _root: RemoteBudget
+
     def __init__(
         self,
         connection: Connection,
@@ -80,6 +83,7 @@ class RemoteBudget(PrivateBudget):
         self.view = view
         self._parent = parent
         self._root = parent._root if parent else self
+        self.reclaim_capture: Callable[[], None] | None = None
 
     def exchange(self, frame: Frame) -> Reply:
         self.check_deadline()
@@ -87,6 +91,14 @@ class RemoteBudget(PrivateBudget):
         if not self.connection.poll(self.deadline.remaining()):
             raise DeadlineStop()
         reply = Reply.model_validate_json(self.connection.recv_bytes(FRAME_BYTES))
+        if reply.state == "capture_reclaim":
+            reclaim = self._root.reclaim_capture
+            if frame.action != "scratch" or reclaim is None:
+                raise ValueError("Unexpected capture reclamation")
+            self._root.reclaim_capture = None
+            reclaim()
+            self.rpc(Frame(action="capture_reclaimed"))
+            return self.exchange(frame)
         if reply.state == "public":
             raise PublicBudgetStop()
         if reply.state == "private":
@@ -162,6 +174,7 @@ class Ledger:
         self.by_step: dict[str, tuple[int, int]] = {}
         self.by_stage: dict[tuple[str | None, SemanticStage], int] = {}
         self.transfer: Callable[[Frame], Reply] | None = None
+        self.reclaim_capture = False
 
     def reserve(self, frame: Frame) -> Reply:
         try:
@@ -171,6 +184,9 @@ class Ledger:
         except PublicBudgetStop:
             return Reply(state="public")
         except PrivateResourceStop:
+            if frame.action == "scratch" and self.reclaim_capture:
+                self.reclaim_capture = False
+                return Reply(state="capture_reclaim")
             return Reply(state="private")
         except DeadlineStop:
             return Reply(state="deadline")

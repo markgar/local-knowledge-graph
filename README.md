@@ -27,7 +27,7 @@ retrieval-quality gates remain unmet.
 | Markdown demonstration | Manifest-selected local Markdown, explicit records, seed entities, structured reads, source context and revision comparison in its separate database. |
 | Demonstration search | Full local keyword + semantic retrieval, fusion/deduplication and reranking; matching vector preparation is required. No keyword-only fallback. |
 | Foundation values | Strict `foundation/1` request/result validation. Document and bounded enrichment operations execute through `EvidenceService`; canonical anchor/passage-evidence plans execute through `QueryService`. Enrichment does not implement mentions or whole-set seed replacement. |
-| Canonical queries | `kg.query.QueryService`: historical anchor/passage reads and actual K1 exact entity resolution, explicit decision records/counts, bounded retained support inspection, spawned deadline supervision and fresh release authorization. Search and paths remain unsupported. |
+| Canonical queries | `kg.query.QueryService`: full canonical ranked search, historical anchor/passage reads and actual K1 exact entity resolution, explicit decision records/counts, bounded retained support inspection, spawned deadline supervision and fresh release authorization. Paths remain unsupported. |
 | Execution diagnostics | Evidence, indexing, processing and query calls retain bounded, authorized in-memory summaries. Named explained wrappers execute once; detailed traces and source quotes require opt-in. |
 
 There are no live email/Teams connectors, inference/extraction providers, general
@@ -45,6 +45,19 @@ Records display at most 1,000; counts enumerate the eligible selection to EOF or
 an explicit public-budget lower bound. The same service can inspect retained
 membership in ordinal slices of at most 1,000 for five minutes. Any canonical
 write invalidates the set; close/restart loses it. This is not durable continuation.
+
+For a supplied-document ranked query with **controlled providers and no downloads**:
+
+```bash
+uv run python examples/query_search.py --database /tmp/query-search.sqlite3
+```
+
+Use a fresh path; optionally pass `--text-file document.txt --query "release"`.
+The example runs real intake, indexing and supervised full search, then inspects
+exact quotes/citations. Its deterministic providers demonstrate composition, not
+model quality or natural-language answering. A later literal evidence request is
+a separate read, not an atomic search-to-evidence dependency. Ordinary QueryService
+search uses the pinned real providers and requires an approved prepared model cache.
 
 ## Generic evidence service
 
@@ -104,8 +117,9 @@ Empty scopes still initialize both providers and encode the query; there is no
 keyword fallback. Calls have a 30-second deadline and bounded work allowances;
 source, policy or other canonical commits during a search withhold all results.
 See [canonical search contracts](CONTRACTS.md#canonical-full-search).
-This standalone API does not enable `QueryService` search, processing coordination
-or establish real-model quality/workload acceptance.
+`QueryService` invokes the same pipeline under its own spawned deadline/budgets.
+Neither API implements processing coordination or establishes real-model
+quality/workload acceptance.
 
 Fresh stores use the complete `evidence-store/2` schema and the `evidence/2`
 service interface. Initialization verifies the actual schema and its recorded

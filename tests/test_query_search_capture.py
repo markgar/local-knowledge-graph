@@ -121,3 +121,21 @@ def test_diagnostic_drop_cannot_discard_partial_business_output(tmp_path):
     with pytest.raises(ValueError, match="business output"):
         transfer.receive(Frame(action="capture_drop"))
     allocation.close()
+
+
+def test_reclamation_preserves_pending_ranked_transfer(tmp_path):
+    from kg.models.foundation import RankedResult
+
+    _, parent, child = captures(tmp_path)
+    released = []
+    allocation = Allocation(Registry())
+    transfer = _search_capture.SearchTransfer(allocation, child, lambda: released.append(True))
+    result = RankedResult(kind="ranked", hits=())
+    payload = result.model_dump_json()
+    transfer.receive(Frame(action="payload", kind="ranked", n=len(payload.encode())))
+    transfer.receive(Frame(action="capture_reclaimed"))
+    transfer.receive(Frame(action="chunk", text=payload))
+    assert released == [True]
+    assert parent.group.state == "unavailable"
+    assert transfer.ranked == result
+    allocation.close()

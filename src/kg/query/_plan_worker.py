@@ -49,7 +49,7 @@ def decisions_available(context: CanonicalReadContext) -> bool:
 def transmit(
     budget: RemoteBudget,
     value: Value,
-    kind: Literal["entity", "decision", "summary"],
+    kind: Literal["entity", "decision", "summary", "ranked"],
 ) -> None:
     length = size(value)
     if length > SET_BYTES:

@@ -1,5 +1,7 @@
 """Bounded transport of actual worker observations, never worker disclosure."""
 
+from collections.abc import Callable
+
 from kg.diagnostics._bounds import REPORT_BYTES
 from kg.diagnostics._collector import Capture, CaptureUnavailable
 from kg.diagnostics._targets import ReportTargets
@@ -65,9 +67,13 @@ def accept_capture(payload: str, capture: Capture | CaptureUnavailable) -> None:
 class SearchTransfer:
     """One bounded ranked output and one optional, independently admitted trace."""
 
-    def __init__(self, allocation: Allocation, capture: Capture | CaptureUnavailable) -> None:
+    def __init__(
+        self, allocation: Allocation, capture: Capture | CaptureUnavailable,
+        drop_scratch: Callable[[], None] | None = None,
+    ) -> None:
         self.allocation = allocation
         self.capture = capture
+        self.drop_scratch = drop_scratch
         self.ranked: RankedResult | None = None
         self.pending: Frame | None = None
         self.received = 0
@@ -75,12 +81,18 @@ class SearchTransfer:
         self.capture_received = False
 
     def receive(self, frame: Frame) -> Reply:
-        if frame.action == "capture_drop":
-            if self.pending is not None and self.pending.kind != "capture":
+        if frame.action in ("capture_drop", "capture_reclaimed"):
+            if (
+                frame.action == "capture_drop"
+                and self.pending is not None and self.pending.kind != "capture"
+            ):
                 raise ValueError("Capture interrupted business output")
             self.capture.group.discard()
-            self.pending = None
-            self.chunks = []
+            if self.pending is None or self.pending.kind == "capture":
+                self.pending = None
+                self.chunks = []
+            if self.drop_scratch is not None:
+                self.drop_scratch()
         elif frame.action == "payload":
             if self.pending is not None:
                 raise ValueError("Overlapping search payload")

@@ -458,11 +458,11 @@ ceilings are unchanged.
 
 ### Canonical evidence query execution
 
-`kg.query` implements anchor/passage evidence and actual K1-dependent
+`kg.query` implements canonical full ranked search, anchor/passage evidence and actual K1-dependent
 resolution/decision records/counts documented in
 [CONTRACTS.md](CONTRACTS.md#canonical-evidence-queries). It consumes the actual
 E3 passage resolver and K1 snapshot readers, not an alternate producer or legacy
-adapter. Generic search, paths and durable continuation remain unsupported. Selected
+adapter. Paths and durable continuation remain unsupported. Selected
 closure is computed from validated named dependencies; unsupported required
 operations fail before dispatch, while unrelated branches are pruned.
 
@@ -473,8 +473,26 @@ deadline values, never live connections, collectors or local pools. Its bounded
 local views in that original owner pool. No refund of acknowledged semantic
 charges occurs on death. Scratch handles are reclaimed after verified child
 cleanup. The child uses the shared canonical read context and evidence resolver:
-Q1 does not duplicate evidence eligibility or passage rules. No source text or
-unbounded result frames cross the control pipe.
+Q1 does not duplicate evidence eligibility or passage rules. No unbounded result
+frames cross the control pipe; source text is excluded except bounded explicitly
+opted-in diagnostic quote events.
+
+Selected search borrows the actual E3 service in that worker context with the
+original deadline, step meter and supervisor-owned private pool. Projection
+handles never leave the worker/session. E3's already-hydrated final references
+become a foundation RankedResult without another evidence charge; the single
+matching-passage public schedule remains five. No request-language dependency is
+added, and pruned search steps do not load providers. Capabilities advertise the
+operation, not current index/provider readiness.
+
+Worker-local actual E3 capture is transported as size-declared bounded chunks
+into a supervisor-owned indexing child in the existing parent disclosure group.
+Q1 reserves its transport/copy allowance before enabling capture; allocation
+failure discards only optional diagnostics. The child has the original observer,
+exact document/evidence targets and parent step linkage. It cannot publish from
+the worker or before parent release. The supervisor's existing short fence
+authorizes both data and prepared reports; later child lookup rechecks the
+retained complete group even after parent eviction. No report is a support set.
 
 Dependent K1 steps share one spawned canonical snapshot and one supervisor-owned
 pool/deadline. Synchronous, size-declared JSON chunks carry exact producer witness

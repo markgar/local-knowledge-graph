@@ -313,7 +313,8 @@ passage-backed acceptance are not claimed by the optional participant seam.
 
 ## Canonical evidence queries
 
-`kg.query.QueryService(database, identity)` executes validated `QueryRequest`
+`kg.query.QueryService(database, identity, *, search_configuration=DEFAULT_CONFIGURATION)`
+executes validated `QueryRequest`
 values against the canonical evidence store. `execute(request)` returns
 `kg.models.query.QueryExecution` (`interface_version="query/1"`), containing
 the unchanged foundation `QueryResult`, elapsed milliseconds, ordered step
@@ -331,11 +332,46 @@ foundation results or Q1 reports. Detailed reports include the selected ID,
 closure and acknowledged semantic reservation; summary reports omit selected IDs.
 `capabilities(scope)` is authorized and reportable. Exact K1 entity resolution is
 installed; decision records/counts are enabled only for a registered
-`direct-subject-decision/1` predicate. Search and paths return unsupported, never a
-fake empty result or legacy adapter fallback. Missing or mismatched passage references return
+`direct-subject-decision/1` predicate. Full canonical search is installed; paths
+remain unsupported. Missing or mismatched passage references return
 `not_found`. Passage evidence requires its real state/set/passage/anchor chain,
 not vector readiness. Both `codepoint-window/1` and `supplied-anchors/1` kernel
 outputs are readable.
+
+A selected `SearchStep` invokes the actual `EvidenceSearchService` lexical/dense,
+fusion/deduplication and reranking pipeline inside the query's spawned read context.
+The trusted service configuration must match the prepared index and actual
+initialized provider identity; both providers/readiness are required even when
+empty. There is no legacy adapter, stage bypass or fallback. Success returns
+foundation `RankedResult` with exact references and raw reranker scores, preserving
+E3 order; exhaustion is `candidate_pool`, not exhaustive corpus enumeration.
+Missing/mismatched projections yield `stale_index` with `index_not_ready`; provider
+unavailability yields an unsupported no-data outcome with `provider_unavailable`.
+
+The one-passage case matching both candidate streams reserves exactly five units:
+TEMP population, lexical candidate, vector evaluation, rerank and final evidence.
+E3 already hydrates the final evidence in the same snapshot: no sixth nested
+`evidence_reference` reservation is added. Readiness and fusion add none.
+Public exhaustion at any incomplete search stage is a redacted failure, never a
+partial ranking. Private allowances and the original query deadline are inherited,
+not replaced by the standalone search deadline.
+
+The existing request vocabulary is unchanged. Search can be the selected output;
+unrelated steps are pruned. It has no search-to-evidence dependency or count-over-
+search operator. Returned references can be passed to a later literal EvidenceStep
+or EvidenceService read, but those calls are separate observations. The
+[controlled supplied-document example](examples/query_search.py) demonstrates this
+distinction and exact quote/citation inspection without downloads or quality claims.
+
+Search diagnostics retain actual worker-captured E3 configuration/stage/candidate
+facts in a linked indexing child. The parent `query.nested_execution` event names
+its report, retrievable through `service.diagnostics.report`; query discovery lists
+parent calls. Detailed quote opt-in applies to that child, not foundation output.
+Bounded capture transport is admitted against the original scratch pool before
+collection; optional capture capacity failures withhold diagnostics without changing
+ranking. Both reports remain provisional until the parent's one fenced release.
+Failure or subsequent observer invalidation permanently withholds both, including
+after parent eviction. Reports and retained decision support have separate lifetimes.
 
 `resolve` consumes K1's exact ID or case-sensitive name/approved-alias selector.
 IDs never fall back to names; aliases do not multiply entities. Multiple eligible

@@ -36,6 +36,7 @@ from kg.models.foundation import (
     RecordsResult,
     RecordsStep,
     Scope,
+    SearchStep,
     SourceSupport,
 )
 from kg.models.indexing import DEFAULT_CONFIGURATION, IndexConfiguration
@@ -87,6 +88,8 @@ def failure(
         scope=request.scope,
         outcome="state_changed"
         if code == "state_changed"
+        else "stale_index"
+        if code == "stale_index"
         else ("unsupported" if code == "unsupported" else "failed"),
         read_state_id=None,
         result_set_id=None,
@@ -246,6 +249,13 @@ class QueryService:
                     )
                     required = closure(request)
                     output = next(s for s in request.steps if s.step_id == request.output_step)
+                    if isinstance(output, SearchStep):
+                        from kg.query._search import execute as search
+
+                        return search(
+                            self, request, output, options, start, observer, budget,
+                            capture, reference,
+                        )
                     if not isinstance(output, EvidenceStep):
                         from kg.query._plans import execute
 
@@ -383,6 +393,7 @@ class QueryService:
             LOGGER.error("Query failure class=%s", type(error).__name__)
         if capture is not None:
             capture.group.redact()
+            capture.group.close()
             if isinstance(capture, Capture) and capture.active:
                 capture.finish("failed", reason=code)
         outcome = failure(request, start, code, reason)
@@ -444,11 +455,14 @@ class QueryService:
                     raise EvidenceServiceError(frame.code or "internal_error")
                 reply = (
                     ledger.transfer(frame)
-                    if frame.action in ("payload", "chunk", "fetch", "fetch_chunk", "capture_drop")
+                    if frame.action in (
+                        "payload", "chunk", "fetch", "fetch_chunk",
+                        "capture_drop", "capture_reclaimed",
+                    )
                     and ledger.transfer is not None
                     else ledger.reserve(frame)
                 )
-                if reply.state != "ok":
+                if reply.state not in ("ok", "capture_reclaim"):
                     stop = (
                         "time_budget"
                         if reply.state == "deadline"
@@ -459,7 +473,7 @@ class QueryService:
                         else "record_budget"
                     )
                 channel.reply(reply)
-                if reply.state != "ok" and not (
+                if reply.state not in ("ok", "capture_reclaim") and not (
                     reply.state == "public"
                     and isinstance(step, QueryRequest)
                     and frame.action == "public"
@@ -579,9 +593,9 @@ class QueryService:
                         deadline.remaining()
                         return QueryCapabilities(
                             scope=scope,
-                            operations=("evidence", "resolve", "records", "count")
+                            operations=("evidence", "resolve", "records", "count", "search")
                             if enabled
-                            else ("evidence", "resolve"),
+                            else ("evidence", "resolve", "search"),
                             record_types=("decision",) if enabled else (),
                             association="direct_explicit_association/1" if enabled else None,
                             count_identity="submitted_assertion_id" if enabled else None,
