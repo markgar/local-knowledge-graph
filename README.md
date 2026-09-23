@@ -20,6 +20,19 @@ system. It does not generate answers, infer entities or contradictions, or
 reliably decide whether a natural-language question is answerable. Existing
 retrieval-quality gates remain unmet.
 
+## Using the KG with an agent
+
+The [use-knowledge-graph skill](.github/skills/use-knowledge-graph/SKILL.md) teaches
+an agent the evidence/knowledge model, public interfaces, query and ingestion
+recipes, capability checks and stopping rules. Use it to operate an existing
+authorized KG instead of rediscovering the interfaces from source code.
+
+For example: `Use /use-knowledge-graph to find the decisions directly recorded for
+this project and show their supporting evidence.` The host must provide the store
+connection and authorized scope; the skill does not install a tool server.
+In Copilot CLI, use `/skills reload` and `/skills info use-knowledge-graph` if the
+new skill has not been discovered in the current session.
+
 ## How the pieces fit
 
 1. **Supply evidence.** The embedding application registers trusted local identity

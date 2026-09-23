@@ -185,6 +185,10 @@ Then give a fresh-context general-purpose subagent this read-only prompt:
 - Preserve deterministic behavior and exact source provenance.
 - Do not add corpus-specific parsing or retrieval rules.
 - Update public documentation when contracts or commands change.
+- Keep the [KG user skill](.github/skills/use-knowledge-graph/SKILL.md) current in
+  the same change that delivers or alters a public capability. Update its recipes,
+  capability boundaries and failure guidance together; do not advertise planned
+  APIs as implemented.
 - Canonical schema changes belong to `src/kg/evidence/schema.sql` and its exact
   admission/manifest checks. `src/kg/schema.sql` belongs only to the Markdown
   demonstration. Preserve exact authored evidence/history within supported stores.
