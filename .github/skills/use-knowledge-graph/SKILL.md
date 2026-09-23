@@ -97,15 +97,16 @@ authorization or freshness. It does not build a graph or load source content.
 | Inspect an entity's assertions/relationships | `KnowledgeService.contributions(scope, entity_id, ...)`, then `contribution(scope, contribution_id, ...)` for payload, attribution, evidence and witnesses. Inspect direction from the returned subject/object. |
 | Follow one explicit typed relationship with full cited paths | `LocalGraphSession.traverse(GraphTraversalRequest(...))`: exact entity resolution, registered predicate, required outgoing/incoming direction, strict integer one-hop only. |
 | List/count decisions directly about an entity | `QueryService`: resolve, `records(record_type="decision")`, then optionally count. Available only when capabilities advertise the registered decision encoding. |
+| Count decisions reached through an explicit relationship | `LocalGraphSession.relationship_decisions`: one coherent native join, exact distinct submitted-decision count, bounded displayed members with both proof sides. |
 | Search supplied sources | `QueryService` with `SearchStep`, or `kg.indexing.EvidenceSearchService`. Matching published projections and both model providers are required; no keyword-only fallback. |
 | Read exact evidence | `EvidenceService.evidence(scope, reference)` or `citation(scope, stored_citation)`. Use returned references/citations, not fabricated IDs. |
 | Inspect authorized history | Knowledge reads with `mode="history"`; keep historical and current claims distinct. |
 | Withdraw one owned assertion | `EvidenceService.write` with `WithdrawAssertion`; requires advertised `withdraw_assertion` and `KnowledgeCapabilities.withdrawal == "owned_assertion"`. |
 
-Graph joins and retained graph inspection, action/blocker/conflict record queries,
+General joins and retained graph inspection, action/blocker/conflict record queries,
 general retraction/atomic replacement, whole-set seed replacement and pre-execution query
-`prepare`/`explain` are not installed. A native engine's ability to execute a join
-does not make it a supported public query operation. `execute_explained` executes
+`prepare`/`explain` are not installed. Only the fixed relationship-to-decision join
+below is a supported public joined query. `execute_explained` executes
 the query and reports diagnostics; it is not a dry-run planner.
 
 Manual inspection of public contribution pages is possible. If composing several
@@ -175,8 +176,8 @@ safe error and caller correlation, never an observed prefix.
 The standalone limit is 1,000 paths/candidates and 8 MiB within bounded original
 operation resources. A 1,001st result, oversize output, cancellation or resource
 failure returns no data, not truncation or a pagination token. `max_hops` accepts
-only integer 1, not bool, float, 2 or 3. There is no multi-hop, join or count
-operation here; composing multiple calls is separately observed agent synthesis.
+only integer 1, not bool, float, 2 or 3. `traverse` does not join/count decisions;
+use the separate recipe below rather than composing separately observed calls.
 
 A query may lazily build/reuse the exact-scope graph. Canonical mutations or access
 changes invalidate it; a stale warm query returns no data. After reconciling the
@@ -195,6 +196,70 @@ authorization and is not renewed proof of current membership.
 The complete synthetic supplied-note example is
 [graph_relationships.py](../../../examples/graph_relationships.py); its setup is
 for a fresh demo, never an existing user's database.
+
+### Concrete recipe: decisions reached through a relationship
+
+Use this operation instead of calling traversal and then counting each endpoint
+separately. It resolves one root and executes a fixed native distinct count and
+ordered proof query under one original scope, generation, budget and release fence.
+
+```python
+from kg.models.graph import GraphEntitySelector, GraphRelationshipDecisionsRequest
+
+
+def related_decisions(session, scope, entity_id, predicate, direction):
+    capabilities = session.capabilities()
+    if (
+        "relationship_decisions" not in capabilities.operations
+        or capabilities.runtime != "available"
+    ):
+        raise RuntimeError("The configured graph runtime cannot execute joined decisions.")
+    return session.relationship_decisions(GraphRelationshipDecisionsRequest(
+        request_id="related-decisions",
+        scope=scope,
+        start=GraphEntitySelector(entity_id=entity_id),
+        predicate=predicate,
+        direction=direction,
+        max_hops=1,
+        display_limit=100,
+    ))
+```
+
+The host must register the relationship and direct-subject decision encoding.
+Decisions belong to the **reached endpoint**: outgoing person-to-project ownership
+selects project decisions; incoming selects decisions about the relationship's
+subject, not automatically the project. Inferred relationships do not qualify.
+
+For `complete`, report `count` with `exact=True`, not `len(members)`. The count is
+distinct **submitted decision assertion IDs**, not unique wording or real-world
+events. Parallel ownership assertions do not multiply a decision's count, but
+every qualifying relationship assertion ID remains in that member's
+`relationship_ids`. Fresh same-text decision contributions remain distinct.
+`members` is an assertion-ID-ordered prefix, bounded by strict integer
+`display_limit` (1..1,000); `display_truncated` says whether some are not displayed.
+The entire private selection, including undisplayed members and all proofs, must
+fit the original 8 MiB conservative output limit and shared scratch/time budgets.
+A smaller display limit cannot rescue an oversized full selection. There is no
+public paging token, retained handle, hidden-member inspection or count-only fallback.
+
+Each displayed `GraphDecisionMember.decision` contains the full captured decision
+proof. Resolve **all** its `relationship_ids` against `result.relationships`;
+each relationship proof establishes membership and includes full captured support
+and both selected activation witnesses. Preserve conjunctive support and witness
+provenance. A decision quote alone does not establish ownership. Hydrate exact
+historical quotes for both sides through the `StoredCitation` recipe above; those
+separately authorized reads never renew current membership.
+
+`empty` means exact zero after exhaustive resolution/join, with `root_entity_id`
+only if one eligible root exists. `ambiguous` provides candidate IDs and no count;
+ask for disambiguation. `failed` provides no count, generation, members or proofs.
+Unsupported schema/type, stale scope/policy/source, withdrawn assertion, incomplete
+enumeration, cancellation, native failure or exhausted resources never justify a
+partial answer. Reconcile mutation and explicitly refresh before a new query;
+withdrawn relationships/decisions stay excluded, while independent current
+contributions remain eligible. Old result objects are historical observations,
+not current authority. The runnable fresh-fixture example is
+[graph_relationship_decisions.py](../../../examples/graph_relationship_decisions.py).
 
 ### Concrete recipe: count direct decisions
 
@@ -376,8 +441,9 @@ user store. It refuses to overwrite an existing target.
 | Incompatible store, native/runtime failure or internal error | Preserve the store and diagnostic information. Report the failure; do not reset, repair with SQL or repeatedly rebuild blindly. |
 
 Ordinary exact entity, decision and evidence queries do not require Ladybug.
-`LocalGraphSession` supplies the public cited one-hop relationship API as well as
-lifecycle/status/refresh and controlled writes; graph joins remain unavailable.
+`LocalGraphSession` supplies cited one-hop traversal and the fixed relationship-to-decision
+query API as well as lifecycle/status/refresh and controlled writes; general joins
+and public retained graph inspection remain unavailable.
 Do not start native graph sessions just for the ordinary non-graph queries.
 Its experimental in-process runtime can crash the host; it is not a sandbox.
 

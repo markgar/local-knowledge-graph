@@ -48,6 +48,10 @@ The optional private graph runtime gate is separate from Linux/base-package CI:
 on supported macOS 15+ ARM64/CPython 3.12, run
 `uv run --extra graph --extra dev pytest tests/test_graph_export.py tests/test_graph_build.py tests/test_graph_native.py`
 with `KG_REQUIRE_NATIVE=1` to make an unavailable native runtime fail instead of skip.
+Include `tests/test_graph_decisions*.py` for relationship-to-decision API changes.
+Its unchanged varied 1,001-decision fixture checks full hidden proof parity and
+measures conservative/serialized output, original scratch overlap and release;
+do not shrink it, omit proof fields or raise limits to pass capacity acceptance.
 Include `tests/test_graph_session*.py` for controller changes, and run
 `uv run --extra graph python examples/graph_session.py --output <fresh-path>`
 for real lifecycle, proof-hydration, write/refresh and restart acceptance.

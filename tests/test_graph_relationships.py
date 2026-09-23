@@ -152,7 +152,8 @@ def test_content_free_unavailable_capability_and_optional_import(tmp_path, monke
         env.database, env.identity, env.scope, graph_directory=tmp_path / "derived",
     ) as session:
         caps = session.capabilities()
-        assert caps.runtime == "unavailable" and caps.operations == ("traverse",)
+        assert caps.runtime == "unavailable"
+        assert caps.operations == ("traverse", "relationship_decisions")
         assert caps.unavailable_reason == "graph_unavailable"
         assert session.status().state == "unbuilt"
         assert not (tmp_path / "derived").exists()
