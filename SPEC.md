@@ -579,7 +579,7 @@ SQLite format and Q1 paths remain unchanged; never reopen/admit leftover stages.
 
 `kg.graph.LocalGraphSession` binds an exact validated identity/scope and optional
 expected coverage. It reuses Q1's bounded FIFO dispatcher on one SQLite owner
-thread. Construction starts unbuilt; first private read builds once, explicit
+thread. Construction starts unbuilt; the first query builds once, explicit
 refresh retires the previous generation first. Adoption consumes the original
 stage operation before a fresh authorization/source fence; only the in-memory
 generation pointer switches inside that fence. The controller never reopens the

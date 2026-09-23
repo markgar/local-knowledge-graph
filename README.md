@@ -207,8 +207,9 @@ It discovers an actual supplied anchor, atomically submits an entity and explici
 decision, and reads the assertion's immutable provenance. Repeating it replays the
 same durable IDs. Typed predicates and decision encoding come from the registered
 schema, not language inference. Current/history reads and ordinary scoped write
-reports are available; whole-set seed replacement, corrections and traversal
-remain unsupported. `QueryService` composes the real
+reports are available; whole-set seed replacement and corrections remain
+unsupported. Typed cited one-hop queries use `LocalGraphSession.traverse`.
+`QueryService` composes the real
 entity/decision reader for public decision selections and counts.
 See [knowledge service contracts](CONTRACTS.md#knowledge-enrichment-and-reads).
 
@@ -278,8 +279,8 @@ Cold reads/refresh share a 300-second admitted deadline; warm reads/writes have
 at most five seconds and separate 8 MiB ceilings for cumulative retained output
 and the final returned answer, sharing one scratch pool. Pending cleanup blocks
 new builds; retry `refresh()` while open or `close()` after closing. Close may
-report `close_pending` while native work/cleanup still owns resources. Business
-traversal, decision joins and retained inspection are not public graph APIs.
+report `close_pending` while native work/cleanup still owns resources. Typed
+one-hop traversal is public; graph decision joins and retained inspection are not.
 
 The complete varied-10,000-decision native build/reopen and exact proof/edge parity
 gate passed with the pinned runtime and 256 MiB buffer configuration
