@@ -6,16 +6,19 @@ import sqlite3
 import time
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import contextmanager
+from threading import Event
 
 import pytest
 from support.evidence import environment, put, receipt
 
 from kg._execution_budget import (
+    CancelledStop,
     Deadline,
     DeadlineStop,
     LocalExecutionMeter,
     PrivateBudget,
     PrivateResourceStop,
+    _graph_build_operation,
 )
 from kg.evidence import EvidenceDatabase, EvidenceServiceError
 from kg.evidence import _graph_observer as graph
@@ -130,6 +133,88 @@ def test_three_scopes_share_root_but_not_snapshot_authority(opened):
     assert len(set(sessions)) == 3
     assert counters[0][0] < counters[1][0] < counters[2][0]
     assert counters[0][1] < counters[1][1] < counters[2][1]
+
+
+def test_bulk_build_root_spans_three_scopes_then_parks_for_interactive_request(tmp_path):
+    env = environment(tmp_path / "bulk-graph.db")
+    build = _graph_build_operation(deadline=Deadline(time.monotonic() + 300), cancel=Event())
+    budget = build.budget
+    source = open_graph_source(
+        env.database, env.service.identity, env.scope, budget.deadline, budget,
+    )
+    connection, baseline = source._connection, source._version
+    previous = build.snapshot()
+    sessions = set()
+    try:
+        for phase in ("export", "adoption", "answer"):
+            with operation(env, source, budget) as current:
+                sessions.add(current.session_id)
+                assert current.budget is budget and current.deadline is budget.deadline
+                if phase != "adoption":
+                    with current.read_context(build.meter) as context:
+                        assert context.meter is build.meter
+                        assert context.connection._budget is budget
+                        held = context._reserve_scratch(8192, "general")
+                        assert build.snapshot().scratch_live_bytes == 8192
+                        context._release_reservation(held)
+                        assert build.snapshot().scratch_live_bytes == 0
+                        timeout = context.connection.execute("PRAGMA busy_timeout").fetchone()[0]
+                        assert timeout == 100
+                with current.release_fence() as fence:
+                    fence.check_active()
+            observed = build.snapshot()
+            assert observed.visits_reserved > previous.visits_reserved
+            assert observed.vm_instructions_reserved > previous.vm_instructions_reserved
+            assert observed.expires_at_monotonic == previous.expires_at_monotonic
+            assert observed.scratch_live_bytes == 0
+            previous = observed
+            assert connection._budget is None and not connection.in_transaction
+        assert len(sessions) == 3
+        build.cancel.set()
+        with operation(env, source) as current:
+            assert current.session_id not in sessions
+            assert current.budget.resource_profile == "interactive/1"
+            with current.read_context(meter(current.budget).begin_step("read")) as context:
+                assert context.connection.execute("PRAGMA busy_timeout").fetchone()[0] == 5000
+            with current.release_fence():
+                pass
+        assert build.snapshot() == previous
+        assert source._connection is connection and source._version == baseline
+    finally:
+        source.close()
+
+
+@pytest.mark.parametrize("cancel_phase", range(3))
+def test_bulk_cancellation_unwinds_current_scope_without_losing_original_source(
+    tmp_path, cancel_phase,
+):
+    env = environment(tmp_path / "bulk-cancel.db")
+    build = _graph_build_operation(deadline=Deadline(time.monotonic() + 300), cancel=Event())
+    budget = build.budget
+    source = open_graph_source(
+        env.database, env.service.identity, env.scope, budget.deadline, budget,
+    )
+    connection, baseline = source._connection, source._version
+    try:
+        for _ in range(cancel_phase):
+            with operation(env, source, budget) as current, current.release_fence():
+                pass
+        with (
+            pytest.raises(CancelledStop),
+            operation(env, source, budget) as current,
+            current.read_context(build.meter) as context,
+        ):
+            context._reserve_scratch(8192, "general")
+            build.cancel.set()
+            context.connection.execute("SELECT 1")
+        assert build.snapshot().stop_reason == "cancelled"
+        assert build.snapshot().scratch_live_bytes == 0
+        assert connection._budget is None and not connection.in_transaction
+        with operation(env, source) as current, current.release_fence():
+            pass
+        assert source._connection is connection and source._version == baseline
+    finally:
+        source.close()
 
 
 @pytest.mark.parametrize("phase", range(3))
