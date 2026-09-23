@@ -1,4 +1,15 @@
-# Foundation value reference
+# Service and value contract reference
+
+The canonical Python services operate on SQLite `evidence-store/2`. SQLite owns
+supplied text/revisions, identities, knowledge schema, entities/assertions, exact
+support and history. Optional Ladybug is a rebuildable exact-scope graph
+projection, not a second authored store or a replacement for canonical search.
+The separate Markdown demonstration/CLI uses its own database and APIs; see
+[the architecture](SPEC.md#architecture-and-data-ownership).
+
+This reference covers executable evidence, indexing/search, knowledge, processing
+control, query and diagnostic APIs. Each section states its supported operations
+and limits; a value's presence in a model does not establish an executable service.
 
 `kg.models.foundation` implements **validation and serialization only**, using
 Pydantic models with contract version `foundation/1`. It does not persist data,
@@ -6,16 +17,17 @@ enforce ACLs or ownership, execute writes or queries, synchronize sources, proce
 content, implement retries, or retain snapshots/continuations. Declared grants,
 state tokens, receipts and result-set IDs are values, not proof of those services.
 
-The separate `kg.evidence` service executes document writes, bounded enrichment
-and evidence reads using these values. Only the service operations explicitly
-listed below are executable; broader foundation query/synchronization descriptions
-remain validation contracts.
+`kg.evidence` executes document writes, bounded enrichment and evidence reads;
+`kg.query` executes its supported canonical plans using foundation values. Only
+the service operations explicitly listed below are executable; broader foundation
+query/synchronization descriptions remain validation contracts.
 
 See [the models](src/kg/models/foundation.py) for exact fields and defaults,
 [focused tests](tests/test_foundation_contracts.py) for executable checks, and
 [SPEC.md](SPEC.md) for implemented product behavior. Future service obligations
 and delivery planning are tracked in
-[issue #28](https://github.com/markgar/local-knowledge-graph/issues/28), not here.
+[open bounded issues](https://github.com/markgar/local-knowledge-graph/issues?q=is%3Aissue%20is%3Aopen),
+not here. Follow each owning issue's current scope and linked approved requirements.
 
 ## Evidence service API
 
@@ -31,7 +43,7 @@ enrichment values include independent entity support and explicitly namespaced s
 | `database.initialize()` | Initialize empty or verify the complete `evidence-store/2` schema and manifest; incompatible targets raise `unsupported`. Use a fresh file and resupply sources. |
 | `admin.register(CorpusRegistration)` | Register namespaces, writer bindings and explicit `LocalPolicy`; identical original registration is unchanged and returns the **current** policy version, without restoring old grants. Conflicting registration fails. |
 | `admin.replace_policy(LocalPolicy, expected_policy_version)` | Atomic policy/state rotation; returns version, affected namespaces and changed-document count. |
-| `service.write(WriteRequest)` | `put_document` / `remove_document` / bounded `enrich` -> `WriteOutcome`. Enrichment supports the change kinds described below, not mentions. |
+| `service.write(WriteRequest)` | `put_document` / `remove_document` / bounded `enrich` -> `WriteOutcome`. Enrichment supports the change kinds described below, including explicitly passage-backed mentions. |
 | `service.write_batch(WriteBatch)` | Ordered `BatchResult`; complete envelope validation precedes independent unit transactions. |
 | `current(scope, ExternalDocument)` / `document(scope, document_id)` | Current `DocumentView`, including inactive sources and separate `indexing_reason` / `enrichment_reason` fields. |
 | `state(scope, document_id, state_version)` | Immutable historical state/metadata context plus latest-state flag. |
@@ -319,7 +331,8 @@ complete assertion support and the subject witness selected by contribution
 sequence, and distinguish EOF, public budget stop, private/deadline stop and typed
 failure. It uses the owner's live context and inherited meter, not another
 snapshot. Nested support is privately accounted, never charged as a public
-evidence request. This is not a public Q1 records/count implementation.
+evidence request. This private reader is consumed by `QueryService` for the public
+records/count behavior documented below; it is not a separate public query facade.
 
 Each interactive selection retains one 10,000-visit view across pages and nested SQL, within
 the existing 100,000-visit root, VM/scratch pool and original deadline. Standalone
@@ -343,6 +356,24 @@ inspectable through the original operation's private snapshot. Existing Q1
 models, public budgets, worker RPC and public diagnostic shapes are unchanged.
 This is internal control plumbing, not a public foundation graph-query API or
 a hard native-memory/disk/deadline guarantee.
+
+## Optional private graph projection
+
+`kg.graph._build.build_graph` exports complete eligible entities, entity-object
+relationships and explicit `direct-subject-decision/1` assertions for one exact
+identity/scope. It builds, verifies, checkpoints and reopens a disposable Ladybug
+stage using the original canonical source observer. Authored IDs and complete
+selected source/seed/endpoint proofs remain tied to authoritative SQLite.
+
+The [developer example](examples/graph_build.py) executes native queries and
+parity checks. `kg.graph.LocalGraphSession` supplies reusable local lifecycle,
+guarded private reads and controlled writes; it is not a public business
+traversal/join facade or a new `QueryService` path operator. Base-package search works without
+the optional pinned `ladybug==0.20.4` dependency. Native support is macOS 15+ ARM64
+with CPython 3.12. The 256 MiB native buffer/two threads do not provide total RSS
+or process isolation; fatal native failures can terminate the host.
+See [runtime/example guidance](README.md#optional-disposable-graph-example) and
+[exact ownership, freshness and failure semantics](SPEC.md#private-disposable-graph-staging).
 
 The optional `kg.graph.LocalGraphSession` lifecycle uses that bulk operation only
 for cold/build-capable reads and refresh. Warm reads and controlled canonical

@@ -8,6 +8,10 @@ fresh contexts, identical runtime/model settings, and access restrictions.
 
 ## Retrieval and tool boundaries
 
+The indexed arms use the [Markdown demonstration](../../README.md#markdown-demonstration)
+and its SQLite database. Here, "graph" means explicit demonstration relationships
+and subject expansion, not Ladybug or the canonical evidence/query services.
+
 New runs use protocol version 3 and three arms by default:
 
 | Arm | Shared tools | Additional tools |

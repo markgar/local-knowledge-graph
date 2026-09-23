@@ -42,7 +42,7 @@ exact ordered IDs/scores, 20 hits, and 44 candidates.
 
 The authored corpus tree remains `a382b28467818b5bebc6f92d88aa8fe812a67d42`.
 Fixture/gold/historical-results preservation and the
-[assertion migration mapping](../README.md#public-cli-layer-inventory-and-assertion-mapping)
+[assertion migration mapping at the tested code tip](https://github.com/markgar/local-knowledge-graph/blob/12aeadf4c7733cd7abdf238f1198896992dd49e3/benchmarks/productization/README.md#public-cli-layer-inventory-and-assertion-mapping)
 remain intact. The [earlier run](../RESULTS.md) and its
 [original JSON report](../results-2026-09-20.json) were not overwritten.
 
@@ -58,5 +58,5 @@ artifacts. SHA-256 values were verified before and after copying.
 | [Ordinary CLI search](cli_search_ordinary.json) | `3350997faa41ad4b3dc5cf4f8014b7e22bcbb32603800dfe4504dd6332ffa185` |
 | [Explained CLI search](cli_search_explain.json) | `0fc0a4fe72e7647731142afed36715aba5a3126dc10fae2ace0e379061ccb133` |
 
-Reproduce the matrix with the [existing runner instructions](../README.md#run-the-real-matrix)
+Reproduce the matrix with the [existing runner instructions](../README.md#run-the-real-model-matrix)
 and a new output directory. Keep this run distinct from future measurements.

@@ -5,20 +5,48 @@ and answerability requirements are not met; this is not a production-ready
 question-answering system.
 
 This document describes current behavior. [CONTRACTS.md](CONTRACTS.md) describes
-foundation values and the generic evidence service API. Future work and service requirements live
-in the [build roadmap issue](https://github.com/markgar/local-knowledge-graph/issues/28);
+executable service APIs and separately identifies validation-only foundation
+values. Future work and service requirements live
+in the [open bounded issues](https://github.com/markgar/local-knowledge-graph/issues?q=is%3Aissue%20is%3Aopen)
+and their linked approved requirements;
 they are not implemented capabilities.
+
+## Architecture and data ownership
+
+The canonical engine is **SQLite plus an optional Ladybug graph projection**:
+
+| Layer | Ownership and execution |
+| --- | --- |
+| Canonical SQLite (`evidence-store/2`) | Exact supplied text/revisions, identities, immutable knowledge schema, entities/assertions, support, history and service control state. `src/kg/evidence/schema.sql` owns this format. |
+| Canonical indexing/search | `kg.indexing` publishes passages/vectors and executes scoped keyword/dense retrieval, fusion and reranking. Search does not depend on Ladybug. |
+| Canonical query composition | `kg.query.QueryService` executes supported evidence, search, exact entity resolution and explicit-decision records/counts with fresh release authorization. |
+| Optional Ladybug projection | `kg.graph` builds complete eligible entity/relationship/explicit-decision coverage for one exact authorized scope. `LocalGraphSession` manages reusable lifecycle and guarded private reads. It contains no unique authored truth; public business traversal/joins remain unimplemented. |
+| Markdown demonstration | Separate `kg.db.Database`, `src/kg/schema.sql`, manifest ingestion, `kg.retrieval` and `kg` CLI. Its database and explicit graph relationships are not the canonical service or Ladybug interface. |
+
+Applications supply text and explicitly supported knowledge; intake, passage
+indexing and enrichment writes are real service operations. No automatic
+extraction agent, natural-language planner or live source connector is implied.
+Graph export consumes complete eligible canonical knowledge, not search candidates,
+and preserves authored IDs, endpoint witnesses and exact evidence associations.
+It cannot make stale support current or infer missing relationships.
+
+Graph freshness depends on the original physical SQLite observer's `data_version`
+and exact identity/policy/scope binding. Canonical writes invalidate that generation;
+neither a serialized manifest nor a leftover graph file is permission to reuse it.
+Ladybug is optional and in-process, not a separate database server or crash-isolated
+worker. Its platform, resource controls and accepted native fatal risk are specified
+under [private disposable graph staging](#private-disposable-graph-staging).
 
 ## Generic evidence store
 
 `kg.evidence.EvidenceDatabase`, `EvidenceAdministration` and `EvidenceService`
-implement the new Python-only canonical evidence engine. Its packaged
+implement the Python-only canonical evidence engine. Its packaged
 `kg/evidence/schema.sql` uses SQLite application ID `0x4b474531`, user version 2
 and `evidence-store/2`. Initialization atomically creates an empty target or
 verifies that exact format. Old/unknown nonempty files (including version 1) are rejected without
 changing headers, journal mode, schema or rows. There is no migration/reset API:
-use a fresh path and explicitly resupply content. Old canonical and independent
-dense-projection writers also reject this format under their schema/write lock.
+use a fresh path and explicitly resupply content. Markdown demonstration and
+independent dense-projection writers also reject this format under their schema/write lock.
 
 The format contains the complete 65-table, 29-explicit-index canonical schema,
 including reserved knowledge, passage/index and processing/synchronization storage.
@@ -426,7 +454,7 @@ precede consumption; scratch ownership cannot be copied and release is idempoten
 Private counters are absent from public accounting. The public search schedule
 has five one-passage events: TEMP, lexical, vector, rerank, final evidence.
 Readiness, fusion and counting an existing selection add none. These are shared
-contracts, not an installed generic search. The evidence query executor below
+accounting contracts used by canonical search. The evidence query executor below
 consumes the same budget operations through supervisor-owned reservation RPC.
 
 `PrivateBudget.limited(max_visits=10_000)` creates a cumulative local view of the
@@ -573,6 +601,19 @@ charges immutable output before accumulation, and final output must be fully
 materialized and within 8 MiB. Tuples, primitives, frozen foundation values and
 the local generation value are supported; lazy/mutable/owning handles cannot be
 returned. Escaped borrowed views/rows reject subsequent use.
+
+Each explicit `retain` charges conservative serialized size plus 256 bytes of
+scratch bookkeeping; its cumulative content ceiling is 8 MiB. Repeated explicit
+retention and repeated serialized occurrences charge again, with no identity
+deduplication. The entire callback return has a separate 8 MiB check and scratch
+reservation, not another charge against the cumulative retention ceiling.
+Distinct retained/returned content can therefore total roughly 16 MiB plus
+bookkeeping, under one original scratch pool. These are not RSS bounds.
+Reservations remain live through final fencing and release in `finally`.
+Hidden full selections must be explicitly retained even when only a display
+escapes. Continuously charged intermediate meter scratch may cover assembly,
+followed by one full-selection retain before releasing assembly scratch; there
+must be no uncharged copy window. Concurrent display assembly also needs scratch.
 
 Controlled writes conservatively dirty the generation before mutation, sharing
 one ordinary budget across batch units through the private E1 budgeted seam.
@@ -740,13 +781,13 @@ for the public API, exact fixed limits and explicit unavailable/redacted shapes.
 
 The following sections describe the **separate Markdown demonstration**, unless
 explicitly referring to `kg.evidence`. Its fixture/gold assets are preserved; its
-databases and APIs are not a migration/compatibility contract for the new engine.
+databases and APIs are separate from the canonical evidence engine.
 
 ## Markdown demonstration boundaries and invariants
 
-The package ingests manifest-selected local Markdown, stores canonical evidence
-in SQLite, and exposes cited search and structured reads through Python and a
-thin CLI. Configuration is data: subjects, aliases, paths, and corpora must not
+The demonstration ingests manifest-selected local Markdown, stores its evidence
+in its own SQLite database, and exposes cited search and structured reads through
+Python and a thin CLI. Configuration is data: subjects, aliases, paths, and corpora must not
 require parser or retrieval code changes. The caller generates narrative answers;
 retrieval does not generate an answer or infer truth from model knowledge.
 
@@ -1035,19 +1076,21 @@ request/result correlation. `FoundationCapabilities` explicitly says
 
 These models are **not** callable ingestion/query services or enforcement of
 database integrity, authorization, atomicity, idempotency or read isolation.
-An access context is trusted-boundary input, not proof of permission. The canonical
-Markdown schema/CLI do not consume these values. The separate `kg.evidence`
-service consumes document envelopes and enforces the guarantees described above.
+An access context is trusted-boundary input, not proof of permission. The Markdown
+demonstration schema/CLI do not consume these values. The canonical services consume
+their documented subsets and enforce the guarantees described above.
 The implemented value rules are in [CONTRACTS.md](CONTRACTS.md).
 Representative contract fixtures and the synthetic workload/budget protocol
 exercise validation and supply evaluation inputs, not service integration results.
 
-### Existing canonical storage
+### Markdown demonstration storage
 
-[`src/kg/schema.sql`](src/kg/schema.sql) owns rebuildable canonical SQLite tables
+[`src/kg/schema.sql`](src/kg/schema.sql) owns the demonstration's SQLite tables
 for source documents/revisions/anchors/activations, entities/aliases/mentions,
 relationships, structured records/bindings, passages, lexical projections, and
-ingest summaries. Dense projections are independently disposable.
+ingest summaries. Dense projections are independently disposable. This is not the
+canonical [`evidence-store/2` schema](src/kg/evidence/schema.sql), and these tables
+are not the source of the optional Ladybug projection.
 
 After upgrades, reingest each corpus and rebuild matching dense projections.
 Pre-alpha schema changes may require a fresh database. Preserve the old database
