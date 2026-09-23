@@ -42,8 +42,8 @@ dependencies = [
 [project.optional-dependencies]
 graph = ["ladybug==0.20.4"]
 dev = [
-  "mypy>=1.11,<2",
-  "pytest>=8,<9",
+  "mypy>=1.11,<3",
+  "pytest>=8,<10",
   "ruff>=0.6,<1",
   "types-PyYAML>=6.0.12,<7",
 ]
