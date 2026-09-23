@@ -53,7 +53,7 @@ def test_actual_registration_reopen_order_independence_and_no_other_mutations(tm
                       "document", "state_intent"):
             assert connection.execute(f"SELECT count(*) FROM {table}").fetchone()[0] == 0
         assert connection.execute("PRAGMA foreign_key_check").fetchall() == []
-        assert connection.execute("PRAGMA user_version").fetchone()[0] == 2
+        assert connection.execute("PRAGMA user_version").fetchone()[0] == 3
     assert env.service.diagnostics.recent(env.scope).entries == ()
     assert not hasattr(admin, "diagnostics")
     assert not hasattr(admin, "write")

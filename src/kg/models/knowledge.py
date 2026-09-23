@@ -67,6 +67,7 @@ class KnowledgeSchemaRegistration(KnowledgeValue):
 
 
 class KnowledgeCapabilities(KnowledgeValue):
+    withdrawal: Literal["owned_assertion"] = "owned_assertion"
     change_kinds: tuple[str, ...] = (
         "entity", "entity_support", "alias", "identifier", "mention", "assertion",
     )
@@ -90,6 +91,12 @@ class EntityView(KnowledgeValue):
     has_more_support: bool
 
 
+class AssertionWithdrawal(KnowledgeValue):
+    withdrawal_id: Token
+    committed_at: str
+    attribution: Attribution
+
+
 class ContributionView(KnowledgeValue):
     contribution_id: Token
     sequence: int = Field(ge=1)
@@ -100,6 +107,7 @@ class ContributionView(KnowledgeValue):
     evidence: tuple[CapturedEvidence, ...] = Field(max_length=200)
     is_current: bool
     witnesses: tuple[EntityWitness, ...] = Field(max_length=2)
+    withdrawal: AssertionWithdrawal | None = None
 
 
 class KnowledgePage[T](KnowledgeValue):

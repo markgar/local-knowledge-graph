@@ -26,7 +26,7 @@ from kg.models.foundation import (
     SeedSupport,
     SourceSupport,
 )
-from kg.models.knowledge import ContributionView, EntityView, KnowledgeSchema
+from kg.models.knowledge import AssertionWithdrawal, ContributionView, EntityView, KnowledgeSchema
 
 _CHANGE: TypeAdapter[Change] = TypeAdapter(Change)
 
@@ -233,9 +233,12 @@ class Store:
             size = self.connection.execute(
                 "SELECT COALESCE(sum(length(namespace)+length(document_id)+length(revision_id)+"
                 "length(anchor_id)+length(state_version)+length(metadata_snapshot_id)+"
-                "COALESCE(length(passage_set_id),0)+COALESCE(length(passage_id),0)),0),count(*) "
+                "COALESCE(length(passage_set_id),0)+COALESCE(length(passage_id),0)),0),count(*), "
+                "CASE WHEN ? != 'assertion' THEN 1 ELSE NOT EXISTS ("
+                "SELECT 1 FROM assertion_withdrawal WHERE corpus_id=? AND contribution_id=?"
+                ") END "
                 "FROM contribution_evidence WHERE corpus_id=? AND contribution_id=?",
-                (self.scope.corpus_id, cid),
+                (row["kind"], self.scope.corpus_id, cid, self.scope.corpus_id, cid),
             ).fetchone()
             if size is None or not 1 <= size[1] <= 200:
                 raise EvidenceServiceError("internal_error")
@@ -275,7 +278,7 @@ class Store:
                         raise EvidenceServiceError("internal_error")
                 proofs.append(proof)
                 current = current and active
-            return SourceWitness(evidence=tuple(proofs)), current
+            return SourceWitness(evidence=tuple(proofs)), current and bool(size[2])
         seed = self.connection.execute(
             "SELECT s.*,sl.current_contribution_id,e.event_id,e.generation "
             "FROM contribution_seed s "
@@ -479,6 +482,26 @@ class Store:
         current = current and all(self.basis(e) is not None for e in endpoints)
         if not current and not history:
             raise EvidenceServiceError("not_found")
+        withdrawal = None
+        if history and kind == "assertion":
+            event = self.connection.execute(
+                "SELECT w.withdrawal_id,k.committed_at,p.attribution_json "
+                "FROM assertion_withdrawal w "
+                "LEFT JOIN write_key k ON k.corpus_id=w.corpus_id AND k.key_id=w.key_id "
+                "LEFT JOIN knowledge_write_provenance p "
+                "ON p.corpus_id=w.corpus_id AND p.key_id=w.key_id "
+                "WHERE w.corpus_id=? AND w.contribution_id=?",
+                (self.scope.corpus_id, cid),
+            ).fetchone()
+            if event is not None:
+                if event["committed_at"] is None or event["attribution_json"] is None:
+                    raise EvidenceServiceError("internal_error")
+                self.hold(4096 + len(event["attribution_json"]) * 8)
+                withdrawal = AssertionWithdrawal(
+                    withdrawal_id=event["withdrawal_id"],
+                    committed_at=event["committed_at"],
+                    attribution=Attribution.model_validate_json(event["attribution_json"]),
+                )
         return ContributionView(
             contribution_id=cid,
             sequence=row["sequence"],
@@ -496,4 +519,5 @@ class Store:
             evidence=basis.evidence if isinstance(basis, SourceWitness) else (),
             is_current=current,
             witnesses=witnesses,
+            withdrawal=withdrawal,
         )

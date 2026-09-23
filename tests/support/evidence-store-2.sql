@@ -1,6 +1,6 @@
 CREATE TABLE store_format (
     singleton INTEGER PRIMARY KEY CHECK (singleton = 1),
-    format TEXT NOT NULL CHECK (format = 'evidence-store/3'),
+    format TEXT NOT NULL CHECK (format = 'evidence-store/2'),
     manifest_version TEXT NOT NULL CHECK (manifest_version = 'canonical-sqlite-manifest/1'),
     schema_signature TEXT NOT NULL
 );
@@ -165,14 +165,13 @@ CREATE TABLE write_key (
     corpus_id TEXT NOT NULL REFERENCES corpus,
     writer_id TEXT NOT NULL,
     operation TEXT NOT NULL CHECK (operation IN (
-        'put_document', 'remove_document', 'enrich', 'replace_seed_set', 'withdraw_assertion'
+        'put_document', 'remove_document', 'enrich', 'replace_seed_set'
     )),
     key_hash TEXT NOT NULL,
     digest TEXT NOT NULL,
     digest_version TEXT NOT NULL CHECK (
         (operation IN ('put_document', 'remove_document') AND digest_version = 'e1-request-digest/1')
-        OR (operation IN ('enrich', 'replace_seed_set', 'withdraw_assertion')
-            AND digest_version = 'k1-request-digest/1')
+        OR (operation IN ('enrich', 'replace_seed_set') AND digest_version = 'k1-request-digest/1')
     ),
     status TEXT NOT NULL CHECK (status IN ('applied', 'unchanged')),
     committed_at TEXT NOT NULL,
@@ -364,21 +363,9 @@ CREATE TABLE seed_membership_event (
     FOREIGN KEY (corpus_id, key_id) REFERENCES write_key(corpus_id, key_id)
         DEFERRABLE INITIALLY DEFERRED
 );
-CREATE TABLE assertion_withdrawal (
-    withdrawal_id TEXT NOT NULL PRIMARY KEY,
-    corpus_id TEXT NOT NULL,
-    contribution_id TEXT NOT NULL,
-    key_id TEXT NOT NULL UNIQUE,
-    UNIQUE (corpus_id, contribution_id),
-    FOREIGN KEY (corpus_id, contribution_id) REFERENCES assertion(corpus_id, contribution_id),
-    FOREIGN KEY (corpus_id, key_id) REFERENCES write_key(corpus_id, key_id)
-        DEFERRABLE INITIALLY DEFERRED
-);
 CREATE TABLE knowledge_write_response (
     key_id TEXT NOT NULL PRIMARY KEY, corpus_id TEXT NOT NULL,
-    receipt_kind TEXT NOT NULL CHECK (
-        receipt_kind IN ('enrichment', 'seed_set', 'assertion_withdrawal')
-    ),
+    receipt_kind TEXT NOT NULL CHECK (receipt_kind IN ('enrichment', 'seed_set')),
     receipt_json TEXT NOT NULL, authorization_json TEXT NOT NULL,
     FOREIGN KEY (corpus_id, key_id) REFERENCES write_key(corpus_id, key_id)
 );

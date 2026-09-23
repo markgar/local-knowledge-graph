@@ -1,6 +1,6 @@
 # Service and value contract reference
 
-The canonical Python services operate on SQLite `evidence-store/2`. SQLite owns
+The canonical Python services operate on SQLite `evidence-store/3`. SQLite owns
 supplied text/revisions, identities, knowledge schema, entities/assertions, exact
 support and history. Optional Ladybug is a rebuildable exact-scope graph
 projection, not a second authored store or a replacement for canonical search.
@@ -40,10 +40,10 @@ enrichment values include independent entity support and explicitly namespaced s
 
 | API | Result / behavior |
 | --- | --- |
-| `database.initialize()` | Initialize empty or verify the complete `evidence-store/2` schema and manifest; incompatible targets raise `unsupported`. Use a fresh file and resupply sources. |
+| `database.initialize()` | Initialize empty or verify the complete `evidence-store/3` schema and manifest; incompatible targets raise `unsupported` with recreate/reload guidance. Use a fresh file and resupply sources, policy/schema and explicit knowledge; no migration or automatic reset. |
 | `admin.register(CorpusRegistration)` | Register namespaces, writer bindings and explicit `LocalPolicy`; identical original registration is unchanged and returns the **current** policy version, without restoring old grants. Conflicting registration fails. |
 | `admin.replace_policy(LocalPolicy, expected_policy_version)` | Atomic policy/state rotation; returns version, affected namespaces and changed-document count. |
-| `service.write(WriteRequest)` | `put_document` / `remove_document` / bounded `enrich` -> `WriteOutcome`. Enrichment supports the change kinds described below, including explicitly passage-backed mentions. |
+| `service.write(WriteRequest)` | `put_document` / `remove_document` / bounded `enrich` / `withdraw_assertion` -> `WriteOutcome`. Enrichment supports the change kinds described below, including explicitly passage-backed mentions. |
 | `service.write_batch(WriteBatch)` | Ordered `BatchResult`; complete envelope validation precedes independent unit transactions. |
 | `current(scope, ExternalDocument)` / `document(scope, document_id)` | Current `DocumentView`, including inactive sources and separate `indexing_reason` / `enrichment_reason` fields. |
 | `state(scope, document_id, state_version)` | Immutable historical state/metadata context plus latest-state flag. |
@@ -76,7 +76,7 @@ separate indexing and enrichment reasons; fresh states report
 `processor_not_available`. Current default indexing readiness reflects the actual
 projection and source/namespace state; historical completion remains historical.
 There is no compatibility alias or migration from
-`evidence-store/1`. Reserved schema tables alone do not enable services.
+older physical formats, including `evidence-store/2`. Reserved schema tables alone do not enable services.
 The operations below, not table presence, determine runtime capabilities. The separate
 processing control API below uses the reserved job tables.
 
@@ -296,6 +296,29 @@ Modes are `current` and `history`. Pages use limits 1..200, nonnegative keyset
 cursors, visible-only `has_more`/`next_after_sequence`, and no hidden totals.
 All methods have named `_explained` wrappers; ordinary calls retain scoped summaries.
 Trusted schema provisioning remains excluded from scoped reports.
+
+`EvidenceService.write` also accepts `WithdrawAssertion` for an exact caller-owned
+assertion ID. Current `read`/`write_knowledge`, exact original owner AND writer
+binding in every original assertion namespace, and historical readability of all
+support/endpoints are required. Missing/cross-corpus/hidden targets return
+`not_found`; visible non-assertions return `invalid_request`; visible wrong
+ownership/binding returns `forbidden`. A readable stale assertion remains eligible
+for withdrawal. This does not retire entities or retract aliases/support/mentions.
+
+First withdrawal returns `applied` and `AssertionWithdrawalReceipt`; identical
+same-key replay returns the original status/event, while a fresh key returns
+`unchanged` with that same event. Ordinary receipt expiry/authorization and
+independent ordered batch semantics apply; private coordinated withdrawal is
+`unsupported`. Corrections are separate enrichment writes, not replacements.
+
+`KnowledgeCapabilities.withdrawal` is `"owned_assertion"`; general `"retraction"`
+remains unsupported. `ContributionView.withdrawal` is null unless a first immutable
+withdrawal exists, then contains its `withdrawal_id`, `committed_at` and `attribution`.
+Authorized history preserves the original payload/provenance/support, with
+`is_current=false`; current reads/pages, direct decision counts and graph export
+exclude the assertion. Historical evidence and source search remain available.
+Graph sessions use the same write path and require refreshed eligible projection
+after writes; successful canonical receipts survive refresh failure.
 
 Source support is conjunctive. Any stale supporting state makes the contribution
 ineligible. Aliases/identifiers/mentions/assertions cannot activate an unsupported entity.
@@ -920,6 +943,11 @@ requires a receipt and no error; other statuses require an error and no receipt.
   (`pending`/`ready`/`failed`) and enrichment
   (`pending`/`partial`/`complete`/`failed`). These state fields have no cross-state
   transition checks.
+- `WithdrawAssertion(operation="withdraw_assertion", contribution_id=...)` requires
+  declared `read` and `write_knowledge`; it has no reason/replacement/CAS fields.
+  `AssertionWithdrawalReceipt(kind="assertion_withdrawal", contribution_id=...,
+  withdrawal_id=...)` names the exact target and first immutable event.
+  Successful batch correlation checks its exact contribution ID.
 - A `ChangeSetReceipt` carries 1–100 local-to-stored ID mappings with unique
   local IDs. Stored IDs are not required to be unique.
 - `BatchResult` contains 1–100 outcomes with unique request IDs. Its status must
