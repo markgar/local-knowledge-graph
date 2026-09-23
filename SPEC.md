@@ -20,7 +20,7 @@ The canonical engine is **SQLite plus an optional Ladybug graph projection**:
 | Canonical SQLite (`evidence-store/3`) | Exact supplied text/revisions, identities, immutable knowledge schema, entities/assertions, support, history and service control state. `src/kg/evidence/schema.sql` owns this format. |
 | Canonical indexing/search | `kg.indexing` publishes passages/vectors and executes scoped keyword/dense retrieval, fusion and reranking. Search does not depend on Ladybug. |
 | Canonical query composition | `kg.query.QueryService` executes supported evidence, search, exact entity resolution and explicit-decision records/counts with fresh release authorization. |
-| Optional Ladybug projection | `kg.graph` builds complete eligible entity/relationship/explicit-decision coverage for one exact authorized scope. `LocalGraphSession` manages reusable lifecycle and guarded private reads. It contains no unique authored truth; public business traversal/joins remain unimplemented. |
+| Optional Ladybug projection | `kg.graph` builds complete eligible entity/relationship/explicit-decision coverage for one exact authorized scope. `LocalGraphSession` manages reusable lifecycle and typed cited one-hop relationship queries. It contains no unique authored truth; joined queries and retained inspection remain unimplemented. |
 | Markdown demonstration | Separate `kg.db.Database`, `src/kg/schema.sql`, manifest ingestion, `kg.retrieval` and `kg` CLI. Its database and explicit graph relationships are not the canonical service or Ladybug interface. |
 
 Applications supply text and explicitly supported knowledge; intake, passage
@@ -593,7 +593,8 @@ closes and reopens read-only, then fences with the original physical observer.
 The complete manifest is not a durable freshness token. `StagedGraph.transfer`
 accepts only that original current operation, moves ownership once and leaves the
 verified OPEN native reader and original parked observer for `LocalGraphSession`.
-Public business traversal/joins/retained inspection are not implemented.
+Typed one-hop relationship queries use that verified stage through the controller;
+joined queries and retained inspection are not implemented.
 
 The optional runtime is Ladybug 0.20.4 on macOS 15+ ARM64/CPython 3.12.
 Both writer and reader use a 256 MiB native buffer pool/two threads. The 300-second
@@ -616,7 +617,7 @@ SQLite format and Q1 paths remain unchanged; never reopen/admit leftover stages.
 
 `kg.graph.LocalGraphSession` binds an exact validated identity/scope and optional
 expected coverage. It reuses Q1's bounded FIFO dispatcher on one SQLite owner
-thread. Construction starts unbuilt; first private read builds once, explicit
+thread. Construction starts unbuilt; the first query builds once, explicit
 refresh retires the previous generation first. Adoption consumes the original
 stage operation before a fresh authorization/source fence; only the in-memory
 generation pointer switches inside that fence. The controller never reopens the

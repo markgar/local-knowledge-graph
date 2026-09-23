@@ -49,8 +49,8 @@ new skill has not been discovered in the current session.
 
 Native graph queries run in the [developer example](#optional-disposable-graph-example)
 and acceptance checks. `kg.graph.LocalGraphSession` manages reusable exact-scope
-graphs, guarded private reads and controlled writes; public business traversal/join
-facades are not implemented. A canonical write invalidates the captured graph generation;
+graphs, controlled writes and a typed, cited one-hop `traverse` API.
+Graph-to-decision joins are not implemented. A canonical write invalidates the captured generation;
 leftover graph files cannot establish freshness. Start with the
 [evidence example](#generic-evidence-service) for the canonical Python API, or the
 [Markdown demonstration](#markdown-demonstration) for local file/CLI usage. Their
@@ -70,7 +70,7 @@ databases are separate and not interchangeable.
 | Foundation values | Strict `foundation/1` request/result validation. Document and bounded enrichment operations execute through `EvidenceService`; canonical anchor/passage-evidence plans execute through `QueryService`. Whole-set seed replacement is not implemented. |
 | Canonical queries | `kg.query.QueryService`: full canonical ranked search, historical anchor/passage reads and actual K1 exact entity resolution, explicit decision records/counts, bounded retained support inspection, spawned deadline supervision and fresh release authorization. Paths remain unsupported. |
 | Execution diagnostics | Evidence, indexing, processing and query calls retain bounded, authorized in-memory summaries. Named explained wrappers execute once; detailed traces and source quotes require opt-in. |
-| Optional local graph | `kg.graph.LocalGraphSession` lazily builds/reuses an exact-scope disposable Ladybug graph, explicitly refreshes it and serializes controlled canonical writes. SQLite stays authoritative; business graph queries remain private/unimplemented. |
+| Optional local graph | `kg.graph.LocalGraphSession` lazily builds/reuses an exact-scope disposable Ladybug graph, explicitly refreshes it and serializes controlled canonical writes. Its typed one-hop `traverse` API returns full cited explicit relationship proofs; SQLite stays authoritative. |
 
 There are no live email/Teams connectors, inference/extraction providers, general
 query planner, continuation service, or source-level ACL/purge service.
@@ -209,8 +209,9 @@ decision, and reads the assertion's immutable provenance. Repeating it replays t
 same durable IDs. Typed predicates and decision encoding come from the registered
 schema, not language inference. Current/history reads and ordinary scoped write
 reports and exact owned assertion withdrawal are available; whole-set seed
-replacement, atomic correction/supersession and traversal
-remain unsupported. `QueryService` composes the real
+replacement and atomic correction/supersession remain unsupported.
+Typed cited one-hop queries use `LocalGraphSession.traverse`.
+`QueryService` composes the real
 entity/decision reader for public decision selections and counts.
 See [knowledge service contracts](CONTRACTS.md#knowledge-enrichment-and-reads).
 
@@ -232,6 +233,33 @@ an explicit mention alongside the decision. It needs no models or vectors.
 Passage support preserves exact immutable source/state membership; mentions do
 not infer relationships or merge same-named entities. Vector-only rebuilds keep
 knowledge valid, while source/metadata/passage-policy changes require fresh support.
+
+## Cited one-hop relationship queries
+
+With the supported optional graph runtime, run a supplied-note example without
+models or automatic extraction:
+
+```bash
+uv run --extra graph python examples/graph_relationships.py --output /tmp/cited-relationships
+```
+
+Use a fresh output directory. The example explicitly submits Alice/Atlas/ownership
+facts supported by the supplied note, then calls `LocalGraphSession.traverse`
+with `kg.models.graph.GraphTraversalRequest`. Select exactly one entity ID or
+case-sensitive name/eligible alias, a registered entity-valued predicate and
+`direction="outgoing"` or `"incoming"`. `max_hops` is strict integer 1 only.
+Ambiguous names return distinct candidate IDs rather than selecting a person.
+
+Results are complete, empty, ambiguous or failed; complete results retain every
+distinct assertion path and full original evidence/endpoint proof. The exact
+standalone result is bounded to 1,000 paths/candidates and 8 MiB: overflow returns
+no data, never a prefix. `capabilities()` probes installed runtime support without
+building or reading sources; unavailable runtime is explicit, with no fallback.
+Later citation hydration is separately authorized historical evidence, not a
+new proof of current ownership. Native crash limitations below still apply.
+See [query contracts](CONTRACTS.md#typed-cited-relationship-query-api).
+Existing `QueryService` paths, joins, paging and natural-language planning remain
+unsupported; this is not an arbitrary query-language interface.
 
 ## Optional disposable graph example
 
@@ -266,8 +294,8 @@ Cold reads/refresh share a 300-second admitted deadline; warm reads/writes have
 at most five seconds and separate 8 MiB ceilings for cumulative retained output
 and the final returned answer, sharing one scratch pool. Pending cleanup blocks
 new builds; retry `refresh()` while open or `close()` after closing. Close may
-report `close_pending` while native work/cleanup still owns resources. Business
-traversal, decision joins and retained inspection are not public graph APIs.
+report `close_pending` while native work/cleanup still owns resources. Typed
+one-hop traversal is public; graph decision joins and retained inspection are not.
 
 The complete varied-10,000-decision native build/reopen and exact proof/edge parity
 gate passed with the pinned runtime and 256 MiB buffer configuration

@@ -390,8 +390,8 @@ selected source/seed/endpoint proofs remain tied to authoritative SQLite.
 
 The [developer example](examples/graph_build.py) executes native queries and
 parity checks. `kg.graph.LocalGraphSession` supplies reusable local lifecycle,
-guarded private reads and controlled writes; it is not a public business
-traversal/join facade or a new `QueryService` path operator. Base-package search works without
+guarded reads, controlled writes and the typed one-hop API below; it is not an
+arbitrary query/join facade or a new `QueryService` path operator. Base-package search works without
 the optional pinned `ladybug==0.20.4` dependency. Native support is macOS 15+ ARM64
 with CPython 3.12. The 256 MiB native buffer/two threads do not provide total RSS
 or process isolation; fatal native failures can terminate the host.
@@ -405,6 +405,57 @@ change. The controller's frozen status/error/generation values are local
 lifecycle values, not `foundation/1` result contracts or durable authority.
 Graph batch writes return existing `BatchResult` values with per-unit E1 reports;
 confirmed receipts are not replaced by a later graph-refresh failure.
+
+### Typed cited relationship query API
+
+`LocalGraphSession.traverse(GraphTraversalRequest, *, cancel=None)` takes frozen
+`kg.models.graph` values with `interface_version="graph/1"`, request ID, exact
+session scope, `start=GraphEntitySelector(entity_id=... | name=...)`, registered
+entity-valued predicate, required outgoing/incoming direction and strict integer
+`max_hops=1`. It reconstructs/validates the entire request before graph admission;
+malformed values raise `GraphSessionError(invalid_request)`.
+Name/alias lookup is exact and case-sensitive, not fuzzy or arbitrary text.
+
+`GraphTraversalResult` preserves caller correlation and has:
+
+| Outcome | Observed fields |
+| --- | --- |
+| complete | Generation, unique root ID and >=1 ordered `GraphRelationshipProof` paths. |
+| empty | Generation, no paths; root ID only when resolution found one eligible entity. |
+| ambiguous | Generation and >=2 distinct ordered candidate IDs; no root or paths. |
+| failed | Safe `GraphFailure` only; no generation/root/candidates/paths. |
+
+Each `GraphRelationshipProof(path, assertion)` contains a one-edge foundation
+Path plus the full G3 GraphAssertion: original support captures, attribution and
+both selected activation witnesses. Assertions must be explicit and entity-valued.
+Paths preserve all conjunctive evidence and every distinct assertion ID, ordered
+by that ID; parallel assertions are not merged by endpoint/text. Incoming traversal
+reverses path orientation, not the stored assertion. The selected witnesses are
+those of the projection snapshot, not necessarily assertion-authoring time.
+
+Canonical schema preflight precedes absence/ambiguity; unknown/literal predicates
+and a resolved root of the wrong type fail unsupported. Native matching, exact
+selected-witness comparison, canonical root resolution and result construction
+share one G4 guard/generation/final fence. The verified G3 mapping supplies
+non-root endpoint typing; no per-edge SQL proof revalidation is introduced.
+Internal schema/root and assembly scratch stays owned until output admission.
+The complete immutable result is retained once and separately checked by G4
+before release; repeated serialized occurrences count even if objects alias.
+
+At most 1,000 paths/candidates and 8 MiB conservative serialized content, within
+the original cold/warm budgets. Overflow, incomplete resolution, resource limits,
+native/parse failures, cancellation or concurrent source/policy changes return
+no observed data. No pagination, count, joins, implicit retry or partial prefix.
+Refresh is a separate operation; an old generation is not durable authority.
+
+`session.capabilities()` returns graph/1 `GraphCapabilities`: installed operations
+`("traverse",)`, runtime available/unavailable and explicit graph_unavailable
+reason, explicit-one-hop/1 semantics, outgoing/incoming directions and fixed
+limits. The content-free probe does not build/open a graph or inspect registry,
+scope or sources; availability is not freshness/permission/readiness. Closed
+sessions reject it. Optional runtime absence never enables an SQL/search fallback.
+See [the supplied-note and exact-citation example](examples/graph_relationships.py).
+Citation hydration after query release is a separate authorized historical read.
 
 <a id="canonical-anchor-queries"></a>
 

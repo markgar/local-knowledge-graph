@@ -28,7 +28,11 @@ stable release. Pre-1.0 releases may contain breaking changes.
   and explicit decisions for an exact scope, verifies authored IDs and proof/edge
   associations, and checkpoints/reopens a disposable stage. The developer example
   executes native queries; the complete varied-10,000-decision parity gate passed.
-  There is no public business traversal/join facade.
+  Graph joins remain unsupported.
+- `LocalGraphSession.traverse` provides typed cited one-hop relationship queries:
+  exact IDs/name/alias ambiguity, explicit registered predicate/direction, complete
+  original proofs and no-data overflow/error outcomes. Content-free `capabilities`
+  reports optional runtime availability; existing Q1 paths remain unsupported.
 - `kg.graph.LocalGraphSession` adds lazy exact-scope build/reuse, explicit refresh,
   serialized controlled writes, guarded private reads and confirmation-aware
   cleanup on one FIFO owner thread. Fresh source/authorization fences withhold

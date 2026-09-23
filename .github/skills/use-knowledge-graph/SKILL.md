@@ -61,7 +61,8 @@ Use these public Python interfaces, or host tools explicitly wrapping them:
 | Source intake, exact evidence, enrichment and owned assertion withdrawal | `kg.evidence.EvidenceService(database, identity)` |
 | Entity and contribution reads | `kg.knowledge.KnowledgeService(database, identity)` |
 | Structured queries and retained decision support | `kg.query.QueryService(database, identity)` |
-| Request/value types | `kg.models.foundation`, `kg.models.evidence`, `kg.models.query` |
+| Cited one-hop relationship queries | `kg.graph.LocalGraphSession(database, identity, scope, graph_directory=...)` |
+| Request/value types | `kg.models.foundation`, `kg.models.evidence`, `kg.models.query`, `kg.models.graph` |
 
 Keep `QueryService` in a context manager. It uses spawned workers: Python entry
 scripts must put execution behind `if __name__ == "__main__":`, as the linked
@@ -86,18 +87,22 @@ Call `EvidenceService.capabilities()`, `KnowledgeService.capabilities(scope)` an
 `QueryService.capabilities(scope)` on the configured service instances. Consult
 the applicable service, not `FoundationCapabilities`: foundation models can
 validate operations that no installed service executes.
+For a configured graph session, call `session.capabilities()`. Its content-free
+probe reports installed operations and optional runtime availability, not schema,
+authorization or freshness. It does not build a graph or load source content.
 
 | Intent | Supported route and boundary |
 | --- | --- |
 | Find a known entity | `KnowledgeService.entities(scope, name=...)`, or `ResolveStep` by exact name/alias or ID. Resolve ambiguity before proceeding. |
 | Inspect an entity's assertions/relationships | `KnowledgeService.contributions(scope, entity_id, ...)`, then `contribution(scope, contribution_id, ...)` for payload, attribution, evidence and witnesses. Inspect direction from the returned subject/object. |
+| Follow one explicit typed relationship with full cited paths | `LocalGraphSession.traverse(GraphTraversalRequest(...))`: exact entity resolution, registered predicate, required outgoing/incoming direction, strict integer one-hop only. |
 | List/count decisions directly about an entity | `QueryService`: resolve, `records(record_type="decision")`, then optionally count. Available only when capabilities advertise the registered decision encoding. |
 | Search supplied sources | `QueryService` with `SearchStep`, or `kg.indexing.EvidenceSearchService`. Matching published projections and both model providers are required; no keyword-only fallback. |
 | Read exact evidence | `EvidenceService.evidence(scope, reference)` or `citation(scope, stored_citation)`. Use returned references/citations, not fabricated IDs. |
 | Inspect authorized history | Knowledge reads with `mode="history"`; keep historical and current claims distinct. |
 | Withdraw one owned assertion | `EvidenceService.write` with `WithdrawAssertion`; requires advertised `withdraw_assertion` and `KnowledgeCapabilities.withdrawal == "owned_assertion"`. |
 
-Public business traversal/join APIs, action/blocker/conflict record queries,
+Graph joins and retained graph inspection, action/blocker/conflict record queries,
 general retraction/atomic replacement, whole-set seed replacement and pre-execution query
 `prepare`/`explain` are not installed. A native engine's ability to execute a join
 does not make it a supported public query operation. `execute_explained` executes
@@ -110,7 +115,7 @@ arbitrary Cypher, private `_run_read` callbacks or private producers.
 
 ## Answer a question
 
-1. Classify it as evidence search, exact entity lookup, direct decisions, source/
+1. Classify it as evidence search, exact entity lookup, one-hop relationships, direct decisions, source/
    history inspection, or an unsupported operation. Do not pass natural language
    into a structured field expecting an ID, predicate or operation.
 2. Resolve the subject. For `entities`, consume pages using `has_more` and
@@ -124,6 +129,72 @@ arbitrary Cypher, private `_run_read` callbacks or private producers.
    preparation and incomplete selections. For captured/historical provenance,
    construct `StoredCitation` from the captured reference, metadata snapshot ID
    and dependency's state version; do not substitute the latest source state.
+
+### Concrete recipe: follow a cited relationship
+
+Use a host-configured `LocalGraphSession` as a context manager for the exact
+identity/scope and a host-approved derived `graph_directory`. Do not invent
+entity IDs or predicates. The host's registered schema determines which side
+of an edge is the person/project or other type; names like `work:owns` below
+are examples, not built-in ontology.
+
+```python
+from kg.models.graph import GraphEntitySelector, GraphTraversalRequest
+
+
+def related_entities(session, scope, entity_id, predicate, direction):
+    capabilities = session.capabilities()
+    if "traverse" not in capabilities.operations or capabilities.runtime != "available":
+        raise RuntimeError("The configured graph runtime cannot execute relationship queries.")
+    return session.traverse(GraphTraversalRequest(
+        request_id="cited-relationship",
+        scope=scope,
+        start=GraphEntitySelector(entity_id=entity_id),
+        predicate=predicate,
+        direction=direction,
+        max_hops=1,
+    ))
+```
+
+Alternatively use `GraphEntitySelector(name=...)` (exact case-sensitive name or
+eligible alias), never both name and ID. For registered person `--owns-->` project,
+outgoing from the person finds projects; incoming from the project finds owners.
+Only explicit entity-valued assertions qualify. Free text, wikilinks and matching
+names do not supply ownership.
+
+Check `result.outcome`. `ambiguous` supplies distinct sorted `candidate_ids`;
+ask for disambiguation and submit a new request rather than taking the first.
+`empty` means exhaustive no eligible root or relationship in this scope;
+`root_entity_id` distinguishes them. `complete` supplies a root, generation and
+all distinct assertion paths. Each `GraphRelationshipProof` has `path` with the
+oriented entity IDs and evidence references, plus the full `assertion` with
+attribution, all captured support and selected endpoint witnesses. Do not merge
+parallel assertions or discard a conjunctive source. `failed` supplies only a
+safe error and caller correlation, never an observed prefix.
+
+The standalone limit is 1,000 paths/candidates and 8 MiB within bounded original
+operation resources. A 1,001st result, oversize output, cancellation or resource
+failure returns no data, not truncation or a pagination token. `max_hops` accepts
+only integer 1, not bool, float, 2 or 3. There is no multi-hop, join or count
+operation here; composing multiple calls is separately observed agent synthesis.
+
+A query may lazily build/reuse the exact-scope graph. Canonical mutations or access
+changes invalidate it; a stale warm query returns no data. After reconciling the
+change, explicitly call `session.refresh()` and check its outcome before retrying.
+Generation/status/capabilities and leftover files are not freshness certificates.
+Keep the session open while using it; close/restart loses its generation.
+Saved canonical writes remain saved if subsequent graph refresh fails: do not
+repeat a successful write just to repair a graph. Native failures may crash the
+host on this experimental runtime.
+
+For exact quotes, iterate `proof.assertion.support` and use each item's
+`captured.reference`, `captured.metadata_snapshot_id` and
+`captured.dependency.state_version` to build `kg.models.evidence.StoredCitation`,
+then call `EvidenceService.citation`. That later historical read has its own
+authorization and is not renewed proof of current membership.
+The complete synthetic supplied-note example is
+[graph_relationships.py](../../../examples/graph_relationships.py); its setup is
+for a fresh demo, never an existing user's database.
 
 ### Concrete recipe: count direct decisions
 
@@ -270,7 +341,7 @@ Withdrawal is terminal: it removes only current eligibility, not authored payloa
 evidence, source text, attribution or history. Authorized historical
 `ContributionView.withdrawal` exposes the first event's ID, committed time and
 attribution; `is_current` is false. Current assertion pages, direct decisions/counts
-and rebuilt graph exports exclude it. Source restoration or replaying the original
+and refreshed one-hop relationship queries exclude it. Source restoration or replaying the original
 enrichment does not reactivate it. A correction is a separate explicit enrichment
 with its own ID, not an atomic replacement or undo.
 
@@ -281,6 +352,9 @@ For an existing `LocalGraphSession`, use its public `write`/`write_batch` path:
 it dirties the graph even for replay/unchanged outcomes. Refresh explicitly before
 expecting refreshed graph results; a refresh failure does not undo a confirmed
 canonical receipt. Do not alter Ladybug files or reuse old proofs.
+After an external withdrawal, a warm query fails with `state_changed` and no data;
+refresh before retrying. A previously returned path remains historical provenance,
+not proof that the relationship is still current.
 
 [withdraw_assertion.py](../../../examples/withdraw_assertion.py) is a synthetic,
 fresh-store example with an optional `--graph` path, not setup for an existing
@@ -297,14 +371,15 @@ user store. It refuses to overwrite an existing target.
 | `state_changed` / `state_conflict` | Discard the invalid selection, reread current state, and retry only after reconciling the cause. Stop and report repeated churn. |
 | `forbidden` / `not_found` | Report unavailable data without claiming existence or bypassing scope. Ask the host/operator about configuration when needed. |
 | Partial/truncated result or exhausted budget | Disclose the boundary. Page only where the API supplies a cursor; a partial display is not an exact total. |
+| Graph `graph_unavailable`, `resource_exhausted`, `cancelled` or `deadline_exceeded` | Report the explicit failure, not an empty graph or usable prefix. Do not bypass it with raw SQL/Cypher, silently widen limits or repeatedly rebuild. |
 | `retry_conflict` / `retry_expired` | Inspect the original write/receipt and reconcile before another submission. Never silently mint a replacement retry key. |
 | Incompatible store, native/runtime failure or internal error | Preserve the store and diagnostic information. Report the failure; do not reset, repair with SQL or repeatedly rebuild blindly. |
 
 Ordinary exact entity, decision and evidence queries do not require Ladybug.
-`LocalGraphSession` provides lifecycle/status/refresh and controlled writes, not
-public business queries. Do not start native graph sessions just to answer these
-ordinary queries. Its experimental in-process runtime can crash the host; it is
-not a sandbox.
+`LocalGraphSession` supplies the public cited one-hop relationship API as well as
+lifecycle/status/refresh and controlled writes; graph joins remain unavailable.
+Do not start native graph sessions just for the ordinary non-graph queries.
+Its experimental in-process runtime can crash the host; it is not a sandbox.
 
 ## Focused reference and maintenance
 
