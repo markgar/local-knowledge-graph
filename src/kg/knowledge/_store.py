@@ -3,7 +3,8 @@
 from __future__ import annotations
 
 import sqlite3
-from contextlib import ExitStack
+from collections.abc import Iterator
+from contextlib import ExitStack, closing, contextmanager
 from typing import TYPE_CHECKING
 
 from pydantic import TypeAdapter
@@ -299,6 +300,16 @@ class Store:
             generation=seed["generation"],
         ), seed["current_contribution_id"] == cid
 
+    @contextmanager
+    def _activation_support(
+        self, row: sqlite3.Row,
+    ) -> Iterator[tuple[SourceWitness | SeedWitness, bool]]:
+        if self.budget.resource_profile != "graph-build/1":
+            yield self.support(row)
+            return
+        with closing(Store(self.connection, self.scope, self.budget)) as trial:
+            yield trial.support(row)
+
     def basis(self, entity_id: str, *, history: bool = False) -> EntityWitness | None:
         key = entity_id, history
         if key in self._bases:
@@ -313,26 +324,31 @@ class Store:
             (self.scope.corpus_id, entity_id),
         )
         result = None
-        for row in rows:
-            try:
-                support, current = self.support(row)
-            except EvidenceServiceError as error:
-                if error.failure.code == "not_found":
-                    continue
-                raise
-            if (
-                row["attested_name"] != entity["name"]
-                or row["attested_type"] != entity["entity_type"]
-            ):
-                raise EvidenceServiceError("internal_error")
-            if history or current:
-                result = EntityWitness(
-                    entity_id=entity_id,
-                    contribution_id=row["contribution_id"],
-                    contribution_sequence=row["sequence"],
-                    basis=support,
-                )
-                break
+        with closing(rows):
+            for row in rows:
+                try:
+                    with self._activation_support(row) as (support, current):
+                        if (
+                            row["attested_name"] != entity["name"]
+                            or row["attested_type"] != entity["entity_type"]
+                        ):
+                            raise EvidenceServiceError("internal_error")
+                        if history or current:
+                            if self.budget.resource_profile == "graph-build/1":
+                                self.hold(4096 + bounded_size(support, 64 << 20))
+                                support = support.model_copy(deep=True)
+                            result = EntityWitness(
+                                entity_id=entity_id,
+                                contribution_id=row["contribution_id"],
+                                contribution_sequence=row["sequence"],
+                                basis=support,
+                            )
+                            break
+                        del support
+                except EvidenceServiceError as error:
+                    if error.failure.code == "not_found":
+                        continue
+                    raise
         if len(self._bases) < 200:
             if self._cache is None:
                 self.hold(4096)

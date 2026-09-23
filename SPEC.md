@@ -464,8 +464,9 @@ controls, not hard deadlines, filesystem quotas or process/native RSS isolation.
 `CanonicalReadContext._reserve_scratch` returns a registered reservation;
 `_release_reservation` releases and unregisters it idempotently, even after a
 stop or context exit. This permits bounded owner-managed temporary lifetimes.
-Existing cursor/Store retention is otherwise unchanged; these controls do not
-themselves provide a streaming graph exporter, native graph or public bulk API.
+Interactive cursor/Store retention is unchanged. Bulk selection discards each
+rejected activation's scratch immediately while preserving the complete selected
+witness and charging any retained copy. These controls do not provide a public bulk API.
 No canonical format, eligibility, scope, exact witness or Q1 RPC contract changes.
 
 The separate private `evidence._graph_observer` boundary retains one physical
@@ -506,6 +507,46 @@ graph disposal confirms success only after base SQLite close returns, retaining
 the original resource for explicit owner-thread cleanup retry otherwise. Such a
 source can never resume reads or reopen itself. Ordinary database opens share the
 same initialization implementation without adopting this graph ownership path.
+
+### Private disposable graph staging
+
+`knowledge._graph_export` enumerates one bulk canonical snapshot to explicit EOF
+in authored-ID order, all eligible entities (including isolated ones), registered
+entity-object relationships and explicit `direct-subject-decision/1` assertions.
+It reuses canonical eligibility and selected-witness logic, not search candidates
+or top-k results. Export pages own at most 200 items/8 MiB serialized data; a
+byte-boundary pending item is emitted/semantically charged exactly once. Full
+selected source conjunctions, passages, seed membership and parallel authored
+assertions retain their identities. Coverage includes exact schema definition.
+
+`graph._build.build_graph(..., staging_parent=..., operation=...,
+expected_coverage=None)` requires the original bulk operation and exact identity/
+scope. It creates a unique private stage, streams page transactions, verifies
+native node/edge counts and inserted property/endpoint/ordinal equality, checkpoints,
+closes and reopens read-only, then fences with the original physical observer.
+The complete manifest is not a durable freshness token. `StagedGraph.transfer`
+accepts only that original current operation, moves ownership once and leaves the
+verified OPEN native reader and original parked observer for the future controller.
+Publication and public traversal/joins/retained inspection are not implemented.
+
+The optional runtime is Ladybug 0.20.4 on macOS 15+ ARM64/CPython 3.12.
+Both writer and reader use a 256 MiB native buffer pool/two threads. The 300-second
+request deadline, logical scratch allowance, bounded pages and 1 GiB staging disk
+check are operational controls, not hard native RSS/time/process limits. Native
+calls receive remaining-time query timeouts and before/after cancellation checks.
+Borrowed native row pages expire at the next read/close; retained copies require
+caller accounting. Ordinary and bulk current budgets are supported without a new pool.
+
+Catchable failures withhold stages, preserve original failure/accounting, unwind
+snapshots and attempt explicit cleanup. Failed cleanup transfers one cleanup-only
+residue; disposal marks confirmed resources released and never blindly retries
+an indeterminate native close. An explicitly committed transaction whose
+post-commit checkpoint fails is not rolled back or replayed; the stage is rejected.
+**Fatal native failures can terminate the host**, including checkpoint exhaustion
+followed by native database-close SIGSEGV. Python cleanup cannot contain this.
+This experimental risk is accepted, not fixed by increased capacity; persistent
+worker isolation is deferred to [#137](https://github.com/markgar/local-knowledge-graph/issues/137).
+SQLite format and Q1 paths remain unchanged; never reopen/admit leftover stages.
 
 `writing(database, identity, *, deadline=None, budget=None)` accepts that same
 inherited/local view; an explicit deadline must match it exactly. An owner can
