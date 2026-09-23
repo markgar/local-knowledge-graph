@@ -9,11 +9,16 @@ stable release. Pre-1.0 releases may contain breaking changes.
 
 ### Canonical engine and graph projection
 
-- Canonical `evidence-store/2` SQLite storage owns exact supplied text, immutable
+- Canonical `evidence-store/3` SQLite storage owns exact supplied text, immutable
   revisions, trusted local policy, identities, registered knowledge schema,
   entities/assertions, support and history. Python evidence, knowledge, indexing,
   processing-control, query and diagnostic services expose the operations in
   [CONTRACTS.md](CONTRACTS.md). The Markdown demonstration/CLI uses a separate store.
+- Exact owned assertion withdrawal uses the ordinary authorized write/receipt path,
+  preserves immutable evidence/history, and excludes withdrawn contributions from
+  current decisions/counts and graph export. Same-key replay and fresh-key unchanged
+  receipts retain the first event. Physical format `/3` requires a fresh store/reload
+  for incompatible older formats; no migration, dual reader or automatic reset.
 - Canonical indexing publishes immutable passages and vector projections;
   full search performs scoped keyword/dense retrieval, fusion and reranking.
   Query composition supports exact evidence, search, entity resolution, explicit

@@ -627,7 +627,8 @@ def replay(
         if isinstance(request.payload, WithdrawAssertion):
             from kg.knowledge._withdraw import authorize_target as authorize_withdrawal
 
-            authorize_withdrawal(context, request, budget)
+            with authorize_withdrawal(context, request, budget):
+                pass
         else:
             authorize_new(context, request)
         if not key["expired"]:

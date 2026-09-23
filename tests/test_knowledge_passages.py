@@ -15,6 +15,7 @@ from support.indexing import process
 from support.indexing import request as document_request
 from support.indexing import service as index_service
 from support.knowledge import schema
+from support.withdrawal import withdrawal
 
 from kg._execution_budget import (
     Deadline,
@@ -496,7 +497,10 @@ def test_each_source_staleness_atomically_rejects_all_variants(env, source_numbe
 
 
 @pytest.mark.parametrize("transition", ["text", "metadata", "policy", "remove"])
-def test_roundtrip_never_resurrects_support_and_fresh_support_is_explicit(env, transition):
+@pytest.mark.parametrize("withdraw", [False, True])
+def test_roundtrip_never_resurrects_support_and_fresh_support_is_explicit(
+    env, transition, withdraw,
+):
     original, a, page = passage(env)
     evidence, dep = support(a, page)
     target = LocalEntity(kind="local", local_id="project")
@@ -542,6 +546,8 @@ def test_roundtrip_never_resurrects_support_and_fresh_support_is_explicit(env, t
             )
         )
     )
+    if withdraw:
+        assert env.service.write(withdrawal(env, ids["decision"])).status == "applied"
     _, restored, restored_page = passage(env, state=changed.processing.state_version)
     assert restored.processing.state_version != dep.state_version
     service = KnowledgeService(env.database, env.service.identity)
@@ -570,6 +576,79 @@ def test_roundtrip_never_resurrects_support_and_fresh_support_is_explicit(env, t
     assert service.contribution(env.scope, new_ids["mention"]).is_current
     assert not service.contribution(env.scope, ids["mention"], mode="history").is_current
     assert env.service.citation(env.scope, page.entries[0].citation).quote == TEXT
+    historical = service.contribution(env.scope, ids["decision"], mode="history")
+    assert not historical.is_current
+    assert (historical.withdrawal is not None) == withdraw
+
+
+@pytest.mark.parametrize("revoked", ["read", "write_knowledge", "binding"])
+@pytest.mark.parametrize("replay", [False, True])
+def test_withdrawal_two_namespace_authority_and_report_redaction(env, revoked, replay):
+    _, a, page = passage(env)
+    _, b, other = passage(env, "b", "email")
+    sa, da = support(a, page)
+    sb, db = support(b, other)
+    both = SourceSupport(kind="source", evidence=sa.evidence + sb.evidence)
+    creation = request(
+        env, (entity(sa), decision(both, LocalEntity(kind="local", local_id="project"))),
+        (da, db),
+    )
+    target = mappings(env.service.write(creation))["decision"]
+    req = withdrawal(env, target)
+    explained = env.service.write_explained(req) if replay else None
+    if explained:
+        assert explained.outcome.status == "applied"
+        assert TEXT not in explained.report.model_dump_json()
+    narrowed = env.scope.model_copy(update={
+        "access": env.scope.access.model_copy(update={"namespaces": ("markdown",)}),
+    })
+    with env.database.connection() as c:
+        keys = c.execute("SELECT count(*) FROM write_key").fetchone()[0]
+    narrow_result = env.service.write(req.model_copy(update={"scope": narrowed}))
+    assert narrow_result.error.code == "not_found"
+    with env.database.connection() as c:
+        assert c.execute("SELECT count(*) FROM write_key").fetchone()[0] == keys
+        assert c.execute("SELECT count(*) FROM assertion_withdrawal").fetchone()[0] == int(replay)
+    if revoked == "binding":
+        policy = env.policy.model_copy(update={
+            "knowledge_bindings": tuple(
+                b for b in env.policy.knowledge_bindings if b.namespace != "email"
+            ),
+        })
+    else:
+        policy = env.policy.model_copy(update={
+            "grants": tuple(
+                g for g in env.policy.grants
+                if not (g.namespace == "email" and g.grant == revoked)
+            ),
+        })
+    version = env.admin.replace_policy(policy, env.scope.access.policy_version).policy_version
+    denied = env.scope.model_copy(update={
+        "access": env.scope.access.model_copy(update={"policy_version": version}),
+    })
+    result = env.service.write(req.model_copy(update={"scope": denied}))
+    assert result.error.code == "forbidden"
+    assert target not in result.model_dump_json()
+    if explained:
+        assert not env.service.diagnostics.for_request(denied, req.request_id).entries
+    with env.database.connection() as c:
+        assert c.execute("SELECT count(*) FROM assertion_withdrawal").fetchone()[0] == int(replay)
+
+
+def test_withdrawal_requires_historical_endpoint_even_outside_assertion_support(env):
+    _, a, page = passage(env)
+    _, b, other = passage(env, "b", "email")
+    sa, da = support(a, page)
+    sb, db = support(b, other)
+    target = mappings(env.service.write(request(
+        env, (entity(sb), decision(sa, LocalEntity(kind="local", local_id="project"))), (da, db),
+    )))["decision"]
+    narrowed = env.scope.model_copy(update={
+        "access": env.scope.access.model_copy(update={"namespaces": ("markdown",)}),
+    })
+    assert env.service.write(withdrawal(env, target, scope=narrowed)).error.code == "not_found"
+    assert env.service.write(withdrawal(env, target)).status == "applied"
+    assert env.service.write(withdrawal(env, target, scope=narrowed)).error.code == "not_found"
 
 
 @pytest.mark.parametrize(

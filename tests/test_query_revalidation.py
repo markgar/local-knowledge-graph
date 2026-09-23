@@ -3,6 +3,7 @@ from contextlib import contextmanager
 
 import pytest
 from support.query_knowledge import plan, produce, setup, write
+from support.withdrawal import withdrawal
 
 from kg._execution_budget import Deadline, LocalExecutionMeter, PrivateBudget, PrivateResourceStop
 from kg.evidence import EvidenceServiceError
@@ -40,6 +41,22 @@ def membership(env, count=2):
         assert result.result.error is None, result
         retained = service._support.sets[result.result.result_set_id]
         return tuple(DecisionSelectionItem.model_validate_json(p) for p in retained.members)
+
+
+def test_withdrawal_checked_before_warm_exact_witness_cache(tmp_path):
+    env = setup(tmp_path / "withdrawn.db")
+    first, second = membership(env)
+    assert env.service.write(withdrawal(env, second.record.record_id)).status == "applied"
+    with context(env) as (current, budget):
+        reader = KnowledgeReader(current, env.service.identity)
+        try:
+            reader.revalidate_member(first)
+            cached = budget._scratch
+            with pytest.raises(EvidenceServiceError, match="state_changed"):
+                reader.revalidate_member(second)
+            assert budget._scratch == cached
+        finally:
+            reader.close()
 
 
 @pytest.mark.parametrize("altered", ["sequence", "basis", "support", "schema"])

@@ -1,5 +1,7 @@
 """Exact owned assertion withdrawal inside the canonical owner's transaction."""
 
+from collections.abc import Iterator
+from contextlib import contextmanager
 from datetime import datetime
 from typing import Literal
 
@@ -20,9 +22,10 @@ from kg.models.foundation import (
 from kg.models.knowledge import ContributionView
 
 
+@contextmanager
 def authorize_target(
     context: CanonicalWriteContext, request: WriteRequest, budget: PrivateBudget,
-) -> tuple[ContributionView, Manifest]:
+) -> Iterator[tuple[ContributionView, Manifest]]:
     assert isinstance(request.payload, WithdrawAssertion)
     store = Store(context.connection, request.scope, budget)
     try:
@@ -34,7 +37,10 @@ def authorize_target(
             attribution.owner_id, attribution.writer_id,
         ):
             raise EvidenceServiceError("forbidden")
-        targets: list[ReportTarget] = []
+        targets: list[ReportTarget] = [KnowledgeTarget(
+            contribution_id=target.contribution_id,
+            witness_ids=tuple(w.contribution_id for w in target.witnesses),
+        )]
         for namespace in sorted({e.reference.source_namespace for e in target.evidence}):
             writer(
                 context.connection, context.identity, request.scope, namespace,
@@ -45,11 +51,7 @@ def authorize_target(
             ))
         if store.schema().schema_version != target.schema_version:
             raise EvidenceServiceError("internal_error")
-        targets.append(KnowledgeTarget(
-            contribution_id=target.contribution_id,
-            witness_ids=tuple(w.contribution_id for w in target.witnesses),
-        ))
-        return target, Manifest(
+        yield target, Manifest(
             owner_id=attribution.owner_id, writer_id=attribution.writer_id, targets=tuple(targets),
         )
     finally:
@@ -59,23 +61,23 @@ def authorize_target(
 def apply(
     context: CanonicalWriteContext, request: WriteRequest, at: datetime, budget: PrivateBudget,
 ) -> tuple[AssertionWithdrawalReceipt, Literal["applied", "unchanged"], str, Manifest]:
-    target, manifest = authorize_target(context, request, budget)
-    key_id = token()
-    status: Literal["applied", "unchanged"]
-    if target.withdrawal is None:
-        withdrawal_id = token()
-        context.connection.execute(
-            "INSERT INTO assertion_withdrawal VALUES (?,?,?,?)",
-            (withdrawal_id, request.scope.corpus_id, target.contribution_id, key_id),
+    with authorize_target(context, request, budget) as (target, manifest):
+        key_id = token()
+        status: Literal["applied", "unchanged"]
+        if target.withdrawal is None:
+            withdrawal_id = token()
+            context.connection.execute(
+                "INSERT INTO assertion_withdrawal VALUES (?,?,?,?)",
+                (withdrawal_id, request.scope.corpus_id, target.contribution_id, key_id),
+            )
+            status = "applied"
+        else:
+            withdrawal_id = target.withdrawal.withdrawal_id
+            status = "unchanged"
+        receipt = AssertionWithdrawalReceipt(
+            kind="assertion_withdrawal",
+            contribution_id=target.contribution_id,
+            withdrawal_id=withdrawal_id,
         )
-        status = "applied"
-    else:
-        withdrawal_id = target.withdrawal.withdrawal_id
-        status = "unchanged"
-    receipt = AssertionWithdrawalReceipt(
-        kind="assertion_withdrawal",
-        contribution_id=target.contribution_id,
-        withdrawal_id=withdrawal_id,
-    )
-    save(context, request, key_id, target.schema_version, receipt, manifest, status, at)
-    return receipt, status, key_id, manifest
+        save(context, request, key_id, target.schema_version, receipt, manifest, status, at)
+        return receipt, status, key_id, manifest

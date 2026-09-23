@@ -41,7 +41,9 @@ from kg.models.foundation import (
 from kg.models.knowledge import KnowledgeSchema, PredicateDefinition, RecordProjection
 
 
-def run(path: Path, *, passages: bool = False) -> str:
+def supply(path: Path, *, passages: bool = False) -> tuple[
+    EvidenceService, Scope, Attribution, str,
+]:
     database = EvidenceDatabase(path)
     database.initialize()
     authority = LocalAdminAuthority(principal_id="trusted-local-app")
@@ -215,7 +217,14 @@ def run(path: Path, *, passages: bool = False) -> str:
     if not isinstance(enriched.receipt, ChangeSetReceipt):
         raise RuntimeError(enriched.model_dump_json())
     record_id = next(m.stored_id for m in enriched.receipt.mappings if m.local_id == "decision")
-    return KnowledgeService(database, identity).contribution(scope, record_id).model_dump_json()
+    return evidence, scope, attribution, record_id
+
+
+def run(path: Path, *, passages: bool = False) -> str:
+    evidence, scope, _, record_id = supply(path, passages=passages)
+    return KnowledgeService(evidence.database, evidence.identity).contribution(
+        scope, record_id,
+    ).model_dump_json()
 
 
 if __name__ == "__main__":
