@@ -40,6 +40,7 @@ TABLES = set(
         "identifier",
         "mention",
         "assertion",
+        "assertion_withdrawal",
         "contribution_evidence",
         "seed_set",
         "seed_slot",
@@ -128,7 +129,7 @@ def _image(path: Path) -> tuple[bytes, tuple[object, ...]]:
 
 def test_complete_inventory_and_relational_programs(tmp_path: Path) -> None:
     assert expected_manifest().signature == (
-        "d0d8f5b7e1904e91de9c177cae19459c2c3054cef4e38a0565d3ecc283d6ffcc"
+        "c489cb664fb4a45d7c2b7d0a1edd32903f3352df627036421c527e21104ec4c8"
     )
     database = EvidenceDatabase(tmp_path / "complete.db")
     database.initialize()
@@ -138,19 +139,19 @@ def test_complete_inventory_and_relational_programs(tmp_path: Path) -> None:
         ).fetchall()
         assert {row[1] for row in catalog if row[0] == "table"} == TABLES
         assert {row[1] for row in catalog if row[0] == "index"} == INDEXES
-        assert len(TABLES) == 65 and len(INDEXES) == 29
+        assert len(TABLES) == 66 and len(INDEXES) == 29
         assert {row[0] for row in catalog} == {"table", "index"}
         assert connection.execute("PRAGMA foreign_key_check").fetchall() == []
         assert connection.execute("PRAGMA integrity_check").fetchone()[0] == "ok"
         assert connection.execute("PRAGMA foreign_keys").fetchone()[0] == 1
-        assert connection.execute("PRAGMA user_version").fetchone()[0] == 2
+        assert connection.execute("PRAGMA user_version").fetchone()[0] == 3
         assert tuple(connection.execute("SELECT * FROM store_format").fetchone()) == (
             1,
-            "evidence-store/2",
+            "evidence-store/3",
             "canonical-sqlite-manifest/1",
             expected_manifest().signature,
         )
-        assert connection.execute("SELECT count(*) FROM schema_object_manifest").fetchone()[0] == 94
+        assert connection.execute("SELECT count(*) FROM schema_object_manifest").fetchone()[0] == 95
         for table in sorted(TABLES):
             # Compilation catches missing parent keys even when every future-service table is empty.
             connection.execute(f'EXPLAIN DELETE FROM "{table}"').fetchall()

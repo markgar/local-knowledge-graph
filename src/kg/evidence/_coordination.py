@@ -9,7 +9,9 @@ from pydantic import Field
 from kg.evidence._transactions import CanonicalWriteContext
 from kg.models.foundation import Failure, Token, Value, WriteOutcome, WriteRequest
 
-WriteOperation = Literal["put_document", "remove_document", "enrich", "replace_seed_set"]
+WriteOperation = Literal[
+    "put_document", "remove_document", "enrich", "replace_seed_set", "withdraw_assertion",
+]
 IndexMutationPhase = Literal[
     "admission", "passages", "staging", "failure", "cleanup", "publication",
 ]

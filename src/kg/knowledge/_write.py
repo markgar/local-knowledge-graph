@@ -26,6 +26,7 @@ from kg.models.foundation import (
     AddEntitySupport,
     AddIdentifier,
     AddMention,
+    AssertionWithdrawalReceipt,
     Change,
     ChangeSet,
     ChangeSetReceipt,
@@ -38,6 +39,7 @@ from kg.models.foundation import (
     SourceSupport,
     StoredEntity,
     Value,
+    WithdrawAssertion,
     WriteRequest,
 )
 from kg.models.knowledge_events import KnowledgeEncoding, KnowledgeValidation
@@ -557,7 +559,7 @@ def save(
     request: WriteRequest,
     key_id: str,
     schema_version: str,
-    receipt: ChangeSetReceipt,
+    receipt: ChangeSetReceipt | AssertionWithdrawalReceipt,
     manifest: Manifest,
     status: Literal["applied", "unchanged"],
     at: datetime,
@@ -569,7 +571,7 @@ def save(
             key_id,
             request.scope.corpus_id,
             request.attribution.writer_id,
-            "enrich",
+            request.payload.operation,
             sha(request.retry_key.encode()),
             digest(request),
             "k1-request-digest/1",
@@ -579,8 +581,11 @@ def save(
         ),
     )
     connection.execute(
-        "INSERT INTO knowledge_write_response VALUES (?,?,'enrichment',?,?)",
-        (key_id, request.scope.corpus_id, receipt.model_dump_json(), manifest.model_dump_json()),
+        "INSERT INTO knowledge_write_response VALUES (?,?,?,?,?)",
+        (
+            key_id, request.scope.corpus_id, receipt.kind,
+            receipt.model_dump_json(), manifest.model_dump_json(),
+        ),
     )
     connection.execute(
         "INSERT INTO knowledge_write_provenance VALUES (?,?,?,?)",
@@ -619,7 +624,12 @@ def replay(
         finally:
             store.close()
     else:
-        authorize_new(context, request)
+        if isinstance(request.payload, WithdrawAssertion):
+            from kg.knowledge._withdraw import authorize_target as authorize_withdrawal
+
+            authorize_withdrawal(context, request, budget)
+        else:
+            authorize_new(context, request)
         if not key["expired"]:
             raise EvidenceServiceError("internal_error")
     observed = _receipts.clock(context.connection, at)
@@ -630,5 +640,16 @@ def replay(
     if digest(request) != key["digest"]:
         return _receipts.ReplayConflict(EvidenceServiceError("retry_conflict").failure), manifest
     assert response is not None
-    receipt = ChangeSetReceipt.model_validate_json(response["receipt_json"])
+    receipt: ChangeSetReceipt | AssertionWithdrawalReceipt
+    if isinstance(request.payload, WithdrawAssertion):
+        receipt = AssertionWithdrawalReceipt.model_validate_json(response["receipt_json"])
+        if (
+            response["receipt_kind"] != receipt.kind
+            or receipt.contribution_id != request.payload.contribution_id
+        ):
+            raise EvidenceServiceError("internal_error")
+    else:
+        receipt = ChangeSetReceipt.model_validate_json(response["receipt_json"])
+        if response["receipt_kind"] != receipt.kind:
+            raise EvidenceServiceError("internal_error")
     return _receipts.ReplaySuccess(key_id, key["status"], receipt), manifest

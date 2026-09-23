@@ -15,9 +15,15 @@ from kg._sqlite import EVIDENCE_APPLICATION_ID, execute_schema, has_user_schema,
 from kg.evidence._sql import AccountedConnection
 from kg.evidence.errors import EvidenceServiceError
 
-FORMAT = "evidence-store/2"
-USER_VERSION = 2
+FORMAT = "evidence-store/3"
+USER_VERSION = 3
 MANIFEST_VERSION = "canonical-sqlite-manifest/1"
+FORMAT_GUIDANCE = (
+    "Unsupported canonical database format. This build requires evidence-store/3. "
+    "Keep the existing file unchanged; initialize a new empty database and reload "
+    "source documents, policy/schema and explicit knowledge. "
+    "Automatic upgrade or reset is not supported."
+)
 
 
 def _encoded(value: object) -> bytes:
@@ -158,11 +164,11 @@ def check(connection: sqlite3.Connection, *, allow_empty: bool = False) -> bool:
         if allow_empty and application == 0 and version == 0 and not has_user_schema(connection):
             return False
         if application != EVIDENCE_APPLICATION_ID or version != USER_VERSION:
-            raise EvidenceServiceError("unsupported")
+            raise EvidenceServiceError("unsupported", explanation=FORMAT_GUIDANCE)
         expected = expected_manifest()
         catalog = _catalog(connection)
         if catalog != expected.catalog:
-            raise EvidenceServiceError("unsupported")
+            raise EvidenceServiceError("unsupported", explanation=FORMAT_GUIDANCE)
         actual = _manifest(connection, catalog)
         marker = [
             tuple(row)
@@ -182,5 +188,5 @@ def check(connection: sqlite3.Connection, *, allow_empty: bool = False) -> bool:
             or marker != [(1, FORMAT, MANIFEST_VERSION, expected.signature)]
             or objects != expected.objects
         ):
-            raise EvidenceServiceError("unsupported")
+            raise EvidenceServiceError("unsupported", explanation=FORMAT_GUIDANCE)
         return True

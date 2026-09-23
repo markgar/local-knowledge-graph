@@ -18,6 +18,7 @@ from kg.models.foundation import (
     DocumentReceipt,
     PutDocument,
     RemoveDocument,
+    WithdrawAssertion,
     WriteBatch,
     WriteOutcome,
     WriteRequest,
@@ -49,7 +50,7 @@ class EvidenceService(ExplainedReads):
     def capabilities(self) -> EvidenceCapabilities:
         base = EvidenceCapabilities()
         return EvidenceCapabilities(
-            operations=(*base.operations, "enrich"),
+            operations=(*base.operations, "enrich", "withdraw_assertion"),
             unsupported=tuple(x for x in base.unsupported if x != "enrich"),
         )
 
@@ -62,7 +63,7 @@ class EvidenceService(ExplainedReads):
             "write",
             request.scope,
             required="write_knowledge"
-            if isinstance(request.payload, ChangeSet)
+            if isinstance(request.payload, (ChangeSet, WithdrawAssertion))
             else "write_documents",
             request_id=request.request_id,
             options=reporting.options(),
@@ -156,7 +157,9 @@ class EvidenceService(ExplainedReads):
                 scope,
                 required=(
                     "write_knowledge"
-                    if all(isinstance(i.payload, ChangeSet) for i in batch.items)
+                    if all(
+                        isinstance(i.payload, (ChangeSet, WithdrawAssertion)) for i in batch.items
+                    )
                     else "write_documents"
                 ),
                 request_id=batch.batch_id,
