@@ -3,10 +3,15 @@ from __future__ import annotations
 import copy
 import sqlite3
 import time
+from concurrent.futures import ThreadPoolExecutor
+from dataclasses import FrozenInstanceError
+from threading import Event
 
 import pytest
 
 from kg._execution_budget import (
+    BudgetedStep,
+    CancelledStop,
     Deadline,
     DeadlineStop,
     LocalExecutionMeter,
@@ -14,6 +19,8 @@ from kg._execution_budget import (
     PrivateResourceStop,
     PublicAccounting,
     PublicBudgetStop,
+    _graph_build_operation,
+    _selection_budget,
 )
 from kg.evidence._sql import AccountedConnection
 from kg.evidence.errors import EvidenceServiceError
@@ -283,3 +290,277 @@ def test_connection_cannot_widen_or_replace_local_pool():
         assert connection._budget is local
     finally:
         connection.close()
+
+
+def bulk():
+    return _graph_build_operation(deadline=Deadline(time.monotonic() + 300), cancel=Event())
+
+
+def test_bulk_factory_preserves_exact_operation_identity_and_frozen_fields():
+    deadline, cancel = Deadline(time.monotonic() + 300), Event()
+    operation = _graph_build_operation(deadline=deadline, cancel=cancel)
+    assert operation.cancel is cancel
+    assert operation.budget.deadline is deadline
+    assert operation.meter.private_budget is operation.budget
+    assert operation.budget.resource_profile == "graph-build/1"
+    for name, replacement in (("budget", pool()), ("meter", None), ("cancel", Event())):
+        with pytest.raises(FrozenInstanceError):
+            setattr(operation, name, replacement)
+    for invalid in (None, object(), 3):
+        with pytest.raises(ValueError):
+            _graph_build_operation(deadline=invalid, cancel=cancel)
+        with pytest.raises(ValueError):
+            _graph_build_operation(deadline=deadline, cancel=invalid)
+    with pytest.raises(ValueError):
+        _graph_build_operation(deadline=Deadline(time.monotonic() + 301), cancel=cancel)
+    with pytest.raises(DeadlineStop):
+        _graph_build_operation(deadline=Deadline(time.monotonic() - 1), cancel=cancel)
+    cancel.set()
+    with pytest.raises(CancelledStop):
+        _graph_build_operation(deadline=deadline, cancel=cancel)
+
+
+def test_bulk_retained_nested_sql_views_exceed_interactive_totals_without_reset():
+    operation = bulk()
+    budget = operation.budget
+    selection = _selection_budget(budget)
+    nested = _selection_budget(selection)
+    connection = sqlite3.connect(":memory:", factory=AccountedConnection)
+    connection._budget = budget
+    try:
+        cursor = connection.execute(ROWS)
+        count, previous = 0, 0
+        while True:
+            with connection._using_budget(selection), connection._using_budget(nested):
+                page = cursor.fetchmany(137)
+            count += len(page)
+            current = operation.snapshot()
+            assert current.visits_reserved > previous
+            assert selection._visits == nested._visits == current.visits_reserved
+            assert selection.deadline is nested.deadline is budget.deadline
+            previous = current.visits_reserved
+            if not page:
+                break
+        assert count == 100_001
+        assert current.visits_reserved == count + 2  # Partial-page EOF and final empty fetch.
+        sibling = _selection_budget(budget)
+        sibling.reserve_visits(10_001)
+        assert operation.snapshot().visits_reserved == previous + 10_001
+        assert selection._visits == previous
+        with (
+            connection._using_budget(selection),
+            pytest.raises(EvidenceServiceError),
+            connection._using_budget(sibling),
+        ):
+            pass
+    finally:
+        connection.close()
+
+
+def test_bulk_explicit_limits_are_not_widened_and_stops_are_terminal():
+    operation = bulk()
+    finite = operation.budget.limited(max_visits=2)
+    nested = _selection_budget(finite)
+    nested.reserve_visits(2)
+    with pytest.raises(PrivateResourceStop):
+        nested.reserve_visits()
+    assert finite._visits == nested._visits == operation.snapshot().visits_reserved == 2
+    assert operation.snapshot().stop_reason == "resource"
+    with pytest.raises(PrivateResourceStop):
+        operation.budget.reserve_visits()
+    for invalid in (0, -1, True, 1.5, 100_001):
+        with pytest.raises(ValueError):
+            bulk().budget.limited(max_visits=invalid)
+
+
+@pytest.mark.parametrize("precise", [False, True])
+def test_bulk_sql_prepayment_and_progress_exceed_ten_million(precise):
+    operation = bulk()
+    budget = operation.budget
+    connection = sqlite3.connect(":memory:", factory=AccountedConnection)
+    connection._budget = _selection_budget(budget)
+    try:
+        if precise:
+            with connection._precise_progress():
+                for _ in range(5001):
+                    connection.execute("SELECT 1").fetchone()
+        else:
+            connection.execute(
+                "WITH RECURSIVE n(x) AS (VALUES(1) UNION ALL "
+                "SELECT x+1 FROM n WHERE x<700000) SELECT sum(x) FROM n"
+            ).fetchone()
+        before = operation.snapshot()
+        assert before.vm_instructions_reserved > 10_000_000
+        assert before.vm_instructions_reserved % 1000 == 0
+        connection.execute("SELECT 2").fetchone()
+        assert operation.snapshot().vm_instructions_reserved == (
+            before.vm_instructions_reserved + 2000
+        )
+        assert not connection._precise
+    finally:
+        connection.close()
+
+
+def test_bulk_semantic_schedule_stays_on_existing_step_abi():
+    operation = bulk()
+    child = _selection_budget(operation.budget)
+    step = BudgetedStep(operation.meter, child)
+    for _ in range(4000):
+        for stage in ("resolve_entity", "decision_record", "support_member"):
+            step.reserve_public(stage)
+    step.reserve_visits(3)
+    assert operation.snapshot().semantic_items_reserved == 12_000
+    assert operation.snapshot().visits_reserved == 3
+    assert not hasattr(step, "reserve_semantic")
+    for stage, n in (("invalid", 1), ("support_member", 65), ("resolve_entity", True)):
+        with pytest.raises(ValueError):
+            step.reserve_public(stage, n)
+    assert operation.snapshot().semantic_items_reserved == 12_000
+    assert operation.snapshot().stop_reason is None
+
+
+@pytest.mark.parametrize("stop", ["cancelled", "deadline", "resource"])
+def test_bulk_terminal_snapshots_and_cleanup_preserve_work_and_peak(stop, monkeypatch):
+    operation = bulk()
+    budget = operation.budget
+    operation.meter.reserve_public("resolve_entity")
+    budget.reserve_visits(17)
+    budget.reserve_vm(10_000_001)
+    held = budget.reserve_scratch(64 << 20, "general")
+    if stop == "cancelled":
+        operation.cancel.set()
+        with pytest.raises(CancelledStop):
+            budget.check_deadline()
+        operation.cancel.clear()
+    elif stop == "deadline":
+        monkeypatch.setattr(time, "monotonic", lambda: budget.deadline.expires_at_monotonic)
+        with pytest.raises(DeadlineStop):
+            budget.check_deadline()
+        monkeypatch.undo()
+    else:
+        with pytest.raises(PrivateResourceStop):
+            budget.reserve_scratch(1, "general")
+    expected = {"cancelled": CancelledStop, "deadline": DeadlineStop,
+                "resource": PrivateResourceStop}[stop]
+    before = operation.snapshot()
+    assert before.stop_reason == stop
+    for action in (budget.check_deadline, budget.reserve_visits, budget.reserve_sql_quantum):
+        with pytest.raises(expected):
+            action()
+    held.release()
+    held.release()
+    after = operation.snapshot()
+    assert after.scratch_live_bytes == 0
+    assert before.scratch_live_bytes == after.scratch_peak_bytes == 64 << 20
+    assert after.visits_reserved == before.visits_reserved == 17
+    assert after.vm_instructions_reserved == before.vm_instructions_reserved == 10_000_001
+    assert after.semantic_items_reserved == 1
+
+
+@pytest.mark.parametrize("precise", [False, True])
+def test_bulk_cancellation_during_sql_progress_and_between_batches(precise, monkeypatch):
+    operation = bulk()
+    budget = operation.budget
+    connection = sqlite3.connect(":memory:", factory=AccountedConnection)
+    connection._budget = budget
+    original = budget.reserve_sql_quantum
+    calls = 0
+
+    def cancel_during_progress():
+        nonlocal calls
+        calls += 1
+        if calls == 10:
+            operation.cancel.set()
+        return original()
+
+    monkeypatch.setattr(budget, "reserve_sql_quantum", cancel_during_progress)
+    try:
+        with (
+            connection._precise_progress() if precise else connection._using_budget(budget),
+            pytest.raises(CancelledStop),
+        ):
+            connection.execute(
+                "WITH RECURSIVE n(x) AS (VALUES(1) UNION ALL "
+                "SELECT x+1 FROM n WHERE x<10000) SELECT sum(x) FROM n"
+            ).fetchone()
+        assert operation.snapshot().stop_reason == "cancelled"
+        assert isinstance(connection._stop, CancelledStop)
+        operation.cancel.clear()
+        with pytest.raises(CancelledStop):
+            connection.execute("SELECT 1")
+    finally:
+        connection.close()
+    fresh = bulk()
+    connection = sqlite3.connect(":memory:", factory=AccountedConnection)
+    connection._budget = fresh.budget
+    try:
+        cursor = connection.execute(ROWS)
+        assert len(cursor.fetchmany(200)) == 200
+        fresh.cancel.set()
+        with pytest.raises(CancelledStop):
+            cursor.fetchmany(200)
+        assert fresh.snapshot().visits_reserved == 200
+    finally:
+        connection.close()
+
+
+def test_bulk_cancel_interrupts_root_lock_wait_without_replacing_deadline(monkeypatch):
+    operation = bulk()
+    checked = Event()
+    original = operation.budget.check_deadline
+
+    def check():
+        checked.set()
+        original()
+
+    monkeypatch.setattr(operation.budget, "check_deadline", check)
+    with ThreadPoolExecutor(max_workers=1) as executor:
+        operation.budget._lock.acquire()
+        try:
+            future = executor.submit(operation.budget.reserve_visits)
+            assert checked.wait(timeout=2)
+            operation.cancel.set()
+            with pytest.raises(CancelledStop):
+                future.result(timeout=2)
+        finally:
+            operation.budget._lock.release()
+    assert operation.snapshot().visits_reserved == 0
+    assert operation.snapshot().stop_reason == "cancelled"
+
+
+@pytest.mark.parametrize("unit,limit", [("text", 8), ("context", 8),
+                                      ("vector", 16), ("reranker", 8)])
+def test_bulk_per_unit_scratch_limits_unchanged(unit, limit):
+    operation = bulk()
+    with pytest.raises(PrivateResourceStop):
+        operation.budget.reserve_scratch((limit << 20) + 1, unit)
+    assert operation.snapshot().stop_reason == "resource"
+    assert operation.snapshot().scratch_live_bytes == 0
+
+
+@pytest.mark.parametrize("profile,maximum", [("interactive", 5000), ("bulk", 100)])
+def test_busy_timeout_profile_preserves_prepaid_helper(profile, maximum):
+    budget = bulk().budget if profile == "bulk" else pool()
+    connection = sqlite3.connect(":memory:", factory=AccountedConnection)
+    connection._budget = budget
+    try:
+        assert connection.execute("PRAGMA busy_timeout").fetchone()[0] == maximum
+        assert budget._vm == 2000
+    finally:
+        connection.close()
+
+
+def test_remote_budget_profile_and_selection_keep_existing_rpc_contract():
+    from kg.query._meter import RemoteBudget
+
+    class StubRemote(RemoteBudget):
+        def rpc(self, frame):
+            assert frame.action == "limited" and frame.n == 10_000 and frame.view == 0
+            return 7
+
+    remote = StubRemote(None, Deadline(time.monotonic() + 30))
+    assert remote.resource_profile == "interactive/1"
+    child = _selection_budget(remote)
+    assert isinstance(child, RemoteBudget)
+    assert child.view == 7 and child.inherits(remote)
+    assert child.resource_profile == "interactive/1"

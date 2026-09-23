@@ -3,11 +3,18 @@ from __future__ import annotations
 import sqlite3
 import time
 from contextlib import contextmanager
+from threading import Event
 
 import pytest
 from support.evidence import environment, put, receipt
 
-from kg._execution_budget import Deadline, PrivateBudget, PrivateResourceStop
+from kg._execution_budget import (
+    Deadline,
+    PrivateBudget,
+    PrivateResourceStop,
+    _graph_build_operation,
+    _selection_budget,
+)
 from kg.evidence import EvidenceDatabase, EvidenceServiceError, _format
 from kg.evidence._transactions import writing
 from kg.models.evidence import LocalIdentity
@@ -255,3 +262,27 @@ def test_owner_rechecks_after_connection_admission_before_any_mutation(tmp_path,
         pytest.fail("Owner exposed a context before fresh locked admission")
     with sqlite3.connect(database.path) as connection:
         assert connection.execute("SELECT count(*) FROM corpus").fetchone()[0] == 0
+
+
+def test_bulk_repeated_actual_admission_counts_work_without_hidden_interactive_ceiling(tmp_path):
+    database = EvidenceDatabase(tmp_path / "bulk-admission.db")
+    database.initialize()
+    operation = _graph_build_operation(
+        deadline=Deadline(time.monotonic() + 300), cancel=Event(),
+    )
+    budget = operation.budget
+    child = _selection_budget(budget)
+    with database.connection(budget=budget) as connection:
+        for _ in range(150):
+            with connection._using_budget(child):
+                _format.check(connection)
+        snapshot = operation.snapshot()
+        assert snapshot.visits_reserved > 100_000
+        assert snapshot.vm_instructions_reserved > 10_000_000
+        assert child._visits > 10_000
+        assert connection._budget is budget
+        with sqlite3.connect(database.path) as writer:
+            writer.execute("UPDATE store_format SET schema_signature='invalid'")
+        with pytest.raises(EvidenceServiceError, match="unsupported"):
+            _format.check(connection)
+    assert operation.snapshot().visits_reserved > snapshot.visits_reserved

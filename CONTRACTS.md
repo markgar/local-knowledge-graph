@@ -321,7 +321,7 @@ failure. It uses the owner's live context and inherited meter, not another
 snapshot. Nested support is privately accounted, never charged as a public
 evidence request. This is not a public Q1 records/count implementation.
 
-Each selection retains one 10,000-visit view across pages and nested SQL, within
+Each interactive selection retains one 10,000-visit view across pages and nested SQL, within
 the existing 100,000-visit root, VM/scratch pool and original deadline. Standalone
 read admission/release uses the root; its selection uses the 10,000-visit view.
 Standalone calls use a 30-second deadline. Resource failures return no read data
@@ -329,6 +329,20 @@ and roll back write units. Receipts use the existing shared key/clock ledger,
 expiry-before-digest and full retained-target authorization. A coordinated call
 cannot adopt an unlinked ordinary knowledge receipt. Actual E4 lifecycle acceptance
 is not claimed by the optional participant seam.
+
+The private bulk-read operation (`kg._execution_budget._graph_build_operation`)
+does not change those public defaults. It carries one original finite deadline
+(at most 300 seconds remaining), cancellation Event, budget and unchanged
+`StepMeter.reserve_public(stage, n)` ABI. Its `graph-build/1` root and automatic
+selection children count visits/VM cumulatively without interactive total-work
+ceilings; explicit finite child caps still apply. Pages remain at most 200,
+scratch remains 64 MiB with existing per-unit limits, and SQLite TEMP remains
+128 MiB. Owners must reach actual EOF; a stop cannot authorize a complete prefix.
+Terminal cancellation/deadline/resource state and cumulative accounting remain
+inspectable through the original operation's private snapshot. Existing Q1
+models, public budgets, worker RPC and public diagnostic shapes are unchanged.
+This is tested internal control plumbing, not an installed graph build API or
+a hard native-memory/disk/deadline guarantee.
 
 <a id="canonical-anchor-queries"></a>
 

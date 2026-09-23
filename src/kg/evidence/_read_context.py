@@ -66,8 +66,20 @@ class CanonicalReadContext:
                 self.meter = previous
 
     def _hold_scratch(self, size_bytes: int, unit: ScratchUnit) -> None:
+        self._reserve_scratch(max(1, size_bytes), unit)
+
+    def _reserve_scratch(self, size_bytes: int, unit: ScratchUnit) -> ScratchReservation:
         self.check_active()
-        self._scratch.append(self.meter.reserve_scratch(max(1, size_bytes), unit))
+        reservation = self.meter.reserve_scratch(size_bytes, unit)
+        self._scratch.append(reservation)
+        return reservation
+
+    def _release_reservation(self, reservation: ScratchReservation) -> None:
+        reservation.release()
+        for index, registered in enumerate(self._scratch):
+            if registered is reservation:
+                del self._scratch[index]
+                break
 
     def _release_scratch(self) -> None:
         for reservation in self._scratch:

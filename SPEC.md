@@ -306,7 +306,7 @@ unlinked ordinary knowledge receipts cannot be adopted by coordination.
 Controlled participant tests are not actual E4 acceptance.
 
 Read services use the actual authorized snapshot and a fresh release fence.
-Snapshot selection retains one 10,000-visit child allowance across all pages and
+Interactive snapshot selection retains one 10,000-visit child allowance across all pages and
 nested work; admission/release retains the original 100,000 root/deadline.
 Shared VM and scratch allowances remain cumulative. Every eligible entity/decision
 admitted to a composed selection reserves its public event once; internal
@@ -417,7 +417,7 @@ TEMP to files; SQLite/OS caches and the temporary-directory filesystem still
 apply. This is not a guarantee of physical disk writes or a process RSS bound.
 
 `kg._execution_budget` separates semantic reservations from inherited private
-visits, SQL VM, scratch/provider and absolute-deadline allowances. Local step
+visits, SQL VM, scratch/provider and absolute-deadline allowances. Interactive local step
 views share one private pool: 100,000 visits, 10,000,000 prepaid VM instructions
 (quanta at most 1,000), and 64 MiB aggregate scratch. Individual text/context and
 reranker reservations are at most 8 MiB; vector batches at most 16 MiB, with
@@ -439,6 +439,34 @@ of one selection; enter the scope on every fetch. Nested scopes can only inherit
 not replace or widen, the current view. Exit restores the previous accounting
 boundary, not the allowance. These are trusted synchronous owner contexts, not
 concurrently shareable connections or a multiprocess transport.
+
+The private `_graph_build_operation(deadline=..., cancel=...)` creates a separate
+`graph-build/1` operation for internal bulk reads. It retains the exact original
+absolute deadline (at most 300 seconds remaining), cancellation Event, budget and
+StepMeter; existing public calls cannot select it. Root and profile-selected
+knowledge-reader children count visits without a cumulative ceiling, and SQL
+continues prepaying 1,000-instruction quanta without the interactive 10M ceiling.
+Explicit `limited(max_visits=N)` still enforces N through every ancestor. No
+page, child, connection or phase resets work totals. The 200-item page maximum
+is a batch bound, not total coverage or evidence of eligible EOF.
+
+Bulk reads retain the same 64 MiB logical scratch, per-unit/provider limits and
+128 MiB SQLite TEMP cap. Deadline/cancellation checks occur at reservations,
+fetches, SQL progress and short root-lock waits; SQLite busy waits are at most
+100 ms per statement rather than the unchanged interactive 5,000 ms. Stops latch
+on the bulk root. `CancelledStop` is a private-resource subtype; owners use the
+original operation's immutable accounting snapshot to distinguish its latched
+reason, including after the Event is cleared. Diagnostics retain cumulative
+visits/prepaid VM/semantic units, live/peak scratch and original expiry after
+terminal failure; cleanup can still release resources. These are cooperative
+controls, not hard deadlines, filesystem quotas or process/native RSS isolation.
+
+`CanonicalReadContext._reserve_scratch` returns a registered reservation;
+`_release_reservation` releases and unregisters it idempotently, even after a
+stop or context exit. This permits bounded owner-managed temporary lifetimes.
+Existing cursor/Store retention is otherwise unchanged; these controls do not
+themselves provide a streaming graph exporter, native graph or public bulk API.
+No canonical format, eligibility, scope, exact witness or Q1 RPC contract changes.
 
 `writing(database, identity, *, deadline=None, budget=None)` accepts that same
 inherited/local view; an explicit deadline must match it exactly. An owner can
