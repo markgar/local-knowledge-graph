@@ -341,8 +341,16 @@ scratch remains 64 MiB with existing per-unit limits, and SQLite TEMP remains
 Terminal cancellation/deadline/resource state and cumulative accounting remain
 inspectable through the original operation's private snapshot. Existing Q1
 models, public budgets, worker RPC and public diagnostic shapes are unchanged.
-This is tested internal control plumbing, not an installed graph build API or
+This is internal control plumbing, not a public foundation graph-query API or
 a hard native-memory/disk/deadline guarantee.
+
+The optional `kg.graph.LocalGraphSession` lifecycle uses that bulk operation only
+for cold/build-capable reads and refresh. Warm reads and controlled canonical
+writes use ordinary budgets; existing foundation/Q1 shapes and limits do not
+change. The controller's frozen status/error/generation values are local
+lifecycle values, not `foundation/1` result contracts or durable authority.
+Graph batch writes return existing `BatchResult` values with per-unit E1 reports;
+confirmed receipts are not replaced by a later graph-refresh failure.
 
 <a id="canonical-anchor-queries"></a>
 

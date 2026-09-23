@@ -526,8 +526,8 @@ native node/edge counts and inserted property/endpoint/ordinal equality, checkpo
 closes and reopens read-only, then fences with the original physical observer.
 The complete manifest is not a durable freshness token. `StagedGraph.transfer`
 accepts only that original current operation, moves ownership once and leaves the
-verified OPEN native reader and original parked observer for the future controller.
-Publication and public traversal/joins/retained inspection are not implemented.
+verified OPEN native reader and original parked observer for `LocalGraphSession`.
+Public business traversal/joins/retained inspection are not implemented.
 
 The optional runtime is Ladybug 0.20.4 on macOS 15+ ARM64/CPython 3.12.
 Both writer and reader use a 256 MiB native buffer pool/two threads. The 300-second
@@ -547,6 +547,48 @@ followed by native database-close SIGSEGV. Python cleanup cannot contain this.
 This experimental risk is accepted, not fixed by increased capacity; persistent
 worker isolation is deferred to [#137](https://github.com/markgar/local-knowledge-graph/issues/137).
 SQLite format and Q1 paths remain unchanged; never reopen/admit leftover stages.
+
+`kg.graph.LocalGraphSession` binds an exact validated identity/scope and optional
+expected coverage. It reuses Q1's bounded FIFO dispatcher on one SQLite owner
+thread. Construction starts unbuilt; first private read builds once, explicit
+refresh retires the previous generation first. Adoption consumes the original
+stage operation before a fresh authorization/source fence; only the in-memory
+generation pointer switches inside that fence. The controller never reopens the
+transferred reader or retains a canonical transaction between calls.
+
+Cold admission supplies one 300-second bulk root through build/adoption/answer;
+warm reads and controlled writes use ordinary 30-second budgets. Queue time
+counts and warm reads never upgrade to a bulk allowance. Warm semantic accounting
+validates the normal meter vocabulary without inventing a public item limit.
+The original physical observer baseline never renews. A commit detected during
+reuse/read yields `state_changed`/`finish_import_then_refresh` with no output or
+in-request rebuild loop. Each answer uses a new authorized snapshot and final
+release fence; native work runs outside the writer-exclusion fence.
+
+The private `_run_read` callback borrows an invocation/generation/thread-guarded
+native view, not the owning handle. Execute uses the current budget/Event and a
+5,000 ms cap (or less remaining time); direct G3 callers omitting this optional
+cap retain their prior behavior. Rows are bounded to 200. `context.retain(value)`
+charges immutable output before accumulation, and final output must be fully
+materialized and within 8 MiB. Tuples, primitives, frozen foundation values and
+the local generation value are supported; lazy/mutable/owning handles cannot be
+returned. Escaped borrowed views/rows reject subsequent use.
+
+Controlled writes conservatively dirty the generation before mutation, sharing
+one ordinary budget across batch units through the private E1 budgeted seam.
+Confirmed receipts survive late cancellation/close; unstarted remaining units
+receive correlated failure outcomes. Refresh is a separate request and cannot
+undo a saved receipt. Graph batches retain ordinary per-started-unit E1 reports,
+not E1's standalone aggregate batch capture or caller-thread explanation context.
+
+Failures preserve primary error/accounting independently from cleanup. Single
+resource custody survives unexpected disposal exceptions; confirmed released
+slots are not closed again. Pending residue blocks building. Explicit refresh
+retries while open; closed controllers park the owner for explicit close retry,
+containing even cleanup/logging errors. The normal 32-second close join may
+return close-pending rather than close native handles from the wrong thread.
+Restart is untrusted and rebuilds. Status is content-free last-known state, not
+an authorization/freshness token; hot canonical-file replacement is unsupported.
 
 `writing(database, identity, *, deadline=None, budget=None)` accepts that same
 inherited/local view; an explicit deadline must match it exactly. An owner can
