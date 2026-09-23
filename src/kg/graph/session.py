@@ -69,7 +69,14 @@ from kg.models.foundation import (
 )
 
 if TYPE_CHECKING:
-    from kg.models.graph import GraphCapabilities, GraphTraversalRequest, GraphTraversalResult
+    from kg.graph._decisions import _GraphDecisionSelection
+    from kg.models.graph import (
+        GraphCapabilities,
+        GraphRelationshipDecisionsRequest,
+        GraphRelationshipDecisionsResult,
+        GraphTraversalRequest,
+        GraphTraversalResult,
+    )
 
 LOGGER = logging.getLogger(__name__)
 _OUTPUT_BYTES = 8 << 20
@@ -321,6 +328,45 @@ class LocalGraphSession:
                 request_id=request.request_id, scope=request.scope, outcome="failed",
                 generation=None, error=error.failure,
             )
+
+    def relationship_decisions(
+        self, request: GraphRelationshipDecisionsRequest, *, cancel: Event | None = None,
+    ) -> GraphRelationshipDecisionsResult:
+        from kg.graph._decisions import relationship_decisions
+        from kg.models.graph import (
+            GraphRelationshipDecisionsRequest,
+            GraphRelationshipDecisionsResult,
+        )
+
+        try:
+            request = validated(GraphRelationshipDecisionsRequest, request)
+        except EvidenceServiceError as error:
+            raise GraphSessionError(_translate(error)) from None
+        try:
+            return self._run_read(
+                request.scope, lambda context: relationship_decisions(context, request),
+                cancel=cancel,
+            )
+        except GraphSessionError as error:
+            return GraphRelationshipDecisionsResult(
+                request_id=request.request_id, scope=request.scope, outcome="failed",
+                generation=None, error=error.failure,
+            )
+
+    def _relationship_decision_selection(
+        self, request: GraphRelationshipDecisionsRequest, *, cancel: Event | None = None,
+    ) -> _GraphDecisionSelection:
+        from kg.graph._decisions import _select_relationship_decisions
+        from kg.models.graph import GraphRelationshipDecisionsRequest
+
+        try:
+            request = validated(GraphRelationshipDecisionsRequest, request)
+        except EvidenceServiceError as error:
+            raise GraphSessionError(_translate(error)) from None
+        return self._run_read(
+            request.scope, lambda context: _select_relationship_decisions(context, request),
+            cancel=cancel,
+        )
 
     def _set(
         self, *, state: GraphState | None = None, **changes: Unpack[_StatusChanges],

@@ -445,17 +445,69 @@ before release; repeated serialized occurrences count even if objects alias.
 At most 1,000 paths/candidates and 8 MiB conservative serialized content, within
 the original cold/warm budgets. Overflow, incomplete resolution, resource limits,
 native/parse failures, cancellation or concurrent source/policy changes return
-no observed data. No pagination, count, joins, implicit retry or partial prefix.
+no observed data. Standalone traversal has no pagination, count, joins, implicit
+retry or partial prefix.
 Refresh is a separate operation; an old generation is not durable authority.
 
 `session.capabilities()` returns graph/1 `GraphCapabilities`: installed operations
-`("traverse",)`, runtime available/unavailable and explicit graph_unavailable
+`("traverse", "relationship_decisions")`, runtime available/unavailable and explicit graph_unavailable
 reason, explicit-one-hop/1 semantics, outgoing/incoming directions and fixed
 limits. The content-free probe does not build/open a graph or inspect registry,
 scope or sources; availability is not freshness/permission/readiness. Closed
 sessions reject it. Optional runtime absence never enables an SQL/search fallback.
 See [the supplied-note and exact-citation example](examples/graph_relationships.py).
 Citation hydration after query release is a separate authorized historical read.
+
+### Native relationship-to-decision query API
+
+`LocalGraphSession.relationship_decisions(GraphRelationshipDecisionsRequest, *,
+cancel=None)` uses the same frozen graph/1 selector, scope, registered relationship,
+required direction and strict `max_hops=1`, adding strict integer `display_limit`
+(1..1,000, default 1,000). Invalid requests raise `GraphSessionError(invalid_request)`
+before admission. The reached endpoint must support registered direct-subject
+decision assertions; incoming reaches the stored relationship subject.
+
+`GraphRelationshipDecisionsResult` preserves request correlation and has:
+
+| Outcome | Observed fields |
+| --- | --- |
+| complete | Generation, root ID, exact positive `count`, `exact=True`, ordered displayed `members`, associated `relationships`, and `display_truncated`. |
+| empty | Generation, exact zero, no members/proofs; root ID only if resolution found one eligible entity. |
+| ambiguous | Generation and ordered candidate IDs; no root, count or proofs. |
+| failed | Safe `GraphFailure` only; no generation, root, count, exactness, candidates, members or proofs. |
+
+`GraphDecisionMember(decision, relationship_ids)` holds a full G3 `GraphAssertion`
+decision proof and every qualifying ordered relationship assertion ID.
+`relationships` contains exactly the unique ordered `GraphRelationshipProof`s
+referenced by the displayed members. Both sides preserve all conjunctive support,
+captured source dependencies, attribution and selected activation witnesses.
+Selected endpoint witnesses reflect the verified projection, not necessarily
+authorship time. Native count identity is distinct submitted decision assertion
+ID: several ownership assertions do not multiply it, but fresh same-text decision
+submissions remain distinct. Only explicit relationships and decisions qualify.
+
+One callback performs native count and ordered proof-stream queries with one
+original canonical observer, generation and final release fence. There is no
+per-endpoint traversal/records call or independent pool. Exact schema/root and
+relationship decoding reuse traversal's helpers/custody; verified G3 owns non-root
+type and current eligibility. Ordered full enumeration must equal the native count.
+Every hidden member and proof is retained once in a private immutable selection
+before display projection; the full selection must fit the conservative 8 MiB
+output and shared 64 MiB scratch limits. The final public envelope is independently
+sized under the same pool. `display_truncated` is not incomplete execution and is
+not a continuation token; reducing display cannot rescue an oversized selection.
+
+Capabilities additionally advertise `decision_count_identity="submitted_assertion_id"`,
+`decision_count_mode="exact"`, `decision_display_limit=1000`, and
+`decision_retained_inspection=False`. No public retained handle, paging, full hidden
+inspection, general join framework, new `QueryService` step or aggregate language
+is installed. No-data failures include unsupported schema/type, incomplete
+resolution/proofs, size/resource exhaustion, cancellation, native/projection errors
+and concurrent source/policy changes. Refresh is explicit, with no retry/fallback.
+Withdrawal invalidates the old generation; new queries exclude withdrawn edges
+and decisions while independent current contributions remain eligible. Saved
+results/citations never renew membership. See the executable
+[joined proof/citation example](examples/graph_relationship_decisions.py).
 
 <a id="canonical-anchor-queries"></a>
 

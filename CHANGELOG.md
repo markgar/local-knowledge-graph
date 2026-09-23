@@ -9,6 +9,11 @@ stable release. Pre-1.0 releases may contain breaking changes.
 
 ### Canonical engine and graph projection
 
+- `LocalGraphSession.relationship_decisions` executes a fixed native one-hop
+  relationship-to-decision join with exact distinct submitted-assertion counts,
+  all parallel membership associations and full decision/relationship proofs.
+  Display is bounded independently of full-selection output/scratch admission;
+  no public retained graph inspection or arbitrary joins are added.
 - Canonical `evidence-store/3` SQLite storage owns exact supplied text, immutable
   revisions, trusted local policy, identities, registered knowledge schema,
   entities/assertions, support and history. Python evidence, knowledge, indexing,

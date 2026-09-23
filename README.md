@@ -49,8 +49,9 @@ new skill has not been discovered in the current session.
 
 Native graph queries run in the [developer example](#optional-disposable-graph-example)
 and acceptance checks. `kg.graph.LocalGraphSession` manages reusable exact-scope
-graphs, controlled writes and a typed, cited one-hop `traverse` API.
-Graph-to-decision joins are not implemented. A canonical write invalidates the captured generation;
+graphs, controlled writes, typed cited one-hop `traverse`, and fixed native
+`relationship_decisions` queries with exact counts and both proof sides.
+A canonical write invalidates the captured generation;
 leftover graph files cannot establish freshness. Start with the
 [evidence example](#generic-evidence-service) for the canonical Python API, or the
 [Markdown demonstration](#markdown-demonstration) for local file/CLI usage. Their
@@ -70,7 +71,7 @@ databases are separate and not interchangeable.
 | Foundation values | Strict `foundation/1` request/result validation. Document and bounded enrichment operations execute through `EvidenceService`; canonical anchor/passage-evidence plans execute through `QueryService`. Whole-set seed replacement is not implemented. |
 | Canonical queries | `kg.query.QueryService`: full canonical ranked search, historical anchor/passage reads and actual K1 exact entity resolution, explicit decision records/counts, bounded retained support inspection, spawned deadline supervision and fresh release authorization. Paths remain unsupported. |
 | Execution diagnostics | Evidence, indexing, processing and query calls retain bounded, authorized in-memory summaries. Named explained wrappers execute once; detailed traces and source quotes require opt-in. |
-| Optional local graph | `kg.graph.LocalGraphSession` lazily builds/reuses an exact-scope disposable Ladybug graph, explicitly refreshes it and serializes controlled canonical writes. Its typed one-hop `traverse` API returns full cited explicit relationship proofs; SQLite stays authoritative. |
+| Optional local graph | `kg.graph.LocalGraphSession` lazily builds/reuses an exact-scope disposable Ladybug graph, explicitly refreshes it and serializes controlled canonical writes. Typed `traverse` and `relationship_decisions` return full cited explicit relationship/decision proofs and exact joined counts; SQLite stays authoritative. |
 
 There are no live email/Teams connectors, inference/extraction providers, general
 query planner, continuation service, or source-level ACL/purge service.
@@ -261,6 +262,29 @@ See [query contracts](CONTRACTS.md#typed-cited-relationship-query-api).
 Existing `QueryService` paths, joins, paging and natural-language planning remain
 unsupported; this is not an arbitrary query-language interface.
 
+### Native relationship-to-decision counts
+
+```bash
+uv run --extra graph python examples/graph_relationship_decisions.py --output /tmp/kg-joined-example
+```
+
+Use a fresh output directory. `LocalGraphSession.relationship_decisions` takes
+`GraphRelationshipDecisionsRequest` with the same exact root, relationship predicate,
+direction and strict one-hop boundary, plus `display_limit` (1..1,000). It counts
+distinct submitted explicit decision assertion IDs on reached entities in one
+native query operation, not unique wording. Each displayed member includes the
+complete decision proof and all qualifying parallel relationship IDs; the
+response's relationship table contains their complete membership proofs.
+
+`count` is exact even when `display_truncated` is true. The full private selection
+must fit the original 8 MiB conservative output and shared scratch/time limits;
+limiting display cannot bypass full-proof admission. Failure returns no count or
+prefix. There is no public retained graph inspection/paging. Later citation reads
+for both relationship and decision supports are separately authorized historical
+reads, not renewed ownership. Withdrawal/source changes invalidate old generations;
+refresh explicitly and never reuse old results as current authority.
+See [joined query contracts](CONTRACTS.md#native-relationship-to-decision-query-api).
+
 ## Optional disposable graph example
 
 On **macOS 15+ ARM64 with CPython 3.12**, install the optional pinned
@@ -295,7 +319,8 @@ at most five seconds and separate 8 MiB ceilings for cumulative retained output
 and the final returned answer, sharing one scratch pool. Pending cleanup blocks
 new builds; retry `refresh()` while open or `close()` after closing. Close may
 report `close_pending` while native work/cleanup still owns resources. Typed
-one-hop traversal is public; graph decision joins and retained inspection are not.
+one-hop traversal and fixed relationship-to-decision queries are public; arbitrary
+joins and retained graph inspection are not.
 
 The complete varied-10,000-decision native build/reopen and exact proof/edge parity
 gate passed with the pinned runtime and 256 MiB buffer configuration
