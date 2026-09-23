@@ -1,0 +1,140 @@
+{
+  "answers": [
+    {
+      "id": "q01",
+      "answer": "Nova's invoice-import review: Maya reported on September 9 that six invoices in the unchanged N42 cohort still lacked supplier references after the mapping patch, requiring manual paperwork checks.",
+      "facts": {"project": "Nova"},
+      "abstains": false,
+      "citations": [
+        {
+          "source_path": "mail/2026-09/20260909-995cad50945623c4238a.md",
+          "quote": "Nova N42 after the mapping patch still has 6 invoices with missing supplier references, out of the same 120. No invoices were added or removed between passes. The six need a person to check the source paperwork rather than another retry."
+        }
+      ]
+    },
+    {
+      "id": "q02",
+      "answer": "Cedar's inherited-role reconciliation, using Grove's directory export as input. It was closed on August 20 and reopened on August 24 because the export omitted nested groups; the remembered timing is later than the actual reopening.",
+      "facts": {"project": "Cedar"},
+      "abstains": false,
+      "citations": [
+        {
+          "source_path": "notes/2026-08/20260820-19d8170f95e47ee6ecf8.md",
+          "quote": "Finished Cedar's inherited-role reconciliation today and marked the promise closed. The Grove file matched the set I had checked; I left both copies in Vault so someone can repeat the comparison without asking me which download I used."
+        },
+        {
+          "source_path": "mail/2026-08/20260824-ca011620a53cb36de870.md",
+          "quote": "Please reopen the inherited-role reconciliation. The Grove export dropped nested groups, so the comparison we closed only covered the flattened subset. The two files matching did not establish that the input was complete.\n\nJamie is still carrying it, now for September 8. I'll rerun the directory export before then and send the nested-group count with it. There is no need to repeat the password reset walkthrough."
+        }
+      ]
+    },
+    {
+      "id": "q03",
+      "answer": "Harborview's visitor-count export for its dashboard review, not a staff or volunteer roster. Alex delivered it on September 15; its totals were grouped by entrance and hour.",
+      "facts": {"project": "Harborview"},
+      "abstains": false,
+      "citations": [
+        {
+          "source_path": "mail/2026-08/20260826-f379b40e1d0f7b567dd2.md",
+          "quote": "For Harborview's visitor-count export, I can do September 18. It will contain totals by entrance and hour, with no roster names. The review group asked for a flat file because they want to draw their own chart."
+        },
+        {
+          "source_path": "notes/2026-09/20260915-de1a504bb70824b7216e.md",
+          "quote": "Alex delivered Harborview's visitor-count export today, three days before the promise, and I accepted it for the dashboard review. The file opens cleanly with the local-time headings. That delivery item is closed."
+        }
+      ]
+    },
+    {
+      "id": "q04",
+      "answer": "Ember's receipt archive. Rina's September 2 instruction extended stored receipt-payload retention from ninety to 120 days because the customer dispute window had grown.",
+      "facts": {"project": "Ember"},
+      "abstains": false,
+      "citations": [
+        {
+          "source_path": "mail/2026-09/20260902-7e9c25be8a96614f720a.md",
+          "quote": "Change Ember receipt-payload retention to 120 days from today. The customer dispute window was extended, so ninety no longer covers it. This applies to the stored receipts, not every temporary object bearing the archive name."
+        }
+      ]
+    },
+    {
+      "id": "q05",
+      "answer": "Drift's offline intake and live replay. The August 6 discussion describes using the replay after a phone reconnects to compare locally saved forms with the forms that arrived.",
+      "facts": {"project": "Drift"},
+      "abstains": false,
+      "citations": [
+        {
+          "source_path": "meetings/2026-08/20260806-5f8b89e1a8b2d8291183.md",
+          "quote": "The phone test was more useful than the slide deck. Drift sends its live intake replay through Relay's east queue. When the phone comes back online, the replay is what lets the desk check the locally saved forms against what arrived."
+        }
+      ]
+    },
+    {
+      "id": "q06",
+      "answer": "Lumen's audio-focus testing. On August 31 Sam requested two staffed bench hours be transferred from Kite to Lumen because the test needed one person listening while another operated the phone.",
+      "facts": {"project": "Lumen"},
+      "abstains": false,
+      "citations": [
+        {
+          "source_path": "mail/2026-08/20260831-94fc5992113631214abc.md",
+          "quote": "Please transfer two of Kite's eight staffed bench hours to Lumen for the week of September 21. That's a reallocation within the twelve hours, not permission to book overtime. The audio focus issue needs another person listening while the driver operates the phone."
+        }
+      ]
+    },
+    {
+      "id": "q07",
+      "answer": "Iris's consent rehearsal. Noor signed the wording sheet on August 28, allowing the September 21 rehearsal to proceed using the approved cards rather than the earlier drafts.",
+      "facts": {"project": "Iris"},
+      "abstains": false,
+      "citations": [
+        {
+          "source_path": "mail/2026-08/20260828-f3b08536764b131f9fe6.md",
+          "quote": "I've signed the Iris wording sheet after reading the paper copy, including the back page. The consent rehearsal can go ahead on September 21. Please use this version of the cards rather than the earlier set with the cramped footer."
+        }
+      ]
+    },
+    {
+      "id": "q08",
+      "answer": "Aster's first staffed appointment pilot. In the pilot-date thread, Jamie moved the target to October 1 on September 8 because volunteers had found an untested undo path and the desk exercise needed another morning.",
+      "facts": {"project": "Aster"},
+      "abstains": false,
+      "citations": [
+        {
+          "source_path": "mail/2026-08/20260803-5a9e0816c52df11922cc.md",
+          "quote": "Let's pencil in September 10 for Aster's first staffed pilot. That is a target, not permission to turn anything on. We can use the side desk so regular appointments aren't interrupted."
+        },
+        {
+          "source_path": "mail/2026-09/20260908-f2a0161b547cbab9e99e.md",
+          "quote": "Use October 1 as the target now, in place of the 24th. The desk exercise needs a second morning; the volunteers found an undo path we hadn't tried. This is still a target, not a statement that the gates have passed."
+        }
+      ]
+    },
+    {
+      "id": "q09",
+      "answer": "Fjord's cold-export compression fix, not Drift's retry fix. The September 14 note reports completed reruns on the same hundred source files and explicitly identifies Fjord's compression work.",
+      "facts": {"project": "Fjord"},
+      "abstains": false,
+      "citations": [
+        {
+          "source_path": "mail/2026-09/20260914-dcd9ce8924a189d4bdc1.md",
+          "quote": "The completed reruns are in Ledger. D8 used 25 replay-worker minutes after Drift's retry fix. F8 used 30 cold-export-worker minutes after Fjord's compression fix. Both kept the original one hundred source files; I checked the manifest before comparing the times."
+        }
+      ]
+    },
+    {
+      "id": "q10",
+      "answer": "The exchange is identifiable, but the project is not. Jamie proposed moving either Juniper's script-reading fallback or Kite's slide-only review from September 22 to 23. Alex agreed and offered printouts without naming which session, leaving both projects possible.",
+      "facts": {"project": null},
+      "abstains": true,
+      "citations": [
+        {
+          "source_path": "mail/2026-09/20260914-e3bafd1b5342700ecc65.md",
+          "quote": "Can we move either Juniper's script-reading fallback or Kite's slide-only review to September 23? Both are currently holding the small room on September 22. I haven't chosen which one to move; I need to know which group can make the 23rd."
+        },
+        {
+          "source_path": "mail/2026-09/20260915-9adfd97842fde379c7ac.md",
+          "quote": "Yes, move it to the 23rd. I can bring the printouts, and the smaller room should be fine if we leave the table against the wall."
+        }
+      ]
+    }
+  ]
+}

@@ -1,8 +1,13 @@
+import sqlite3
+from datetime import UTC, datetime
 from pathlib import Path
+
+import pytest
 
 from kg.config import load_manifest
 from kg.db import Database
 from kg.ingest import IngestService
+from kg.models.contracts import ActionResult
 from kg.retrieval import RetrievalService
 
 
@@ -95,6 +100,8 @@ def test_retrieval_returns_cited_actions_and_search_results(tmp_path: Path) -> N
     assert actions[0].source_path == "atlas.md"
     assert results[0].quote == "Release evidence."
     assert results[0].anchor_id
+    assert retrieval.search("evidence", source_path="missing.md") == []
+    assert retrieval.actions("Atlas", source_path="missing.md") == []
 
 
 def test_removed_source_is_not_returned_as_current_evidence(tmp_path: Path) -> None:
@@ -109,6 +116,76 @@ def test_removed_source_is_not_returned_as_current_evidence(tmp_path: Path) -> N
     assert result.missing == 1
     assert retrieval.actions("Atlas") == []
     assert retrieval.search("evidence") == []
+
+
+def test_moved_source_preserves_document_and_revision_identity(tmp_path: Path) -> None:
+    manifest = load_manifest(_manifest(tmp_path))
+    database = Database(manifest.database)
+    IngestService(database).ingest(manifest)
+    with database.connection() as connection:
+        before = connection.execute(
+            """
+            SELECT document_id, current_revision_id
+            FROM source_document
+            """
+        ).fetchone()
+
+    (manifest.vault_root / "atlas.md").rename(manifest.vault_root / "renamed.md")
+    result = IngestService(database).ingest(manifest)
+
+    with database.connection() as connection:
+        after = connection.execute(
+            """
+            SELECT document_id, current_revision_id, source_path
+            FROM source_document
+            """
+        ).fetchone()
+        document_count = connection.execute(
+            "SELECT count(*) FROM source_document"
+        ).fetchone()[0]
+    assert result.changed == 1
+    assert document_count == 1
+    assert after["document_id"] == before["document_id"]
+    assert after["current_revision_id"] == before["current_revision_id"]
+    assert after["source_path"] == "renamed.md"
+
+
+def test_move_onto_inactive_historical_path_preserves_active_lineage(
+    tmp_path: Path,
+) -> None:
+    manifest = load_manifest(_manifest(tmp_path))
+    database = Database(manifest.database)
+    service = IngestService(database)
+    service.ingest(manifest)
+    (manifest.vault_root / "atlas.md").unlink()
+    (manifest.vault_root / "current.md").write_text(
+        "# Current\n\nCurrent lineage.\n",
+        encoding="utf-8",
+    )
+    service.ingest(manifest)
+    with database.connection() as connection:
+        current_id = connection.execute(
+            "SELECT document_id FROM source_document WHERE source_path = 'current.md'"
+        ).fetchone()["document_id"]
+
+    (manifest.vault_root / "current.md").rename(manifest.vault_root / "atlas.md")
+    result = service.ingest(manifest)
+
+    with database.connection() as connection:
+        rows = connection.execute(
+            """
+            SELECT document_id, is_active
+            FROM source_document
+            WHERE source_path = 'atlas.md'
+            ORDER BY is_active DESC
+            """
+        ).fetchall()
+    assert result.changed == 1
+    assert [(row["document_id"], row["is_active"]) for row in rows] == [
+        (current_id, 1),
+        (rows[1]["document_id"], 0),
+    ]
+    assert rows[1]["document_id"] != current_id
 
 
 def test_shared_database_keeps_corpora_isolated(tmp_path: Path) -> None:
@@ -148,6 +225,16 @@ def test_search_treats_punctuation_as_user_text(tmp_path: Path) -> None:
     assert RetrievalService(database, manifest.corpus_id).search("evidence!")
 
 
+def test_natural_search_matches_any_safely_quoted_term(tmp_path: Path) -> None:
+    manifest = load_manifest(_manifest(tmp_path))
+    database = Database(manifest.database)
+    IngestService(database).ingest(manifest)
+    retrieval = RetrievalService(database, manifest.corpus_id)
+
+    assert retrieval.search("unrelated evidence", query_mode="strict") == []
+    assert retrieval.search("unrelated evidence", query_mode="natural")
+
+
 def test_invalid_source_does_not_rollback_valid_sources(tmp_path: Path) -> None:
     manifest = load_manifest(_manifest(tmp_path))
     (manifest.vault_root / "broken.md").write_text(
@@ -161,6 +248,168 @@ def test_invalid_source_does_not_rollback_valid_sources(tmp_path: Path) -> None:
     assert result.added == 1
     assert result.failed == 1
     assert RetrievalService(database, manifest.corpus_id).search("evidence")
+
+
+def test_failed_update_deactivates_stale_current_evidence(tmp_path: Path) -> None:
+    manifest = load_manifest(_manifest(tmp_path))
+    database = Database(manifest.database)
+    IngestService(database).ingest(manifest)
+    (manifest.vault_root / "atlas.md").write_bytes(b"\xff")
+
+    result = IngestService(database).ingest(manifest)
+
+    assert result.failed == 1
+    assert RetrievalService(database, manifest.corpus_id).search("evidence") == []
+
+
+def test_manifest_alias_change_reindexes_unchanged_revision(tmp_path: Path) -> None:
+    manifest_path = _manifest(tmp_path)
+    manifest_path.write_text(
+        manifest_path.read_text(encoding="utf-8")
+        + "\nseed_entities:\n"
+        + "  - entity_id: atlas\n"
+        + "    name: Atlas\n"
+        + "    entity_type: project\n",
+        encoding="utf-8",
+    )
+    manifest = load_manifest(manifest_path)
+    database = Database(manifest.database)
+    first = IngestService(database).ingest(manifest)
+    revision = RetrievalService(database, manifest.corpus_id).search("evidence")[
+        0
+    ].source_revision_id
+
+    manifest.seed_entities[0].aliases.append("Release evidence")
+    second = IngestService(database).ingest(manifest)
+    result = RetrievalService(database, manifest.corpus_id).search(
+        "evidence",
+        subject="Release evidence",
+    )
+
+    assert first.added == 1
+    assert second.changed == 1
+    assert result[0].source_revision_id == revision
+
+
+def test_seed_entities_can_be_removed_without_deleting_historical_identity(
+    tmp_path: Path,
+) -> None:
+    manifest_path = _manifest(tmp_path)
+    manifest_path.write_text(
+        manifest_path.read_text(encoding="utf-8")
+        + "\nseed_entities:\n"
+        + "  - entity_id: atlas\n"
+        + "    name: Atlas\n"
+        + "    entity_type: project\n",
+        encoding="utf-8",
+    )
+    manifest = load_manifest(manifest_path)
+    database = Database(manifest.database)
+    service = IngestService(database)
+    service.ingest(manifest)
+    manifest.seed_entities = []
+
+    result = service.ingest(manifest)
+
+    with database.connection() as connection:
+        entity = connection.execute(
+            """
+            SELECT entity_id, canonical_name, is_active
+            FROM entity WHERE corpus_id = 'test'
+            """
+        ).fetchone()
+        revisions = connection.execute("SELECT count(*) FROM source_revision").fetchone()[0]
+        anchors = connection.execute("SELECT count(*) FROM source_anchor").fetchone()[0]
+    assert result.changed == 1
+    assert tuple(entity) == ("atlas", "Atlas", 0)
+    assert revisions == 1
+    assert anchors > 0
+
+
+def test_seed_entity_can_be_replaced_by_new_id_with_same_identity(
+    tmp_path: Path,
+) -> None:
+    manifest_path = _manifest(tmp_path)
+    manifest_path.write_text(
+        manifest_path.read_text(encoding="utf-8")
+        + "\nseed_entities:\n"
+        + "  - entity_id: old-atlas\n"
+        + "    name: Atlas\n"
+        + "    entity_type: project\n",
+        encoding="utf-8",
+    )
+    manifest = load_manifest(manifest_path)
+    database = Database(manifest.database)
+    service = IngestService(database)
+    service.ingest(manifest)
+    manifest.seed_entities[0].entity_id = "new-atlas"
+
+    result = service.ingest(manifest)
+
+    with database.connection() as connection:
+        entities = connection.execute(
+            """
+            SELECT entity_id, canonical_name, is_active
+            FROM entity WHERE corpus_id = 'test'
+            ORDER BY entity_id
+            """
+        ).fetchall()
+    assert result.changed == 1
+    assert [tuple(entity) for entity in entities] == [
+        ("new-atlas", "Atlas", 1),
+        ("old-atlas", "Atlas", 0),
+    ]
+
+
+def test_ingestion_migrates_legacy_uniqueness_constraints(tmp_path: Path) -> None:
+    manifest = load_manifest(_manifest(tmp_path))
+    with sqlite3.connect(manifest.database) as connection:
+        connection.executescript(
+            """
+            CREATE TABLE source_document (
+                document_id TEXT PRIMARY KEY,
+                corpus_id TEXT NOT NULL,
+                source_path TEXT NOT NULL,
+                title TEXT NOT NULL,
+                current_revision_id TEXT,
+                is_active INTEGER NOT NULL DEFAULT 1,
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL,
+                UNIQUE (corpus_id, source_path)
+            );
+            CREATE TABLE entity (
+                entity_key TEXT PRIMARY KEY,
+                corpus_id TEXT NOT NULL,
+                entity_id TEXT NOT NULL,
+                entity_type TEXT NOT NULL,
+                canonical_name TEXT NOT NULL,
+                UNIQUE (corpus_id, entity_id),
+                UNIQUE (corpus_id, entity_type, canonical_name)
+            );
+            """
+        )
+
+    result = IngestService(Database(manifest.database)).ingest(manifest)
+
+    assert result.added == 1
+    with Database(manifest.database).connection() as connection:
+        entity_columns = {
+            row["name"] for row in connection.execute("PRAGMA table_info(entity)")
+        }
+        indexes = {
+            row["name"]
+            for row in connection.execute(
+                """
+                SELECT name FROM sqlite_master
+                WHERE type = 'index' AND name IN (
+                    'source_document_active_path_idx',
+                    'entity_active_name_idx'
+                )
+                """
+            )
+        }
+    assert "is_active" in entity_columns
+    assert indexes == {"source_document_active_path_idx", "entity_active_name_idx"}
 
 
 def test_status_resolves_explicit_wikilink_relationships(tmp_path: Path) -> None:
@@ -198,8 +447,243 @@ metadata_fields:
     database = Database(manifest.database)
     IngestService(database).ingest(manifest)
 
-    result = RetrievalService(database, manifest.corpus_id).status("Atlas")
+    retrieval = RetrievalService(database, manifest.corpus_id)
+    result = retrieval.status("Atlas")
 
-    assert result.connected_entities == ["compass"]
+    assert [item.related_entity_ids for item in result.connected_entities] == [
+        ["atlas", "compass"]
+    ]
     assert result.recent_material
     assert {item.event_time for item in result.recent_material} == {"2026-09-17"}
+    assert retrieval.connections("Atlas", datetime(9999, 1, 1, tzinfo=UTC)) == []
+
+    with database.transaction() as connection:
+        connection.execute(
+            "UPDATE passage SET event_time = '2026-09-17T23:30:00-05:00'"
+        )
+
+    assert retrieval.connections(
+        "Atlas",
+        datetime(2026, 9, 18, 3, 0, tzinfo=UTC),
+    )
+
+
+def test_status_uses_one_read_snapshot_during_concurrent_update(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    manifest = load_manifest(_manifest(tmp_path))
+    (manifest.vault_root / "atlas.md").write_text(
+        "# Atlas\n\n## Actions\n\n- [ ] Ship it.\n",
+        encoding="utf-8",
+    )
+    database = Database(manifest.database)
+    IngestService(database).ingest(manifest)
+    retrieval = RetrievalService(database, manifest.corpus_id)
+    original_actions = retrieval._actions
+    action_queries = 0
+
+    def actions(
+        connection: sqlite3.Connection,
+        *,
+        subject: str | None = None,
+        status: str | None = None,
+        since: datetime | None = None,
+        source_path: str | None = None,
+    ) -> list[ActionResult]:
+        nonlocal action_queries
+        results = original_actions(
+            connection,
+            subject=subject,
+            status=status,
+            since=since,
+            source_path=source_path,
+        )
+        action_queries += 1
+        if action_queries == 1:
+            with database.transaction() as writer:
+                writer.execute(
+                    "UPDATE action_item SET status = 'completed' WHERE status = 'open'"
+                )
+        return results
+
+    monkeypatch.setattr(retrieval, "_actions", actions)
+
+    result = retrieval.status("Atlas")
+
+    assert [action.summary for action in result.open_actions] == ["Ship it."]
+    assert result.completed_actions == []
+    assert [action.summary for action in retrieval.actions(status="completed")] == [
+        "Ship it."
+    ]
+
+
+def test_search_rejects_non_positive_limit(tmp_path: Path) -> None:
+    manifest = load_manifest(_manifest(tmp_path))
+    database = Database(manifest.database)
+    IngestService(database).ingest(manifest)
+
+    with pytest.raises(ValueError, match="limit must be at least 1"):
+        RetrievalService(database, manifest.corpus_id).search("evidence", limit=0)
+
+
+def test_ingestion_persists_structured_tasks_and_explicit_records(tmp_path: Path) -> None:
+    manifest = load_manifest(_manifest(tmp_path))
+    (manifest.vault_root / "atlas.md").write_text(
+        "# Atlas\n\n## Actions\n\n"
+        "- [ ] Ship it. [owner:: Avery] [due:: 2026-10-01]\n\n"
+        "## Decisions\n\n- Use SQLite.\n\n"
+        "## Blockers\n\n- Waiting for approval.\n\n"
+        "## Conflicts\n\n- Two sources disagree.\n",
+        encoding="utf-8",
+    )
+    database = Database(manifest.database)
+
+    IngestService(database).ingest(manifest)
+
+    with database.connection() as connection:
+        action = connection.execute(
+            "SELECT text, owner, due_date FROM action_item"
+        ).fetchone()
+        counts = {
+            table: connection.execute(f"SELECT count(*) FROM {table}").fetchone()[0]
+            for table in ("decision", "blocker", "conflict")
+        }
+    assert tuple(action) == ("Ship it.", "Avery", "2026-10-01")
+    assert counts == {"decision": 1, "blocker": 1, "conflict": 1}
+
+    status = RetrievalService(database, manifest.corpus_id).status("Atlas")
+    assert [item.summary for item in status.decisions] == ["Use SQLite."]
+    assert [item.summary for item in status.blockers] == ["Waiting for approval."]
+    assert [item.summary for item in status.conflicts] == ["Two sources disagree."]
+
+
+def test_ingestion_preserves_multiline_explicit_record_text(tmp_path: Path) -> None:
+    manifest = load_manifest(_manifest(tmp_path))
+    (manifest.vault_root / "atlas.md").write_text(
+        "# Atlas\n\n## Decisions\n\n"
+        "- Use SQLite for local storage.\n"
+        "  Keep provenance in normalized tables.\n\n"
+        "## Blockers\n\n"
+        "Approval is pending.\n"
+        "The review board meets Friday.\n\n"
+        "## Conflicts\n\n"
+        "- Source A says launch.\n"
+        "  Source B says wait.\n",
+        encoding="utf-8",
+    )
+    database = Database(manifest.database)
+
+    IngestService(database).ingest(manifest)
+    status = RetrievalService(database, manifest.corpus_id).status("Atlas")
+
+    assert [item.summary for item in status.decisions] == [
+        "Use SQLite for local storage.\nKeep provenance in normalized tables."
+    ]
+    assert [item.summary for item in status.blockers] == [
+        "Approval is pending.\nThe review board meets Friday."
+    ]
+    assert [item.summary for item in status.conflicts] == [
+        "Source A says launch.\nSource B says wait."
+    ]
+
+
+def test_code_and_literal_wikilinks_do_not_create_graph_evidence(
+    tmp_path: Path,
+) -> None:
+    manifest_path = _manifest(tmp_path)
+    manifest_path.write_text(
+        manifest_path.read_text(encoding="utf-8")
+        + "\nseed_entities:\n"
+        + "  - entity_id: atlas\n"
+        + "    name: Atlas\n"
+        + "    entity_type: project\n"
+        + "  - entity_id: target\n"
+        + "    name: Target\n"
+        + "    entity_type: project\n"
+        + "  - entity_id: inline\n"
+        + "    name: Inline\n"
+        + "    entity_type: project\n"
+        + "  - entity_id: literal\n"
+        + "    name: Literal\n"
+        + "    entity_type: project\n",
+        encoding="utf-8",
+    )
+    manifest = load_manifest(manifest_path)
+    (manifest.vault_root / "atlas.md").write_text(
+        "# Atlas\n\nAtlas links to [[Target]], not `[[Inline]]` or \\[[Literal]].\n",
+        encoding="utf-8",
+    )
+    database = Database(manifest.database)
+
+    IngestService(database).ingest(manifest)
+
+    with database.connection() as connection:
+        mentioned = {
+            row["entity_id"]
+            for row in connection.execute(
+                """
+                SELECT DISTINCT e.entity_id
+                FROM mention m JOIN entity e ON e.entity_key = m.entity_key
+                """
+            )
+        }
+        relationships = connection.execute(
+            "SELECT count(*) FROM relationship"
+        ).fetchone()[0]
+    assert mentioned == {"atlas", "target"}
+    assert relationships == 1
+
+
+def test_subject_scope_traverses_two_hops_across_documents(tmp_path: Path) -> None:
+    vault = tmp_path / "vault"
+    vault.mkdir()
+    (vault / "atlas.md").write_text(
+        "# Atlas\n\nAtlas links to [[Compass]].\n",
+        encoding="utf-8",
+    )
+    (vault / "compass.md").write_text(
+        "# Compass\n\nCompass links to [[Beacon]].\n",
+        encoding="utf-8",
+    )
+    (vault / "beacon.md").write_text(
+        "# Beacon\n\n## Actions\n\n- [ ] Validate the prototype.\n",
+        encoding="utf-8",
+    )
+    manifest_path = tmp_path / "corpus.yml"
+    manifest_path.write_text(
+        """
+corpus_id: graph
+display_name: Graph corpus
+vault_root: vault
+database: index.sqlite3
+include:
+  - "*.md"
+seed_entities:
+  - entity_id: atlas
+    name: Atlas
+    entity_type: project
+  - entity_id: compass
+    name: Compass
+    entity_type: product
+  - entity_id: beacon
+    name: Beacon
+    entity_type: topic
+""".strip(),
+        encoding="utf-8",
+    )
+    manifest = load_manifest(manifest_path)
+    database = Database(manifest.database)
+    IngestService(database).ingest(manifest)
+
+    retrieval = RetrievalService(database, manifest.corpus_id)
+    status = retrieval.status("Atlas")
+
+    assert [item.related_entity_ids for item in status.connected_entities] == [
+        ["atlas", "compass"],
+        ["compass", "beacon"],
+    ]
+    assert [action.summary for action in status.open_actions] == [
+        "Validate the prototype."
+    ]
+    assert retrieval.search("prototype", subject="Atlas")

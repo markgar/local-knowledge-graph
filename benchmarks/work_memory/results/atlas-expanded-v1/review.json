@@ -1,0 +1,71 @@
+{
+  "reviewer": "parent agent; not blinded",
+  "arms": {
+    "kg": {
+      "all_submitted_quotes_present_in_delivered_payloads": true,
+      "unsupported_natural_language_claims_found": [],
+      "stale_facts_asserted_as_current": [],
+      "operation_breakdown": {
+        "status": {
+          "calls": 1,
+          "returned_bytes": 1055
+        },
+        "response": {
+          "calls": 8,
+          "returned_bytes": 25701
+        },
+        "source-context": {
+          "calls": 3,
+          "returned_bytes": 14532
+        },
+        "search": {
+          "calls": 11,
+          "returned_bytes": 43093
+        }
+      }
+    },
+    "markdown": {
+      "all_submitted_quotes_present_in_delivered_payloads": true,
+      "unsupported_natural_language_claims_found": [],
+      "stale_facts_asserted_as_current": [],
+      "operation_breakdown": {
+        "search": {
+          "calls": 1,
+          "returned_bytes": 581
+        },
+        "catalog": {
+          "calls": 1,
+          "returned_bytes": 5745
+        },
+        "read": {
+          "calls": 2,
+          "returned_bytes": 7683
+        },
+        "response": {
+          "calls": 4,
+          "returned_bytes": 38451
+        }
+      }
+    }
+  },
+  "frozen_scores_unchanged": true,
+  "scoring_defects": [
+    {
+      "question": "ledger-lifecycle",
+      "identified": "Before answer inspection and scoring; see pre-score-audit.json",
+      "problem": "Gold requires raw YAML date quotes unavailable as KG anchors. Dates and task-version facts were nevertheless all correct."
+    },
+    {
+      "question": "unknown-approval",
+      "identified": "After scoring",
+      "problem": "Gold only accepts the older pending-approval note. Both agents instead cite the newer explicit statement that final production approval is not recorded; these are valid source-backed answers."
+    }
+  ],
+  "interpretation": "Both arms have all 14 canonical factual answers correct, correct abstention, and valid exact source quotes. Frozen full passes remain KG12/14 and Markdown13/14; the differences are citation-rule defects, not observed factual mistakes. No retrospective gold replacement or regrading was performed.",
+  "limitations": [
+    "One run per arm on templated synthetic data, not real personal work.",
+    "Project-named source paths make the relevant subset cheap to select.",
+    "KG-only versus Markdown-only tools does not measure the marginal benefit of adding KG tools to an agent that retains Markdown access.",
+    "Both used shared benchmark lossless paging; results are not a corpus-size-only comparison against the unpaged small trial."
+  ]
+}

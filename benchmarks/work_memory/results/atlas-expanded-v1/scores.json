@@ -1,0 +1,958 @@
+{
+  "benchmark_version": 2,
+  "response_limit_bytes": 12000,
+  "run": ".",
+  "source_documents": 483,
+  "source_bytes": 475964,
+  "questions_sha256": "af4045466550e7e485bad2aaa1505f0e12c6a960df60338d35aeb0202336d788",
+  "gold_sha256": "2c5ccb09a5b0aacdaf7b085ab200d594bdcac4a4eef6a674e2cbdb7672b8e57a",
+  "replicates_per_arm": 1,
+  "agent_configuration": "general-purpose agent type and runtime defaults in both arms; model IDs not independently verified by this harness",
+  "limitations": [
+    "Synthetic, structured corpus; correlated questions; one run per arm.",
+    "No conclusion about real work data or semantic retrieval quality.",
+    "Optional benchmark response paging is shared by both arms, not a native KG feature.",
+    "Tool elapsed time excludes model reasoning; response bytes are not token usage.",
+    "Response bytes count complete serialized payloads, not successful stdout delivery or model-visible context; tool hosts can still truncate successful stdout writes.",
+    "Data tool metrics exclude shared info/submission calls and one-time KG ingestion.",
+    "Source restrictions are agent protocol instructions, not a filesystem sandbox.",
+    "Natural-language answers require separate review for unsupported extra claims."
+  ],
+  "setup": {
+    "ingestion_ms": 2491.1599590013793,
+    "included_in_query_tool_metrics": false
+  },
+  "arms": {
+    "kg": {
+      "questions": 14,
+      "passed": 12,
+      "facts_correct": 14,
+      "valid_citations": 14,
+      "abstention_correct": 14,
+      "data_tool_calls": 23,
+      "failed_data_tool_calls": 0,
+      "observed_delivery_failures": 0,
+      "data_response_utf8_bytes": 84381,
+      "data_tool_elapsed_ms": 6963.908165998873,
+      "operations": {
+        "status": 1,
+        "response": 8,
+        "source-context": 3,
+        "search": 11
+      },
+      "scores": [
+        {
+          "id": "current-launch",
+          "facts_correct": true,
+          "abstention_correct": true,
+          "citations_valid": true,
+          "evidence_rules_covered": 1,
+          "evidence_rules_total": 1,
+          "missing_evidence_rules": [],
+          "invalid_citations": [],
+          "passed": true,
+          "expected_facts": {
+            "date": "2026-11-12"
+          },
+          "actual_facts": {
+            "date": "2026-11-12"
+          }
+        },
+        {
+          "id": "open-work",
+          "facts_correct": true,
+          "abstention_correct": true,
+          "citations_valid": true,
+          "evidence_rules_covered": 3,
+          "evidence_rules_total": 3,
+          "missing_evidence_rules": [],
+          "invalid_citations": [],
+          "passed": true,
+          "expected_facts": {
+            "actions": [
+              {
+                "task": "Reconcile the historical permission ledger.",
+                "owner": "Lena",
+                "due": "2026-10-09"
+              },
+              {
+                "task": "Update the launch calendar.",
+                "owner": "Morgan",
+                "due": "2026-09-25"
+              },
+              {
+                "task": "Upload access evidence.",
+                "owner": "Morgan",
+                "due": "2026-09-24"
+              }
+            ]
+          },
+          "actual_facts": {
+            "actions": [
+              {
+                "task": "Reconcile the historical permission ledger.",
+                "owner": "Lena",
+                "due": "2026-10-09"
+              },
+              {
+                "task": "Update the launch calendar.",
+                "owner": "Morgan",
+                "due": "2026-09-25"
+              },
+              {
+                "task": "Upload access evidence.",
+                "owner": "Morgan",
+                "due": "2026-09-24"
+              }
+            ]
+          }
+        },
+        {
+          "id": "review-confirmed",
+          "facts_correct": true,
+          "abstention_correct": true,
+          "citations_valid": true,
+          "evidence_rules_covered": 2,
+          "evidence_rules_total": 2,
+          "missing_evidence_rules": [],
+          "invalid_citations": [],
+          "passed": true,
+          "expected_facts": {
+            "completed": true,
+            "owner": "Priya",
+            "review_date": "2026-09-25",
+            "review_time": "10:00"
+          },
+          "actual_facts": {
+            "completed": true,
+            "owner": "Priya",
+            "review_date": "2026-09-25",
+            "review_time": "10:00"
+          }
+        },
+        {
+          "id": "approval-evidence",
+          "facts_correct": true,
+          "abstention_correct": true,
+          "citations_valid": true,
+          "evidence_rules_covered": 1,
+          "evidence_rules_total": 1,
+          "missing_evidence_rules": [],
+          "invalid_citations": [],
+          "passed": true,
+          "expected_facts": {
+            "required_artifacts": [
+              "signed access inventory"
+            ]
+          },
+          "actual_facts": {
+            "required_artifacts": [
+              "signed access inventory"
+            ]
+          }
+        },
+        {
+          "id": "downstream-blocker",
+          "facts_correct": true,
+          "abstention_correct": true,
+          "citations_valid": true,
+          "evidence_rules_covered": 3,
+          "evidence_rules_total": 3,
+          "missing_evidence_rules": [],
+          "invalid_citations": [],
+          "passed": true,
+          "expected_facts": {
+            "system": "Audit Trail",
+            "blocker": "The archive signing certificate is unavailable.",
+            "path": [
+              "Atlas",
+              "Security Review",
+              "Audit Trail"
+            ]
+          },
+          "actual_facts": {
+            "system": "Audit Trail",
+            "blocker": "The archive signing certificate is unavailable.",
+            "path": [
+              "Atlas",
+              "Security Review",
+              "Audit Trail"
+            ]
+          }
+        },
+        {
+          "id": "calendar-state",
+          "facts_correct": true,
+          "abstention_correct": true,
+          "citations_valid": true,
+          "evidence_rules_covered": 2,
+          "evidence_rules_total": 2,
+          "missing_evidence_rules": [],
+          "invalid_citations": [],
+          "passed": true,
+          "expected_facts": {
+            "calendar_date": "2026-10-01",
+            "conflicting_decision_date": "2026-10-08",
+            "current_target": "2026-11-12",
+            "calendar_update_confirmed": false
+          },
+          "actual_facts": {
+            "calendar_date": "2026-10-01",
+            "conflicting_decision_date": "2026-10-08",
+            "current_target": "2026-11-12",
+            "calendar_update_confirmed": false
+          }
+        },
+        {
+          "id": "project-isolation",
+          "facts_correct": true,
+          "abstention_correct": true,
+          "citations_valid": true,
+          "evidence_rules_covered": 2,
+          "evidence_rules_total": 2,
+          "missing_evidence_rules": [],
+          "invalid_citations": [],
+          "passed": true,
+          "expected_facts": {
+            "belongs_to_atlas": false,
+            "project": "Atlascope"
+          },
+          "actual_facts": {
+            "belongs_to_atlas": false,
+            "project": "Atlascope"
+          }
+        },
+        {
+          "id": "literal-examples",
+          "facts_correct": true,
+          "abstention_correct": true,
+          "citations_valid": true,
+          "evidence_rules_covered": 1,
+          "evidence_rules_total": 1,
+          "missing_evidence_rules": [],
+          "invalid_citations": [],
+          "passed": true,
+          "expected_facts": {
+            "live_dependency": false,
+            "live_task": false
+          },
+          "actual_facts": {
+            "live_dependency": false,
+            "live_task": false
+          }
+        },
+        {
+          "id": "unknown-approval",
+          "facts_correct": true,
+          "abstention_correct": true,
+          "citations_valid": true,
+          "evidence_rules_covered": 0,
+          "evidence_rules_total": 1,
+          "missing_evidence_rules": [
+            {
+              "sources": [
+                "atlas-vault/01-planning-meeting.md"
+              ],
+              "contains": [
+                "security approval for Atlas is still pending"
+              ]
+            }
+          ],
+          "invalid_citations": [],
+          "passed": false,
+          "expected_facts": {
+            "approval_confirmed": false,
+            "approver": null
+          },
+          "actual_facts": {
+            "approval_confirmed": false,
+            "approver": null
+          }
+        },
+        {
+          "id": "launch-history",
+          "facts_correct": true,
+          "abstention_correct": true,
+          "citations_valid": true,
+          "evidence_rules_covered": 3,
+          "evidence_rules_total": 3,
+          "missing_evidence_rules": [],
+          "invalid_citations": [],
+          "passed": true,
+          "expected_facts": {
+            "target_history": [
+              "2026-10-01",
+              "2026-10-08",
+              "2026-10-15"
+            ],
+            "current_target": "2026-10-15"
+          },
+          "actual_facts": {
+            "target_history": [
+              "2026-10-01",
+              "2026-10-08",
+              "2026-10-15"
+            ],
+            "current_target": "2026-10-15"
+          }
+        },
+        {
+          "id": "ledger-lifecycle",
+          "facts_correct": true,
+          "abstention_correct": true,
+          "citations_valid": true,
+          "evidence_rules_covered": 5,
+          "evidence_rules_total": 10,
+          "missing_evidence_rules": [
+            {
+              "sources": [
+                "history/atlas/01-working-record.md"
+              ],
+              "contains": [
+                "date: 2026-01-05"
+              ]
+            },
+            {
+              "sources": [
+                "history/atlas/09-working-record.md"
+              ],
+              "contains": [
+                "date: 2026-03-02"
+              ]
+            },
+            {
+              "sources": [
+                "history/atlas/17-working-record.md"
+              ],
+              "contains": [
+                "date: 2026-04-27"
+              ]
+            },
+            {
+              "sources": [
+                "history/atlas/25-working-record.md"
+              ],
+              "contains": [
+                "date: 2026-06-22"
+              ]
+            },
+            {
+              "sources": [
+                "history/atlas/36-working-record.md"
+              ],
+              "contains": [
+                "date: 2026-09-07"
+              ]
+            }
+          ],
+          "invalid_citations": [],
+          "passed": false,
+          "expected_facts": {
+            "versions": [
+              {
+                "date": "2026-01-05",
+                "owner": "Priya",
+                "status": "open",
+                "due": "2026-02-06"
+              },
+              {
+                "date": "2026-03-02",
+                "owner": "Priya",
+                "status": "completed",
+                "due": "2026-03-02"
+              },
+              {
+                "date": "2026-04-27",
+                "owner": "Morgan",
+                "status": "open",
+                "due": "2026-06-12"
+              },
+              {
+                "date": "2026-06-22",
+                "owner": "Lena",
+                "status": "open",
+                "due": "2026-08-14"
+              },
+              {
+                "date": "2026-09-07",
+                "owner": "Lena",
+                "status": "open",
+                "due": "2026-10-09"
+              }
+            ],
+            "current_owner": "Lena"
+          },
+          "actual_facts": {
+            "versions": [
+              {
+                "date": "2026-01-05",
+                "owner": "Priya",
+                "status": "open",
+                "due": "2026-02-06"
+              },
+              {
+                "date": "2026-03-02",
+                "owner": "Priya",
+                "status": "completed",
+                "due": "2026-03-02"
+              },
+              {
+                "date": "2026-04-27",
+                "owner": "Morgan",
+                "status": "open",
+                "due": "2026-06-12"
+              },
+              {
+                "date": "2026-06-22",
+                "owner": "Lena",
+                "status": "open",
+                "due": "2026-08-14"
+              },
+              {
+                "date": "2026-09-07",
+                "owner": "Lena",
+                "status": "open",
+                "due": "2026-10-09"
+              }
+            ],
+            "current_owner": "Lena"
+          }
+        },
+        {
+          "id": "extended-launch-history",
+          "facts_correct": true,
+          "abstention_correct": true,
+          "citations_valid": true,
+          "evidence_rules_covered": 7,
+          "evidence_rules_total": 7,
+          "missing_evidence_rules": [],
+          "invalid_citations": [],
+          "passed": true,
+          "expected_facts": {
+            "target_history": [
+              "2026-10-01",
+              "2026-10-08",
+              "2026-10-15",
+              "2026-10-22",
+              "2026-11-05",
+              "2026-11-12"
+            ],
+            "current_target": "2026-11-12",
+            "last_reason": "The repeat rehearsal is scheduled after the maintenance window."
+          },
+          "actual_facts": {
+            "target_history": [
+              "2026-10-01",
+              "2026-10-08",
+              "2026-10-15",
+              "2026-10-22",
+              "2026-11-05",
+              "2026-11-12"
+            ],
+            "current_target": "2026-11-12",
+            "last_reason": "The repeat rehearsal is scheduled after the maintenance window."
+          }
+        },
+        {
+          "id": "ledger-replay-comparison",
+          "facts_correct": true,
+          "abstention_correct": true,
+          "citations_valid": true,
+          "evidence_rules_covered": 2,
+          "evidence_rules_total": 2,
+          "missing_evidence_rules": [],
+          "invalid_citations": [],
+          "passed": true,
+          "expected_facts": {
+            "sampled_accounts": [
+              120,
+              120
+            ],
+            "missing_accounts": [
+              18,
+              3
+            ],
+            "omissions_removed": 15,
+            "completed": false
+          },
+          "actual_facts": {
+            "sampled_accounts": [
+              120,
+              120
+            ],
+            "missing_accounts": [
+              18,
+              3
+            ],
+            "omissions_removed": 15,
+            "completed": false
+          }
+        },
+        {
+          "id": "unknown-production-serial",
+          "facts_correct": true,
+          "abstention_correct": true,
+          "citations_valid": true,
+          "evidence_rules_covered": 1,
+          "evidence_rules_total": 1,
+          "missing_evidence_rules": [],
+          "invalid_citations": [],
+          "passed": true,
+          "expected_facts": {
+            "recorded": false,
+            "serial_number": null
+          },
+          "actual_facts": {
+            "recorded": false,
+            "serial_number": null
+          }
+        }
+      ]
+    },
+    "markdown": {
+      "questions": 14,
+      "passed": 13,
+      "facts_correct": 14,
+      "valid_citations": 14,
+      "abstention_correct": 14,
+      "data_tool_calls": 8,
+      "failed_data_tool_calls": 0,
+      "observed_delivery_failures": 0,
+      "data_response_utf8_bytes": 52460,
+      "data_tool_elapsed_ms": 930.9817499997735,
+      "operations": {
+        "search": 1,
+        "catalog": 1,
+        "read": 2,
+        "response": 4
+      },
+      "scores": [
+        {
+          "id": "current-launch",
+          "facts_correct": true,
+          "abstention_correct": true,
+          "citations_valid": true,
+          "evidence_rules_covered": 1,
+          "evidence_rules_total": 1,
+          "missing_evidence_rules": [],
+          "invalid_citations": [],
+          "passed": true,
+          "expected_facts": {
+            "date": "2026-11-12"
+          },
+          "actual_facts": {
+            "date": "2026-11-12"
+          }
+        },
+        {
+          "id": "open-work",
+          "facts_correct": true,
+          "abstention_correct": true,
+          "citations_valid": true,
+          "evidence_rules_covered": 3,
+          "evidence_rules_total": 3,
+          "missing_evidence_rules": [],
+          "invalid_citations": [],
+          "passed": true,
+          "expected_facts": {
+            "actions": [
+              {
+                "task": "Reconcile the historical permission ledger.",
+                "owner": "Lena",
+                "due": "2026-10-09"
+              },
+              {
+                "task": "Update the launch calendar.",
+                "owner": "Morgan",
+                "due": "2026-09-25"
+              },
+              {
+                "task": "Upload access evidence.",
+                "owner": "Morgan",
+                "due": "2026-09-24"
+              }
+            ]
+          },
+          "actual_facts": {
+            "actions": [
+              {
+                "task": "Reconcile the historical permission ledger.",
+                "owner": "Lena",
+                "due": "2026-10-09"
+              },
+              {
+                "task": "Update the launch calendar.",
+                "owner": "Morgan",
+                "due": "2026-09-25"
+              },
+              {
+                "task": "Upload access evidence.",
+                "owner": "Morgan",
+                "due": "2026-09-24"
+              }
+            ]
+          }
+        },
+        {
+          "id": "review-confirmed",
+          "facts_correct": true,
+          "abstention_correct": true,
+          "citations_valid": true,
+          "evidence_rules_covered": 2,
+          "evidence_rules_total": 2,
+          "missing_evidence_rules": [],
+          "invalid_citations": [],
+          "passed": true,
+          "expected_facts": {
+            "completed": true,
+            "owner": "Priya",
+            "review_date": "2026-09-25",
+            "review_time": "10:00"
+          },
+          "actual_facts": {
+            "completed": true,
+            "owner": "Priya",
+            "review_date": "2026-09-25",
+            "review_time": "10:00"
+          }
+        },
+        {
+          "id": "approval-evidence",
+          "facts_correct": true,
+          "abstention_correct": true,
+          "citations_valid": true,
+          "evidence_rules_covered": 1,
+          "evidence_rules_total": 1,
+          "missing_evidence_rules": [],
+          "invalid_citations": [],
+          "passed": true,
+          "expected_facts": {
+            "required_artifacts": [
+              "signed access inventory"
+            ]
+          },
+          "actual_facts": {
+            "required_artifacts": [
+              "signed access inventory"
+            ]
+          }
+        },
+        {
+          "id": "downstream-blocker",
+          "facts_correct": true,
+          "abstention_correct": true,
+          "citations_valid": true,
+          "evidence_rules_covered": 3,
+          "evidence_rules_total": 3,
+          "missing_evidence_rules": [],
+          "invalid_citations": [],
+          "passed": true,
+          "expected_facts": {
+            "system": "Audit Trail",
+            "blocker": "The archive signing certificate is unavailable.",
+            "path": [
+              "Atlas",
+              "Security Review",
+              "Audit Trail"
+            ]
+          },
+          "actual_facts": {
+            "system": "Audit Trail",
+            "blocker": "The archive signing certificate is unavailable.",
+            "path": [
+              "Atlas",
+              "Security Review",
+              "Audit Trail"
+            ]
+          }
+        },
+        {
+          "id": "calendar-state",
+          "facts_correct": true,
+          "abstention_correct": true,
+          "citations_valid": true,
+          "evidence_rules_covered": 2,
+          "evidence_rules_total": 2,
+          "missing_evidence_rules": [],
+          "invalid_citations": [],
+          "passed": true,
+          "expected_facts": {
+            "calendar_date": "2026-10-01",
+            "conflicting_decision_date": "2026-10-08",
+            "current_target": "2026-11-12",
+            "calendar_update_confirmed": false
+          },
+          "actual_facts": {
+            "calendar_date": "2026-10-01",
+            "conflicting_decision_date": "2026-10-08",
+            "current_target": "2026-11-12",
+            "calendar_update_confirmed": false
+          }
+        },
+        {
+          "id": "project-isolation",
+          "facts_correct": true,
+          "abstention_correct": true,
+          "citations_valid": true,
+          "evidence_rules_covered": 2,
+          "evidence_rules_total": 2,
+          "missing_evidence_rules": [],
+          "invalid_citations": [],
+          "passed": true,
+          "expected_facts": {
+            "belongs_to_atlas": false,
+            "project": "Atlascope"
+          },
+          "actual_facts": {
+            "belongs_to_atlas": false,
+            "project": "Atlascope"
+          }
+        },
+        {
+          "id": "literal-examples",
+          "facts_correct": true,
+          "abstention_correct": true,
+          "citations_valid": true,
+          "evidence_rules_covered": 1,
+          "evidence_rules_total": 1,
+          "missing_evidence_rules": [],
+          "invalid_citations": [],
+          "passed": true,
+          "expected_facts": {
+            "live_dependency": false,
+            "live_task": false
+          },
+          "actual_facts": {
+            "live_dependency": false,
+            "live_task": false
+          }
+        },
+        {
+          "id": "unknown-approval",
+          "facts_correct": true,
+          "abstention_correct": true,
+          "citations_valid": true,
+          "evidence_rules_covered": 0,
+          "evidence_rules_total": 1,
+          "missing_evidence_rules": [
+            {
+              "sources": [
+                "atlas-vault/01-planning-meeting.md"
+              ],
+              "contains": [
+                "security approval for Atlas is still pending"
+              ]
+            }
+          ],
+          "invalid_citations": [],
+          "passed": false,
+          "expected_facts": {
+            "approval_confirmed": false,
+            "approver": null
+          },
+          "actual_facts": {
+            "approval_confirmed": false,
+            "approver": null
+          }
+        },
+        {
+          "id": "launch-history",
+          "facts_correct": true,
+          "abstention_correct": true,
+          "citations_valid": true,
+          "evidence_rules_covered": 3,
+          "evidence_rules_total": 3,
+          "missing_evidence_rules": [],
+          "invalid_citations": [],
+          "passed": true,
+          "expected_facts": {
+            "target_history": [
+              "2026-10-01",
+              "2026-10-08",
+              "2026-10-15"
+            ],
+            "current_target": "2026-10-15"
+          },
+          "actual_facts": {
+            "target_history": [
+              "2026-10-01",
+              "2026-10-08",
+              "2026-10-15"
+            ],
+            "current_target": "2026-10-15"
+          }
+        },
+        {
+          "id": "ledger-lifecycle",
+          "facts_correct": true,
+          "abstention_correct": true,
+          "citations_valid": true,
+          "evidence_rules_covered": 10,
+          "evidence_rules_total": 10,
+          "missing_evidence_rules": [],
+          "invalid_citations": [],
+          "passed": true,
+          "expected_facts": {
+            "versions": [
+              {
+                "date": "2026-01-05",
+                "owner": "Priya",
+                "status": "open",
+                "due": "2026-02-06"
+              },
+              {
+                "date": "2026-03-02",
+                "owner": "Priya",
+                "status": "completed",
+                "due": "2026-03-02"
+              },
+              {
+                "date": "2026-04-27",
+                "owner": "Morgan",
+                "status": "open",
+                "due": "2026-06-12"
+              },
+              {
+                "date": "2026-06-22",
+                "owner": "Lena",
+                "status": "open",
+                "due": "2026-08-14"
+              },
+              {
+                "date": "2026-09-07",
+                "owner": "Lena",
+                "status": "open",
+                "due": "2026-10-09"
+              }
+            ],
+            "current_owner": "Lena"
+          },
+          "actual_facts": {
+            "versions": [
+              {
+                "date": "2026-01-05",
+                "owner": "Priya",
+                "status": "open",
+                "due": "2026-02-06"
+              },
+              {
+                "date": "2026-03-02",
+                "owner": "Priya",
+                "status": "completed",
+                "due": "2026-03-02"
+              },
+              {
+                "date": "2026-04-27",
+                "owner": "Morgan",
+                "status": "open",
+                "due": "2026-06-12"
+              },
+              {
+                "date": "2026-06-22",
+                "owner": "Lena",
+                "status": "open",
+                "due": "2026-08-14"
+              },
+              {
+                "date": "2026-09-07",
+                "owner": "Lena",
+                "status": "open",
+                "due": "2026-10-09"
+              }
+            ],
+            "current_owner": "Lena"
+          }
+        },
+        {
+          "id": "extended-launch-history",
+          "facts_correct": true,
+          "abstention_correct": true,
+          "citations_valid": true,
+          "evidence_rules_covered": 7,
+          "evidence_rules_total": 7,
+          "missing_evidence_rules": [],
+          "invalid_citations": [],
+          "passed": true,
+          "expected_facts": {
+            "target_history": [
+              "2026-10-01",
+              "2026-10-08",
+              "2026-10-15",
+              "2026-10-22",
+              "2026-11-05",
+              "2026-11-12"
+            ],
+            "current_target": "2026-11-12",
+            "last_reason": "The repeat rehearsal is scheduled after the maintenance window."
+          },
+          "actual_facts": {
+            "target_history": [
+              "2026-10-01",
+              "2026-10-08",
+              "2026-10-15",
+              "2026-10-22",
+              "2026-11-05",
+              "2026-11-12"
+            ],
+            "current_target": "2026-11-12",
+            "last_reason": "The repeat rehearsal is scheduled after the maintenance window."
+          }
+        },
+        {
+          "id": "ledger-replay-comparison",
+          "facts_correct": true,
+          "abstention_correct": true,
+          "citations_valid": true,
+          "evidence_rules_covered": 2,
+          "evidence_rules_total": 2,
+          "missing_evidence_rules": [],
+          "invalid_citations": [],
+          "passed": true,
+          "expected_facts": {
+            "sampled_accounts": [
+              120,
+              120
+            ],
+            "missing_accounts": [
+              18,
+              3
+            ],
+            "omissions_removed": 15,
+            "completed": false
+          },
+          "actual_facts": {
+            "sampled_accounts": [
+              120,
+              120
+            ],
+            "missing_accounts": [
+              18,
+              3
+            ],
+            "omissions_removed": 15,
+            "completed": false
+          }
+        },
+        {
+          "id": "unknown-production-serial",
+          "facts_correct": true,
+          "abstention_correct": true,
+          "citations_valid": true,
+          "evidence_rules_covered": 1,
+          "evidence_rules_total": 1,
+          "missing_evidence_rules": [],
+          "invalid_citations": [],
+          "passed": true,
+          "expected_facts": {
+            "recorded": false,
+            "serial_number": null
+          },
+          "actual_facts": {
+            "recorded": false,
+            "serial_number": null
+          }
+        }
+      ]
+    }
+  }
+}

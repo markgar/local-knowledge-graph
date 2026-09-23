@@ -1,0 +1,118 @@
+{
+  "corpus_id": "work-memory-expanded",
+  "display_name": "Expanded synthetic work-memory history",
+  "vault_root": "notes",
+  "include": [
+    "**/*.md"
+  ],
+  "database": "index.sqlite3",
+  "allow_symlinks": false,
+  "max_source_bytes": 5000000,
+  "seed_entities": [
+    {
+      "entity_id": "atlas",
+      "name": "Atlas",
+      "entity_type": "project",
+      "aliases": []
+    },
+    {
+      "entity_id": "security-review",
+      "name": "Security Review",
+      "entity_type": "workstream",
+      "aliases": []
+    },
+    {
+      "entity_id": "audit-trail",
+      "name": "Audit Trail",
+      "entity_type": "system",
+      "aliases": []
+    },
+    {
+      "entity_id": "priya",
+      "name": "Priya",
+      "entity_type": "person",
+      "aliases": []
+    },
+    {
+      "entity_id": "morgan",
+      "name": "Morgan",
+      "entity_type": "person",
+      "aliases": []
+    },
+    {
+      "entity_id": "atlascope",
+      "name": "Atlascope",
+      "entity_type": "project",
+      "aliases": []
+    },
+    {
+      "entity_id": "atlasbridge",
+      "name": "Atlasbridge",
+      "entity_type": "project",
+      "aliases": []
+    },
+    {
+      "entity_id": "atlasway",
+      "name": "Atlasway",
+      "entity_type": "project",
+      "aliases": []
+    },
+    {
+      "entity_id": "borealis",
+      "name": "Borealis",
+      "entity_type": "project",
+      "aliases": []
+    },
+    {
+      "entity_id": "borealiscope",
+      "name": "Borealiscope",
+      "entity_type": "project",
+      "aliases": []
+    },
+    {
+      "entity_id": "meridian",
+      "name": "Meridian",
+      "entity_type": "project",
+      "aliases": []
+    },
+    {
+      "entity_id": "meridianops",
+      "name": "MeridianOps",
+      "entity_type": "project",
+      "aliases": []
+    },
+    {
+      "entity_id": "juniper",
+      "name": "Juniper",
+      "entity_type": "project",
+      "aliases": []
+    },
+    {
+      "entity_id": "junipercloud",
+      "name": "JuniperCloud",
+      "entity_type": "project",
+      "aliases": []
+    },
+    {
+      "entity_id": "harbor",
+      "name": "Harbor",
+      "entity_type": "project",
+      "aliases": []
+    },
+    {
+      "entity_id": "harborview",
+      "name": "Harborview",
+      "entity_type": "project",
+      "aliases": []
+    },
+    {
+      "entity_id": "keystone",
+      "name": "Keystone",
+      "entity_type": "project",
+      "aliases": []
+    }
+  ],
+  "metadata_fields": {
+    "event_time": "date"
+  }
+}

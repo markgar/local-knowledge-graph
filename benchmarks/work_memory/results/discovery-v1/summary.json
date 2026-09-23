@@ -1,0 +1,192 @@
+{
+  "replicates_per_arm": 2,
+  "run_ids": [
+    "6a4fe1b8-60e9-486a-bd92-07026e0b2d09",
+    "831c3216-435e-42ab-bb45-c86b66c5811f"
+  ],
+  "replicate_numbers": [
+    1,
+    2
+  ],
+  "arms": {
+    "markdown": {
+      "passed": {
+        "observations": [
+          10,
+          10
+        ],
+        "mean": 10,
+        "median": 10.0
+      },
+      "facts_correct": {
+        "observations": [
+          10,
+          10
+        ],
+        "mean": 10,
+        "median": 10.0
+      },
+      "valid_citations": {
+        "observations": [
+          10,
+          10
+        ],
+        "mean": 10,
+        "median": 10.0
+      },
+      "abstention_correct": {
+        "observations": [
+          10,
+          10
+        ],
+        "mean": 10,
+        "median": 10.0
+      },
+      "data_tool_calls": {
+        "observations": [
+          11,
+          13
+        ],
+        "mean": 12,
+        "median": 12.0
+      },
+      "data_response_utf8_bytes": {
+        "observations": [
+          34499,
+          51033
+        ],
+        "mean": 42766,
+        "median": 42766.0
+      },
+      "data_tool_elapsed_ms": {
+        "observations": [
+          8131.545416996232,
+          8211.221165998722
+        ],
+        "mean": 8171.383291497477,
+        "median": 8171.383291497477
+      }
+    },
+    "index": {
+      "passed": {
+        "observations": [
+          10,
+          10
+        ],
+        "mean": 10,
+        "median": 10.0
+      },
+      "facts_correct": {
+        "observations": [
+          10,
+          10
+        ],
+        "mean": 10,
+        "median": 10.0
+      },
+      "valid_citations": {
+        "observations": [
+          10,
+          10
+        ],
+        "mean": 10,
+        "median": 10.0
+      },
+      "abstention_correct": {
+        "observations": [
+          10,
+          10
+        ],
+        "mean": 10,
+        "median": 10.0
+      },
+      "data_tool_calls": {
+        "observations": [
+          17,
+          9
+        ],
+        "mean": 13,
+        "median": 13.0
+      },
+      "data_response_utf8_bytes": {
+        "observations": [
+          58096,
+          41256
+        ],
+        "mean": 49676,
+        "median": 49676.0
+      },
+      "data_tool_elapsed_ms": {
+        "observations": [
+          12475.457831998938,
+          6373.903791994962
+        ],
+        "mean": 9424.68081199695,
+        "median": 9424.68081199695
+      }
+    },
+    "kg": {
+      "passed": {
+        "observations": [
+          10,
+          10
+        ],
+        "mean": 10,
+        "median": 10.0
+      },
+      "facts_correct": {
+        "observations": [
+          10,
+          10
+        ],
+        "mean": 10,
+        "median": 10.0
+      },
+      "valid_citations": {
+        "observations": [
+          10,
+          10
+        ],
+        "mean": 10,
+        "median": 10.0
+      },
+      "abstention_correct": {
+        "observations": [
+          10,
+          10
+        ],
+        "mean": 10,
+        "median": 10.0
+      },
+      "data_tool_calls": {
+        "observations": [
+          17,
+          9
+        ],
+        "mean": 13,
+        "median": 13.0
+      },
+      "data_response_utf8_bytes": {
+        "observations": [
+          64830,
+          42667
+        ],
+        "mean": 53748.5,
+        "median": 53748.5
+      },
+      "data_tool_elapsed_ms": {
+        "observations": [
+          16052.320836006402,
+          5622.052332997555
+        ],
+        "mean": 10837.186584501978,
+        "median": 10837.186584501978
+      }
+    }
+  },
+  "limitations": [
+    "Repeated agent choices, not independent question samples or statistical significance.",
+    "Fresh contexts and identical model settings must be enforced by the coordinator.",
+    "Host delivery/model audit remains separate; this summary does not certify it."
+  ]
+}

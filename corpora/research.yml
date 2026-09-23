@@ -1,0 +1,23 @@
+corpus_id: research-example
+display_name: Research example corpus
+vault_root: fixtures/research-vault
+database: ../.kg/research-example.sqlite3
+include:
+  - "**/*.md"
+seed_entities:
+  - entity_id: orbit
+    name: Orbit
+    entity_type: project
+    aliases:
+      - Orbit study
+  - entity_id: signal
+    name: Signal
+    entity_type: topic
+    aliases: []
+  - entity_id: relay
+    name: Relay
+    entity_type: experiment
+    aliases: []
+metadata_fields:
+  event_time: date
+

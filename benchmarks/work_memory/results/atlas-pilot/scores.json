@@ -1,0 +1,533 @@
+{
+  "benchmark_version": 1,
+  "run": ".",
+  "source_documents": 12,
+  "source_bytes": 3931,
+  "questions_sha256": "05481d2bc54dc0eff78a73feac6557563ef5d8fcf43af889ff2e394854d2aab2",
+  "gold_sha256": "e8791a376adc574915a759ded10d19fd17c0bd0c596ca0ca361ec5c48e1b7e8b",
+  "replicates_per_arm": 1,
+  "agent_configuration": "general-purpose agent type and runtime defaults in both arms; model IDs not independently verified by this harness",
+  "limitations": [
+    "Synthetic, small, structured corpus; correlated questions; one run per arm.",
+    "No conclusion about large corpora, real work data, or semantic retrieval quality.",
+    "Tool elapsed time excludes model reasoning; response bytes are not token usage.",
+    "Response bytes count full wrapper emissions, which the agent or tool host may subsequently filter or truncate; they are not model-visible context measurements.",
+    "Data tool metrics exclude shared info/submission calls and one-time KG ingestion.",
+    "Source restrictions are agent protocol instructions, not a filesystem sandbox.",
+    "Natural-language answers require separate review for unsupported extra claims."
+  ],
+  "setup": {
+    "ingestion_ms": 27.933082999879844,
+    "included_in_query_tool_metrics": false
+  },
+  "arms": {
+    "kg": {
+      "questions": 10,
+      "passed": 10,
+      "facts_correct": 10,
+      "valid_citations": 10,
+      "abstention_correct": 10,
+      "data_tool_calls": 12,
+      "failed_data_tool_calls": 0,
+      "data_response_utf8_bytes": 83036,
+      "data_tool_elapsed_ms": 2585.2992099989933,
+      "operations": {
+        "status": 4,
+        "actions": 1,
+        "record-state": 2,
+        "source-context": 2,
+        "search": 3
+      },
+      "scores": [
+        {
+          "id": "current-launch",
+          "facts_correct": true,
+          "abstention_correct": true,
+          "citations_valid": true,
+          "evidence_rules_covered": 1,
+          "evidence_rules_total": 1,
+          "missing_evidence_rules": [],
+          "invalid_citations": [],
+          "passed": true,
+          "expected_facts": {
+            "date": "2026-10-15"
+          },
+          "actual_facts": {
+            "date": "2026-10-15"
+          }
+        },
+        {
+          "id": "open-work",
+          "facts_correct": true,
+          "abstention_correct": true,
+          "citations_valid": true,
+          "evidence_rules_covered": 2,
+          "evidence_rules_total": 2,
+          "missing_evidence_rules": [],
+          "invalid_citations": [],
+          "passed": true,
+          "expected_facts": {
+            "actions": [
+              {
+                "task": "Update the launch calendar.",
+                "owner": "Morgan",
+                "due": "2026-09-25"
+              },
+              {
+                "task": "Upload access evidence.",
+                "owner": "Morgan",
+                "due": "2026-09-24"
+              }
+            ]
+          },
+          "actual_facts": {
+            "actions": [
+              {
+                "task": "Update the launch calendar.",
+                "owner": "Morgan",
+                "due": "2026-09-25"
+              },
+              {
+                "task": "Upload access evidence.",
+                "owner": "Morgan",
+                "due": "2026-09-24"
+              }
+            ]
+          }
+        },
+        {
+          "id": "review-confirmed",
+          "facts_correct": true,
+          "abstention_correct": true,
+          "citations_valid": true,
+          "evidence_rules_covered": 2,
+          "evidence_rules_total": 2,
+          "missing_evidence_rules": [],
+          "invalid_citations": [],
+          "passed": true,
+          "expected_facts": {
+            "completed": true,
+            "owner": "Priya",
+            "review_date": "2026-09-25",
+            "review_time": "10:00"
+          },
+          "actual_facts": {
+            "completed": true,
+            "owner": "Priya",
+            "review_date": "2026-09-25",
+            "review_time": "10:00"
+          }
+        },
+        {
+          "id": "approval-evidence",
+          "facts_correct": true,
+          "abstention_correct": true,
+          "citations_valid": true,
+          "evidence_rules_covered": 1,
+          "evidence_rules_total": 1,
+          "missing_evidence_rules": [],
+          "invalid_citations": [],
+          "passed": true,
+          "expected_facts": {
+            "required_artifacts": [
+              "signed access inventory"
+            ]
+          },
+          "actual_facts": {
+            "required_artifacts": [
+              "signed access inventory"
+            ]
+          }
+        },
+        {
+          "id": "downstream-blocker",
+          "facts_correct": true,
+          "abstention_correct": true,
+          "citations_valid": true,
+          "evidence_rules_covered": 3,
+          "evidence_rules_total": 3,
+          "missing_evidence_rules": [],
+          "invalid_citations": [],
+          "passed": true,
+          "expected_facts": {
+            "system": "Audit Trail",
+            "blocker": "The archive signing certificate is unavailable.",
+            "path": [
+              "Atlas",
+              "Security Review",
+              "Audit Trail"
+            ]
+          },
+          "actual_facts": {
+            "system": "Audit Trail",
+            "blocker": "The archive signing certificate is unavailable.",
+            "path": [
+              "Atlas",
+              "Security Review",
+              "Audit Trail"
+            ]
+          }
+        },
+        {
+          "id": "calendar-state",
+          "facts_correct": true,
+          "abstention_correct": true,
+          "citations_valid": true,
+          "evidence_rules_covered": 2,
+          "evidence_rules_total": 2,
+          "missing_evidence_rules": [],
+          "invalid_citations": [],
+          "passed": true,
+          "expected_facts": {
+            "calendar_date": "2026-10-01",
+            "conflicting_decision_date": "2026-10-08",
+            "current_target": "2026-10-15",
+            "calendar_update_confirmed": false
+          },
+          "actual_facts": {
+            "calendar_date": "2026-10-01",
+            "conflicting_decision_date": "2026-10-08",
+            "current_target": "2026-10-15",
+            "calendar_update_confirmed": false
+          }
+        },
+        {
+          "id": "project-isolation",
+          "facts_correct": true,
+          "abstention_correct": true,
+          "citations_valid": true,
+          "evidence_rules_covered": 2,
+          "evidence_rules_total": 2,
+          "missing_evidence_rules": [],
+          "invalid_citations": [],
+          "passed": true,
+          "expected_facts": {
+            "belongs_to_atlas": false,
+            "project": "Atlascope"
+          },
+          "actual_facts": {
+            "belongs_to_atlas": false,
+            "project": "Atlascope"
+          }
+        },
+        {
+          "id": "literal-examples",
+          "facts_correct": true,
+          "abstention_correct": true,
+          "citations_valid": true,
+          "evidence_rules_covered": 1,
+          "evidence_rules_total": 1,
+          "missing_evidence_rules": [],
+          "invalid_citations": [],
+          "passed": true,
+          "expected_facts": {
+            "live_dependency": false,
+            "live_task": false
+          },
+          "actual_facts": {
+            "live_dependency": false,
+            "live_task": false
+          }
+        },
+        {
+          "id": "unknown-approval",
+          "facts_correct": true,
+          "abstention_correct": true,
+          "citations_valid": true,
+          "evidence_rules_covered": 1,
+          "evidence_rules_total": 1,
+          "missing_evidence_rules": [],
+          "invalid_citations": [],
+          "passed": true,
+          "expected_facts": {
+            "approval_confirmed": false,
+            "approver": null
+          },
+          "actual_facts": {
+            "approval_confirmed": false,
+            "approver": null
+          }
+        },
+        {
+          "id": "launch-history",
+          "facts_correct": true,
+          "abstention_correct": true,
+          "citations_valid": true,
+          "evidence_rules_covered": 3,
+          "evidence_rules_total": 3,
+          "missing_evidence_rules": [],
+          "invalid_citations": [],
+          "passed": true,
+          "expected_facts": {
+            "target_history": [
+              "2026-10-01",
+              "2026-10-08",
+              "2026-10-15"
+            ],
+            "current_target": "2026-10-15"
+          },
+          "actual_facts": {
+            "target_history": [
+              "2026-10-01",
+              "2026-10-08",
+              "2026-10-15"
+            ],
+            "current_target": "2026-10-15"
+          }
+        }
+      ]
+    },
+    "markdown": {
+      "questions": 10,
+      "passed": 10,
+      "facts_correct": 10,
+      "valid_citations": 10,
+      "abstention_correct": 10,
+      "data_tool_calls": 1,
+      "failed_data_tool_calls": 0,
+      "data_response_utf8_bytes": 4931,
+      "data_tool_elapsed_ms": 3.845625000394648,
+      "operations": {
+        "read": 1
+      },
+      "scores": [
+        {
+          "id": "current-launch",
+          "facts_correct": true,
+          "abstention_correct": true,
+          "citations_valid": true,
+          "evidence_rules_covered": 1,
+          "evidence_rules_total": 1,
+          "missing_evidence_rules": [],
+          "invalid_citations": [],
+          "passed": true,
+          "expected_facts": {
+            "date": "2026-10-15"
+          },
+          "actual_facts": {
+            "date": "2026-10-15"
+          }
+        },
+        {
+          "id": "open-work",
+          "facts_correct": true,
+          "abstention_correct": true,
+          "citations_valid": true,
+          "evidence_rules_covered": 2,
+          "evidence_rules_total": 2,
+          "missing_evidence_rules": [],
+          "invalid_citations": [],
+          "passed": true,
+          "expected_facts": {
+            "actions": [
+              {
+                "task": "Update the launch calendar.",
+                "owner": "Morgan",
+                "due": "2026-09-25"
+              },
+              {
+                "task": "Upload access evidence.",
+                "owner": "Morgan",
+                "due": "2026-09-24"
+              }
+            ]
+          },
+          "actual_facts": {
+            "actions": [
+              {
+                "task": "Update the launch calendar.",
+                "owner": "Morgan",
+                "due": "2026-09-25"
+              },
+              {
+                "task": "Upload access evidence.",
+                "owner": "Morgan",
+                "due": "2026-09-24"
+              }
+            ]
+          }
+        },
+        {
+          "id": "review-confirmed",
+          "facts_correct": true,
+          "abstention_correct": true,
+          "citations_valid": true,
+          "evidence_rules_covered": 2,
+          "evidence_rules_total": 2,
+          "missing_evidence_rules": [],
+          "invalid_citations": [],
+          "passed": true,
+          "expected_facts": {
+            "completed": true,
+            "owner": "Priya",
+            "review_date": "2026-09-25",
+            "review_time": "10:00"
+          },
+          "actual_facts": {
+            "completed": true,
+            "owner": "Priya",
+            "review_date": "2026-09-25",
+            "review_time": "10:00"
+          }
+        },
+        {
+          "id": "approval-evidence",
+          "facts_correct": true,
+          "abstention_correct": true,
+          "citations_valid": true,
+          "evidence_rules_covered": 1,
+          "evidence_rules_total": 1,
+          "missing_evidence_rules": [],
+          "invalid_citations": [],
+          "passed": true,
+          "expected_facts": {
+            "required_artifacts": [
+              "signed access inventory"
+            ]
+          },
+          "actual_facts": {
+            "required_artifacts": [
+              "signed access inventory"
+            ]
+          }
+        },
+        {
+          "id": "downstream-blocker",
+          "facts_correct": true,
+          "abstention_correct": true,
+          "citations_valid": true,
+          "evidence_rules_covered": 3,
+          "evidence_rules_total": 3,
+          "missing_evidence_rules": [],
+          "invalid_citations": [],
+          "passed": true,
+          "expected_facts": {
+            "system": "Audit Trail",
+            "blocker": "The archive signing certificate is unavailable.",
+            "path": [
+              "Atlas",
+              "Security Review",
+              "Audit Trail"
+            ]
+          },
+          "actual_facts": {
+            "system": "Audit Trail",
+            "blocker": "The archive signing certificate is unavailable.",
+            "path": [
+              "Atlas",
+              "Security Review",
+              "Audit Trail"
+            ]
+          }
+        },
+        {
+          "id": "calendar-state",
+          "facts_correct": true,
+          "abstention_correct": true,
+          "citations_valid": true,
+          "evidence_rules_covered": 2,
+          "evidence_rules_total": 2,
+          "missing_evidence_rules": [],
+          "invalid_citations": [],
+          "passed": true,
+          "expected_facts": {
+            "calendar_date": "2026-10-01",
+            "conflicting_decision_date": "2026-10-08",
+            "current_target": "2026-10-15",
+            "calendar_update_confirmed": false
+          },
+          "actual_facts": {
+            "calendar_date": "2026-10-01",
+            "conflicting_decision_date": "2026-10-08",
+            "current_target": "2026-10-15",
+            "calendar_update_confirmed": false
+          }
+        },
+        {
+          "id": "project-isolation",
+          "facts_correct": true,
+          "abstention_correct": true,
+          "citations_valid": true,
+          "evidence_rules_covered": 2,
+          "evidence_rules_total": 2,
+          "missing_evidence_rules": [],
+          "invalid_citations": [],
+          "passed": true,
+          "expected_facts": {
+            "belongs_to_atlas": false,
+            "project": "Atlascope"
+          },
+          "actual_facts": {
+            "belongs_to_atlas": false,
+            "project": "Atlascope"
+          }
+        },
+        {
+          "id": "literal-examples",
+          "facts_correct": true,
+          "abstention_correct": true,
+          "citations_valid": true,
+          "evidence_rules_covered": 1,
+          "evidence_rules_total": 1,
+          "missing_evidence_rules": [],
+          "invalid_citations": [],
+          "passed": true,
+          "expected_facts": {
+            "live_dependency": false,
+            "live_task": false
+          },
+          "actual_facts": {
+            "live_dependency": false,
+            "live_task": false
+          }
+        },
+        {
+          "id": "unknown-approval",
+          "facts_correct": true,
+          "abstention_correct": true,
+          "citations_valid": true,
+          "evidence_rules_covered": 1,
+          "evidence_rules_total": 1,
+          "missing_evidence_rules": [],
+          "invalid_citations": [],
+          "passed": true,
+          "expected_facts": {
+            "approval_confirmed": false,
+            "approver": null
+          },
+          "actual_facts": {
+            "approval_confirmed": false,
+            "approver": null
+          }
+        },
+        {
+          "id": "launch-history",
+          "facts_correct": true,
+          "abstention_correct": true,
+          "citations_valid": true,
+          "evidence_rules_covered": 3,
+          "evidence_rules_total": 3,
+          "missing_evidence_rules": [],
+          "invalid_citations": [],
+          "passed": true,
+          "expected_facts": {
+            "target_history": [
+              "2026-10-01",
+              "2026-10-08",
+              "2026-10-15"
+            ],
+            "current_target": "2026-10-15"
+          },
+          "actual_facts": {
+            "target_history": [
+              "2026-10-01",
+              "2026-10-08",
+              "2026-10-15"
+            ],
+            "current_target": "2026-10-15"
+          }
+        }
+      ]
+    }
+  }
+}

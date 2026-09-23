@@ -4,8 +4,11 @@
 .pytest_cache/
 .ruff_cache/
 .venv/
+uv.lock
 __pycache__/
 *.egg-info/
 *.py[cod]
+*.dense.sqlite3*
 build/
 dist/
+benchmarks/qasper/data/

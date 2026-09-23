@@ -1,0 +1,224 @@
+{
+  "version": 1,
+  "answers": {
+    "q01": {
+      "facts": {
+        "project": "Nova"
+      },
+      "abstains": false,
+      "evidence": [
+        {
+          "sources": [
+            "mail/2026-09/20260909-995cad50945623c4238a.md",
+            "notes/2026-09/20260903-e04470a8567838bf85c5.md"
+          ],
+          "contains": [
+            "Nova",
+            "invoices",
+            "missing supplier references",
+            "after the mapping patch"
+          ]
+        }
+      ]
+    },
+    "q02": {
+      "facts": {
+        "project": "Cedar"
+      },
+      "abstains": false,
+      "evidence": [
+        {
+          "sources": [
+            "notes/2026-08/20260820-19d8170f95e47ee6ecf8.md"
+          ],
+          "contains": [
+            "Finished Cedar's inherited-role reconciliation",
+            "marked the promise closed"
+          ]
+        },
+        {
+          "sources": [
+            "mail/2026-08/20260824-ca011620a53cb36de870.md"
+          ],
+          "contains": [
+            "Please reopen",
+            "dropped nested groups",
+            "flattened subset"
+          ]
+        }
+      ]
+    },
+    "q03": {
+      "facts": {
+        "project": "Harborview"
+      },
+      "abstains": false,
+      "evidence": [
+        {
+          "sources": [
+            "mail/2026-08/20260826-f379b40e1d0f7b567dd2.md"
+          ],
+          "contains": [
+            "Harborview",
+            "totals by entrance and hour",
+            "no roster names"
+          ]
+        },
+        {
+          "sources": [
+            "notes/2026-09/20260915-de1a504bb70824b7216e.md"
+          ],
+          "contains": [
+            "Alex delivered Harborview's visitor-count export today"
+          ]
+        }
+      ]
+    },
+    "q04": {
+      "facts": {
+        "project": "Ember"
+      },
+      "abstains": false,
+      "evidence": [
+        {
+          "sources": [
+            "mail/2026-09/20260902-7e9c25be8a96614f720a.md"
+          ],
+          "contains": [
+            "Change Ember receipt-payload retention",
+            "customer dispute window was extended"
+          ]
+        }
+      ]
+    },
+    "q05": {
+      "facts": {
+        "project": "Drift"
+      },
+      "abstains": false,
+      "evidence": [
+        {
+          "sources": [
+            "meetings/2026-08/20260806-5f8b89e1a8b2d8291183.md"
+          ],
+          "contains": [
+            "Drift",
+            "phone comes back online",
+            "locally saved forms against what arrived"
+          ]
+        }
+      ]
+    },
+    "q06": {
+      "facts": {
+        "project": "Lumen"
+      },
+      "abstains": false,
+      "evidence": [
+        {
+          "sources": [
+            "mail/2026-08/20260831-94fc5992113631214abc.md"
+          ],
+          "contains": [
+            "to Lumen",
+            "another person listening while the driver operates the phone"
+          ]
+        }
+      ]
+    },
+    "q07": {
+      "facts": {
+        "project": "Iris"
+      },
+      "abstains": false,
+      "evidence": [
+        {
+          "sources": [
+            "mail/2026-08/20260828-f3b08536764b131f9fe6.md"
+          ],
+          "contains": [
+            "I've signed the Iris wording sheet",
+            "consent rehearsal can go ahead",
+            "cards"
+          ]
+        }
+      ]
+    },
+    "q08": {
+      "facts": {
+        "project": "Aster"
+      },
+      "abstains": false,
+      "evidence": [
+        {
+          "sources": [
+            "mail/2026-08/20260803-5a9e0816c52df11922cc.md"
+          ],
+          "contains": [
+            "Aster's first staffed pilot"
+          ]
+        },
+        {
+          "sources": [
+            "mail/2026-09/20260908-f2a0161b547cbab9e99e.md"
+          ],
+          "contains": [
+            "target now, in place of",
+            "volunteers found an undo path we hadn't tried"
+          ]
+        }
+      ]
+    },
+    "q09": {
+      "facts": {
+        "project": "Fjord"
+      },
+      "abstains": false,
+      "evidence": [
+        {
+          "sources": [
+            "mail/2026-09/20260914-dcd9ce8924a189d4bdc1.md"
+          ],
+          "contains": [
+            "completed reruns",
+            "Fjord's compression fix",
+            "Both kept the original"
+          ]
+        }
+      ]
+    },
+    "q10": {
+      "facts": {
+        "project": null
+      },
+      "abstains": true,
+      "evidence": [
+        {
+          "sources": [
+            "mail/2026-09/20260914-e3bafd1b5342700ecc65.md"
+          ],
+          "contains": [
+            "Juniper's script-reading fallback or Kite's slide-only review",
+            "haven't chosen"
+          ]
+        },
+        {
+          "sources": [
+            "mail/2026-09/20260915-9adfd97842fde379c7ac.md"
+          ],
+          "contains": [
+            "Yes, move it to the 23rd.",
+            "bring the printouts",
+            "smaller room"
+          ]
+        }
+      ]
+    }
+  },
+  "scoring_notes": [
+    "Expected identities are authored from source truth, never from retrieval output.",
+    "Each evidence rule accepts any listed source; every needle must fit one anchor.",
+    "Only identity is scored as a fact; do not demand the original direct-task details.",
+    "A different cohort can support the same identity when the memory omits the cohort."
+  ]
+}

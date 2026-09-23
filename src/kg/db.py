@@ -1,10 +1,16 @@
 from __future__ import annotations
 
+import logging
 import sqlite3
 from collections.abc import Iterator
 from contextlib import contextmanager
 from importlib import resources
 from pathlib import Path
+
+from kg._sqlite import enable_wal, execute_schema, legacy_format, write_transaction
+from kg.aliases import matches_alias
+
+LOGGER = logging.getLogger(__name__)
 
 
 class Database:
@@ -14,9 +20,17 @@ class Database:
     def connect(self) -> sqlite3.Connection:
         self.path.parent.mkdir(parents=True, exist_ok=True)
         connection = sqlite3.connect(self.path)
-        connection.row_factory = sqlite3.Row
-        connection.execute("PRAGMA foreign_keys = ON")
-        connection.execute("PRAGMA journal_mode = WAL")
+        try:
+            initialized = legacy_format(connection)
+            connection.row_factory = sqlite3.Row
+            connection.create_function("kg_matches_alias", 2, matches_alias, deterministic=True)
+            connection.execute("PRAGMA foreign_keys = ON")
+            connection.execute("PRAGMA busy_timeout = 5000")
+            if initialized:
+                enable_wal(connection)
+        except BaseException:
+            connection.close()
+            raise
         return connection
 
     @contextmanager
@@ -27,43 +41,21 @@ class Database:
         finally:
             connection.close()
 
-    def migrate(self) -> None:
+    def initialize(self) -> None:
         with self.connection() as connection:
-            connection.execute(
-                """
-                CREATE TABLE IF NOT EXISTS schema_migration (
-                    version INTEGER PRIMARY KEY,
-                    name TEXT NOT NULL,
-                    applied_at TEXT NOT NULL
-                )
-                """
-            )
-            applied = {
-                row["version"]
-                for row in connection.execute("SELECT version FROM schema_migration").fetchall()
-            }
-            migration_root = resources.files("kg").joinpath("migrations")
-            migrations = sorted(
-                (item for item in migration_root.iterdir() if item.name.endswith(".sql")),
-                key=lambda item: item.name,
-            )
-            for migration in migrations:
-                version_text, _, _ = migration.name.partition("_")
-                version = int(version_text)
-                if version in applied:
-                    continue
-                _apply_migration(
-                    connection,
-                    version,
-                    migration.name,
-                    migration.read_text(encoding="utf-8"),
-                )
+            schema = resources.files("kg").joinpath("schema.sql")
+            with write_transaction(connection):
+                legacy_format(connection)
+                execute_schema(connection, schema.read_text(encoding="utf-8"))
+            enable_wal(connection)
+            LOGGER.debug("Initialized database schema from schema.sql")
 
     @contextmanager
     def transaction(self) -> Iterator[sqlite3.Connection]:
         connection = self.connect()
         try:
             connection.execute("BEGIN IMMEDIATE")
+            legacy_format(connection)
             yield connection
             connection.commit()
         except Exception:
@@ -71,25 +63,3 @@ class Database:
             raise
         finally:
             connection.close()
-
-
-def _apply_migration(
-    connection: sqlite3.Connection,
-    version: int,
-    name: str,
-    sql: str,
-) -> None:
-    escaped_name = name.replace("'", "''")
-    script = (
-        "BEGIN IMMEDIATE;\n"
-        f"{sql}\n"
-        "INSERT INTO schema_migration (version, name, applied_at) "
-        f"VALUES ({version}, '{escaped_name}', datetime('now'));\n"
-        "COMMIT;\n"
-    )
-    try:
-        connection.executescript(script)
-    except sqlite3.Error:
-        if connection.in_transaction:
-            connection.execute("ROLLBACK")
-        raise

@@ -31,12 +31,16 @@ classifiers = [
   "Typing :: Typed",
 ]
 dependencies = [
+  "markdown-it-py>=4,<5",
   "pydantic>=2.7,<3",
   "PyYAML>=6,<7",
+  "sentence-transformers>=3.3,<6",
+  "sqlite-vec>=0.1.9,<0.2",
   "typer>=0.12,<1",
 ]
 
 [project.optional-dependencies]
+graph = ["ladybug==0.20.4"]
 dev = [
   "mypy>=1.11,<3",
   "pytest>=8,<9",
@@ -60,7 +64,11 @@ package-dir = {"" = "src"}
 where = ["src"]
 
 [tool.setuptools.package-data]
-kg = ["migrations/*.sql", "py.typed"]
+kg = ["schema.sql", "py.typed"]
+"kg.evidence" = ["schema.sql"]
+
+[tool.setuptools.exclude-package-data]
+"*" = ["__pycache__/*", "*.pyc"]
 
 [tool.pytest.ini_options]
 addopts = "-q"

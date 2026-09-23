@@ -1,0 +1,248 @@
+{
+  "version": 1,
+  "reference_date": "2026-09-18",
+  "forbidden_diagnostic_terms": [
+    "inherited-role reconciliation",
+    "password reset instructions",
+    "visitor-count export",
+    "operator roster",
+    "signed wording sheet",
+    "redacted directory cut",
+    "receipt payloads",
+    "receipt-payload retention",
+    "index-build scratch",
+    "live replay",
+    "cold export",
+    "cold-export",
+    "replay-worker",
+    "compression fix",
+    "retry fix",
+    "staffed device bench",
+    "refund appendix",
+    "bank totals",
+    "receipt wording",
+    "screen reader pass",
+    "mobile demo",
+    "terminal tag",
+    "supplier references",
+    "mapping patch",
+    "desk exercise",
+    "script-reading fallback",
+    "slide-only review",
+    "N42",
+    "N43",
+    "D8",
+    "D9",
+    "F8",
+    "F9"
+  ],
+  "questions": [
+    {
+      "id": "q01",
+      "question": "Didn't Maya have some work last week with bills that still couldn't be matched back to suppliers after a fix? What project was that?",
+      "project": "Nova",
+      "original_cases": ["invoice-cohort-comparison"],
+      "memory": {
+        "hint": "last week",
+        "window": ["2026-09-07", "2026-09-13"],
+        "episode_dates": ["2026-09-09"],
+        "imperfect": false
+      },
+      "rationale": "The supplier information on invoices identifies Nova, not NovaOps operator-session tags. Maya authored the September 9 mail. The September 3 note concerns another cohort but supports the same project identity and remaining supplier problem: accept it for recognition, not for the old fixed-cohort arithmetic. Time is a clue, not an exclusion.",
+      "evidence": [
+        {
+          "sources": ["d044", "d067"],
+          "contains": ["Nova", "invoices", "missing supplier references", "after the mapping patch"]
+        }
+      ]
+    },
+    {
+      "id": "q02",
+      "question": "I remember a permissions check Jamie had finished, then we had to redo it because the input left out groups inside other groups. Maybe that was last week? Which project am I remembering?",
+      "project": "Cedar",
+      "original_cases": ["inherited-role-handoff"],
+      "memory": {
+        "hint": "last week",
+        "window": ["2026-09-07", "2026-09-13"],
+        "episode_dates": ["2026-08-20", "2026-08-24"],
+        "imperfect": true
+      },
+      "rationale": "The close and reopening occurred in August, deliberately outside the remembered week. Cedar owns the permissions reconciliation; Grove supplied the faulty input, not the check. The August 24 reply explicitly retains Jamie. The completed password instructions are a different task and never reopened for nested groups. No ownership history or due-date calculation is required.",
+      "evidence": [
+        {
+          "sources": ["d027"],
+          "contains": ["Finished Cedar's inherited-role reconciliation", "marked the promise closed"]
+        },
+        {
+          "sources": ["d029"],
+          "contains": ["Please reopen", "dropped nested groups", "flattened subset"]
+        }
+      ]
+    },
+    {
+      "id": "q03",
+      "question": "Alex sent over numbers for how many people came in, broken down by entrance and hour, earlier this week. It wasn't a list of staff. What was that work?",
+      "project": "Harborview",
+      "original_cases": ["two-harbor-deliveries"],
+      "memory": {
+        "hint": "earlier this week",
+        "window": ["2026-09-14", "2026-09-18"],
+        "episode_dates": ["2026-09-15"],
+        "imperfect": false
+      },
+      "rationale": "The August mail defines entrance/hour totals; the September note confirms Alex delivered that file. Harbor's names and shifts and Harborview's separate interview-volunteer roster do not fit the activity. Identify Harborview without reconstructing either delivery history.",
+      "evidence": [
+        {
+          "sources": ["d031"],
+          "contains": ["Harborview", "totals by entrance and hour", "no roster names"]
+        },
+        {
+          "sources": ["d055"],
+          "contains": ["Alex delivered Harborview's visitor-count export today"]
+        }
+      ]
+    },
+    {
+      "id": "q04",
+      "question": "Wasn't there some work with Rina a couple of weeks ago where we had to keep customers' old proof of purchase longer because they had more time to challenge a charge? Which project was that?",
+      "project": "Ember",
+      "original_cases": ["archive-retention"],
+      "memory": {
+        "hint": "a couple of weeks ago",
+        "window": ["2026-08-28", "2026-09-11"],
+        "episode_dates": ["2026-09-02"],
+        "imperfect": false
+      },
+      "rationale": "Rina's mail connects longer customer disputes to stored receipts. Cedar access history and NovaOps debug captures share storage but not this reason. The task is identity, not retention durations or an effective date.",
+      "evidence": [
+        {
+          "sources": ["d036"],
+          "contains": ["Change Ember receipt-payload retention", "customer dispute window was extended"]
+        }
+      ]
+    },
+    {
+      "id": "q05",
+      "question": "What was the work where a phone came back online and we checked forms we'd saved while disconnected against what actually arrived? I remember talking through that a while back.",
+      "project": "Drift",
+      "original_cases": ["queue-pause-impact"],
+      "memory": {
+        "hint": "a while back",
+        "window": null,
+        "episode_dates": ["2026-08-06"],
+        "imperfect": false
+      },
+      "rationale": "The reconnection and saved forms belong to Drift's intake replay. Ember rebuilds receipt search and Fjord exports stored files; neither checks phone-saved forms. The source is a meeting without a rendered sender, so the prompt intentionally does not infer Alex's attendance from private author metadata.",
+      "evidence": [
+        {
+          "sources": ["d017"],
+          "contains": ["Drift", "phone comes back online", "locally saved forms against what arrived"]
+        }
+      ]
+    },
+    {
+      "id": "q06",
+      "question": "Sam wanted more testing time for work where one person listens while someone else drives a phone. I think this was being arranged late last month. Which team's work needed that extra time?",
+      "project": "Lumen",
+      "original_cases": ["bench-reallocation"],
+      "memory": {
+        "hint": "late last month",
+        "window": ["2026-08-21", "2026-08-31"],
+        "episode_dates": ["2026-08-31"],
+        "imperfect": false
+      },
+      "rationale": "Sam's reallocation mail gives Lumen additional time for paired listening. Kite gives up time and can review slides elsewhere. The separate public-reading demonstration does not use devices. No hours or shortfall arithmetic is asked.",
+      "evidence": [
+        {
+          "sources": ["d034"],
+          "contains": ["to Lumen", "another person listening while the driver operates the phone"]
+        }
+      ]
+    },
+    {
+      "id": "q07",
+      "question": "Noor said we'd finally agreed what the cards should say, so the practice session could happen. That was late last month, I think. What was the work?",
+      "project": "Iris",
+      "original_cases": ["rooms-versus-readiness"],
+      "memory": {
+        "hint": "late last month",
+        "window": ["2026-08-21", "2026-08-31"],
+        "episode_dates": ["2026-08-28"],
+        "imperfect": false
+      },
+      "rationale": "Noor signs Iris's text and says the rehearsal can proceed with that version of the cards. Juniper needs people on shifts, not agreed card wording. Pine's envelope-layout opinion explicitly is not a wording signature. Aster's later name cards have blank dates and no approval of text.",
+      "evidence": [
+        {
+          "sources": ["d033"],
+          "contains": ["I've signed the Iris wording sheet", "consent rehearsal can go ahead", "cards"]
+        }
+      ]
+    },
+    {
+      "id": "q08",
+      "question": "I remember Jamie pushing back a small tryout because volunteers found a way to undo something we hadn't checked. Was that last week? What project was it?",
+      "project": "Aster",
+      "original_cases": ["pilot-target-and-gates"],
+      "memory": {
+        "hint": "last week",
+        "window": ["2026-09-07", "2026-09-13"],
+        "episode_dates": ["2026-09-08"],
+        "imperfect": false
+      },
+      "rationale": "The September reply by Jamie describes the untested undo path and postponement but omits the name. Its rendered References link back to the August Aster pilot mail. Harbor shares volunteers' time but does not move for this reason. Both the identity and changed-tryout clue need evidence; do not ask for the target or prerequisites.",
+      "evidence": [
+        {
+          "sources": ["d015"],
+          "contains": ["Aster's first staffed pilot"]
+        },
+        {
+          "sources": ["d042"],
+          "contains": ["target now, in place of", "volunteers found an undo path we hadn't tried"]
+        }
+      ]
+    },
+    {
+      "id": "q09",
+      "question": "We were trying to shrink files to make a run cheaper, rather than stopping repeats. I remember a note earlier this week about rerunning the same set. Which project was that?",
+      "project": "Fjord",
+      "original_cases": ["worker-cost-comparison"],
+      "memory": {
+        "hint": "earlier this week",
+        "window": ["2026-09-14", "2026-09-18"],
+        "episode_dates": ["2026-09-14"],
+        "imperfect": false
+      },
+      "rationale": "Compression identifies Fjord rather than Drift's retry fix. The September 14 note establishes unchanged inputs and completed reruns. No batch, cohort size, unit rate, savings calculation or winner is requested.",
+      "evidence": [
+        {
+          "sources": ["d050"],
+          "contains": ["completed reruns", "Fjord's compression fix", "Both kept the original"]
+        }
+      ]
+    },
+    {
+      "id": "q10",
+      "question": "Didn't Alex agree with Jamie earlier this week to move a small-room session to another day and bring paper copies? Which project was that for?",
+      "project": null,
+      "candidate_projects": ["Juniper", "Kite"],
+      "original_cases": ["which-session-moved"],
+      "memory": {
+        "hint": "earlier this week",
+        "window": ["2026-09-14", "2026-09-18"],
+        "episode_dates": ["2026-09-14", "2026-09-15"],
+        "imperfect": false
+      },
+      "rationale": "Jamie's mail offers Juniper or Kite without choosing. Alex's direct reply accepts moving 'it' and bringing printouts but never resolves which session. Both candidates fit every cue, so project must be null and abstains true. The similar Lumen reply goes to Rina, not Jamie, and explicitly names another activity. No special uncertainty instruction appears only on this question.",
+      "evidence": [
+        {
+          "sources": ["d051"],
+          "contains": ["Juniper's script-reading fallback or Kite's slide-only review", "haven't chosen"]
+        },
+        {
+          "sources": ["d052"],
+          "contains": ["Yes, move it to the 23rd.", "bring the printouts", "smaller room"]
+        }
+      ]
+    }
+  ]
+}

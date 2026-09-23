@@ -41,6 +41,8 @@ class CorpusManifest(BaseModel):
     vault_root: Path
     include: list[str] = Field(min_length=1)
     database: Path
+    allow_symlinks: bool = False
+    max_source_bytes: int = Field(default=5_000_000, ge=1)
     seed_entities: list[SeedEntity] = Field(default_factory=list)
     metadata_fields: dict[str, str] = Field(default_factory=dict)
     manifest_path: Path | None = Field(default=None, exclude=True)

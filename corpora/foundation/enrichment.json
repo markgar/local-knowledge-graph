@@ -1,0 +1,58 @@
+{
+  "contract_version": "foundation/1",
+  "request_id": "enrich-1",
+  "retry_key": "interpretation-1",
+  "scope": {
+    "corpus_id": "work",
+    "access": {
+      "principal_id": "synthetic-agent",
+      "policy_version": "policy-1",
+      "namespaces": ["email", "meetings"],
+      "grants": ["read", "write_knowledge"]
+    }
+  },
+  "attribution": {
+    "owner_id": "agent-owner",
+    "writer_id": "agent-writer",
+    "producer": "synthetic-interpreter",
+    "producer_version": "1",
+    "model_id": null,
+    "configuration_id": "fixture-1"
+  },
+  "payload": {
+    "operation": "enrich",
+    "dependencies": [
+      {"source_namespace": "email", "document_id": "email-1", "revision_id": "email-r1", "state_version": "email-s1"},
+      {"source_namespace": "meetings", "document_id": "meeting-1", "revision_id": "meeting-r1", "state_version": "meeting-s1"}
+    ],
+    "changes": [
+      {
+        "kind": "entity", "local_id": "sam", "name": "Sam", "entity_type": "person",
+        "support": {"kind": "source", "evidence": [
+          {"corpus_id": "work", "source_namespace": "email", "document_id": "email-1", "revision_id": "email-r1", "anchor_id": "email-a1", "passage_id": "email-p1"}
+        ]}
+      },
+      {
+        "kind": "entity", "local_id": "atlas", "name": "Atlas", "entity_type": "project",
+        "support": {"kind": "source", "evidence": [
+          {"corpus_id": "work", "source_namespace": "meetings", "document_id": "meeting-1", "revision_id": "meeting-r1", "anchor_id": "meeting-a1", "passage_id": "meeting-p1"}
+        ]}
+      },
+      {
+        "kind": "alias", "local_id": "sam-alias", "entity": {"kind": "local", "local_id": "sam"}, "alias": "S. Example",
+        "support": {"kind": "source", "evidence": [
+          {"corpus_id": "work", "source_namespace": "email", "document_id": "email-1", "revision_id": "email-r1", "anchor_id": "email-a1", "passage_id": "email-p1"}
+        ]}
+      },
+      {
+        "kind": "assertion", "local_id": "owns", "subject": {"kind": "local", "local_id": "sam"},
+        "predicate": "work:owns", "object": {"kind": "entity", "entity": {"kind": "local", "local_id": "atlas"}},
+        "interpretation": "explicit",
+        "support": {"kind": "source", "evidence": [
+          {"corpus_id": "work", "source_namespace": "email", "document_id": "email-1", "revision_id": "email-r1", "anchor_id": "email-a1", "passage_id": "email-p1"},
+          {"corpus_id": "work", "source_namespace": "meetings", "document_id": "meeting-1", "revision_id": "meeting-r1", "anchor_id": "meeting-a1", "passage_id": "meeting-p1"}
+        ]}
+      }
+    ]
+  }
+}

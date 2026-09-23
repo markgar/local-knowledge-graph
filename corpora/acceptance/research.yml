@@ -1,0 +1,31 @@
+corpus: ../research.yml
+cases:
+  - id: orbit-decision-section
+    command: source-context
+    query: first evaluation
+    subject: Orbit
+    expected_quotes:
+      - "## Decisions"
+      - "- Use a synthetic dataset for the first evaluation."
+  - id: orbit-two-hop
+    command: status
+    subject: Orbit
+    expected_connections:
+      - orbit wikilink signal
+      - signal wikilink relay
+    expected_decisions:
+      - Use a synthetic dataset for the first evaluation.
+    expected_blockers:
+      - The sample size has not been approved.
+  - id: orbit-open-action
+    command: actions
+    subject: Orbit
+    status: open
+    expected_quotes:
+      - "- [ ] Review the evaluation rubric. [owner:: Morgan] [due:: 2026-09-30]"
+  - id: relay-completed-via-orbit
+    command: actions
+    subject: Orbit
+    status: completed
+    expected_quotes:
+      - "- [x] Publish the synthetic baseline."

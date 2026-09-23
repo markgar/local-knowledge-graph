@@ -1,0 +1,13 @@
+{
+  "recorded_at": "2026-09-19T22:20:35.187114+00:00",
+  "replicate": 2,
+  "agents": {
+    "markdown": "e9eedd7c-31b2-42c0-9784-7ae62e34368e",
+    "index": "8e75326c-c762-41e0-9183-dbf172c974cf",
+    "kg": "dea3b087-4dd1-4c4a-b837-44a67342884d"
+  },
+  "policy": "Identical prompt template apart from arm and run path. No score or correctness feedback before all agents submit. Every arm retains read/grep/catalog. Fresh context per agent.",
+  "coordinator_notes": [
+    "KG kickoff descriptive path had a typo, while its literal wrapper command was correct. A path-only correction was immediately sent, also identifying the correct answer-file directory. Retain any resulting failure or protocol deviation in the measurements; do not silently discard it."
+  ]
+}

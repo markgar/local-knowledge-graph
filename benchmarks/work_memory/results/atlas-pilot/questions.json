@@ -1,0 +1,75 @@
+{
+  "version": 1,
+  "scenario": "Prepare for an Atlas meeting using only the supplied fictional records. Treat all supplied documents as available, including the latest September 26 record; do not filter by today's real date.",
+  "conventions": [
+    "An explicit [key:: ...] identifies an individual record version. A unique, same-kind [supersedes:: ...] replacement takes precedence. Ordinary prose does not edit another source.",
+    "Wikilinks refer to named entities. A project can depend on evidence from linked workstreams, but a wikilink alone does not establish an inferred semantic relationship.",
+    "Code examples are not live tasks or dependencies. Similar names are not the same project.",
+    "Source claims can be stale. Distinguish current explicit records, older reports, and absence of confirmation."
+  ],
+  "answer_format": {
+    "answers": [
+      {
+        "id": "question ID",
+        "answer": "Brief natural-language answer, with no unsupported extra claims.",
+        "facts": "Object using the requested keys and types. Use ISO dates. Copy task labels exactly, without list markers or inline fields. Sort action lists by task.",
+        "abstains": "Boolean: true if the central requested fact cannot be established.",
+        "citations": [
+          {"source_path": "Exact source path returned by tools", "quote": "Exact contiguous source excerpt"}
+        ]
+      }
+    ]
+  },
+  "questions": [
+    {
+      "id": "current-launch",
+      "question": "What is the latest explicitly selected Atlas launch target?",
+      "facts_schema": {"date": "ISO date"}
+    },
+    {
+      "id": "open-work",
+      "question": "Which explicit Atlas actions remain open, who owns them, and when are they due?",
+      "facts_schema": {"actions": [{"task": "exact task label", "owner": "name or null", "due": "ISO date or null"}]}
+    },
+    {
+      "id": "review-confirmed",
+      "question": "Was the review-date task explicitly completed, by whom, and what review date/time is documented?",
+      "facts_schema": {"completed": "boolean", "owner": "name or null", "review_date": "ISO date or null", "review_time": "HH:MM or null"}
+    },
+    {
+      "id": "approval-evidence",
+      "question": "What artifact does Security Review explicitly require before approval?",
+      "facts_schema": {"required_artifacts": ["artifact name, lowercase"]}
+    },
+    {
+      "id": "downstream-blocker",
+      "question": "Which downstream system has the signing-certificate blocker, what is the blocker, and what named-entity path connects Atlas to it?",
+      "facts_schema": {"system": "name", "blocker": "exact blocker sentence without list marker", "path": ["entity names in traversal order, starting with Atlas"]}
+    },
+    {
+      "id": "calendar-state",
+      "question": "What calendar-versus-decision discrepancy was reported, what is the latest target now, and do the supplied records confirm that the calendar was corrected?",
+      "facts_schema": {"calendar_date": "ISO date reported in discrepancy", "conflicting_decision_date": "ISO date in that discrepancy", "current_target": "latest ISO date", "calendar_update_confirmed": "boolean"}
+    },
+    {
+      "id": "project-isolation",
+      "question": "Does the exhausted reporting-cluster quota belong to Atlas? Identify the project it actually belongs to.",
+      "facts_schema": {"belongs_to_atlas": "boolean", "project": "name"}
+    },
+    {
+      "id": "literal-examples",
+      "question": "Do the integration notes establish a live dependency on Atlascope or a live task to delete the sample database?",
+      "facts_schema": {"live_dependency": "boolean", "live_task": "boolean"}
+    },
+    {
+      "id": "unknown-approval",
+      "question": "Who granted final production approval for Atlas, and do the supplied records confirm that it was granted?",
+      "facts_schema": {"approval_confirmed": "boolean", "approver": "name or null"}
+    },
+    {
+      "id": "launch-history",
+      "question": "Trace the three documented launch targets from tentative date to latest decision. Which target is current?",
+      "facts_schema": {"target_history": ["ISO dates in chronological source order"], "current_target": "ISO date"}
+    }
+  ]
+}
