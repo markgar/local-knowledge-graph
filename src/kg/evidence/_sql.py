@@ -88,6 +88,35 @@ class AccountedConnection(sqlite3.Connection):
     _precise = False
     _remaining = 0
 
+    def _park_observer(self) -> None:
+        try:
+            self.set_progress_handler(None, 0)
+        finally:
+            self._stop = None
+            self._remaining = 0
+            self._precise = False
+            self._budget = None
+
+    @contextmanager
+    def _observer_operation_budget(self, budget: PrivateBudget) -> Iterator[None]:
+        self._check_active()
+        if self.in_transaction or self._budget is not None:
+            raise EvidenceServiceError("invalid_request")
+        budget.check_deadline()
+        self._budget = budget
+        try:
+            yield
+        finally:
+            self._park_observer()
+
+    def _close_observer(self) -> None:
+        if self._participant:
+            raise EvidenceServiceError("invalid_request")
+        self._closed = True
+        self._budget = None
+        # A previous attempt may have closed SQLite without confirming disposal.
+        sqlite3.Connection.close(self)
+
     @contextmanager
     def _precise_progress(self) -> Iterator[None]:
         """Count nested PRAGMA VMs without losing each substatement's partial quantum."""

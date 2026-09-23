@@ -564,3 +564,35 @@ def test_remote_budget_profile_and_selection_keep_existing_rpc_contract():
     assert isinstance(child, RemoteBudget)
     assert child.view == 7 and child.inherits(remote)
     assert child.resource_profile == "interactive/1"
+
+
+def test_graph_observer_rebinding_charges_current_poll_and_clears_statement_stop():
+    connection = sqlite3.connect(":memory:", factory=AccountedConnection)
+    first, second = pool(), pool()
+    try:
+        with connection._observer_operation_budget(first):
+            assert connection.execute("PRAGMA data_version").fetchone()[0] > 0
+            assert first._vm == 2000 and first._visits == 1
+            with pytest.raises(EvidenceServiceError), connection._observer_operation_budget(second):
+                pytest.fail("Replaced active allowance")
+            with pytest.raises(EvidenceServiceError), connection._using_budget(second):
+                pytest.fail("Widened inherited allowance")
+            first.reserve_vm(10_000_000 - first._vm - 2000)
+            with pytest.raises(PrivateResourceStop):
+                connection.execute(
+                    "WITH RECURSIVE n(x) AS (VALUES(1) UNION ALL SELECT x+1 FROM n WHERE x<10000) "
+                    "SELECT sum(x) FROM n",
+                ).fetchone()
+            assert connection._stop is not None
+        assert connection._budget is connection._stop is None
+        assert not connection._precise and connection._remaining == 0
+        with connection._observer_operation_budget(second):
+            assert connection.execute("PRAGMA data_version").fetchone()[0] > 0
+        assert first._vm == 10_000_000
+        assert second._vm == 2000 and second._visits == 1
+        connection.execute("BEGIN")
+        with pytest.raises(EvidenceServiceError), connection._observer_operation_budget(pool()):
+            pass
+        connection.rollback()
+    finally:
+        connection.close()
