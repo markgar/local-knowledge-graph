@@ -91,5 +91,5 @@ ranking parameter, tolerance, or acceptance threshold was changed.
   Historical benchmark changes are limited to the two subprocess consumers and
   current instructions; QASPER evaluation/calibration implementations are intact.
 
-See the [consumer inventory and assertion mapping](README.md#consumer-inventory-and-assertion-mapping)
+See the [consumer inventory and assertion mapping at the measured revision](https://github.com/markgar/local-knowledge-graph/blob/4753daa23725c7f5747aca8e9431fa7c5c0b1202/benchmarks/productization/README.md#consumer-inventory-and-assertion-mapping)
 for the complete continuity boundary.

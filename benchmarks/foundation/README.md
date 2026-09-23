@@ -5,6 +5,14 @@ No service-performance baseline, model quality, ACL enforcement, recovery result
 or production readiness is claimed. Evaluation work is tracked in
 [V1](https://github.com/markgar/local-knowledge-graph/issues/46).
 
+The reference targets below are not runtime configuration or implemented feature
+claims. In particular, the generator's graph/inference labels do not run an
+extraction agent or Ladybug. The implemented
+[native graph example](../../README.md#optional-disposable-graph-example) has its
+own supported platform, 256 MiB buffer pool, cooperative build deadline and
+synthetic exact-parity acceptance. Neither that acceptance nor the smaller
+controlled Q1 measurements below establish the reference workload's targets.
+
 ## Reproduction and exact workload
 
 Run `uv run python benchmarks/foundation/workload.py` to print the manifest.
@@ -30,9 +38,10 @@ The workload names two distinct Sam entities for the ambiguity scenario.
 | Queries | 100 each structured, graph, search, count; ambiguity variant with distinct Sam identities |
 | Graph setup | 243 entities (two distinct Sams, Atlas, 240 tasks); 480 inferred edges (Sam owns task, task part_of Atlas), each supported by its task document index |
 
-The [A01-A17 recipes](https://github.com/markgar/local-knowledge-graph/issues/28#acceptance-recipes) specify namespace
-collisions, denied sources, competing identities, retry/restore/concurrency and
-failure injection. The generator's labels are expected setup, not access checks.
+Applicable acceptance cases for namespace collisions, denied sources, competing
+identities, retry/restore/concurrency and failure injection belong to the
+[owning evaluation issues](https://github.com/markgar/local-knowledge-graph/milestone/3)
+and their linked approved requirements. The generator's labels are expected setup, not access checks.
 Measuring service correctness requires invoking actual service boundaries;
 counting these setup flags is not evidence of service behavior.
 
@@ -75,14 +84,14 @@ retry writes, zero lost/repointed historical citations outside explicit purge,
 100% exact authored quotes/counts, and explicit ambiguity in every authored case.
 Shape tests do not establish these service-level outcomes.
 Preserve all existing relevance/answerability thresholds and frozen gold:
-see [historical gates](../history/evidence-mvp.md#retrieval-acceptance-gates) and
+see [retrieval quality gates](../qasper/README.md#quality-limits-and-retained-evidence) and
 [QASPER results](../qasper/RESULTS.md). Synthetic correctness does not establish
 real-world recall, answerability or production quality.
 
 Record misses as misses. Changes to workload/hardware/model/limits require a new
 labeled run and reviewed rationale; changing a target never retroactively passes
 a prior run. Evaluation ownership and pending service/live acceptance live in the
-[tracking issue](https://github.com/markgar/local-knowledge-graph/issues/28#evaluation-ownership).
+[owning evaluation issues](https://github.com/markgar/local-knowledge-graph/milestone/3).
 
 ## Controlled Q1 composition measurements
 
