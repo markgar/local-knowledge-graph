@@ -29,6 +29,7 @@ retrieval-quality gates remain unmet.
 | Foundation values | Strict `foundation/1` request/result validation. Document and bounded enrichment operations execute through `EvidenceService`; canonical anchor/passage-evidence plans execute through `QueryService`. Whole-set seed replacement is not implemented. |
 | Canonical queries | `kg.query.QueryService`: full canonical ranked search, historical anchor/passage reads and actual K1 exact entity resolution, explicit decision records/counts, bounded retained support inspection, spawned deadline supervision and fresh release authorization. Paths remain unsupported. |
 | Execution diagnostics | Evidence, indexing, processing and query calls retain bounded, authorized in-memory summaries. Named explained wrappers execute once; detailed traces and source quotes require opt-in. |
+| Optional graph staging | Private `kg.graph` builder exports the complete eligible relationship/explicit-decision mapping for one exact scope to a disposable Ladybug graph. SQLite stays authoritative; no public graph query/controller is provided. |
 
 There are no live email/Teams connectors, inference/extraction providers, general
 query planner, continuation service, or source-level ACL/purge service.
@@ -60,6 +61,29 @@ a separate read, not an atomic search-to-evidence dependency. Ordinary QueryServ
 search uses the pinned real providers and requires an approved prepared model cache.
 
 ## Generic evidence service
+
+### Optional disposable graph example
+
+On **macOS 15+ ARM64 with CPython 3.12**, install the optional pinned
+`ladybug==0.20.4` runtime and use a fresh synthetic output directory:
+
+```bash
+uv run --extra graph python examples/graph_build.py --output /tmp/graph-demo
+uv run --extra graph python examples/graph_build.py --case varied-10000 --output /tmp/graph-10k
+```
+
+The example supplies canonical facts (no models/downloads), builds/checkpoints/reopens
+the graph, compares all authored IDs and source/seed/endpoint proof associations,
+and disposes the stage. Output contains canonical SQLite and a measurement receipt,
+not a persistently admitted graph. Other package/search usage needs no graph extra.
+
+**Experimental native risk:** Ladybug executes in-process with a 256 MiB buffer
+pool and two threads. This is not a total RSS limit. Native checkpoint exhaustion
+and teardown can crash the Python host; exception handling/cleanup residue cannot
+contain a segmentation fault. This limitation is currently accepted; persistent
+worker isolation is deferred to [#137](https://github.com/markgar/local-knowledge-graph/issues/137).
+Larger buffer capacity does not fix failure containment. Never treat a leftover
+graph file as proof of canonical freshness.
 
 Run the self-contained Python example with a **fresh, separate** target:
 

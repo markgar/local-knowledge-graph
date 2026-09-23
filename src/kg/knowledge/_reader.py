@@ -23,6 +23,7 @@ from kg.knowledge._selection import (
     EligibleEOF,
     EntitySelectionItem,
     EntitySelector,
+    EntityWitness,
     SelectionFailure,
     SelectionPage,
     SelectionStopped,
@@ -32,6 +33,42 @@ from kg.knowledge._selection import (
 from kg.knowledge._store import RevalidationCache, Store
 from kg.models.evidence import LocalIdentity
 from kg.models.foundation import Record, SourceSupport
+from kg.models.knowledge import KnowledgeSchema
+
+
+def _decision_item(
+    store: Store, row: sqlite3.Row, subject_id: str,
+    witness: EntityWitness, schema: KnowledgeSchema,
+) -> DecisionSelectionItem | None:
+    if (
+        row["interpretation"] != "explicit"
+        or row["object_kind"] != "string"
+        or row["schema_version"] != schema.schema_version
+    ):
+        raise EvidenceServiceError("internal_error")
+    try:
+        support, current = store.support(row)
+    except EvidenceServiceError as error:
+        if error.failure.code == "not_found":
+            return None
+        raise
+    if not isinstance(support, SourceWitness):
+        raise EvidenceServiceError("internal_error")
+    if not current:
+        return None
+    store.hold(2048)
+    return DecisionSelectionItem(
+        record=Record(
+            record_id=row["contribution_id"], record_type="decision",
+            support=SourceSupport(
+                kind="source", evidence=tuple(p.reference for p in support.evidence),
+            ),
+        ),
+        subject_id=subject_id, schema_version=schema.schema_version,
+        dependencies=DecisionDependencies(
+            assertion_support=support.evidence, subject_witness=witness,
+        ),
+    )
 
 
 class Cursor[T]:
@@ -167,39 +204,9 @@ class KnowledgeReader:
                 (store.scope.corpus_id, subject_id, *predicates),
             )
             for row in rows:
-                if (
-                    row["interpretation"] != "explicit"
-                    or row["object_kind"] != "string"
-                    or row["schema_version"] != schema.schema_version
-                ):
-                    raise EvidenceServiceError("internal_error")
-                try:
-                    support, current = store.support(row)
-                except EvidenceServiceError as error:
-                    if error.failure.code == "not_found":
-                        continue
-                    raise
-                if not isinstance(support, SourceWitness):
-                    raise EvidenceServiceError("internal_error")
-                if not current:
-                    continue
-                store.hold(2048)
-                yield DecisionSelectionItem(
-                    record=Record(
-                        record_id=row["contribution_id"],
-                        record_type="decision",
-                        support=SourceSupport(
-                            kind="source",
-                            evidence=tuple(p.reference for p in support.evidence),
-                        ),
-                    ),
-                    subject_id=subject_id,
-                    schema_version=schema.schema_version,
-                    dependencies=DecisionDependencies(
-                        assertion_support=support.evidence,
-                        subject_witness=witness,
-                    ),
-                )
+                item = _decision_item(store, row, subject_id, witness, schema)
+                if item is not None:
+                    yield item
 
         return Cursor(self.context, produce, "decision")
 

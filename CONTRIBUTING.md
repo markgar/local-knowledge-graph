@@ -28,6 +28,14 @@ uv run mypy
 uv build
 ```
 
+The optional private graph runtime gate is separate from Linux/base-package CI:
+on supported macOS ARM64/CPython 3.12, run
+`uv run --extra graph --extra dev pytest tests/test_graph_export.py tests/test_graph_build.py tests/test_graph_native.py`
+with `KG_REQUIRE_NATIVE=1` to make an unavailable native runtime fail instead of skip.
+Run `uv run --extra graph python examples/graph_build.py --case varied-10000 --output <fresh-path>`
+for the complete synthetic native feasibility/parity gate. This experimental
+in-process runtime can crash the host on native exhaustion; see README and #137.
+
 CI remains **manual-only**, not triggered by pushes or pull requests. Dispatch
 the **CI** workflow only for code-affecting changes, using GitHub Actions or
 `gh workflow run ci.yml --ref <branch>`, and inspect its Python 3.12
