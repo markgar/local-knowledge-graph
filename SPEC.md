@@ -468,6 +468,45 @@ Existing cursor/Store retention is otherwise unchanged; these controls do not
 themselves provide a streaming graph exporter, native graph or public bulk API.
 No canonical format, eligibility, scope, exact witness or Q1 RPC contract changes.
 
+The separate private `evidence._graph_observer` boundary retains one physical
+SQLite source observer and its original `data_version` baseline across operations.
+`open_graph_source()` issues one immutable `GraphSourceBinding` for the exact
+validated identity/scope. Only that issued binding object can open an operation;
+copied bindings, narrower scopes and replacement connections cannot authorize
+the original source. The resolved database path is pinned. Hot database-file
+replacement/restore while an owner is open is unsupported.
+
+Every `operation(binding, identity, scope, deadline, budget)` pins the supplied
+current pool and absolute deadline. It reauthorizes/checks currentness on entry,
+offers one optional canonical snapshot, and ends release through a single short
+fresh `BEGIN IMMEDIATE` authorization/change fence. Each operation has a fresh
+read-session ID: retaining source identity does not revive older snapshot handles.
+All polls/admission/fence work are privately accounted; there are no semantic
+record charges for freshness checks. Sequential phases of one request must use
+that same request pool/deadline, not reset them. Independent later requests may
+use new budgets. Between operations the source has no bound budget, progress
+callback, polling or open read transaction. Existing Q1 observers, retained
+inspection, limits and spawned workers remain on their unchanged paths.
+
+Graph-source ownership is explicit and same-thread. Active operations borrow
+the source; closing an active source, reentrant binding and cross-thread use
+are rejected. Source changes, policy denial or loss of the physical connection
+invalidate trust permanently. Deadline/resource stops abort the operation, not
+the unchanged source baseline. Any result or readiness prepared inside a release
+fence remains tentative until its context exits successfully; consumers must
+undo publication on failure. Native work or long serialization must not run
+under the fence. This boundary alone provides no graph builder, public graph
+queries, controller/refresh lifecycle or durable freshness token.
+
+Graph acquisition takes cleanup custody immediately after SQLite connect, before
+shared budget/row-factory/PRAGMA setup. A failed setup followed by failed close
+raises private `GraphSourceCleanupError` with the original typed failure and a
+cleanup-only source owner. A logical closed flag is not physical-close evidence:
+graph disposal confirms success only after base SQLite close returns, retaining
+the original resource for explicit owner-thread cleanup retry otherwise. Such a
+source can never resume reads or reopen itself. Ordinary database opens share the
+same initialization implementation without adopting this graph ownership path.
+
 `writing(database, identity, *, deadline=None, budget=None)` accepts that same
 inherited/local view; an explicit deadline must match it exactly. An owner can
 also narrow an already-budgeted write with `CanonicalWriteContext.using_budget`.

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import sqlite3
+from contextlib import closing
 
 from kg.evidence.errors import EvidenceServiceError
 from kg.models.evidence import Grant, LocalIdentity
@@ -15,9 +16,9 @@ def authorize(
     *,
     namespace: str | None = None,
 ) -> None:
-    corpus = connection.execute(
-        "SELECT policy_version FROM corpus WHERE corpus_id=?", (scope.corpus_id,)
-    ).fetchone()
+    with closing(connection.cursor()) as cursor:
+        cursor.execute("SELECT policy_version FROM corpus WHERE corpus_id=?", (scope.corpus_id,))
+        corpus = cursor.fetchone()
     if (
         corpus is None
         or identity.principal_id != scope.access.principal_id
@@ -27,14 +28,13 @@ def authorize(
     ):
         raise EvidenceServiceError("forbidden")
     for declared_namespace in scope.access.namespaces:
-        granted = {
-            row[0]
-            for row in connection.execute(
+        with closing(connection.cursor()) as cursor:
+            cursor.execute(
                 "SELECT grant_name FROM policy_grant "
                 "WHERE corpus_id=? AND namespace=? AND principal_id=?",
                 (scope.corpus_id, declared_namespace, identity.principal_id),
             )
-        }
+            granted = {row[0] for row in cursor}
         if not set(scope.access.grants) <= granted:
             raise EvidenceServiceError("forbidden")
 

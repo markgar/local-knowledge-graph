@@ -443,3 +443,26 @@ def test_bulk_admission_snapshot_and_fence_charge_one_original_operation(tmp_pat
     assert (admitted.vm_instructions_reserved < selected.vm_instructions_reserved
             < released.vm_instructions_reserved)
     assert released.scratch_live_bytes == 0
+
+
+def test_q1_retained_release_can_borrow_new_budget_without_changing_old_observer(
+    tmp_path, monkeypatch,
+):
+    env = environment(tmp_path / "q1-budget.db")
+    deadline, original, _ = execution()
+    with observe(env.database, env.service.identity, env.scope, deadline, original) as observer:
+        retained = observer.retain()
+    try:
+        monkeypatch.setattr(time, "monotonic", lambda: deadline.expires_at_monotonic + 1)
+        with pytest.raises(DeadlineStop):
+            retained.observer.changed()
+        fresh_deadline, fresh, _ = execution()
+        with release_fence(
+            retained.observer, env.service.identity, env.scope, fresh_deadline, budget=fresh,
+        ):
+            assert retained.observer._connection._budget is fresh
+        assert retained.observer._connection._budget is original
+        with pytest.raises(DeadlineStop):
+            retained.observer.changed()
+    finally:
+        retained.close()

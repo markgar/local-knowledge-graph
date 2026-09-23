@@ -20,24 +20,33 @@ from kg.evidence._sql import AccountedConnection
 from kg.evidence.errors import EvidenceServiceError, storage_error
 
 
+def _initialize_connection(
+    connection: AccountedConnection, *, budget: PrivateBudget | None,
+) -> None:
+    connection._budget = budget
+    connection.row_factory = sqlite3.Row
+    connection.execute("PRAGMA foreign_keys=ON")
+    row = connection.execute("PRAGMA foreign_keys").fetchone()
+    if row is None or row[0] != 1:
+        raise EvidenceServiceError("unsupported")
+    if budget is None:
+        connection.execute("PRAGMA busy_timeout=5000")
+
+
 class EvidenceDatabase:
     def __init__(self, path: Path) -> None:
         self.path = path
 
-    def _open(self, *, create: bool, budget: PrivateBudget | None = None) -> AccountedConnection:
+    def _acquire(self, *, create: bool) -> AccountedConnection:
         if create:
             self.path.parent.mkdir(parents=True, exist_ok=True)
         uri = self.path.resolve().as_uri() + ("?mode=rwc" if create else "?mode=rw")
-        connection = sqlite3.connect(uri, uri=True, factory=AccountedConnection)
-        connection._budget = budget
-        connection.row_factory = sqlite3.Row
+        return sqlite3.connect(uri, uri=True, factory=AccountedConnection)
+
+    def _open(self, *, create: bool, budget: PrivateBudget | None = None) -> AccountedConnection:
+        connection = self._acquire(create=create)
         try:
-            connection.execute("PRAGMA foreign_keys=ON")
-            row = connection.execute("PRAGMA foreign_keys").fetchone()
-            if row is None or row[0] != 1:
-                raise EvidenceServiceError("unsupported")
-            if budget is None:
-                connection.execute("PRAGMA busy_timeout=5000")
+            _initialize_connection(connection, budget=budget)
         except BaseException:
             connection.close()
             raise
