@@ -204,14 +204,21 @@ class NativeGraphReadHandle:
 
     def execute(
         self, template: str, parameters: Mapping[str, NativeValue], *,
-        budget: PrivateBudget, cancel: Event,
+        budget: PrivateBudget, cancel: Event, timeout_milliseconds: int | None = None,
     ) -> NativeRows:
         if not self._usable or self._connection is None or self._rows:
             raise ValueError("Closed or busy native owner")
         if ";" in template:
             raise ValueError("Only single application-owned statements are supported")
+        if timeout_milliseconds is not None and (
+            type(timeout_milliseconds) is not int or timeout_milliseconds < 1
+        ):
+            raise ValueError("Invalid native timeout")
         _check(budget, cancel)
-        self._connection.set_query_timeout(max(1, int(budget.deadline.remaining() * 1000)))
+        remaining = max(1, int(budget.deadline.remaining() * 1000))
+        self._connection.set_query_timeout(
+            remaining if timeout_milliseconds is None else min(remaining, timeout_milliseconds),
+        )
         try:
             result = self._connection.execute(template, dict(parameters))
         except RuntimeError as error:

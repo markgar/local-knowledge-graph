@@ -78,6 +78,58 @@ def test_actual_native_query_timeout_preserves_deadline_stop(tmp_path):
         native.close()
 
 
+@pytest.mark.parametrize("seconds,cap,maximum", [(30, None, 30000), (30, 5000, 5000),
+                                               (.5, 5000, 500)])
+def test_optional_native_timeout_never_extends_original_deadline(seconds, cap, maximum):
+    timeouts = []
+    class Result:
+        def close(self):
+            pass
+    class Connection:
+        def set_query_timeout(self, value):
+            timeouts.append(value)
+        def execute(self, *args):
+            return Result()
+        def close(self):
+            pass
+    native = NativeGraphReadHandle()
+    native._connection, native._usable = Connection(), True
+    budget = PrivateBudget(Deadline(monotonic() + seconds))
+    try:
+        rows = native.execute("RETURN 1", {}, budget=budget, cancel=Event(),
+                              timeout_milliseconds=cap)
+        assert 1 <= timeouts[0] <= maximum
+        assert rows._budget is budget
+        rows.close()
+    finally:
+        native.close()
+
+
+@pytest.mark.parametrize("cap", [0, -1, True, 1.5, "5000"])
+def test_invalid_native_timeout_rejected_without_native_call(cap):
+    native = NativeGraphReadHandle()
+    native._connection, native._usable = object(), True
+    with pytest.raises(ValueError, match="timeout"):
+        native.execute("RETURN 1", {}, budget=PrivateBudget(Deadline(monotonic() + 30)),
+                       cancel=Event(), timeout_milliseconds=cap)
+
+
+def test_actual_native_cap_interrupts_before_request_deadline(tmp_path):
+    require_native()
+    native = NativeGraphReadHandle()
+    native.open(tmp_path / "timeout-cap.lbug", read_only=False)
+    budget = PrivateBudget(Deadline(monotonic() + 30))
+    try:
+        with pytest.raises(NativeError, match="native_error"):
+            native.execute(
+                "UNWIND range(1,100000) AS x UNWIND range(1,100000) AS y RETURN sum(x*y)",
+                {}, budget=budget, cancel=Event(), timeout_milliseconds=50,
+            )
+        assert budget.deadline.remaining() > 20
+    finally:
+        native.close()
+
+
 def test_committed_checkpoint_failure_never_rolls_back_or_replays():
     calls = []
 

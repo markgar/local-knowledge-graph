@@ -4,9 +4,8 @@ from __future__ import annotations
 
 import hashlib
 import logging
-import sqlite3
 import tempfile
-from contextlib import closing
+from contextlib import closing, suppress
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Literal, Self
@@ -163,6 +162,18 @@ class GraphBuildError(Exception):
         return residue
 
 
+def _cleanup_handoff(residue: GraphCleanupResidue) -> GraphCleanupOutcome:
+    try:
+        return retry_graph_cleanup(residue)
+    except Exception as error:
+        diagnostic_id = str(uuid4())
+        with suppress(Exception):
+            LOGGER.error("Graph cleanup diagnostic=%s class=%s",
+                         diagnostic_id, type(error).__name__)
+        residue.last_outcome = GraphCleanupOutcome(False, diagnostic_id)
+        return residue.last_outcome
+
+
 @dataclass(frozen=True)
 class GraphBuildResources(_Owner):
     binding: GraphSourceBinding
@@ -177,8 +188,10 @@ class GraphBuildResources(_Owner):
 def dispose_graph(resources: GraphBuildResources) -> GraphCleanupResidue | None:
     if not resources._custody:
         return None
-    residue = resources._custody.pop()
-    return None if retry_graph_cleanup(residue).complete else residue
+    residue = resources._custody[0]
+    outcome = retry_graph_cleanup(residue)
+    resources._custody.pop()
+    return None if outcome.complete else residue
 
 
 class StagedGraph(_Owner):
@@ -233,9 +246,11 @@ class StagedGraph(_Owner):
         return result
 
     def close(self) -> GraphCleanupResidue | None:
-        resources, self._resources = self._resources, None
         self._pending_operation = None
-        return None if resources is None else dispose_graph(resources)
+        resources = self._resources
+        residue = None if resources is None else dispose_graph(resources)
+        self._resources = None
+        return residue
 
 
 def _failure(error: Exception, phase: GraphBuildPhase) -> GraphBuildFailure:
@@ -266,10 +281,11 @@ def _failure(error: Exception, phase: GraphBuildPhase) -> GraphBuildFailure:
     else:
         code = "storage_error"
     failure = GraphBuildFailure(code, phase, str(uuid4()), canonical)
-    LOGGER.error(
-        "Graph failure diagnostic=%s phase=%s code=%s class=%s",
-        failure.diagnostic_id, phase, code, type(error).__name__,
-    )
+    with suppress(Exception):
+        LOGGER.error(
+            "Graph failure diagnostic=%s phase=%s code=%s class=%s",
+            failure.diagnostic_id, phase, code, type(error).__name__,
+        )
     return failure
 
 
@@ -410,18 +426,17 @@ def build_graph(
     except GraphSourceCleanupError as error:
         residue.observer = error.source
         failure = _failure(error.original_failure, phase)
-    except (EvidenceServiceError, DeadlineStop, PrivateResourceStop, GraphExportError,
-            NativeError, ValueError, OSError, sqlite3.Error, RuntimeError) as error:
+    except Exception as error:
         failure = _failure(error, phase)
     except BaseException:
-        outcome = retry_graph_cleanup(residue)
+        outcome = _cleanup_handoff(residue)
         if not outcome.complete:
             raise GraphBuildError(
                 GraphBuildFailure("cleanup_failed", phase, str(uuid4())),
                 operation.snapshot(), outcome, residue,
             ) from None
         raise
-    outcome = retry_graph_cleanup(residue)
+    outcome = _cleanup_handoff(residue)
     raise GraphBuildError(
         failure, operation.snapshot(), outcome, None if outcome.complete else residue,
     ) from None

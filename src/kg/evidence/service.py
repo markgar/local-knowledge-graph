@@ -5,6 +5,7 @@ from contextvars import ContextVar
 from datetime import datetime
 from typing import TYPE_CHECKING
 
+from kg._execution_budget import PrivateBudget
 from kg.evidence import _dispatch
 from kg.evidence import _reporting as reporting
 from kg.evidence._explained_reads import ExplainedReads
@@ -54,10 +55,18 @@ class EvidenceService(ExplainedReads):
         )
 
     def write(self, request: WriteRequest) -> WriteOutcome:
+        return self._write(request, None)
+
+    def _write_budgeted(self, request: WriteRequest, budget: PrivateBudget) -> WriteOutcome:
+        if budget.resource_profile != "interactive/1":
+            raise ValueError("Canonical writes require the ordinary budget")
+        return self._write(request, budget)
+
+    def _write(self, request: WriteRequest, budget: PrivateBudget | None) -> WriteOutcome:
         request = validated(WriteRequest, request)
         batch_capture = _BATCH_CAPTURE.get()
         if batch_capture is not None and batch_capture[0] is self:
-            return self._run_write(request, batch_capture[1])
+            return self._run_write(request, batch_capture[1], budget)
         capture = self._collector.begin_capture(
             "write",
             request.scope,
@@ -68,7 +77,7 @@ class EvidenceService(ExplainedReads):
             options=reporting.options(),
         )
         try:
-            result = self._run_write(request, capture)
+            result = self._run_write(request, capture, budget)
         except BaseException:
             capture.group.close()
             raise
@@ -81,7 +90,8 @@ class EvidenceService(ExplainedReads):
         return result
 
     def _run_write(
-        self, request: WriteRequest, capture: Capture | CaptureUnavailable
+        self, request: WriteRequest, capture: Capture | CaptureUnavailable,
+        budget: PrivateBudget | None = None,
     ) -> WriteOutcome:
         from kg.diagnostics._targets import DocumentTarget, ReportTargets, WriterTarget
 
@@ -121,6 +131,7 @@ class EvidenceService(ExplainedReads):
             request,
             self._clock(),
             capture=capture,
+            budget=budget,
         )
         if isinstance(result.receipt, DocumentReceipt):
             with capture.guard():
