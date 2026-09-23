@@ -389,7 +389,14 @@ class ChangeSet(Value):
         return self
 
 
-WritePayload = Annotated[PutDocument | RemoveDocument | ChangeSet, Field(discriminator="operation")]
+class WithdrawAssertion(Value):
+    operation: Literal["withdraw_assertion"]
+    contribution_id: Token
+
+
+WritePayload = Annotated[
+    PutDocument | RemoveDocument | ChangeSet | WithdrawAssertion, Field(discriminator="operation")
+]
 
 
 class WriteRequest(Versioned):
@@ -402,7 +409,10 @@ class WriteRequest(Versioned):
     @model_validator(mode="after")
     def declared_scope_and_size(self) -> Self:
         access = self.scope.access
-        if isinstance(self.payload, ChangeSet):
+        if isinstance(self.payload, WithdrawAssertion):
+            if not {"read", "write_knowledge"} <= set(access.grants):
+                raise ValueError("read and knowledge grants required")
+        elif isinstance(self.payload, ChangeSet):
             if "write_knowledge" not in access.grants:
                 raise ValueError("knowledge grant required")
             for change in self.payload.changes:
@@ -471,7 +481,15 @@ class ChangeSetReceipt(Value):
         return self
 
 
-Receipt = Annotated[DocumentReceipt | ChangeSetReceipt, Field(discriminator="kind")]
+class AssertionWithdrawalReceipt(Value):
+    kind: Literal["assertion_withdrawal"]
+    contribution_id: Token
+    withdrawal_id: Token
+
+
+Receipt = Annotated[
+    DocumentReceipt | ChangeSetReceipt | AssertionWithdrawalReceipt, Field(discriminator="kind")
+]
 ErrorCode = Literal[
     "invalid_request", "forbidden", "not_found", "state_conflict", "retry_conflict",
     "retry_expired", "unsupported", "state_changed", "stale_index", "budget_exceeded",
@@ -532,6 +550,12 @@ class BatchResult(Versioned):
                     mapping.local_id for mapping in outcome.receipt.mappings
                 } != {change.local_id for change in item.payload.changes}:
                     raise ValueError("enrichment receipt must map every change")
+            elif isinstance(item.payload, WithdrawAssertion):
+                if (
+                    not isinstance(outcome.receipt, AssertionWithdrawalReceipt)
+                    or outcome.receipt.contribution_id != item.payload.contribution_id
+                ):
+                    raise ValueError("withdrawal receipt must match exact contribution")
             elif not isinstance(outcome.receipt, DocumentReceipt):
                 raise ValueError("document write requires document receipt")
 
@@ -849,7 +873,9 @@ class FoundationCapabilities(Versioned):
     max_batch_items: Literal[100] = MAX_BATCH_ITEMS
     max_changes: Literal[100] = MAX_CHANGES
     max_supports: Literal[200] = MAX_SUPPORTS
-    write_operations: tuple[str, ...] = ("put_document", "remove_document", "enrich")
+    write_operations: tuple[str, ...] = (
+        "put_document", "remove_document", "enrich", "withdraw_assertion",
+    )
     query_operations: tuple[str, ...] = (
         "search", "resolve", "records", "count", "paths", "evidence",
     )

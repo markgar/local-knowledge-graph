@@ -163,10 +163,11 @@ See [canonical search contracts](CONTRACTS.md#canonical-full-search).
 Neither API implements processing coordination or establishes real-model
 quality/workload acceptance.
 
-The canonical store uses the complete `evidence-store/2` schema and the `evidence/2`
+The canonical store uses the complete `evidence-store/3` schema and the `evidence/2`
 service interface. Initialization verifies the actual schema and its recorded
 manifest, not just a version marker. Incompatible stores are refused without
-repair: use a fresh path and resupply sources. Schema presence alone does not
+repair: use a fresh path and resupply sources, policy/schema and explicit knowledge.
+There is no `/2` migration or dual-format reader. Schema presence alone does not
 enable service operations. The separate
 `ProcessingService` exposes only the control-plane operations below.
 There is no snapshot-completion or purge API; omitted batch documents stay active.
@@ -207,12 +208,26 @@ It discovers an actual supplied anchor, atomically submits an entity and explici
 decision, and reads the assertion's immutable provenance. Repeating it replays the
 same durable IDs. Typed predicates and decision encoding come from the registered
 schema, not language inference. Current/history reads and ordinary scoped write
-reports are available; whole-set seed replacement, corrections and traversal
+reports and exact owned assertion withdrawal are available; whole-set seed
+replacement, atomic correction/supersession and traversal
 remain unsupported. `QueryService` composes the real
 entity/decision reader for public decision selections and counts.
 See [knowledge service contracts](CONTRACTS.md#knowledge-enrichment-and-reads).
 
-Add `--passages` to that example to use the private E3 passage producer and submit
+To withdraw one exact owned assertion while preserving its evidence/history:
+
+```bash
+uv run python examples/withdraw_assertion.py
+```
+
+The example creates a temporary store, keeps an independent decision current,
+replays the withdrawal receipt, reads the original quote/history, and submits a
+separate correction. `--database <new-path>` retains the store without ever
+overwriting an existing target. Optional `--graph` uses `LocalGraphSession.write`
+and one explicit refresh (requires `--extra graph`); a refresh failure does not
+undo a saved withdrawal. No entity retirement or other-owner withdrawal is allowed.
+
+Add `--passages` to `examples/knowledge_enrichment.py` to use the private E3 passage producer and submit
 an explicit mention alongside the decision. It needs no models or vectors.
 Passage support preserves exact immutable source/state membership; mentions do
 not infer relationships or merge same-named entities. Vector-only rebuilds keep

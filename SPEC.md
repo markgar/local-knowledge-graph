@@ -17,7 +17,7 @@ The canonical engine is **SQLite plus an optional Ladybug graph projection**:
 
 | Layer | Ownership and execution |
 | --- | --- |
-| Canonical SQLite (`evidence-store/2`) | Exact supplied text/revisions, identities, immutable knowledge schema, entities/assertions, support, history and service control state. `src/kg/evidence/schema.sql` owns this format. |
+| Canonical SQLite (`evidence-store/3`) | Exact supplied text/revisions, identities, immutable knowledge schema, entities/assertions, support, history and service control state. `src/kg/evidence/schema.sql` owns this format. |
 | Canonical indexing/search | `kg.indexing` publishes passages/vectors and executes scoped keyword/dense retrieval, fusion and reranking. Search does not depend on Ladybug. |
 | Canonical query composition | `kg.query.QueryService` executes supported evidence, search, exact entity resolution and explicit-decision records/counts with fresh release authorization. |
 | Optional Ladybug projection | `kg.graph` builds complete eligible entity/relationship/explicit-decision coverage for one exact authorized scope. `LocalGraphSession` manages reusable lifecycle and guarded private reads. It contains no unique authored truth; public business traversal/joins remain unimplemented. |
@@ -41,18 +41,22 @@ under [private disposable graph staging](#private-disposable-graph-staging).
 
 `kg.evidence.EvidenceDatabase`, `EvidenceAdministration` and `EvidenceService`
 implement the Python-only canonical evidence engine. Its packaged
-`kg/evidence/schema.sql` uses SQLite application ID `0x4b474531`, user version 2
-and `evidence-store/2`. Initialization atomically creates an empty target or
-verifies that exact format. Old/unknown nonempty files (including version 1) are rejected without
+`kg/evidence/schema.sql` uses SQLite application ID `0x4b474531`, user version 3
+and `evidence-store/3`. Initialization atomically creates an empty target or
+verifies that exact format. Old/unknown nonempty files (including versions 1 and 2) are rejected without
 changing headers, journal mode, schema or rows. There is no migration/reset API:
-use a fresh path and explicitly resupply content. Markdown demonstration and
+use a fresh path and explicitly resupply content, policy/schema and explicit knowledge.
+The exception and correlated log explain this action; structured failure stays
+`unsupported`. IDs/history/receipts are preserved within a supported store, not
+across recreated experimental stores. No backward-compatible reader is provided.
+Markdown demonstration and
 independent dense-projection writers also reject this format under their schema/write lock.
 
-The format contains the complete 65-table, 29-explicit-index canonical schema,
+The format contains the complete 66-table, 29-explicit-index canonical schema,
 including reserved knowledge, passage/index and processing/synchronization storage.
 There are no canonical views or triggers, query-result tables, report tables or
 FTS virtual tables. Their absence is part of admission, not permission to create
-partial variants under version 2. Schema presence never enables a service.
+partial variants under version 3. Schema presence never enables a service.
 
 `canonical-sqlite-manifest/1` records every explicit object's definition hash and
 the whole-schema signature in the same transaction as DDL and headers. The
@@ -324,8 +328,42 @@ claiming current support and still require complete present-day read access.
 Seed additions maintain owned slots and append membership events in that same
 transaction. Exact active repeats preserve IDs/generation; changes conflict.
 Omission does not withdraw anything. The supported kernel does not expose
-whole-set replacement, correction,
-retraction, traversal or inference.
+whole-set replacement, atomic correction/supersession, general retraction,
+traversal or inference.
+
+### Exact owned assertion withdrawal
+
+`WithdrawAssertion` through ordinary `EvidenceService.write` targets one immutable
+assertion contribution ID, including registered relationships and decisions.
+Current read/write-knowledge authority, exact owner AND writer, all original
+assertion evidence namespaces and historical endpoint readability are required.
+A stale but historically readable assertion can be withdrawn; no source-current
+CAS or replacement selector is used. Other-owner/writer contributions, entities,
+mentions, aliases and entity support cannot be withdrawn.
+
+One terminal `assertion_withdrawal` row references the assertion and first applying
+write key. Its time/attribution remain in the durable key/provenance, not expiring
+response JSON. The event, key, receipt and provenance commit atomically. Identical
+same-key replay returns the original status/event; a fresh key returns `unchanged`
+with the same event and its own receipt. Existing 30-day expiry-before-digest,
+authorization and permanent key nonreuse remain. Ordered batch units stay
+independent; private coordinated processing rejects withdrawal before participant
+classification, acknowledgement or clock mutation.
+
+`Store.support` combines source currentness with indexed event absence in its
+existing size/count query, but only after full original evidence authorization.
+No lifecycle cache is introduced. Current contribution pages, direct decision
+selection/count/inspection and G3 export exclude withdrawn assertions. Historical
+views preserve payload/support/attribution with `is_current=false` and the first
+withdrawal fact. Source restoration and replaying original enrichment never
+reactivate the assertion. A correction is a separate ordinary write with new ID.
+
+Canonical commits invalidate old graph bindings and retained direct-query sets.
+Controlled graph writes dirty the generation before execution, including replay
+and unchanged outcomes. Explicit refresh builds the remaining eligible graph; it
+does not mutate Ladybug during the canonical transaction. Failed refresh cannot
+undo a confirmed receipt, authorize old proofs, or remove original source text
+from search. Surviving independent assertions retain their exact proofs.
 
 Operation-specific retained manifests authorize ordinary writes, retries and
 scoped reports without document-write grants or fabricated target IDs. Settled
@@ -1089,7 +1127,7 @@ exercise validation and supply evaluation inputs, not service integration result
 for source documents/revisions/anchors/activations, entities/aliases/mentions,
 relationships, structured records/bindings, passages, lexical projections, and
 ingest summaries. Dense projections are independently disposable. This is not the
-canonical [`evidence-store/2` schema](src/kg/evidence/schema.sql), and these tables
+canonical [`evidence-store/3` schema](src/kg/evidence/schema.sql), and these tables
 are not the source of the optional Ladybug projection.
 
 After upgrades, reingest each corpus and rebuild matching dense projections.

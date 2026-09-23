@@ -9,9 +9,13 @@ LOGGER = logging.getLogger(__name__)
 
 
 class EvidenceServiceError(Exception):
-    def __init__(self, code: ErrorCode) -> None:
+    def __init__(self, code: ErrorCode, *, explanation: str | None = None) -> None:
         self.failure = Failure(code=code, diagnostic_id=str(uuid4()))
-        super().__init__(f"{code} ({self.failure.diagnostic_id})")
+        message = f"{code} ({self.failure.diagnostic_id})"
+        if explanation is not None:
+            message += f": {explanation}"
+            LOGGER.warning("%s", message)
+        super().__init__(message)
 
 
 def storage_error(error: Exception) -> EvidenceServiceError:
