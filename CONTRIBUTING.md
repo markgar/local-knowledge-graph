@@ -12,8 +12,8 @@ Canonical writes invalidate the captured graph generation; a file or manifest
 alone cannot establish freshness. Search remains canonical keyword/vector
 retrieval, fusion and reranking, not a Ladybug search replacement.
 
-The private graph builder and native example are implemented; a public business
-traversal/join facade and reusable graph controller are not. Keep current behavior
+The private graph builder, reusable `LocalGraphSession` controller and native
+examples are implemented; a public business traversal/join facade is not. Keep current behavior
 in [SPEC.md](SPEC.md) and [CONTRACTS.md](CONTRACTS.md), and planned scope on issues.
 The separately supported Markdown demonstration has its own SQLite schema,
 manifest/CLI and retrieval APIs. Do not use it as the canonical service design.
@@ -48,6 +48,9 @@ The optional private graph runtime gate is separate from Linux/base-package CI:
 on supported macOS 15+ ARM64/CPython 3.12, run
 `uv run --extra graph --extra dev pytest tests/test_graph_export.py tests/test_graph_build.py tests/test_graph_native.py`
 with `KG_REQUIRE_NATIVE=1` to make an unavailable native runtime fail instead of skip.
+Include `tests/test_graph_session*.py` for controller changes, and run
+`uv run --extra graph python examples/graph_session.py --output <fresh-path>`
+for real lifecycle, proof-hydration, write/refresh and restart acceptance.
 Run `uv run --extra graph python examples/graph_build.py --case varied-10000 --output <fresh-path>`
 for the complete synthetic native feasibility/parity gate. This experimental
 in-process runtime uses pinned Ladybug 0.20.4, a 256 MiB buffer pool and two
@@ -88,7 +91,7 @@ documentation-only change. Classification lives in
 | `src/kg/knowledge/` | Immutable schema registry, knowledge reads, enrichment validation and complete eligible graph export. |
 | `src/kg/indexing/` | Canonical passage/vector indexing and scoped full search. |
 | `src/kg/processing/`, `src/kg/query/` | Processing control plane and supervised canonical query execution. |
-| `src/kg/graph/` | Optional private Ladybug native adapter and complete disposable projection builder. |
+| `src/kg/graph/` | Optional Ladybug adapter, complete disposable projection builder and reusable exact-scope session lifecycle. |
 | `src/kg/diagnostics/`, `src/kg/_execution_budget.py` | Scoped execution reports and shared accounting/deadlines. |
 | `src/kg/models/` | Validated service values, including `foundation/1`; models alone do not execute operations. |
 | `src/kg/config.py`, `src/kg/models/manifest.py` | Markdown demonstration manifest loading and source selection. |

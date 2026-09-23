@@ -35,8 +35,9 @@ retrieval-quality gates remain unmet.
    identities and proofs rather than selecting a search-result subset.
 
 Native graph queries run in the [developer example](#optional-disposable-graph-example)
-and acceptance checks. There is no public business traversal/join facade or reusable
-graph controller yet. A canonical write invalidates the captured graph generation;
+and acceptance checks. `kg.graph.LocalGraphSession` manages reusable exact-scope
+graphs, guarded private reads and controlled writes; public business traversal/join
+facades are not implemented. A canonical write invalidates the captured graph generation;
 leftover graph files cannot establish freshness. Start with the
 [evidence example](#generic-evidence-service) for the canonical Python API, or the
 [Markdown demonstration](#markdown-demonstration) for local file/CLI usage. Their
@@ -56,7 +57,7 @@ databases are separate and not interchangeable.
 | Foundation values | Strict `foundation/1` request/result validation. Document and bounded enrichment operations execute through `EvidenceService`; canonical anchor/passage-evidence plans execute through `QueryService`. Whole-set seed replacement is not implemented. |
 | Canonical queries | `kg.query.QueryService`: full canonical ranked search, historical anchor/passage reads and actual K1 exact entity resolution, explicit decision records/counts, bounded retained support inspection, spawned deadline supervision and fresh release authorization. Paths remain unsupported. |
 | Execution diagnostics | Evidence, indexing, processing and query calls retain bounded, authorized in-memory summaries. Named explained wrappers execute once; detailed traces and source quotes require opt-in. |
-| Optional graph projection | Private `kg.graph` builder exports the complete eligible relationship/explicit-decision mapping for one exact scope to Ladybug; the developer example executes native queries and exact parity checks. SQLite stays authoritative; no public business query/controller is provided. |
+| Optional local graph | `kg.graph.LocalGraphSession` lazily builds/reuses an exact-scope disposable Ladybug graph, explicitly refreshes it and serializes controlled canonical writes. SQLite stays authoritative; business graph queries remain private/unimplemented. |
 
 There are no live email/Teams connectors, inference/extraction providers, general
 query planner, continuation service, or source-level ACL/purge service.
@@ -212,6 +213,7 @@ On **macOS 15+ ARM64 with CPython 3.12**, install the optional pinned
 ```bash
 uv run --extra graph python examples/graph_build.py --output /tmp/graph-demo
 uv run --extra graph python examples/graph_build.py --case varied-10000 --output /tmp/graph-10k
+uv run --extra graph python examples/graph_session.py --output /tmp/graph-session-demo
 ```
 
 The example supplies explicit canonical facts without inference models, builds,
@@ -220,6 +222,24 @@ IDs and source/seed/endpoint proof associations, and disposes the stage. Install
 the graph extra may require an approved package download; the example itself needs
 no model downloads. Output contains canonical SQLite and a measurement receipt,
 not a persistently admitted graph. Base-package imports and search need no graph extra.
+
+The session example exercises lazy build, unchanged reuse, canonical proof hydration,
+controlled writes, explicit refresh, saved receipts after graph failure, and
+untrusted restart. A session binds one exact identity/scope; it never silently
+widens scope or treats a reopened file as fresh. `status()` is content-free
+last-known state, not a freshness certificate. External commits invalidate the
+next read; finish the import and refresh rather than retrying within that request.
+Canonical writes remain saved even if graph work fails. Close the session before
+replacing/restoring its canonical database file.
+
+Each controller has one FIFO SQLite owner thread and at most eight waiting calls.
+Cold reads/refresh share a 300-second admitted deadline; warm reads/writes have
+30 seconds, including queue time. Graph reads use cooperative native timeouts of
+at most five seconds and separate 8 MiB ceilings for cumulative retained output
+and the final returned answer, sharing one scratch pool. Pending cleanup blocks
+new builds; retry `refresh()` while open or `close()` after closing. Close may
+report `close_pending` while native work/cleanup still owns resources. Business
+traversal, decision joins and retained inspection are not public graph APIs.
 
 The complete varied-10,000-decision native build/reopen and exact proof/edge parity
 gate passed with the pinned runtime and 256 MiB buffer configuration

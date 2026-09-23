@@ -354,8 +354,8 @@ scratch remains 64 MiB with existing per-unit limits, and SQLite TEMP remains
 Terminal cancellation/deadline/resource state and cumulative accounting remain
 inspectable through the original operation's private snapshot. Existing Q1
 models, public budgets, worker RPC and public diagnostic shapes are unchanged.
-This internal control plumbing supports the private graph builder; it is not a
-public build API or a hard native-memory/disk/deadline guarantee.
+This is internal control plumbing, not a public foundation graph-query API or
+a hard native-memory/disk/deadline guarantee.
 
 ## Optional private graph projection
 
@@ -366,13 +366,22 @@ stage using the original canonical source observer. Authored IDs and complete
 selected source/seed/endpoint proofs remain tied to authoritative SQLite.
 
 The [developer example](examples/graph_build.py) executes native queries and
-parity checks; this is not a public business traversal/join facade, reusable graph
-controller or a new `QueryService` path operator. Base-package search works without
+parity checks. `kg.graph.LocalGraphSession` supplies reusable local lifecycle,
+guarded private reads and controlled writes; it is not a public business
+traversal/join facade or a new `QueryService` path operator. Base-package search works without
 the optional pinned `ladybug==0.20.4` dependency. Native support is macOS 15+ ARM64
 with CPython 3.12. The 256 MiB native buffer/two threads do not provide total RSS
 or process isolation; fatal native failures can terminate the host.
 See [runtime/example guidance](README.md#optional-disposable-graph-example) and
 [exact ownership, freshness and failure semantics](SPEC.md#private-disposable-graph-staging).
+
+The optional `kg.graph.LocalGraphSession` lifecycle uses that bulk operation only
+for cold/build-capable reads and refresh. Warm reads and controlled canonical
+writes use ordinary budgets; existing foundation/Q1 shapes and limits do not
+change. The controller's frozen status/error/generation values are local
+lifecycle values, not `foundation/1` result contracts or durable authority.
+Graph batch writes return existing `BatchResult` values with per-unit E1 reports;
+confirmed receipts are not replaced by a later graph-refresh failure.
 
 <a id="canonical-anchor-queries"></a>
 

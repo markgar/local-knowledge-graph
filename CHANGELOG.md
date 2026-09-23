@@ -23,7 +23,14 @@ stable release. Pre-1.0 releases may contain breaking changes.
   and explicit decisions for an exact scope, verifies authored IDs and proof/edge
   associations, and checkpoints/reopens a disposable stage. The developer example
   executes native queries; the complete varied-10,000-decision parity gate passed.
-  There is no public business traversal/join facade or reusable graph controller.
+  There is no public business traversal/join facade.
+- `kg.graph.LocalGraphSession` adds lazy exact-scope build/reuse, explicit refresh,
+  serialized controlled writes, guarded private reads and confirmation-aware
+  cleanup on one FIFO owner thread. Fresh source/authorization fences withhold
+  stale results; confirmed canonical receipts survive later graph failures.
+  Cold and warm operations retain their original finite budgets, native reads
+  have cooperative timeout caps, and immutable output is bounded. Close/restart
+  cannot grant trust to leftover graph files.
 - The graph runtime is pinned to Ladybug 0.20.4 on macOS 15+ ARM64/CPython 3.12,
   with a 256 MiB native buffer pool and two threads. It is in-process and can
   terminate the host on fatal native failures; buffer/deadline controls are not
