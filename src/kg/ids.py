@@ -6,8 +6,15 @@ import uuid
 DOCUMENT_NAMESPACE = uuid.UUID("4b91cb31-074f-46db-abaa-d16973b77b3d")
 
 
-def document_id(corpus_id: str, source_path: str) -> str:
-    return str(uuid.uuid5(DOCUMENT_NAMESPACE, f"{corpus_id}:{source_path}"))
+def document_id(corpus_id: str, source_path: str, *, generation: int = 0) -> str:
+    if generation < 0:
+        raise ValueError("generation must be nonnegative")
+    key = (
+        f"{corpus_id}:{source_path}"
+        if generation == 0
+        else digest("document-instance", corpus_id, source_path, str(generation))
+    )
+    return str(uuid.uuid5(DOCUMENT_NAMESPACE, key))
 
 
 def digest(*parts: str | bytes) -> str:
@@ -39,4 +46,3 @@ def anchor_id(
 
 def record_id(stable_anchor_id: str, record_type: str, value: str) -> str:
     return digest(stable_anchor_id, record_type.casefold(), value.strip().casefold())
-

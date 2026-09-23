@@ -7,6 +7,9 @@ from contextlib import contextmanager
 from importlib import resources
 from pathlib import Path
 
+from kg._sqlite import enable_wal, execute_schema, legacy_format, write_transaction
+from kg.aliases import matches_alias
+
 LOGGER = logging.getLogger(__name__)
 
 
@@ -17,10 +20,17 @@ class Database:
     def connect(self) -> sqlite3.Connection:
         self.path.parent.mkdir(parents=True, exist_ok=True)
         connection = sqlite3.connect(self.path)
-        connection.row_factory = sqlite3.Row
-        connection.execute("PRAGMA foreign_keys = ON")
-        connection.execute("PRAGMA journal_mode = WAL")
-        connection.execute("PRAGMA busy_timeout = 5000")
+        try:
+            initialized = legacy_format(connection)
+            connection.row_factory = sqlite3.Row
+            connection.create_function("kg_matches_alias", 2, matches_alias, deterministic=True)
+            connection.execute("PRAGMA foreign_keys = ON")
+            connection.execute("PRAGMA busy_timeout = 5000")
+            if initialized:
+                enable_wal(connection)
+        except BaseException:
+            connection.close()
+            raise
         return connection
 
     @contextmanager
@@ -34,11 +44,10 @@ class Database:
     def initialize(self) -> None:
         with self.connection() as connection:
             schema = resources.files("kg").joinpath("schema.sql")
-            connection.executescript(
-                "BEGIN IMMEDIATE;\n"
-                f"{schema.read_text(encoding='utf-8')}\n"
-                "COMMIT;\n"
-            )
+            with write_transaction(connection):
+                legacy_format(connection)
+                execute_schema(connection, schema.read_text(encoding="utf-8"))
+            enable_wal(connection)
             LOGGER.debug("Initialized database schema from schema.sql")
 
     @contextmanager
@@ -46,6 +55,7 @@ class Database:
         connection = self.connect()
         try:
             connection.execute("BEGIN IMMEDIATE")
+            legacy_format(connection)
             yield connection
             connection.commit()
         except Exception:

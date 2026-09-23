@@ -1,0 +1,71 @@
+{
+  "reviewer": "parent coordinator, not blinded",
+  "arms": {
+    "markdown": {
+      "all_cited_quotes_present_in_actual_delivered_payloads": true,
+      "unsupported_natural_language_claims_found": [],
+      "stale_state_asserted_as_current_found": [],
+      "kg_additional_capability_calls": [],
+      "operations": {
+        "grep": 8,
+        "read": 3
+      }
+    },
+    "index": {
+      "all_cited_quotes_present_in_actual_delivered_payloads": true,
+      "unsupported_natural_language_claims_found": [],
+      "stale_state_asserted_as_current_found": [],
+      "kg_additional_capability_calls": [],
+      "operations": {
+        "search": 10,
+        "grep": 5,
+        "read": 2
+      }
+    },
+    "kg": {
+      "all_cited_quotes_present_in_actual_delivered_payloads": true,
+      "unsupported_natural_language_claims_found": [],
+      "stale_state_asserted_as_current_found": [],
+      "kg_additional_capability_calls": [
+        [
+          "search",
+          "supplier",
+          "--subject",
+          "Nova"
+        ],
+        [
+          "search",
+          "inherited",
+          "--subject",
+          "Cedar"
+        ],
+        [
+          "search",
+          "export",
+          "--subject",
+          "Harborview"
+        ],
+        [
+          "search",
+          "forms",
+          "--subject",
+          "Drift"
+        ]
+      ],
+      "operations": {
+        "search": 8,
+        "read": 4,
+        "grep": 5
+      }
+    }
+  },
+  "original_gold_and_scores_unchanged": true,
+  "qualitative_result": "All six reviewed answer sets identify the intended activities, correct the imperfect time clue, and retain uncertainty for the ambiguous reply. No unsupported extra claims were found.",
+  "limitations": [
+    "Single synthetic corpus with templated background documents and approved entity names.",
+    "Ten correlated prompts, two fresh agents per arm; no statistical significance claim.",
+    "Lexical only; no embedding-based semantic retrieval was tested.",
+    "Tool wall times include full-source integrity scans and concurrent execution; they are not pure retrieval latency."
+  ],
+  "kickoff_path_note": null
+}

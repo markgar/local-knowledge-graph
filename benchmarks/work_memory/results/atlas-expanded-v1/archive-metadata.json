@@ -1,0 +1,20 @@
+{
+  "run_id": "8f3cb31a-56b9-4830-bffb-5ee783cccc85",
+  "source_snapshots_verified": 483,
+  "redactions": [
+    "Native Python executable replaced by <PYTHON> and absolute run path by <RUN> in execution.argv.",
+    "The scores.json run directory is normalized to a relative dot."
+  ],
+  "unchanged": [
+    "Source and answer file bytes",
+    "Original frozen gold and score values",
+    "Returned result objects and hashes",
+    "Complete cached response bytes",
+    "Actual host-event audit"
+  ],
+  "excluded": [
+    "Rebuildable SQLite index",
+    "Unrelated host events and assistant reasoning"
+  ],
+  "future_gold_corrections_applied_to_this_run": false
+}

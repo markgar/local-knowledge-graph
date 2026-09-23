@@ -1,0 +1,218 @@
+{
+  "software_hashes_unchanged": true,
+  "full_host_response_checks": [
+    {
+      "host_call_id": "call_sSfKMPY12gOkfydpxtZ73h63",
+      "request_id": "d58ecdf1-e515-4839-a17f-49709eac932d",
+      "full_payload_hash_matched": true
+    },
+    {
+      "host_call_id": "call_HNcezRJcO0NNzD39k1LkoeN5",
+      "request_id": "603570c1-65c8-4e99-8ee9-17121de3981a",
+      "full_payload_hash_matched": true
+    },
+    {
+      "host_call_id": "call_MuDSZgmIY57vomz7OTzWJfaK",
+      "request_id": "7564de50-4011-49f9-a961-9c7a214bfb8c",
+      "full_payload_hash_matched": true
+    },
+    {
+      "host_call_id": "call_cA7w8pIBC2nzIZzdpld5LMFX",
+      "request_id": "35729985-409e-4e35-a361-a6937d53ea39",
+      "full_payload_hash_matched": true
+    },
+    {
+      "host_call_id": "call_e9vYzXJRZKtZCyKl1AssVP5N",
+      "request_id": "ef6b7a2e-11fe-4ea3-b39d-7022ef6e284e",
+      "full_payload_hash_matched": true
+    },
+    {
+      "host_call_id": "call_jRYJ1u13HtqSyXQpASS992X6",
+      "request_id": "07bdbb8c-f855-4fbb-816d-a424ff356a42",
+      "full_payload_hash_matched": true
+    },
+    {
+      "host_call_id": "call_HHbgQFDh3uUHv8hQr1mZTgeH",
+      "request_id": "ebbd2cb7-fbe2-4724-9872-74d200802339",
+      "full_payload_hash_matched": true
+    },
+    {
+      "host_call_id": "call_zJhq49UYxtrcnJCd7dymPB2y",
+      "request_id": "b9a19218-912a-4ba3-8ed8-2e05ae4429ea",
+      "full_payload_hash_matched": true
+    },
+    {
+      "host_call_id": "call_LoZDTeI0m3mMDD593dfjKdZX",
+      "request_id": "1463313e-08cd-4c6b-bc0d-961f3d587236",
+      "full_payload_hash_matched": true
+    },
+    {
+      "host_call_id": "call_nKynUhNli8WJnP5WD6ixvp5w",
+      "request_id": "8519c0a0-be71-4a39-abe5-29140eb37cde",
+      "full_payload_hash_matched": true
+    },
+    {
+      "host_call_id": "call_Hqv1kGsEkBcqYdEkuFg43nf2",
+      "request_id": "8bcd243e-1a14-45ba-97cd-e65bea48bf1a",
+      "full_payload_hash_matched": true
+    },
+    {
+      "host_call_id": "call_1onlSo9jnzAJsxCt1GfFL3P9",
+      "request_id": "d2e08301-9895-4c85-867a-1f8063d9ca06",
+      "full_payload_hash_matched": true
+    },
+    {
+      "host_call_id": "call_Z8oG91zY29BVmO7yQnNTjIQm",
+      "request_id": "79e14f03-e711-4313-a5b8-096da748aeef",
+      "full_payload_hash_matched": true
+    },
+    {
+      "host_call_id": "call_lakZDzSgSX7GeILtaJPE4gdP",
+      "request_id": "bb0c9b51-e832-4f90-9645-e4a31d0b8bb4",
+      "full_payload_hash_matched": true
+    },
+    {
+      "host_call_id": "call_wUtt959aGJt9MfJfmEprV2qt",
+      "request_id": "2deaa6ea-4ed2-473c-92f1-84000eb1feff",
+      "full_payload_hash_matched": true
+    },
+    {
+      "host_call_id": "call_GicpIYGW01usxgowxOweWmY8",
+      "request_id": "a722e90a-c30c-406f-afcd-30cc1acf239c",
+      "full_payload_hash_matched": true
+    },
+    {
+      "host_call_id": "call_VStksoCoKRVL3WNd6fV5sUeh",
+      "request_id": "25a02c25-4f44-4ae9-a01c-5e9309a7e8bb",
+      "full_payload_hash_matched": true
+    },
+    {
+      "host_call_id": "call_TC5XIj6mGqEeGeeezbeSb5iM",
+      "request_id": "6b276a32-9cbb-48f1-ba92-3ba445b7b1c3",
+      "full_payload_hash_matched": true
+    },
+    {
+      "host_call_id": "call_eSnL7w2ffAEZJqCPdoqdvcgo",
+      "request_id": "738abb54-0927-4c76-aa74-b514c19d0036",
+      "full_payload_hash_matched": true
+    },
+    {
+      "host_call_id": "call_WUEOPIECGROzX3L4tHvvuzkk",
+      "request_id": "0ba9f2e3-6752-4765-8028-36f22afab419",
+      "full_payload_hash_matched": true
+    },
+    {
+      "host_call_id": "call_cFtx0O6BY8Qr66RnDOfOAual",
+      "request_id": "74b45bcf-1e3d-475a-b62e-a3990fb7ad92",
+      "full_payload_hash_matched": true
+    },
+    {
+      "host_call_id": "call_ifmWHZR8maLlL2DLj51jQG48",
+      "request_id": "7e32c805-963e-4adb-aad6-c754e834597a",
+      "full_payload_hash_matched": true
+    },
+    {
+      "host_call_id": "call_1etMx0jJlB0mOnQlB9slPfWy",
+      "request_id": "f4be62a9-9b6f-4e8e-93c7-09bcbc6928c7",
+      "full_payload_hash_matched": true
+    },
+    {
+      "host_call_id": "call_Tgl2CtfYLOmMuxOVlhYFORzr",
+      "request_id": "33dcf34d-f9e4-46c4-b00b-3572b0df9aa0",
+      "full_payload_hash_matched": true
+    },
+    {
+      "host_call_id": "call_of7SKHbrHhj0Oz60buzhdnyp",
+      "request_id": "743b67d4-09f0-4a43-b543-35a0b1060dc2",
+      "full_payload_hash_matched": true
+    },
+    {
+      "host_call_id": "call_yMvHKlLbL7uPX0iiFNYMkHOL",
+      "request_id": "b19e9c3a-a390-4a34-831f-00964204191b",
+      "full_payload_hash_matched": true
+    },
+    {
+      "host_call_id": "call_P19DXwAfo3f3aJinJjZPHHmG",
+      "request_id": "2433fe65-7ee1-43f0-8f20-970b050714d6",
+      "full_payload_hash_matched": true
+    },
+    {
+      "host_call_id": "call_09Ot04ovSUWHgoaHmB9rsAJS",
+      "request_id": "fc8ffa7c-2022-4b6d-9f17-e05a8872f8b1",
+      "full_payload_hash_matched": true
+    },
+    {
+      "host_call_id": "call_8zmHWywx8X7DSw6oIQDoXKaE",
+      "request_id": "2f9c2de7-7bf6-43b0-9428-0737f877b59e",
+      "full_payload_hash_matched": true
+    },
+    {
+      "host_call_id": "call_C7Kw485DgXYxvqBDSNDblMwU",
+      "request_id": "ebbcb841-f125-41a2-b8b3-39e6abe94944",
+      "full_payload_hash_matched": true
+    },
+    {
+      "host_call_id": "call_xL2R3KegoxYSemDSuEClyu1E",
+      "request_id": "67dc17d1-42df-4ac9-ab97-b0c920a0af76",
+      "full_payload_hash_matched": true
+    },
+    {
+      "host_call_id": "call_EIneF2PBUzX0JtrXSmGnuY4z",
+      "request_id": "45070dbe-7788-4f15-8ce7-8c23ba6cbffa",
+      "full_payload_hash_matched": true
+    },
+    {
+      "host_call_id": "call_9pMky1DmLivEiDSXDYzfpvi7",
+      "request_id": "9d61337b-2b8d-4e64-abb8-2f9514855bf6",
+      "full_payload_hash_matched": true
+    },
+    {
+      "host_call_id": "call_C0g5DawNK2gB6oSTMU8Ufspr",
+      "request_id": "3763c25f-7013-4ba9-9839-d9e7743e60af",
+      "full_payload_hash_matched": true
+    },
+    {
+      "host_call_id": "call_JB0ZM5ZgyfozpeWnPmTYKmD4",
+      "request_id": "014d2bf0-8bb6-4ff0-b1be-24d5cb8fc644",
+      "full_payload_hash_matched": true
+    },
+    {
+      "host_call_id": "call_BXlpafTz4k0RQlIjltwdMead",
+      "request_id": "8d748ac9-5583-478f-ac29-946b61794a85",
+      "full_payload_hash_matched": true
+    },
+    {
+      "host_call_id": "call_GTBdKC07I7AM84qWusefFPx3",
+      "request_id": "a208c050-be52-4a34-bd27-1a911ae7e026",
+      "full_payload_hash_matched": true
+    }
+  ],
+  "host_recorded_models": {
+    "kg": [
+      "gpt-6-astra"
+    ],
+    "markdown": [
+      "gpt-6-astra"
+    ],
+    "index": [
+      "gpt-6-astra"
+    ]
+  },
+  "limitations": [
+    "Host-returned payload is observed, not subsequent model context or tokens.",
+    "Wrapper timings include full-source integrity checks; do not interpret them as pure database/search latency."
+  ],
+  "agent_access_audit": {
+    "tool_counts": {
+      "bash": 37,
+      "apply_patch": 3
+    },
+    "only_non_wrapper_actions": [
+      "answers-index.json",
+      "answers-kg.json",
+      "answers-markdown.json"
+    ],
+    "unexpected_data_access_tools": [],
+    "answer_paths_correct": true
+  }
+}

@@ -45,8 +45,10 @@ def _database(tmp_path: Path) -> Database:
     return database
 
 
+@pytest.mark.parametrize("contextual", [False, True])
 def test_reranked_search_scores_unchanged_hybrid_candidates_and_forwards_filters(
     tmp_path: Path,
+    contextual: bool,
 ) -> None:
     since = datetime(2026, 1, 1, tzinfo=UTC)
 
@@ -78,7 +80,10 @@ def test_reranked_search_scores_unchanged_hybrid_candidates_and_forwards_filters
             batch_size: int,
         ) -> list[float]:
             assert query == "question"
-            assert passages == ["a evidence", "b evidence", "c evidence"]
+            assert passages == [
+                f"Title: {name}\n\n{name} evidence" if contextual else f"{name} evidence"
+                for name in ("a", "b", "c")
+            ]
             assert batch_size == 2
             return [0.1, 0.9, 0.4]
 
@@ -89,6 +94,7 @@ def test_reranked_search_scores_unchanged_hybrid_candidates_and_forwards_filters
         reranker=StubReranker(),
         candidate_limit=3,
         batch_size=2,
+        contextual=contextual,
     )
     results = service.search(
         "question",
@@ -100,6 +106,7 @@ def test_reranked_search_scores_unchanged_hybrid_candidates_and_forwards_filters
 
     assert [result.record_id for result in results] == ["b", "c"]
     assert [result.rank for result in results] == [0.9, 0.4]
+    assert [result.quote for result in results] == ["b evidence", "c evidence"]
 
 
 def test_reranked_search_breaks_equal_scores_by_record_id(tmp_path: Path) -> None:

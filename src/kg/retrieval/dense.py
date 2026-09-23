@@ -7,23 +7,86 @@ import sqlite3
 import time
 from collections.abc import Iterator, Sequence
 from contextlib import contextmanager
+from dataclasses import dataclass
 from datetime import datetime
+from enum import StrEnum
 from pathlib import Path
 from typing import Protocol, cast
 
 import sqlite_vec  # type: ignore[import-untyped]
 
+from kg._sqlite import execute_schema, legacy_format, write_transaction
 from kg.db import Database
 from kg.models.contracts import DenseIndexResult, SearchResult
+from kg.retrieval._telemetry import execution_trace
+from kg.retrieval.context import CONTEXTUAL_SOURCE_TEXT_VERSION, contextual_passage_text
+from kg.retrieval.product_explain import ModelIdentity
 from kg.retrieval.service import RetrievalService, SearchQueryError
 
-MODEL_NAME = "Alibaba-NLP/gte-modernbert-base"
-MODEL_REVISION = "752e76f479f37e13f5e956c0a277bd7ccea80714"
-MODEL_LICENSE = "Apache-2.0"
-MODEL_DIMENSIONS = 768
 SOURCE_TEXT_VERSION = "passage-text-v1"
 ENCODING_PIPELINE_VERSION = "sentence-transformers-normalized-float32-v1"
-PROJECTION_SCHEMA_VERSION = 2
+NORMALIZATION = "l2"
+PROJECTION_SCHEMA_VERSION = 3
+
+
+class EmbeddingProfile(StrEnum):
+    gte_modernbert = "gte-modernbert"
+    qwen3_embedding_06b = "qwen3-embedding-0.6b"
+
+
+@dataclass(frozen=True)
+class EmbeddingProfileConfig:
+    profile: EmbeddingProfile
+    model_name: str
+    model_revision: str
+    model_license: str
+    dimensions: int
+    context_behavior: str
+    query_encoding: str
+    document_encoding: str
+    query_prompt_name: str | None
+    trust_remote_code: bool
+    projection_suffix: str
+
+
+GTE_QUERY_ENCODING = "plain-text"
+GTE_DOCUMENT_ENCODING = "plain-text"
+QWEN_QUERY_PROMPT = (
+    "Instruct: Given a web search query, retrieve relevant passages that answer the query\n"
+    "Query:"
+)
+QWEN_QUERY_ENCODING = f"sentence-transformers-prompt-name=query:{QWEN_QUERY_PROMPT}"
+QWEN_DOCUMENT_ENCODING = "plain-text-no-instruction"
+
+EMBEDDING_PROFILES = {
+    EmbeddingProfile.gte_modernbert: EmbeddingProfileConfig(
+        profile=EmbeddingProfile.gte_modernbert,
+        model_name="Alibaba-NLP/gte-modernbert-base",
+        model_revision="752e76f479f37e13f5e956c0a277bd7ccea80714",
+        model_license="Apache-2.0",
+        dimensions=768,
+        context_behavior="model-native-truncation",
+        query_encoding=GTE_QUERY_ENCODING,
+        document_encoding=GTE_DOCUMENT_ENCODING,
+        query_prompt_name=None,
+        trust_remote_code=True,
+        projection_suffix=".dense.sqlite3",
+    ),
+    EmbeddingProfile.qwen3_embedding_06b: EmbeddingProfileConfig(
+        profile=EmbeddingProfile.qwen3_embedding_06b,
+        model_name="Qwen/Qwen3-Embedding-0.6B",
+        model_revision="97b0c614be4d77ee51c0cef4e5f07c00f9eb65b3",
+        model_license="Apache-2.0",
+        dimensions=1024,
+        context_behavior="model-native-32k-context-with-truncation",
+        query_encoding=QWEN_QUERY_ENCODING,
+        document_encoding=QWEN_DOCUMENT_ENCODING,
+        query_prompt_name="query",
+        trust_remote_code=False,
+        projection_suffix=".dense.qwen3-embedding-0.6b.sqlite3",
+    ),
+}
+DEFAULT_EMBEDDING_PROFILE = EmbeddingProfile.gte_modernbert
 
 
 class DenseIndexError(RuntimeError):
@@ -31,11 +94,16 @@ class DenseIndexError(RuntimeError):
 
 
 class EmbeddingProvider(Protocol):
+    profile: EmbeddingProfile
     name: str
     revision: str
     license: str
     pipeline_version: str
     dimensions: int
+    normalization: str
+    context_behavior: str
+    query_encoding: str
+    document_encoding: str
 
     def encode_documents(
         self,
@@ -48,13 +116,39 @@ class EmbeddingProvider(Protocol):
 
 
 class SentenceTransformerEmbeddingProvider:
-    name = MODEL_NAME
-    revision = MODEL_REVISION
-    license = MODEL_LICENSE
-    dimensions = MODEL_DIMENSIONS
+    profile = DEFAULT_EMBEDDING_PROFILE
+    name = EMBEDDING_PROFILES[DEFAULT_EMBEDDING_PROFILE].model_name
+    revision = EMBEDDING_PROFILES[DEFAULT_EMBEDDING_PROFILE].model_revision
+    license = EMBEDDING_PROFILES[DEFAULT_EMBEDDING_PROFILE].model_license
+    dimensions = EMBEDDING_PROFILES[DEFAULT_EMBEDDING_PROFILE].dimensions
+    normalization = NORMALIZATION
+    context_behavior = EMBEDDING_PROFILES[DEFAULT_EMBEDDING_PROFILE].context_behavior
+    query_encoding = EMBEDDING_PROFILES[DEFAULT_EMBEDDING_PROFILE].query_encoding
+    document_encoding = EMBEDDING_PROFILES[DEFAULT_EMBEDDING_PROFILE].document_encoding
+    query_prompt_name: str | None = None
 
-    def __init__(self) -> None:
+    def __init__(
+        self,
+        profile: EmbeddingProfile = DEFAULT_EMBEDDING_PROFILE,
+    ) -> None:
+        config = EMBEDDING_PROFILES[profile]
+        self.profile = profile
+        self.name = config.model_name
+        self.revision = config.model_revision
+        self.license = config.model_license
+        self.dimensions = config.dimensions
+        self.context_behavior = config.context_behavior
+        self.query_encoding = config.query_encoding
+        self.document_encoding = config.document_encoding
+        self.query_prompt_name = config.query_prompt_name
         try:
+            from sentence_transformers import SentenceTransformer
+
+            self._model = SentenceTransformer(
+                self.name,
+                revision=self.revision,
+                trust_remote_code=config.trust_remote_code,
+            )
             self.pipeline_version = "|".join(
                 (
                     ENCODING_PIPELINE_VERSION,
@@ -63,14 +157,9 @@ class SentenceTransformerEmbeddingProvider:
                     f"transformers={importlib.metadata.version('transformers')}",
                     f"torch={importlib.metadata.version('torch')}",
                     f"sqlite-vec={importlib.metadata.version('sqlite-vec')}",
+                    f"device={self._model.device}",
+                    f"dtype={next(self._model.parameters()).dtype}",
                 )
-            )
-            from sentence_transformers import SentenceTransformer
-
-            self._model = SentenceTransformer(
-                self.name,
-                revision=self.revision,
-                trust_remote_code=True,
             )
         except (ImportError, OSError, RuntimeError) as exc:
             raise DenseIndexError(f"Could not load embedding model: {exc}") from exc
@@ -105,6 +194,7 @@ class SentenceTransformerEmbeddingProvider:
                 [text],
                 normalize_embeddings=True,
                 show_progress_bar=False,
+                prompt_name=self.query_prompt_name,
             )
             vectors = _coerce_vectors(encoded)
         except DenseIndexError:
@@ -124,12 +214,28 @@ class DenseRetrievalService:
         *,
         projection_path: Path | None = None,
         provider: EmbeddingProvider | None = None,
+        profile: EmbeddingProfile = DEFAULT_EMBEDDING_PROFILE,
+        contextual: bool = False,
     ) -> None:
         self.database = database
         self.corpus_id = corpus_id
-        self.projection_path = projection_path or _default_projection_path(database.path)
+        self.profile = profile
+        self.contextual = contextual
+        self.source_text_version = (
+            CONTEXTUAL_SOURCE_TEXT_VERSION if contextual else SOURCE_TEXT_VERSION
+        )
+        self.projection_path = projection_path or _default_projection_path(
+            database.path,
+            profile,
+            contextual=contextual,
+        )
         self.retrieval = RetrievalService(database, corpus_id)
         self._embedding_provider = provider
+        if provider is not None and provider.profile != profile:
+            raise DenseIndexError(
+                f"Embedding provider profile {provider.profile.value!r} does not match "
+                f"selected profile {profile.value!r}"
+            )
 
     def build_index(
         self,
@@ -140,11 +246,13 @@ class DenseRetrievalService:
         if batch_size < 1:
             raise ValueError("batch_size must be at least 1")
         embedding_provider = provider or self._provider()
+        self._validate_provider_profile(embedding_provider)
         source_fingerprint = self.retrieval.index_fingerprint()
         projection_id = _projection_id(
             self.corpus_id,
             embedding_provider,
             source_fingerprint,
+            source_text_version=self.source_text_version,
         )
         started = time.perf_counter()
         try:
@@ -187,7 +295,12 @@ class DenseRetrievalService:
         if self.retrieval.index_fingerprint() != source_fingerprint:
             raise DenseIndexError("Corpus changed while passages were being selected")
         vectors: list[list[float]] = []
-        texts = [passage.quote for passage in passages]
+        texts = [
+            contextual_passage_text(passage.quote, passage.title, passage.heading_path)
+            if self.contextual
+            else passage.quote
+            for passage in passages
+        ]
         for start in range(0, len(texts), batch_size):
             batch = embedding_provider.encode_documents(
                 texts[start : start + batch_size],
@@ -243,10 +356,11 @@ class DenseRetrievalService:
                             INSERT INTO dense_projection (
                                 projection_id, corpus_id, model_name, model_revision,
                                 model_license, pipeline_version, dimensions, normalized,
-                                source_text_version, source_fingerprint, vector_table,
-                                status, passage_count, created_at
-                            ) VALUES (?, ?, ?, ?, ?, ?, ?, 1, ?, ?, ?, 'completed', ?,
-                                datetime('now'))
+                                normalization, source_text_version, context_behavior,
+                                query_encoding, document_encoding, source_fingerprint,
+                                vector_table, status, passage_count, created_at, profile
+                            ) VALUES (?, ?, ?, ?, ?, ?, ?, 1, ?, ?, ?, ?, ?, ?, ?,
+                                'completed', ?, datetime('now'), ?)
                             """,
                             (
                                 projection_id,
@@ -256,10 +370,15 @@ class DenseRetrievalService:
                                 embedding_provider.license,
                                 embedding_provider.pipeline_version,
                                 embedding_provider.dimensions,
-                                SOURCE_TEXT_VERSION,
+                                embedding_provider.normalization,
+                                self.source_text_version,
+                                embedding_provider.context_behavior,
+                                embedding_provider.query_encoding,
+                                embedding_provider.document_encoding,
                                 source_fingerprint,
                                 vector_table,
                                 len(passages),
+                                embedding_provider.profile.value,
                             ),
                         )
                         connection.executemany(
@@ -324,24 +443,42 @@ class DenseRetrievalService:
         current_fingerprint = self.retrieval.index_fingerprint()
 
         with self._projection_connection(read_only=True) as connection:
+            _initialize_projection_schema(connection)
+            embedding_provider = provider or self._provider()
+            self._validate_provider_profile(embedding_provider)
+            projection_id = _projection_id(
+                self.corpus_id,
+                embedding_provider,
+                current_fingerprint,
+                source_text_version=self.source_text_version,
+            )
             projection = connection.execute(
                 """
                 SELECT *
                 FROM dense_projection
-                WHERE corpus_id = ? AND is_active = 1 AND status = 'completed'
+                WHERE projection_id = ? AND status = 'completed'
                 """,
-                (self.corpus_id,),
+                (projection_id,),
             ).fetchone()
             if not projection:
-                raise DenseIndexError(
-                    "No dense projection is available; run 'kg dense-index' first."
+                self._raise_unavailable_projection(
+                    connection,
+                    current_fingerprint,
                 )
-            if projection["source_fingerprint"] != current_fingerprint:
-                raise DenseIndexError(
-                    "The dense projection is stale; run 'kg dense-index' again."
+            _validate_projection_model(
+                projection, embedding_provider, source_text_version=self.source_text_version
+            )
+            trace = execution_trace.get()
+            if trace is not None:
+                trace.projection_id = projection_id
+                trace.projection_path = str(self.projection_path)
+                trace.embedding_profile = self.profile.value
+                trace.source_text_version = self.source_text_version
+                trace.embedding_model = ModelIdentity(
+                    name=embedding_provider.name,
+                    revision=embedding_provider.revision,
+                    pipeline_version=embedding_provider.pipeline_version,
                 )
-            embedding_provider = provider or self._provider()
-            _validate_projection_model(projection, embedding_provider)
             query_vector = _validate_vector(
                 embedding_provider.encode_query(query),
                 embedding_provider.dimensions,
@@ -425,14 +562,66 @@ class DenseRetrievalService:
             raise DenseIndexError("Corpus changed while dense search was running")
         return results
 
+    def _index_command(self) -> str:
+        contextual = " --contextual" if self.contextual else ""
+        return f"kg dense-index --embedding-profile {self.profile.value}{contextual}"
+
+    def _raise_unavailable_projection(
+        self,
+        connection: sqlite3.Connection,
+        current_fingerprint: str,
+    ) -> None:
+        projections = connection.execute(
+            """
+            SELECT profile, source_fingerprint
+            FROM dense_projection
+            WHERE corpus_id = ? AND status = 'completed'
+            """,
+            (self.corpus_id,),
+        ).fetchall()
+        if not projections:
+            raise DenseIndexError(
+                f"No dense projection is available for embedding profile "
+                f"{self.profile.value!r}; run '{self._index_command()}' first."
+            )
+        matching_profile = [
+            projection
+            for projection in projections
+            if projection["profile"] == self.profile.value
+        ]
+        if not matching_profile:
+            raise DenseIndexError(
+                f"The dense projection database was built for another embedding "
+                f"profile; run '{self._index_command()}'."
+            )
+        if all(
+            projection["source_fingerprint"] != current_fingerprint
+            for projection in matching_profile
+        ):
+            raise DenseIndexError(
+                f"The dense projection for embedding profile {self.profile.value!r} "
+                f"is stale; run '{self._index_command()}' again."
+            )
+        raise DenseIndexError(
+            f"The dense projection is incompatible with embedding profile "
+            f"{self.profile.value!r}; run '{self._index_command()}'."
+        )
+
     def warmup(self) -> None:
         provider = self._provider()
         _validate_vector(provider.encode_query("warmup"), provider.dimensions)
 
     def _provider(self) -> EmbeddingProvider:
         if self._embedding_provider is None:
-            self._embedding_provider = SentenceTransformerEmbeddingProvider()
+            self._embedding_provider = SentenceTransformerEmbeddingProvider(self.profile)
         return self._embedding_provider
+
+    def _validate_provider_profile(self, provider: EmbeddingProvider) -> None:
+        if provider.profile != self.profile:
+            raise DenseIndexError(
+                f"Embedding provider profile {provider.profile.value!r} does not match "
+                f"selected profile {self.profile.value!r}"
+            )
 
     @contextmanager
     def _projection_connection(
@@ -442,7 +631,7 @@ class DenseRetrievalService:
     ) -> Iterator[sqlite3.Connection]:
         if read_only and not self.projection_path.exists():
             raise DenseIndexError(
-                "No dense projection is available; run 'kg dense-index' first."
+                f"No dense projection is available; run '{self._index_command()}' first."
             )
         try:
             connection = sqlite3.connect(self.projection_path)
@@ -451,6 +640,7 @@ class DenseRetrievalService:
                 f"Could not open dense projection database: {exc}"
             ) from exc
         try:
+            legacy_format(connection, projection=True)
             connection.row_factory = sqlite3.Row
             connection.enable_load_extension(True)
             sqlite_vec.load(connection)
@@ -493,6 +683,7 @@ class DenseRetrievalService:
             ) from exc
         return DenseIndexResult(
             corpus_id=self.corpus_id,
+            contextual=self.contextual,
             projection_id=projection_id,
             model_name=provider.name,
             model_revision=provider.revision,
@@ -504,10 +695,25 @@ class DenseRetrievalService:
             duration_ms=(time.perf_counter() - started) * 1000,
             index_path=str(self.projection_path),
             index_bytes=index_bytes,
+            embedding_profile=provider.profile.value,
+            normalization=provider.normalization,
+            context_behavior=provider.context_behavior,
+            query_encoding=provider.query_encoding,
+            document_encoding=provider.document_encoding,
         )
 
 
 def _initialize_projection_schema(connection: sqlite3.Connection) -> None:
+    if connection.in_transaction:
+        legacy_format(connection, projection=True)
+        _projection_schema(connection)
+    else:
+        with write_transaction(connection):
+            legacy_format(connection, projection=True)
+            _projection_schema(connection)
+
+
+def _projection_schema(connection: sqlite3.Connection) -> None:
     schema_table = connection.execute(
         """
         SELECT 1
@@ -519,12 +725,16 @@ def _initialize_projection_schema(connection: sqlite3.Connection) -> None:
         versions = connection.execute(
             "SELECT version FROM projection_schema ORDER BY version"
         ).fetchall()
-        if [row["version"] for row in versions] != [PROJECTION_SCHEMA_VERSION]:
+        version_values = [row["version"] for row in versions]
+        if version_values == [2]:
+            _migrate_projection_schema_v2(connection)
+        elif version_values != [PROJECTION_SCHEMA_VERSION]:
             raise DenseIndexError(
                 "Unsupported dense projection schema version; delete the dense "
                 "database and rebuild it."
             )
-    connection.executescript(
+    execute_schema(
+        connection,
         f"""
         CREATE TABLE IF NOT EXISTS projection_schema (
             version INTEGER PRIMARY KEY
@@ -541,12 +751,17 @@ def _initialize_projection_schema(connection: sqlite3.Connection) -> None:
             pipeline_version TEXT NOT NULL,
             dimensions INTEGER NOT NULL,
             normalized INTEGER NOT NULL CHECK (normalized IN (0, 1)),
+            normalization TEXT NOT NULL,
             source_text_version TEXT NOT NULL,
+            context_behavior TEXT NOT NULL,
+            query_encoding TEXT NOT NULL,
+            document_encoding TEXT NOT NULL,
             source_fingerprint TEXT NOT NULL,
             vector_table TEXT NOT NULL,
             status TEXT NOT NULL,
             passage_count INTEGER NOT NULL,
             created_at TEXT NOT NULL,
+            profile TEXT NOT NULL,
             is_active INTEGER NOT NULL DEFAULT 0 CHECK (is_active IN (0, 1))
         );
 
@@ -567,23 +782,158 @@ def _initialize_projection_schema(connection: sqlite3.Connection) -> None:
     )
 
 
-def _default_projection_path(database_path: Path) -> Path:
-    return database_path.with_name(f"{database_path.stem}.dense.sqlite3")
+def _migrate_projection_schema_v2(connection: sqlite3.Connection) -> None:
+    execute_schema(
+        connection,
+        f"""
+        ALTER TABLE dense_projection ADD COLUMN normalization TEXT NOT NULL
+            DEFAULT '{NORMALIZATION}';
+        ALTER TABLE dense_projection ADD COLUMN context_behavior TEXT NOT NULL
+            DEFAULT '{EMBEDDING_PROFILES[DEFAULT_EMBEDDING_PROFILE].context_behavior}';
+        ALTER TABLE dense_projection ADD COLUMN query_encoding TEXT NOT NULL
+            DEFAULT '{GTE_QUERY_ENCODING}';
+        ALTER TABLE dense_projection ADD COLUMN document_encoding TEXT NOT NULL
+            DEFAULT '{GTE_DOCUMENT_ENCODING}';
+        ALTER TABLE dense_projection ADD COLUMN profile TEXT NOT NULL
+            DEFAULT '{DEFAULT_EMBEDDING_PROFILE.value}';
+        UPDATE projection_schema SET version = {PROJECTION_SCHEMA_VERSION};
+        """
+    )
+    projections = connection.execute(
+        """
+        SELECT *
+        FROM dense_projection
+        WHERE status = 'completed'
+        """
+    ).fetchall()
+    for projection in projections:
+        canonical_id = _projection_id_values(
+            corpus_id=str(projection["corpus_id"]),
+            profile=str(projection["profile"]),
+            model_name=str(projection["model_name"]),
+            model_revision=str(projection["model_revision"]),
+            pipeline_version=str(projection["pipeline_version"]),
+            dimensions=int(projection["dimensions"]),
+            normalization=str(projection["normalization"]),
+            source_text_version=str(projection["source_text_version"]),
+            context_behavior=str(projection["context_behavior"]),
+            query_encoding=str(projection["query_encoding"]),
+            document_encoding=str(projection["document_encoding"]),
+            source_fingerprint=str(projection["source_fingerprint"]),
+        )
+        legacy_id = str(projection["projection_id"])
+        if canonical_id == legacy_id:
+            continue
+        connection.execute(
+            """
+            INSERT INTO dense_projection (
+                projection_id, corpus_id, model_name, model_revision, model_license,
+                pipeline_version, dimensions, normalized, normalization,
+                source_text_version, context_behavior, query_encoding,
+                document_encoding, source_fingerprint, vector_table, status,
+                passage_count, created_at, profile, is_active
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                canonical_id,
+                projection["corpus_id"],
+                projection["model_name"],
+                projection["model_revision"],
+                projection["model_license"],
+                projection["pipeline_version"],
+                projection["dimensions"],
+                projection["normalized"],
+                projection["normalization"],
+                projection["source_text_version"],
+                projection["context_behavior"],
+                projection["query_encoding"],
+                projection["document_encoding"],
+                projection["source_fingerprint"],
+                projection["vector_table"],
+                projection["status"],
+                projection["passage_count"],
+                projection["created_at"],
+                projection["profile"],
+                projection["is_active"],
+            ),
+        )
+        connection.execute(
+            """
+            UPDATE dense_embedding
+            SET projection_id = ?
+            WHERE projection_id = ?
+            """,
+            (canonical_id, legacy_id),
+        )
+        connection.execute(
+            "DELETE FROM dense_projection WHERE projection_id = ?",
+            (legacy_id,),
+        )
+
+
+def _default_projection_path(
+    database_path: Path,
+    profile: EmbeddingProfile,
+    *,
+    contextual: bool = False,
+) -> Path:
+    path = database_path.with_name(
+        f"{database_path.stem}{EMBEDDING_PROFILES[profile].projection_suffix}"
+    )
+    return path.with_stem(f"{path.stem}.contextual") if contextual else path
 
 
 def _projection_id(
     corpus_id: str,
     provider: EmbeddingProvider,
     source_fingerprint: str,
+    *,
+    source_text_version: str = SOURCE_TEXT_VERSION,
+) -> str:
+    return _projection_id_values(
+        corpus_id=corpus_id,
+        profile=provider.profile.value,
+        model_name=provider.name,
+        model_revision=provider.revision,
+        pipeline_version=provider.pipeline_version,
+        dimensions=provider.dimensions,
+        normalization=provider.normalization,
+        source_text_version=source_text_version,
+        context_behavior=provider.context_behavior,
+        query_encoding=provider.query_encoding,
+        document_encoding=provider.document_encoding,
+        source_fingerprint=source_fingerprint,
+    )
+
+
+def _projection_id_values(
+    *,
+    corpus_id: str,
+    profile: str,
+    model_name: str,
+    model_revision: str,
+    pipeline_version: str,
+    dimensions: int,
+    normalization: str,
+    source_text_version: str,
+    context_behavior: str,
+    query_encoding: str,
+    document_encoding: str,
+    source_fingerprint: str,
 ) -> str:
     value = "\0".join(
         (
             corpus_id,
-            provider.name,
-            provider.revision,
-            provider.pipeline_version,
-            str(provider.dimensions),
-            SOURCE_TEXT_VERSION,
+            profile,
+            model_name,
+            model_revision,
+            pipeline_version,
+            str(dimensions),
+            normalization,
+            source_text_version,
+            context_behavior,
+            query_encoding,
+            document_encoding,
             source_fingerprint,
         )
     )
@@ -647,6 +997,8 @@ def _checked_vector_table(value: object) -> str:
 def _validate_projection_model(
     projection: sqlite3.Row,
     provider: EmbeddingProvider,
+    *,
+    source_text_version: str = SOURCE_TEXT_VERSION,
 ) -> None:
     actual = (
         projection["model_name"],
@@ -654,6 +1006,12 @@ def _validate_projection_model(
         projection["model_license"],
         projection["pipeline_version"],
         projection["dimensions"],
+        projection["normalization"],
+        projection["source_text_version"],
+        projection["context_behavior"],
+        projection["query_encoding"],
+        projection["document_encoding"],
+        projection["profile"],
     )
     expected = (
         provider.name,
@@ -661,9 +1019,19 @@ def _validate_projection_model(
         provider.license,
         provider.pipeline_version,
         provider.dimensions,
+        provider.normalization,
+        source_text_version,
+        provider.context_behavior,
+        provider.query_encoding,
+        provider.document_encoding,
+        provider.profile.value,
     )
     if actual != expected:
+        contextual = (
+            " --contextual" if source_text_version == CONTEXTUAL_SOURCE_TEXT_VERSION else ""
+        )
         raise DenseIndexError(
-            "The active dense projection uses a different embedding model; "
-            "run 'kg dense-index' with the configured model."
+            f"The dense projection is incompatible with embedding profile "
+            f"{provider.profile.value!r}; run 'kg dense-index --embedding-profile "
+            f"{provider.profile.value}{contextual}'."
         )

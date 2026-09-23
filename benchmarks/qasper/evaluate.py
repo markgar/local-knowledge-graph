@@ -13,6 +13,7 @@ from kg.config import load_manifest
 from kg.db import Database
 from kg.retrieval import (
     DenseRetrievalService,
+    EmbeddingProfile,
     HybridRetrievalService,
     RerankedRetrievalService,
     RetrievalService,
@@ -62,6 +63,8 @@ def evaluate(
     gold_path: Path,
     limit: int = 10,
     strategy: Strategy = "natural",
+    embedding_profile: EmbeddingProfile = EmbeddingProfile.gte_modernbert,
+    contextual: bool = False,
 ) -> dict[str, Any]:
     if strategy not in {"strict", "natural", "dense", "hybrid", "reranked"}:
         raise ValueError(
@@ -69,20 +72,37 @@ def evaluate(
         )
     if limit < 10:
         raise ValueError("limit must be at least 10 for @10 metrics")
+    if contextual and strategy in {"strict", "natural"}:
+        raise ValueError("contextual retrieval requires dense, hybrid, or reranked strategy")
     manifest = load_manifest(manifest_path)
     retrieval = RetrievalService(Database(manifest.database), manifest.corpus_id)
     dense_retrieval = (
-        DenseRetrievalService(Database(manifest.database), manifest.corpus_id)
+        DenseRetrievalService(
+            Database(manifest.database),
+            manifest.corpus_id,
+            profile=embedding_profile,
+            contextual=contextual,
+        )
         if strategy == "dense"
         else None
     )
     hybrid_retrieval = (
-        HybridRetrievalService(Database(manifest.database), manifest.corpus_id)
+        HybridRetrievalService(
+            Database(manifest.database),
+            manifest.corpus_id,
+            embedding_profile=embedding_profile,
+            contextual=contextual,
+        )
         if strategy == "hybrid"
         else None
     )
     reranked_retrieval = (
-        RerankedRetrievalService(Database(manifest.database), manifest.corpus_id)
+        RerankedRetrievalService(
+            Database(manifest.database),
+            manifest.corpus_id,
+            embedding_profile=embedding_profile,
+            contextual=contextual,
+        )
         if strategy == "reranked"
         else None
     )
@@ -140,14 +160,17 @@ def evaluate(
         retrieved_at_10 = retrieved[:10]
         retrieved_set_at_10 = set(retrieved_at_10)
         gold_sets = _gold_sets(question)
+        recall_by_cutoff = {
+            cutoff: _best_recall(set(retrieved[:cutoff]), gold_sets)
+            for cutoff in recall_totals
+        }
+        reciprocal_rank = 0.0
+        evidence_f1_at_10 = _best_f1(retrieved_set_at_10, gold_sets)
 
         if gold_sets:
             answerable += 1
             for cutoff in recall_totals:
-                recall_totals[cutoff] += _best_recall(
-                    set(retrieved[:cutoff]),
-                    gold_sets,
-                )
+                recall_totals[cutoff] += recall_by_cutoff[cutoff]
             first_hit = next(
                 (
                     rank
@@ -157,8 +180,9 @@ def evaluate(
                 None,
             )
             if first_hit:
-                reciprocal_rank_total += 1 / first_hit
-            evidence_f1_total += _best_f1(retrieved_set_at_10, gold_sets)
+                reciprocal_rank = 1 / first_hit
+                reciprocal_rank_total += reciprocal_rank
+            evidence_f1_total += evidence_f1_at_10
         else:
             unanswerable += 1
             false_evidence += bool(results)
@@ -181,7 +205,12 @@ def evaluate(
                 "answerable": bool(gold_sets),
                 "returned": len(results),
                 "record_ids": [result.record_id for result in results],
-                "recall_at_10": _best_recall(retrieved_set_at_10, gold_sets),
+                "top_score": results[0].rank if results else None,
+                "recall_at_1": recall_by_cutoff[1],
+                "recall_at_5": recall_by_cutoff[5],
+                "recall_at_10": recall_by_cutoff[10],
+                "reciprocal_rank": reciprocal_rank,
+                "evidence_f1_at_10": evidence_f1_at_10,
             }
         )
 
@@ -196,6 +225,8 @@ def evaluate(
         "papers": gold["papers"],
         "questions": len(questions),
         "query_strategy": strategy,
+        "embedding_profile": embedding_profile.value,
+        "contextual": contextual,
         "answerable_questions": answerable,
         "unanswerable_questions": unanswerable,
         "metrics": {
@@ -233,10 +264,16 @@ def main() -> None:
         default=benchmark_directory / "data" / "gold.json",
     )
     parser.add_argument("--limit", type=int, default=10)
+    parser.add_argument("--contextual", action="store_true")
     parser.add_argument(
         "--strategy",
         choices=("strict", "natural", "dense", "hybrid", "reranked"),
         default="natural",
+    )
+    parser.add_argument(
+        "--embedding-profile",
+        choices=tuple(profile.value for profile in EmbeddingProfile),
+        default=EmbeddingProfile.gte_modernbert.value,
     )
     parser.add_argument(
         "--output",
@@ -245,10 +282,24 @@ def main() -> None:
     )
     args = parser.parse_args()
 
-    result = evaluate(args.manifest, args.gold, args.limit, args.strategy)
-    output = args.output or (
-        benchmark_directory / "data" / f"results-{args.strategy}.json"
+    profile = EmbeddingProfile(args.embedding_profile)
+    result = evaluate(
+        args.manifest,
+        args.gold,
+        args.limit,
+        args.strategy,
+        profile,
+        args.contextual,
     )
+    default_name = f"results-{args.strategy}.json"
+    if (
+        args.strategy in {"dense", "hybrid", "reranked"}
+        and profile is not EmbeddingProfile.gte_modernbert
+    ):
+        default_name = f"results-{args.strategy}-{profile.value}.json"
+    output = args.output or (benchmark_directory / "data" / default_name)
+    if args.contextual and args.output is None:
+        output = output.with_stem(f"{output.stem}-contextual")
     output.parent.mkdir(parents=True, exist_ok=True)
     output.write_text(
         json.dumps(result, indent=2, sort_keys=True) + "\n",

@@ -8,6 +8,9 @@ from typing import Protocol
 
 from kg.db import Database
 from kg.models.contracts import SearchResult
+from kg.retrieval._telemetry import execution_trace
+from kg.retrieval.context import contextual_passage_text
+from kg.retrieval.dense import DEFAULT_EMBEDDING_PROFILE, EmbeddingProfile
 from kg.retrieval.hybrid import HybridRetrievalService
 from kg.retrieval.service import RetrievalService, SearchQueryError
 
@@ -110,6 +113,8 @@ class RerankedRetrievalService:
         reranker: RerankerProvider | None = None,
         candidate_limit: int = DEFAULT_CANDIDATE_LIMIT,
         batch_size: int = DEFAULT_BATCH_SIZE,
+        embedding_profile: EmbeddingProfile = DEFAULT_EMBEDDING_PROFILE,
+        contextual: bool = False,
     ) -> None:
         if candidate_limit < 1:
             raise ValueError("candidate_limit must be at least 1")
@@ -119,10 +124,13 @@ class RerankedRetrievalService:
         self.hybrid_retrieval = hybrid_retrieval or HybridRetrievalService(
             database,
             corpus_id,
+            embedding_profile=embedding_profile,
+            contextual=contextual,
         )
         self._reranker = reranker
         self.candidate_limit = candidate_limit
         self.batch_size = batch_size
+        self.contextual = contextual
 
     def search(
         self,
@@ -140,6 +148,9 @@ class RerankedRetrievalService:
 
         source_fingerprint = self.retrieval.index_fingerprint()
         candidate_limit = max(limit, self.candidate_limit)
+        trace = execution_trace.get()
+        if trace is not None:
+            trace.reranker_candidate_limit = candidate_limit
         candidates = self.hybrid_retrieval.search(
             query,
             subject=subject,
@@ -151,7 +162,14 @@ class RerankedRetrievalService:
             return []
         scores = self._provider().score(
             query,
-            [candidate.quote for candidate in candidates],
+            [
+                contextual_passage_text(
+                    candidate.quote, candidate.title, candidate.heading_path
+                )
+                if self.contextual
+                else candidate.quote
+                for candidate in candidates
+            ],
             batch_size=self.batch_size,
         )
         if len(scores) != len(candidates):
@@ -165,6 +183,10 @@ class RerankedRetrievalService:
             zip(candidates, scores, strict=True),
             key=lambda item: (-_validate_score(item[1]), item[0].record_id),
         )
+        if trace is not None:
+            trace.reranked = [
+                candidate.model_copy(update={"rank": score}) for candidate, score in ranked
+            ]
         return [
             candidate.model_copy(update={"rank": score})
             for candidate, score in ranked[:limit]

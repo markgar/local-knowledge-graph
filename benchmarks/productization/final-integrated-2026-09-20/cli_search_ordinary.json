@@ -1,0 +1,368 @@
+[
+  {
+    "anchor_id": "a9274b679f231f9ca363022c87734f4081a52e2e19356da5376e09e225726768",
+    "event_time": "2026-09-21",
+    "heading_path": [
+      "Audit Trail readiness",
+      "Blockers"
+    ],
+    "quote": "- The archive signing certificate is unavailable.",
+    "rank": 7.177383899688721,
+    "record_id": "2f0d575395b819539ca8ce93161015a54cb8a873980deb43bffafd022c88a410",
+    "record_type": "passage",
+    "related_entity_ids": [],
+    "source_path": "04-audit-trail.md",
+    "source_revision_id": "ea42d8bd68004a483cbf97f95dfd183f9179a4dbe5f05c1945a424fc06fda7f0",
+    "status": null,
+    "summary": null,
+    "title": "Audit Trail readiness"
+  },
+  {
+    "anchor_id": "b612cf655f4e8f5c9adf9be3863e613cabd0e276b1a2d7a426bb9e39bafd0ed1",
+    "event_time": "2026-09-20",
+    "heading_path": [
+      "Security Review evidence meeting",
+      "Decisions"
+    ],
+    "quote": "1. Require the signed access inventory before approval.",
+    "rank": -7.8928327560424805,
+    "record_id": "eb643f89d57c2ad327f2ff45cfbd0f2b0a461373fc63aaf0e72a2e76138b08ba",
+    "record_type": "passage",
+    "related_entity_ids": [],
+    "source_path": "03-security-review.md",
+    "source_revision_id": "8bee78593278cf453022306c79aed226ee7ab49555108f0b0c855ce066df8690",
+    "status": null,
+    "summary": null,
+    "title": "Security Review evidence meeting"
+  },
+  {
+    "anchor_id": "ab1331408dafec178fe2eccf6bc1ab299f6f301e95ffcaea01d46e2c4091220a",
+    "event_time": "2026-09-25",
+    "heading_path": [
+      "Atlas review agenda",
+      "Questions to prepare"
+    ],
+    "quote": "- What is preventing the signed export?",
+    "rank": -10.98931884765625,
+    "record_id": "767fb341b397c48a9c33b0007148f5a22af4adeca5737cf78fe27eec77b59536",
+    "record_type": "passage",
+    "related_entity_ids": [],
+    "source_path": "10-meeting-agenda.md",
+    "source_revision_id": "b47effab744d092fa0798a2eed6ca80618d099fa6e4a7aec7c573a7c8a16be7e",
+    "status": null,
+    "summary": null,
+    "title": "Atlas review agenda"
+  },
+  {
+    "anchor_id": "5633036e50bf239dcb4c6fedfcbf7bb1e352f85cdede30814a4d503eeef8b1b4",
+    "event_time": "2026-09-24",
+    "heading_path": [
+      "Atlas calendar discrepancy",
+      "Conflicts"
+    ],
+    "quote": "## Conflicts",
+    "rank": -11.162740707397461,
+    "record_id": "ddd4ceee167efc9dd90320915489bcfe5b92065be563e423af318c9e890ea04f",
+    "record_type": "passage",
+    "related_entity_ids": [],
+    "source_path": "08-calendar-discrepancy.md",
+    "source_revision_id": "453f37412137a3ffcf7d021a2c065388acb72ca0f01e30e53801b88abc4375c8",
+    "status": null,
+    "summary": null,
+    "title": "Atlas calendar discrepancy"
+  },
+  {
+    "anchor_id": "812b594da6cf1ab0daefe16c9c454166b9d34c39c124930f29ed5bb255d4acfc",
+    "event_time": "2026-09-18",
+    "heading_path": [
+      "Atlas launch planning",
+      "Decisions"
+    ],
+    "quote": "## Decisions",
+    "rank": -11.170537948608398,
+    "record_id": "8f73fe5a51f041e4455919978395d4b01ce6e3778288099e3f788646a83732bf",
+    "record_type": "passage",
+    "related_entity_ids": [],
+    "source_path": "01-planning-meeting.md",
+    "source_revision_id": "e991b41d8f3180cbe71baf8868bcc63c152d6eead154d515226e7d764799dd73",
+    "status": null,
+    "summary": null,
+    "title": "Atlas launch planning"
+  },
+  {
+    "anchor_id": "006321bfed3adf76b08f8ad8f7cd698e3ca4a077c62f4fc4c591353dbd90a0ba",
+    "event_time": "2026-09-20",
+    "heading_path": [
+      "Security Review evidence meeting",
+      "Decisions"
+    ],
+    "quote": "## Decisions",
+    "rank": -11.170537948608398,
+    "record_id": "d53c90c587426c1a9e217b58dc23666c2ca354935a0cead6f0e99bf8cf4df9e6",
+    "record_type": "passage",
+    "related_entity_ids": [],
+    "source_path": "03-security-review.md",
+    "source_revision_id": "8bee78593278cf453022306c79aed226ee7ab49555108f0b0c855ce066df8690",
+    "status": null,
+    "summary": null,
+    "title": "Security Review evidence meeting"
+  },
+  {
+    "anchor_id": "bac084f49836e1b7de5336f29e0113cbca2c1be6c7daa529773a29eafad9e130",
+    "event_time": "2026-09-23",
+    "heading_path": [
+      "Atlas launch date decision",
+      "Decisions"
+    ],
+    "quote": "## Decisions",
+    "rank": -11.170537948608398,
+    "record_id": "ed3a2c645a883d7e2c1f7ab6ba33433e1b57eefa49ebeaf3dc3fb76034c4bcbc",
+    "record_type": "passage",
+    "related_entity_ids": [],
+    "source_path": "07-launch-date-decision.md",
+    "source_revision_id": "fe6e9772a8bc6a05a47ef05aac7e9e4d3c434a9964c297baaef7d506a40438b2",
+    "status": null,
+    "summary": null,
+    "title": "Atlas launch date decision"
+  },
+  {
+    "anchor_id": "4bbf07993c04ea93c042f47cd8186a4c8070490325893a44383ba95d388ce22c",
+    "event_time": "2026-09-22",
+    "heading_path": [
+      "Atlas integration notes"
+    ],
+    "quote": "The access inventory is exported as JSON. Use `[[Atlascope]]` only as a literal example in the documentation.",
+    "rank": -11.202842712402344,
+    "record_id": "7fe2640b2c4e0d0a2346efe0cbae100d132dfe012936ce0f0239e4c3f08de6df",
+    "record_type": "passage",
+    "related_entity_ids": [],
+    "source_path": "06-integration-notes.md",
+    "source_revision_id": "0c9f65d7f14c4d9662b6149c30f439c9224d0ecd9917a74483a6b832c9ecd9f2",
+    "status": null,
+    "summary": null,
+    "title": "Atlas integration notes"
+  },
+  {
+    "anchor_id": "ffd3a7bc31ddb815117efca28712fb1dec46d66730a4733b1664ea045ab06a96",
+    "event_time": "2026-09-20",
+    "heading_path": [
+      "Security Review evidence meeting",
+      "Actions"
+    ],
+    "quote": "1. [ ] Upload access evidence. [owner:: Morgan] [due:: 2026-09-24]",
+    "rank": -11.20555305480957,
+    "record_id": "f5dd57982097ecb030217ea358eae3cdce09096f533e4c084a30e229fd593dc3",
+    "record_type": "passage",
+    "related_entity_ids": [
+      "morgan"
+    ],
+    "source_path": "03-security-review.md",
+    "source_revision_id": "8bee78593278cf453022306c79aed226ee7ab49555108f0b0c855ce066df8690",
+    "status": null,
+    "summary": null,
+    "title": "Security Review evidence meeting"
+  },
+  {
+    "anchor_id": "67cd3a4dc33e1d63bbd429a1b60451d5e6cf4f28169647f9261de7d37d58efd1",
+    "event_time": "2026-09-18",
+    "heading_path": [
+      "Atlas launch planning",
+      "Actions"
+    ],
+    "quote": "## Actions",
+    "rank": -11.238455772399902,
+    "record_id": "74fdb0dc12bd78768073e3b2be5a874024e318fcae2ce9dbbcb3fc1086613b51",
+    "record_type": "passage",
+    "related_entity_ids": [],
+    "source_path": "01-planning-meeting.md",
+    "source_revision_id": "e991b41d8f3180cbe71baf8868bcc63c152d6eead154d515226e7d764799dd73",
+    "status": null,
+    "summary": null,
+    "title": "Atlas launch planning"
+  },
+  {
+    "anchor_id": "274fcaeb73e43477dbafb1c3b7ecc3541be3e6825a003b92d361079ff61c7375",
+    "event_time": "2026-09-23",
+    "heading_path": [
+      "Atlas launch date decision",
+      "Actions"
+    ],
+    "quote": "## Actions",
+    "rank": -11.238455772399902,
+    "record_id": "a59877282d4bf1f868f5ef07cd058cc1d72aa0f58bcfd8c19ee583544e751c79",
+    "record_type": "passage",
+    "related_entity_ids": [],
+    "source_path": "07-launch-date-decision.md",
+    "source_revision_id": "fe6e9772a8bc6a05a47ef05aac7e9e4d3c434a9964c297baaef7d506a40438b2",
+    "status": null,
+    "summary": null,
+    "title": "Atlas launch date decision"
+  },
+  {
+    "anchor_id": "1880216e1948dc423df742db5b4a1e9f5c60b0acf76fc64eb245f18e22f87981",
+    "event_time": "2026-09-20",
+    "heading_path": [
+      "Security Review evidence meeting",
+      "Actions"
+    ],
+    "quote": "## Actions",
+    "rank": -11.238455772399902,
+    "record_id": "a60335cfb6ae48be3e9b6e5bda6e862ed54da9c2838ead77db65b08e958ce9ef",
+    "record_type": "passage",
+    "related_entity_ids": [],
+    "source_path": "03-security-review.md",
+    "source_revision_id": "8bee78593278cf453022306c79aed226ee7ab49555108f0b0c855ce066df8690",
+    "status": null,
+    "summary": null,
+    "title": "Security Review evidence meeting"
+  },
+  {
+    "anchor_id": "09ebab8c8d2653bcf1f8a75d554f1878c274fc6bd1ac6f455489fb42b87ccb2c",
+    "event_time": "2026-09-22",
+    "heading_path": [
+      "Atlas integration notes"
+    ],
+    "quote": "The actual export retains timestamps and permission names.",
+    "rank": -11.250863075256348,
+    "record_id": "59e351d1dd0f6f00e065b6250b20fcbfd68c3b27480e3710abf695b5a555c75a",
+    "record_type": "passage",
+    "related_entity_ids": [],
+    "source_path": "06-integration-notes.md",
+    "source_revision_id": "0c9f65d7f14c4d9662b6149c30f439c9224d0ecd9917a74483a6b832c9ecd9f2",
+    "status": null,
+    "summary": null,
+    "title": "Atlas integration notes"
+  },
+  {
+    "anchor_id": "a0b32b44757e5c67a825e22afbfa1b8455c768405d755050dc4027036802fabe",
+    "event_time": "2026-09-25",
+    "heading_path": [
+      "Atlas review agenda",
+      "Questions to prepare"
+    ],
+    "quote": "## Questions to prepare",
+    "rank": -11.252610206604004,
+    "record_id": "c62e351e9317994078562cb7e0b412c6569b32b09017a54549518b9d81e645c3",
+    "record_type": "passage",
+    "related_entity_ids": [],
+    "source_path": "10-meeting-agenda.md",
+    "source_revision_id": "b47effab744d092fa0798a2eed6ca80618d099fa6e4a7aec7c573a7c8a16be7e",
+    "status": null,
+    "summary": null,
+    "title": "Atlas review agenda"
+  },
+  {
+    "anchor_id": "0b1a8f43c6df78f6ab0c37b9a30f215334da0c9b1214ecf3f650fa76e891817f",
+    "event_time": "2026-09-21",
+    "heading_path": [
+      "Audit Trail readiness",
+      "Blockers"
+    ],
+    "quote": "## Blockers",
+    "rank": -11.259244918823242,
+    "record_id": "51e6060e94a4582af684da5ef7e500e562c2466bf8e39bbc4963e93fd7b4975a",
+    "record_type": "passage",
+    "related_entity_ids": [],
+    "source_path": "04-audit-trail.md",
+    "source_revision_id": "ea42d8bd68004a483cbf97f95dfd183f9179a4dbe5f05c1945a424fc06fda7f0",
+    "status": null,
+    "summary": null,
+    "title": "Audit Trail readiness"
+  },
+  {
+    "anchor_id": "43d7aa2e09ad035adb3ee755b454816af9053795ac78c6027dce17a6826c4f2f",
+    "event_time": "2026-09-18",
+    "heading_path": [
+      "Atlas launch planning",
+      "Blockers"
+    ],
+    "quote": "## Blockers",
+    "rank": -11.259244918823242,
+    "record_id": "f4c4623274c8b54db755153332500e293fe697c2375af2409e8f309f27281880",
+    "record_type": "passage",
+    "related_entity_ids": [],
+    "source_path": "01-planning-meeting.md",
+    "source_revision_id": "e991b41d8f3180cbe71baf8868bcc63c152d6eead154d515226e7d764799dd73",
+    "status": null,
+    "summary": null,
+    "title": "Atlas launch planning"
+  },
+  {
+    "anchor_id": "28cb780ec8344723f5568fafa813dd786e2b6b2f70296c5fd2e925f8ce1b5fa3",
+    "event_time": "2026-09-18",
+    "heading_path": [
+      "Atlas launch planning",
+      "Actions"
+    ],
+    "quote": "- [ ] Confirm the review date. [owner:: Priya] [due:: 2026-09-23] [key:: review-date-v1]",
+    "rank": -11.27294921875,
+    "record_id": "ad51510d477bb226ebdfef92d3ebdc6e9a2106cd01d166a064923420c1ddfc28",
+    "record_type": "passage",
+    "related_entity_ids": [
+      "priya"
+    ],
+    "source_path": "01-planning-meeting.md",
+    "source_revision_id": "e991b41d8f3180cbe71baf8868bcc63c152d6eead154d515226e7d764799dd73",
+    "status": null,
+    "summary": null,
+    "title": "Atlas launch planning"
+  },
+  {
+    "anchor_id": "c3e951e45051a776dc2c919a95b42c46b0501db1e293e1ac7cd9467fe22ec939",
+    "event_time": "2026-09-22",
+    "heading_path": [
+      "Atlas integration notes"
+    ],
+    "quote": "# Atlas integration notes",
+    "rank": -11.287376403808594,
+    "record_id": "2f82be6273b785fd6e213f4b4d5f81cc7791d1c06085060e1de3f54f4b9254df",
+    "record_type": "passage",
+    "related_entity_ids": [
+      "atlas"
+    ],
+    "source_path": "06-integration-notes.md",
+    "source_revision_id": "0c9f65d7f14c4d9662b6149c30f439c9224d0ecd9917a74483a6b832c9ecd9f2",
+    "status": null,
+    "summary": null,
+    "title": "Atlas integration notes"
+  },
+  {
+    "anchor_id": "df111615d7b89879c1cadf2a12778cf68a90d112be505334dab46284c5667758",
+    "event_time": "2026-09-19",
+    "heading_path": [
+      "Atlas review follow-up"
+    ],
+    "quote": "Please bring the access inventory to the Security Review meeting. The inventory includes service accounts and their permissions.",
+    "rank": -11.334895133972168,
+    "record_id": "a65a27167985f47a4136432e0de858e104a2c14bde271f155587ee79ec0afaf4",
+    "record_type": "passage",
+    "related_entity_ids": [
+      "security-review"
+    ],
+    "source_path": "02-follow-up-email.md",
+    "source_revision_id": "6149cd91729204b67fca8ddba9ebbc33bb1e4dccb81267bb2d911b9f044703dc",
+    "status": null,
+    "summary": null,
+    "title": "Atlas review follow-up email"
+  },
+  {
+    "anchor_id": "1c40ab67d47c2541fe982ac2d12280790bff4330ac47ff2038e7c1aa0dc3cf94",
+    "event_time": "2026-09-19",
+    "heading_path": [
+      "Atlas review follow-up"
+    ],
+    "quote": "Priya agreed to confirm the review date, and Morgan will upload access evidence by September 24.",
+    "rank": -11.33601188659668,
+    "record_id": "0661b31dd1f04ddc99677721ef10277d99d22ca6208ea3b2e91d54a6257c3754",
+    "record_type": "passage",
+    "related_entity_ids": [
+      "morgan",
+      "priya"
+    ],
+    "source_path": "02-follow-up-email.md",
+    "source_revision_id": "6149cd91729204b67fca8ddba9ebbc33bb1e4dccb81267bb2d911b9f044703dc",
+    "status": null,
+    "summary": null,
+    "title": "Atlas review follow-up email"
+  }
+]

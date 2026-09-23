@@ -1,157 +1,170 @@
 # QASPER benchmark
 
-This benchmark tests the local knowledge graph against real scientific papers
-with human-authored questions and paragraph-level supporting evidence.
-[QASPER](https://huggingface.co/datasets/allenai/qasper) contains 5,049
-questions over 1,585 NLP papers and is distributed under
+The runner uses the separate Markdown demonstration's `kg.retrieval` components
+and SQLite source store. It does not evaluate the canonical service stack or
+Ladybug; see [current architecture](../../SPEC.md#architecture-and-data-ownership).
+
+This benchmark measures retrieval and citation integrity over scientific papers
+with human-authored questions and supporting evidence.
+[QASPER](https://huggingface.co/datasets/allenai/qasper) contains 5,049 questions
+over 1,585 NLP papers and is distributed under
 [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/).
+The repository contains conversion/evaluation tools, a fixed
+[50-paper development selection](sample.json), and aggregate results, not the papers.
+The selected sample has 179 questions.
 
-The repository does not redistribute the papers. It contains only conversion
-and evaluation tooling, a deterministic list of 50 development-paper IDs, and
-aggregate results. Running the preparation command downloads QASPER 0.3 from
-the official archive and verifies its SHA-256 checksum.
+Each paper becomes one Markdown document with its title as a seed entity.
+Search is scoped to that title, so this tests within-paper retrieval, not paper
+discovery. Paragraph evidence maps to source anchors, section evidence to
+headings, and `FLOAT SELECTED` evidence to figure/table captions. Preparation
+rejects selected gold evidence that cannot be represented in the generated corpus.
 
-## Plan
+## Prepare and run lexical retrieval
 
-The first pilot uses 50 complete development papers and 179 questions:
-
-- 32 unanswerable annotations.
-- 25 yes/no annotations.
-- 73 free-form annotations.
-- 182 extractive annotations.
-- 69 questions with at least one multi-paragraph evidence annotation.
-
-Each paper becomes one Markdown document. Its title is configured as a seed
-entity so evaluation searches remain scoped to the paper associated with the
-question. Paragraph evidence becomes exact source anchors, section evidence
-maps to Markdown headings, and QASPER's `FLOAT SELECTED` evidence maps to
-figure and table caption passages. Preparation fails if any selected gold
-evidence cannot be represented by the generated corpus.
-
-The initial measurements are:
-
-- Paragraph evidence recall at 1, 5, and 10.
-- Mean reciprocal rank of the first gold paragraph.
-- Evidence-set F1 over the first 10 results.
-- False-evidence rate for unanswerable questions.
-- Exact anchor and revision integrity.
-- Median and p95 query latency.
-
-This benchmark evaluates retrieval, citations, and abstention. It does not
-evaluate generated answer quality, actions, decisions, blockers, conflicts, or
-graph traversal. The synthetic acceptance corpora remain the tests for those
-explicit structures. A later 2WikiMultiHopQA benchmark can focus specifically
-on one- and two-hop relationships.
-
-## Initial baseline
-
-The first run produced:
-
-| Metric | Strict search | Natural search |
-| --- | ---: | ---: |
-| Evidence Recall@1 | 0.0% | 12.2% |
-| Evidence Recall@5 | 0.0% | 40.2% |
-| Evidence Recall@10 | 0.0% | 54.6% |
-| Mean reciprocal rank | 0.000 | 0.302 |
-| Evidence-set F1@10 | 0.0% | 12.8% |
-| Unanswerable false-evidence rate | 0.0% | 100.0% |
-| Anchor integrity | 100.0% | 100.0% |
-
-Strict search returned no passage for 175 of 179 questions because natural
-questions contain words that do not all occur in one paragraph. The engine's
-natural query mode safely joins unique terms with FTS5 `OR` and lets BM25 rank
-the candidates. This is a public search feature rather than benchmark-specific
-query rewriting.
-
-The low top-rank score and false-evidence rate show that ranking and calibrated
-abstention need more work. These are retrieval failures, not citation failures:
-every returned result resolved back to the exact indexed quote and immutable
-revision.
-
-The aggregate measurements are checked in as
-[`baseline.json`](baseline.json). Detailed per-question output remains local
-because it includes dataset-derived identifiers and is more useful as a
-working artifact than as source code.
-
-The permanent experiment history and one-feature-at-a-time methodology are in
-[`RESULTS.md`](RESULTS.md). New retrieval capabilities must record their
-metrics and delta there before the next capability is introduced.
-
-## Run it
-
-From the repository root:
+Run from the repository root with the
+[development environment](../../CONTRIBUTING.md) available:
 
 ```bash
-uv sync --extra dev
 uv run python benchmarks/qasper/prepare.py
 uv run kg ingest --manifest benchmarks/qasper/data/corpus.yml
-uv run kg dense-index --manifest benchmarks/qasper/data/corpus.yml
-uv run python benchmarks/qasper/evaluate.py --strategy dense
-uv run python benchmarks/qasper/evaluate.py --strategy hybrid
-uv run python benchmarks/qasper/evaluate.py --strategy reranked
-uv run python benchmarks/qasper/evaluate.py
+uv run python benchmarks/qasper/evaluate.py \
+  --strategy natural --output benchmarks/qasper/data/results-natural-run-1.json
+uv run python benchmarks/qasper/evaluate.py \
+  --strategy strict --output benchmarks/qasper/data/results-strict-run-1.json
 ```
 
-Generated papers, gold annotations, the SQLite database, and detailed results
-are written beneath `benchmarks/qasper/data/`, which Git ignores.
-The environment-specific `uv.lock` is also ignored because the configured
-package feed may differ between development environments.
-
-The evaluator uses natural search by default. Run it with `--strategy strict`
-to reproduce the original all-term baseline, or use `--strategy dense` or
-`--strategy hybrid` or `--strategy reranked` after building the dense projection:
-
-```bash
-uv run python benchmarks/qasper/evaluate.py --strategy strict
-```
-
-This baseline is intentionally not presented as a solved benchmark. It creates
-a stable, public regression target for better lexical ranking and abstention
-without adding embeddings or answer generation.
-
-## Improvement plan
-
-The benchmark now gates the next retrieval milestones:
-
-1. Add a versioned dense embedding index whose rows retain canonical
-   `anchor_id` and `revision_id` values.
-2. Evaluate lexical and dense retrieval independently.
-3. Combine their candidates using deterministic reciprocal-rank fusion.
-4. Rerank the top candidates with a local cross-encoder.
-5. Calibrate an answerability decision independently from passage relevance.
-
-Target measurements are:
-
-| Stage | Recall@5 | Recall@10 | MRR |
-| --- | ---: | ---: | ---: |
-| Dense plus hybrid | at least 60% | at least 75% | at least 0.45 |
-| Cross-encoder reranked | at least 70% | at least 80% | at least 0.55 |
-
-Every stage must retain 100% anchor integrity and publish its results
-separately. Model-card or external benchmark scores are only selection inputs;
-changes are accepted based on this fixture and the later agent-oriented
-evaluation set.
-
-Experiments are deliberately sequential:
-
-1. Dense retrieval only.
-2. Sparse/dense fusion without changing either retriever.
-3. Reranking without changing candidate generation.
-4. Answerability and abstention without changing retrieval.
-
-This isolates the value and cost of each feature.
-
-The pinned archive is:
+`prepare.py --output DIRECTORY` changes the generated directory (default:
+`benchmarks/qasper/data/`). It reuses a checksum-valid archive already there,
+otherwise downloads the pinned archive:
 
 ```text
 URL: https://qasper-dataset.s3.us-west-2.amazonaws.com/qasper-train-dev-v0.3.tgz
 SHA-256: a28fdf966db827bcee3d873107d6b6669864fb7ca8fbf73a192f5e39191bdb5a
 ```
 
-QASPER citation:
+Preparation manages generated Markdown using `.qasper-fixture.json` and refuses
+unexpected Markdown rather than deleting unrelated files. Repreparing a managed
+directory can replace generated sources, manifest, and gold; do not do so during
+a comparison. Papers, gold, the archive, indexes, and detailed results belong in
+the Git-ignored `data/` directory or another untracked workspace. If preparation
+uses a different directory, pass its manifest to `kg` and both `--manifest` and
+`--gold` to the evaluator.
 
-> Dasigi et al. (2021), *A Dataset of Information-Seeking Questions and Answers
-> Anchored in Research Papers*, NAACL.
+Respect organizational network policy for dataset, package, and model downloads.
+Report blocked hosts; use checksum-valid local archives and approved caches
+where available. Do not bypass controls or change model pins to complete a run.
 
-See the [QASPER project repository](https://github.com/allenai/qasper-led-baseline)
-for the paper, official evaluator, and baseline implementations.
+## Semantic component strategies
+
+`--strategy` is an **evaluation-only component selector**, not a public
+`kg search` mode:
+
+| Strategy | Evaluated retrieval |
+| --- | --- |
+| `strict` | All-term lexical matching |
+| `natural` (default) | OR-term lexical matching ranked by BM25 |
+| `dense` | Dense retrieval with the selected embedding profile |
+| `hybrid` | Lexical/dense candidate fusion |
+| `reranked` | Fused candidates scored by the local cross-encoder |
+
+Strict/natural need no models or vector index. For the other strategies, build a
+projection matching the embedding profile and contextual setting:
+
+```bash
+uv run kg dense-index --manifest benchmarks/qasper/data/corpus.yml \
+  --embedding-profile gte-modernbert
+uv run python benchmarks/qasper/evaluate.py \
+  --strategy dense --embedding-profile gte-modernbert \
+  --output benchmarks/qasper/data/results-dense-gte-run-1.json
+uv run python benchmarks/qasper/evaluate.py \
+  --strategy hybrid --embedding-profile gte-modernbert \
+  --output benchmarks/qasper/data/results-hybrid-gte-run-1.json
+uv run python benchmarks/qasper/evaluate.py \
+  --strategy reranked --embedding-profile gte-modernbert \
+  --output benchmarks/qasper/data/results-reranked-gte-run-1.json
+```
+
+`--embedding-profile` defaults to `gte-modernbert`; the other supported value is
+`qwen3-embedding-0.6b`. Repeat indexing and evaluation with that value and distinct
+output names to compare profiles. Model warmup occurs before query timing.
+Normal product search always uses the full pipeline; these measurements remain
+component-specific. [Productization parity](../productization/README.md) is a
+separate integration check, not new relevance gold.
+
+### Contextual representation
+
+Add `--contextual` to **both** indexing and semantic evaluation to supply titles
+and heading paths to embedding/reranking without changing evidence quotes:
+
+```bash
+uv run kg dense-index --manifest benchmarks/qasper/data/corpus.yml \
+  --embedding-profile gte-modernbert --contextual
+uv run python benchmarks/qasper/evaluate.py \
+  --strategy reranked --embedding-profile gte-modernbert --contextual \
+  --output benchmarks/qasper/data/results-reranked-gte-contextual-run-1.json
+```
+
+Contextual and non-contextual projections coexist. Strict/natural reject
+`--contextual`. `kg source-context` is a separate evidence-reading operation;
+expanded passages do not count toward this benchmark's top-k recall.
+
+## Evaluator options and outputs
+
+`--manifest` and `--gold` default to `data/corpus.yml` and `data/gold.json`
+relative to this directory. `--limit` defaults to 10 and must be at least 10.
+The evaluator prints aggregate metrics and writes a JSON report including
+per-question IDs, result IDs, top scores, strategy, profile, and contextual setting.
+Without `--output`, the filename is `data/results-STRATEGY.json`, with
+`-qwen3-embedding-0.6b` for that profile's semantic strategies and `-contextual`
+when enabled. Existing report files are overwritten. Use distinct output paths
+for repetitions; retain configuration, code/model versions, and index costs
+alongside reports.
+
+Metrics include evidence recall at 1/5/10, first-gold reciprocal rank, evidence-set
+F1@10, false-evidence rate on questions without evidence, anchor/revision
+round-trip integrity, and median/p95 query latency. Evidence matching normalizes
+whitespace and heading markers; multiple annotations are scored against the best
+matching gold set. Recall/MRR/F1 aggregate over questions with evidence.
+This is not generated-answer evaluation or a test of graph traversal, actions,
+decisions, blockers, or conflicts.
+
+## Answerability calibration
+
+Calibration consumes the evaluator's **reranked raw-score report**, not product
+search output, and does not run retrieval or generate answers:
+
+```bash
+uv run python benchmarks/qasper/calibrate.py \
+  --input benchmarks/qasper/data/results-reranked-gte-run-1.json \
+  --output benchmarks/qasper/data/results-selective-gte-run-1.json
+```
+
+Always supply matching input/output paths: the calibrator's default input is
+`data/results-reranked-gte.json`, unlike the evaluator's default GTE filename.
+`--folds` defaults to 5 and `--seed` to `local-knowledge-graph-qasper-e4-v1`.
+Whole papers are deterministically assigned to folds; thresholds maximize
+balanced answerability accuracy on the other folds. The full-sample
+`deployment_threshold` is separate from out-of-fold selective metrics.
+
+## Quality limits and retained evidence
+
+[Baseline measurements](baseline.json) and [experiment results](RESULTS.md)
+are immutable comparison evidence. Publish new runs separately rather than
+relabeling or replacing them. The recorded contextual reranking results retain
+100% anchor integrity but miss the reranked quality gates; top-score calibration
+does not pass the answerability gate. Accurate citations are not proof of
+relevance or calibrated abstention.
+
+| Retrieval target | Recall@5 | Recall@10 | MRR |
+| --- | ---: | ---: | ---: |
+| Dense/hybrid | ≥60% | ≥75% | ≥0.45 |
+| Reranked | ≥70% | ≥80% | ≥0.55 |
+
+All comparisons require 100% anchor integrity. Repeat full comparisons and
+report latency, indexing time, and index size before claiming improvement.
+These are quality targets, not implementation prerequisites.
+
+QASPER citation: Dasigi et al. (2021), *A Dataset of Information-Seeking Questions
+and Answers Anchored in Research Papers*, NAACL. See the
+[project repository](https://github.com/allenai/qasper-led-baseline) for the paper,
+official evaluator, and baseline implementations.

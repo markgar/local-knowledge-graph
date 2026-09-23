@@ -14,6 +14,7 @@ from kg.db import Database
 from kg.ingest import IngestService
 from kg.models.contracts import SearchResult
 from kg.retrieval import RetrievalService
+from kg.retrieval.dense import EmbeddingProfile
 
 
 def _load_benchmark_module(name: str) -> ModuleType:
@@ -89,9 +90,11 @@ def test_qasper_fixture_prepares_and_evaluates_exact_evidence(tmp_path: Path) ->
     assert result["metrics"]["anchor_integrity"] == 1.0
 
 
+@pytest.mark.parametrize("use_context", [False, True])
 def test_qasper_fixture_evaluates_hybrid_strategy(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
+    use_context: bool,
 ) -> None:
     prepare = _load_benchmark_module("prepare")
     evaluate = _load_benchmark_module("evaluate")
@@ -104,7 +107,16 @@ def test_qasper_fixture_evaluates_hybrid_strategy(
     IngestService(Database(manifest.database)).ingest(manifest)
 
     class StubHybridRetrievalService:
-        def __init__(self, database: Database, corpus_id: str) -> None:
+        def __init__(
+            self,
+            database: Database,
+            corpus_id: str,
+            *,
+            embedding_profile: EmbeddingProfile,
+            contextual: bool,
+        ) -> None:
+            assert embedding_profile is EmbeddingProfile.qwen3_embedding_06b
+            assert contextual is use_context
             self.retrieval = RetrievalService(database, corpus_id)
 
         def warmup(self) -> None:
@@ -136,16 +148,21 @@ def test_qasper_fixture_evaluates_hybrid_strategy(
         tmp_path / "corpus.yml",
         tmp_path / "gold.json",
         strategy="hybrid",
+        embedding_profile=EmbeddingProfile.qwen3_embedding_06b,
+        contextual=use_context,
     )
 
     assert result["query_strategy"] == "hybrid"
+    assert result["contextual"] is use_context
     assert result["metrics"]["evidence_recall_at_1"] == 1.0
     assert result["metrics"]["anchor_integrity"] == 1.0
 
 
+@pytest.mark.parametrize("use_context", [False, True])
 def test_qasper_fixture_evaluates_reranked_strategy(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
+    use_context: bool,
 ) -> None:
     prepare = _load_benchmark_module("prepare")
     evaluate = _load_benchmark_module("evaluate")
@@ -158,7 +175,16 @@ def test_qasper_fixture_evaluates_reranked_strategy(
     IngestService(Database(manifest.database)).ingest(manifest)
 
     class StubRerankedRetrievalService:
-        def __init__(self, database: Database, corpus_id: str) -> None:
+        def __init__(
+            self,
+            database: Database,
+            corpus_id: str,
+            *,
+            embedding_profile: EmbeddingProfile,
+            contextual: bool,
+        ) -> None:
+            assert embedding_profile is EmbeddingProfile.qwen3_embedding_06b
+            assert contextual is use_context
             self.retrieval = RetrievalService(database, corpus_id)
 
         def warmup(self) -> None:
@@ -190,11 +216,73 @@ def test_qasper_fixture_evaluates_reranked_strategy(
         tmp_path / "corpus.yml",
         tmp_path / "gold.json",
         strategy="reranked",
+        embedding_profile=EmbeddingProfile.qwen3_embedding_06b,
+        contextual=use_context,
     )
 
     assert result["query_strategy"] == "reranked"
+    assert result["contextual"] is use_context
+    assert result["embedding_profile"] == "qwen3-embedding-0.6b"
     assert result["metrics"]["evidence_recall_at_1"] == 1.0
     assert result["metrics"]["anchor_integrity"] == 1.0
+    assert result["question_results"][0]["top_score"] is not None
+    assert result["question_results"][0]["recall_at_1"] == 1.0
+    assert result["question_results"][0]["reciprocal_rank"] == 1.0
+
+
+def test_qasper_e4_calibrates_paper_grouped_answerability() -> None:
+    calibrate = _load_benchmark_module("calibrate")
+    questions = []
+    for index in range(20):
+        answerable = index % 2 == 0
+        questions.append(
+            {
+                "paper_id": f"paper-{index}",
+                "question_id": f"question-{index}",
+                "answerable": answerable,
+                "returned": 10,
+                "record_ids": [f"record-{index}"],
+                "top_score": 0.9 if answerable else 0.1,
+                "recall_at_1": 1.0 if answerable else 0.0,
+                "recall_at_5": 1.0 if answerable else 0.0,
+                "recall_at_10": 1.0 if answerable else 0.0,
+                "reciprocal_rank": 1.0 if answerable else 0.0,
+                "evidence_f1_at_10": 1.0 if answerable else 0.0,
+            }
+        )
+
+    result = calibrate.calibrate(
+        {
+            "dataset": "QASPER",
+            "dataset_version": "0.3",
+            "query_strategy": "reranked",
+            "embedding_profile": "gte-modernbert",
+            "question_results": questions,
+        },
+        folds=2,
+    )
+
+    assert result["experiment"] == "E4"
+    assert result["metrics"]["answerability_balanced_accuracy"] == 1.0
+    assert result["metrics"]["answerable_coverage"] == 1.0
+    assert result["metrics"]["unanswerable_false_evidence_rate"] == 0.0
+    assert result["metrics"]["evidence_recall_at_10"] == 1.0
+    assert {item["calibration_fold"] for item in result["question_results"]} == {
+        0,
+        1,
+    }
+
+
+def test_qasper_e4_requires_unmodified_e3_result_fields() -> None:
+    calibrate = _load_benchmark_module("calibrate")
+
+    with pytest.raises(ValueError, match="requires E3 reranked results"):
+        calibrate.calibrate(
+            {
+                "query_strategy": "hybrid",
+                "question_results": [{"question_id": "question"}],
+            }
+        )
 
 
 def test_qasper_fixture_refuses_unowned_markdown(tmp_path: Path) -> None:

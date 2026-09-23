@@ -7,7 +7,7 @@ import yaml
 from markdown_it import MarkdownIt
 from markdown_it.token import Token
 
-TASK_RE = re.compile(r"^[ \t]*[-*+][ \t]+\[([ xX])\][ \t]+(.+?)\s*$")
+TASK_RE = re.compile(r"^[ \t]*(?:[-*+]|[0-9]{1,9}[.)])[ \t]+\[([ xX])\][ \t]+(.+?)\s*$")
 WIKILINK_RE = re.compile(r"\[\[([^]|#]+)(?:#[^]|]+)?(?:\|[^]]+)?]]")
 INLINE_FIELD_RE = re.compile(r"\[([A-Za-z][A-Za-z0-9_-]*)::\s*([^]]+)]")
 RECORD_HEADINGS = {
@@ -16,6 +16,7 @@ RECORD_HEADINGS = {
     "conflict": {"conflict", "conflicts"},
 }
 MARKDOWN = MarkdownIt("commonmark")
+LINE_END_RE = re.compile(r"\r\n?|\n")
 
 
 class MarkdownParseError(ValueError):
@@ -54,10 +55,13 @@ class ParsedDocument:
 
 def parse_markdown(text: str, fallback_title: str) -> ParsedDocument:
     frontmatter, body_start = _parse_frontmatter(text)
-    lines = text.splitlines(keepends=True)
-    offsets = _line_offsets(lines)
-    body_line = text[:body_start].count("\n")
+    offsets = [body_start + offset for offset in _line_offsets(text[body_start:])]
     tokens = MARKDOWN.parse(text[body_start:])
+    code_ranges = [
+        (offsets[token.map[0]], offsets[token.map[1]])
+        for token in tokens
+        if token.type in {"fence", "code_block"} and token.map is not None
+    ]
     heading_stack: list[tuple[int, str]] = []
     anchors: list[ParsedAnchor] = []
     title = str(frontmatter.get("title") or fallback_title)
@@ -71,14 +75,21 @@ def parse_markdown(text: str, fallback_title: str) -> ParsedDocument:
                 continue
             start, end, quote = _source_span(
                 text,
-                lines,
                 offsets,
-                body_line + token.map[0],
-                body_line + token.map[1],
+                token.map[0],
+                token.map[1],
             )
-            first_line = quote.splitlines()[0]
+            first_line = LINE_END_RE.split(quote, maxsplit=1)[0]
             task_match = TASK_RE.match(first_line)
-            metadata = _inline_fields(quote)
+            semantic_quote = _semantic_quote(_mask_ranges(quote, start, code_ranges))
+            child_ranges = []
+            for child_index in range(token_index + 1, len(tokens)):
+                child = tokens[child_index]
+                if child.type == "list_item_close" and child.level == token.level:
+                    break
+                if child.type == "list_item_open" and child.map is not None:
+                    child_ranges.append((offsets[child.map[0]], offsets[child.map[1]]))
+            metadata = _inline_fields(_mask_ranges(semantic_quote, start, child_ranges))
             task = None
             kind = "list_item"
             if task_match:
@@ -99,6 +110,7 @@ def parse_markdown(text: str, fallback_title: str) -> ParsedDocument:
                     start,
                     end,
                     quote,
+                    semantic_quote=semantic_quote,
                     metadata=metadata,
                     task=task,
                     record_type=_record_type(heading_stack),
@@ -117,10 +129,9 @@ def parse_markdown(text: str, fallback_title: str) -> ParsedDocument:
             anchor_index += 1
             start, end, quote = _source_span(
                 text,
-                lines,
                 offsets,
-                body_line + token.map[0],
-                body_line + token.map[1],
+                token.map[0],
+                token.map[1],
             )
             anchors.append(
                 _anchor(
@@ -135,10 +146,9 @@ def parse_markdown(text: str, fallback_title: str) -> ParsedDocument:
         elif token.type == "paragraph_open" and token.map is not None and list_depth == 0:
             start, end, quote = _source_span(
                 text,
-                lines,
                 offsets,
-                body_line + token.map[0],
-                body_line + token.map[1],
+                token.map[0],
+                token.map[1],
             )
             anchor_index += 1
             anchors.append(
@@ -149,7 +159,7 @@ def parse_markdown(text: str, fallback_title: str) -> ParsedDocument:
                     start,
                     end,
                     quote,
-                    metadata=_inline_fields(quote),
+                    metadata=_inline_fields(_semantic_quote(quote)),
                     record_type=_record_type(heading_stack),
                 )
             )
@@ -160,17 +170,24 @@ def parse_markdown(text: str, fallback_title: str) -> ParsedDocument:
 def _parse_frontmatter(text: str) -> tuple[dict[str, object], int]:
     if not text.startswith("---"):
         return {}, 0
-    first_line_end = text.find("\n")
-    if first_line_end == -1 or text[:first_line_end].strip() != "---":
+    offsets = _line_offsets(text)
+    if len(offsets) < 2 or text[: offsets[1]].strip() != "---":
         return {}, 0
-    closing = re.search(r"(?m)^---[ \t]*\r?$", text[first_line_end + 1 :])
-    if not closing:
+    closing_line = next(
+        (
+            index
+            for index in range(1, len(offsets) - 1)
+            if re.fullmatch(
+                r"---[ \t]*", text[offsets[index] : offsets[index + 1]].rstrip("\r\n")
+            )
+        ),
+        None,
+    )
+    if closing_line is None:
         return {}, 0
-    yaml_start = first_line_end + 1
-    yaml_end = yaml_start + closing.start()
-    body_start = yaml_start + closing.end()
-    if body_start < len(text) and text[body_start] == "\n":
-        body_start += 1
+    yaml_start = offsets[1]
+    yaml_end = offsets[closing_line]
+    body_start = offsets[closing_line + 1]
     try:
         parsed = yaml.safe_load(text[yaml_start:yaml_end]) or {}
     except yaml.YAMLError as exc:
@@ -178,18 +195,16 @@ def _parse_frontmatter(text: str) -> tuple[dict[str, object], int]:
     return parsed if isinstance(parsed, dict) else {}, body_start
 
 
-def _line_offsets(lines: list[str]) -> list[int]:
-    offsets: list[int] = []
-    current = 0
-    for line in lines:
-        offsets.append(current)
-        current += len(line)
+def _line_offsets(text: str) -> list[int]:
+    # CommonMark only normalizes CR, LF, and CRLF, not Unicode line separators.
+    offsets = [0, *(match.end() for match in LINE_END_RE.finditer(text))]
+    if offsets[-1] != len(text):
+        offsets.append(len(text))
     return offsets
 
 
 def _source_span(
     text: str,
-    lines: list[str],
     offsets: list[int],
     start_line: int,
     end_line: int,
@@ -201,6 +216,16 @@ def _source_span(
     return start, start + len(quote), quote
 
 
+def _mask_ranges(quote: str, start: int, ranges: list[tuple[int, int]]) -> str:
+    masked = list(quote)
+    for range_start, range_end in ranges:
+        left = max(0, range_start - start)
+        right = min(len(quote), range_end - start)
+        if left < right:
+            masked[left:right] = " " * (right - left)
+    return "".join(masked)
+
+
 def _inline_content(tokens: list[Token], index: int) -> str:
     if index + 1 < len(tokens) and tokens[index + 1].type == "inline":
         return tokens[index + 1].content
@@ -208,10 +233,15 @@ def _inline_content(tokens: list[Token], index: int) -> str:
 
 
 def _inline_fields(quote: str) -> dict[str, str]:
-    return {
-        match.group(1).casefold(): match.group(2).strip()
-        for match in INLINE_FIELD_RE.finditer(quote)
-    }
+    if re.search(r"\[(?:key|supersedes)::\s*]", quote, re.IGNORECASE):
+        raise MarkdownParseError("Record key and supersedes fields must not be empty")
+    fields: dict[str, str] = {}
+    for match in INLINE_FIELD_RE.finditer(quote):
+        name = match.group(1).casefold()
+        if name in {"key", "supersedes"} and name in fields:
+            raise MarkdownParseError(f"Duplicate {name} field on one record")
+        fields[name] = match.group(2).strip()
+    return fields
 
 
 def _record_type(heading_stack: list[tuple[int, str]]) -> str | None:
@@ -232,13 +262,15 @@ def _anchor(
     end: int,
     quote: str,
     *,
+    semantic_quote: str | None = None,
     metadata: dict[str, str] | None = None,
     task: ParsedTask | None = None,
     record_type: str | None = None,
 ) -> ParsedAnchor:
     headings = tuple(value for _, value in heading_stack)
     path = "/".join([*(f"h{level}:{value}" for level, value in heading_stack), f"{kind}:{index}"])
-    semantic_quote = _semantic_quote(quote)
+    if semantic_quote is None:
+        semantic_quote = _semantic_quote(quote)
     links = tuple(
         match.group(1).strip() for match in WIKILINK_RE.finditer(semantic_quote)
     )

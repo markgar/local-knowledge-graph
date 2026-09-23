@@ -18,7 +18,7 @@ body:
     id: reproduction
     attributes:
       label: Reproduction
-      description: Provide the smallest manifest, Markdown input, and command that reproduce the issue.
+      description: Provide a minimal reproducer for the affected API or example, with supplied text/schema/scope for canonical services or a manifest/Markdown input for the demonstration. Exclude secrets and private source text.
     validations:
       required: true
   - type: input
@@ -32,7 +32,6 @@ body:
     id: environment
     attributes:
       label: Environment
-      placeholder: Python version and operating system
+      placeholder: Python version, OS/architecture, and Ladybug version if using the graph extra
     validations:
       required: true
-

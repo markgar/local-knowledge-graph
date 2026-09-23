@@ -41,6 +41,14 @@ def test_reviewed_acceptance_cases(
         elif command == "search":
             search_results = retrieval.search(case["query"], case.get("subject"))
             assert [item.quote for item in search_results] == case["expected_quotes"]
+        elif command == "source-context":
+            hit = retrieval.search(case["query"], case.get("subject"))[0]
+            context = retrieval.source_context(hit.anchor_id)
+            assert context.selected.quote == hit.quote
+            assert [item.quote for item in context.anchors] == case["expected_quotes"]
+            assert all(
+                item.source_revision_id == hit.source_revision_id for item in context.anchors
+            )
         elif command == "status":
             result = retrieval.status(case["subject"])
             assert [item.summary for item in result.decisions] == case.get(
