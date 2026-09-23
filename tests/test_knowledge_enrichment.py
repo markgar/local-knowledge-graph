@@ -1,13 +1,19 @@
 import time
 from contextlib import contextmanager
 from datetime import UTC, datetime, timedelta
+from threading import Event
 from uuid import uuid4
 
 import pytest
 from support.evidence import environment, put, receipt
 from support.knowledge import schema
 
-from kg._execution_budget import Deadline, LocalExecutionMeter, PrivateBudget
+from kg._execution_budget import (
+    Deadline,
+    LocalExecutionMeter,
+    PrivateBudget,
+    _graph_build_operation,
+)
 from kg.evidence import EvidenceServiceError
 from kg.evidence._read_context import observe, read_context
 from kg.knowledge import KnowledgeAdministration, KnowledgeService
@@ -368,6 +374,113 @@ def test_actual_1001_decisions_across_pages_and_private_local_cap(env):
         assert page.items == ()
         assert page.terminal.kind == "private_resource_stop"
         assert meter.public_accounting().items_consumed == 1
+
+
+def test_bulk_actual_3001_varied_decisions_exceed_nested_visit_guard(env):
+    supports = [source(env, external=f"bulk-{n}") for n in range(16)]
+    support, dep = supports[0]
+    ids = mappings(env.service.write(request(env, (entity(support),), (dep,))))
+    target = StoredEntity(kind="stored", entity_id=ids["project"])
+    expected = set()
+    for start in range(0, 3001, 100):
+        changes = tuple(
+            decision(supports[n % 16][0], target, local=f"d{n}")
+            for n in range(start, min(start + 100, 3001))
+        )
+        dependencies = tuple(
+            item[1] for item in supports
+            if any(item[0] == change.support for change in changes)
+        )
+        expected.update(mappings(env.service.write(request(env, changes, dependencies))).values())
+    operation = _graph_build_operation(
+        deadline=Deadline(time.monotonic() + 300), cancel=Event(),
+    )
+    budget = operation.budget
+    with (
+        observe(env.database, env.service.identity, env.scope, budget.deadline, budget) as observer,
+        read_context(
+            env.database, env.service.identity, env.scope, observer.session_id,
+            budget.deadline, operation.meter,
+        ) as context,
+    ):
+        adapter = KnowledgeReader(context, env.service.identity)
+        cursor = adapter.select_decisions(ids["project"])
+        actual = []
+        previous = operation.snapshot()
+        try:
+            while True:
+                page = cursor.read(limit=137)
+                actual.extend(item.record.record_id for item in page.items)
+                current = operation.snapshot()
+                assert current.visits_reserved > previous.visits_reserved
+                assert current.vm_instructions_reserved >= previous.vm_instructions_reserved
+                previous = current
+                if page.terminal is not None:
+                    assert isinstance(page.terminal, EligibleEOF), page.terminal
+                    break
+            assert actual == sorted(expected)
+            assert cursor.budget._visits > 10_000
+            assert cursor.budget.deadline is budget.deadline
+            assert operation.snapshot().semantic_items_reserved == 3001
+            assert operation.snapshot().scratch_peak_bytes < 64 << 20
+        finally:
+            cursor.close()
+            adapter.close()
+    assert operation.snapshot().scratch_live_bytes == 0
+    with reader(env) as (adapter, meter, _):
+        cursor = adapter.select_decisions(ids["project"])
+        try:
+            while True:
+                page = cursor.read(limit=137)
+                if page.terminal is not None:
+                    assert isinstance(page.terminal, SelectionStopped)
+                    assert page.terminal.kind == "private_resource_stop"
+                    assert page.items == ()
+                    break
+            assert meter.public_accounting().items_consumed < 3001
+        finally:
+            cursor.close()
+
+
+def test_bulk_seed_witness_and_exact_revalidation_do_not_charge_nested_evidence(env):
+    seed = SeedSupport(
+        kind="seed", source_namespace="markdown", seed_set_id="bulk", seed_key="project",
+    )
+    ids = mappings(env.service.write(request(env, (entity(seed),))))
+    evidence, dependency = source(env)
+    target = StoredEntity(kind="stored", entity_id=ids["project"])
+    decision_ids = mappings(env.service.write(
+        request(env, (decision(evidence, target),), (dependency,)),
+    ))
+    operation = _graph_build_operation(
+        deadline=Deadline(time.monotonic() + 300), cancel=Event(),
+    )
+    budget = operation.budget
+    with (
+        observe(env.database, env.service.identity, env.scope, budget.deadline, budget) as observer,
+        read_context(
+            env.database, env.service.identity, env.scope, observer.session_id,
+            budget.deadline, operation.meter,
+        ) as context,
+    ):
+        adapter = KnowledgeReader(context, env.service.identity)
+        cursor = adapter.select_decisions(ids["project"])
+        try:
+            page = cursor.read()
+            assert isinstance(page.terminal, EligibleEOF)
+            member = page.items[0]
+            assert member.record.record_id == decision_ids["decision"]
+            assert member.dependencies.subject_witness.basis.kind == "seed"
+            assert member.dependencies.subject_witness.basis.generation == 1
+            before = operation.snapshot()
+            adapter.revalidate_member(member)
+            after = operation.snapshot()
+            assert after.semantic_items_reserved == before.semantic_items_reserved == 1
+            assert after.visits_reserved > before.visits_reserved
+        finally:
+            cursor.close()
+            adapter.close()
+    assert operation.snapshot().scratch_live_bytes == 0
 
 
 def test_forward_independent_support_reactivates_but_old_assertion_stays_stale(env):

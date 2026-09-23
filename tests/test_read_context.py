@@ -3,18 +3,21 @@ from __future__ import annotations
 import sqlite3
 import time
 from concurrent.futures import ThreadPoolExecutor
-from threading import Barrier
+from threading import Barrier, Event
 
 import pytest
 from support.evidence import environment, put, receipt
 
 from kg._execution_budget import (
+    CancelledStop,
     Deadline,
     DeadlineStop,
     LocalExecutionMeter,
     PrivateBudget,
     PrivateResourceStop,
     PublicBudgetStop,
+    _graph_build_operation,
+    _selection_budget,
 )
 from kg.evidence import EvidenceServiceError
 from kg.evidence._read_context import (
@@ -30,9 +33,12 @@ from kg.indexing._selection import ProjectionHandle
 from kg.models.evidence import PolicyGrant
 
 
-def execution():
+def execution(*, bulk=False):
     deadline = Deadline(time.monotonic() + 30)
-    budget = PrivateBudget(deadline)
+    budget = (
+        _graph_build_operation(deadline=deadline, cancel=Event()).budget
+        if bulk else PrivateBudget(deadline)
+    )
     meter = LocalExecutionMeter(budget, max_operations=16, max_items=100)
     return deadline, budget, meter
 
@@ -77,9 +83,10 @@ def test_temp_rejects_missing_or_incorrect_file_mode_readback(monkeypatch, mode)
         connection.close()
 
 
-def test_temp_file_mode_is_selected_before_controls_and_page_limit_is_real(tmp_path):
+@pytest.mark.parametrize("bulk", [False, True])
+def test_temp_file_mode_is_selected_before_controls_and_page_limit_is_real(tmp_path, bulk):
     env = environment(tmp_path / "temp.db")
-    deadline, _, meter = execution()
+    deadline, _, meter = execution(bulk=bulk)
     with read_context(
         env.database, env.service.identity, env.scope, ReadSessionId(),
         deadline, meter.begin_step("temp"),
@@ -133,13 +140,14 @@ def test_read_local_cap_uses_same_snapshot_meter_and_accounted_helpers(tmp_path)
         pytest.fail("Expired context admitted a cap")
 
 
-def test_observer_snapshot_temp_and_fresh_release_have_no_canonical_writes(tmp_path) -> None:
+@pytest.mark.parametrize("bulk", [False, True])
+def test_observer_snapshot_temp_and_fresh_release_have_no_canonical_writes(tmp_path, bulk) -> None:
     env = environment(tmp_path / "read.db")
     saved = receipt(env.service.write(put(env.scope)))
     reference = env.service.anchors(
             env.scope, saved.document_id, saved.processing.state_version,
     ).entries[0].reference
-    deadline, budget, meter = execution()
+    deadline, budget, meter = execution(bulk=bulk)
     with env.database.connection() as verify:
         version = verify.execute("PRAGMA data_version").fetchone()[0]
         with observe(env.database, env.service.identity, env.scope, deadline, budget) as observer:
@@ -186,7 +194,8 @@ def test_observer_snapshot_temp_and_fresh_release_have_no_canonical_writes(tmp_p
     assert budget._visits > 0 and budget._vm > 0
 
 
-def test_commit_in_observer_snapshot_gap_is_rejected(tmp_path) -> None:
+@pytest.mark.parametrize("bulk", [False, True])
+def test_commit_in_observer_snapshot_gap_is_rejected(tmp_path, bulk) -> None:
     env = environment(tmp_path / "gap.db")
     barrier = Barrier(2)
 
@@ -196,7 +205,7 @@ def test_commit_in_observer_snapshot_gap_is_rejected(tmp_path) -> None:
         barrier.wait(timeout=10)
         return result
 
-    deadline, budget, meter = execution()
+    deadline, budget, meter = execution(bulk=bulk)
     with ThreadPoolExecutor(max_workers=1) as executor:
         future = executor.submit(writer)
         with observe(env.database, env.service.identity, env.scope, deadline, budget) as observer:
@@ -243,9 +252,10 @@ def test_snapshot_is_shared_and_fence_blocks_writer(tmp_path) -> None:
         assert observer.changed()
 
 
-def test_revoked_policy_fresh_fence_and_retained_reference_lifetime(tmp_path) -> None:
+@pytest.mark.parametrize("bulk", [False, True])
+def test_revoked_policy_fresh_fence_and_retained_reference_lifetime(tmp_path, bulk) -> None:
     env = environment(tmp_path / "policy.db")
-    deadline, budget, _ = execution()
+    deadline, budget, _ = execution(bulk=bulk)
     with observe(env.database, env.service.identity, env.scope, deadline, budget) as observer:
         retained = observer.retain()
     assert not retained.observer.changed()
@@ -339,3 +349,97 @@ def test_evidence_scratch_lives_until_snapshot_exit(tmp_path) -> None:
         read_evidence(context, reference)
         assert budget._scratch == 2 * first
     assert budget._scratch == 0
+
+
+@pytest.mark.parametrize("stop", ["cancelled", "deadline", "resource"])
+def test_bulk_scratch_registration_tracks_only_live_ownership(tmp_path, monkeypatch, stop):
+    env = environment(tmp_path / "bulk-scratch.db")
+    operation = _graph_build_operation(
+        deadline=Deadline(time.monotonic() + 300), cancel=Event(),
+    )
+    budget = operation.budget
+    with read_context(
+        env.database, env.service.identity, env.scope, ReadSessionId(),
+        budget.deadline, operation.meter,
+    ) as context:
+        before = operation.snapshot()
+        child = _selection_budget(budget)
+        for _ in range(1000):
+            with context.using_budget(child):
+                reservation = context._reserve_scratch(4096, "general")
+                assert len(context._scratch) == 1
+                assert operation.snapshot().scratch_live_bytes == 4096
+            context._release_reservation(reservation)
+            context._release_reservation(reservation)
+            assert not context._scratch
+        after = operation.snapshot()
+        assert after.scratch_live_bytes == 0 and after.scratch_peak_bytes == 4096
+        assert after.visits_reserved == before.visits_reserved
+        assert after.vm_instructions_reserved == before.vm_instructions_reserved
+        assert after.semantic_items_reserved == before.semantic_items_reserved
+        held = context._reserve_scratch(1, "text")
+        if stop == "cancelled":
+            operation.cancel.set()
+            error = CancelledStop
+        elif stop == "deadline":
+            monkeypatch.setattr(time, "monotonic", lambda: budget.deadline.expires_at_monotonic)
+            error = DeadlineStop
+        else:
+            with pytest.raises(PrivateResourceStop):
+                budget.reserve_scratch(64 << 20, "general")
+            error = PrivateResourceStop
+        with pytest.raises(error):
+            context._reserve_scratch(1, "general")
+        context._release_reservation(held)
+        assert not context._scratch
+    context._release_reservation(held)
+    assert operation.snapshot().stop_reason == stop
+    assert operation.snapshot().scratch_live_bytes == 0
+
+
+def test_bulk_scratch_exit_cleans_exception_and_late_release(tmp_path):
+    env = environment(tmp_path / "bulk-cleanup.db")
+    operation = _graph_build_operation(
+        deadline=Deadline(time.monotonic() + 300), cancel=Event(),
+    )
+    with (
+        pytest.raises(RuntimeError, match="consumer"),
+        read_context(
+            env.database, env.service.identity, env.scope, ReadSessionId(),
+            operation.budget.deadline, operation.meter,
+        ) as context,
+    ):
+        held = context._reserve_scratch(8192, "general")
+        raise RuntimeError("consumer")
+    assert not context._scratch and operation.snapshot().scratch_live_bytes == 0
+    context._release_reservation(held)
+
+
+def test_bulk_admission_snapshot_and_fence_charge_one_original_operation(tmp_path):
+    env = environment(tmp_path / "bulk-fence.db")
+    operation = _graph_build_operation(
+        deadline=Deadline(time.monotonic() + 300), cancel=Event(),
+    )
+    budget = operation.budget
+    with observe(
+        env.database, env.service.identity, env.scope, budget.deadline, budget,
+    ) as observer:
+        admitted = operation.snapshot()
+        assert admitted.visits_reserved > 0 and admitted.vm_instructions_reserved > 0
+        with read_context(
+            env.database, env.service.identity, env.scope, observer.session_id,
+            budget.deadline, operation.meter,
+        ) as context:
+            assert context.meter is operation.meter
+            assert context.connection._budget is budget
+            context.connection.execute("SELECT 1").fetchone()
+        selected = operation.snapshot()
+        with release_fence(
+            observer, env.service.identity, env.scope, budget.deadline, budget=budget,
+        ):
+            pass
+        released = operation.snapshot()
+    assert admitted.visits_reserved < selected.visits_reserved < released.visits_reserved
+    assert (admitted.vm_instructions_reserved < selected.vm_instructions_reserved
+            < released.vm_instructions_reserved)
+    assert released.scratch_live_bytes == 0

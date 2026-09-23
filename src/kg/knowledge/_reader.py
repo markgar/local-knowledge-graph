@@ -7,7 +7,12 @@ from collections.abc import Callable, Generator
 
 from pydantic import ValidationError
 
-from kg._execution_budget import DeadlineStop, PrivateResourceStop, PublicBudgetStop
+from kg._execution_budget import (
+    DeadlineStop,
+    PrivateResourceStop,
+    PublicBudgetStop,
+    _selection_budget,
+)
 from kg.evidence._read_context import CanonicalReadContext
 from kg.evidence._reads import check_token
 from kg.evidence._values import validated
@@ -38,7 +43,7 @@ class Cursor[T]:
     ) -> None:
         context.check_active()
         self.context = context
-        self.budget = context.meter.private_budget.limited(max_visits=10_000)
+        self.budget = _selection_budget(context.meter.private_budget)
         self.store = Store(context.connection, context.scope, self.budget, context=context)
         self.iterator = producer(self.store)
         self.stage = stage
@@ -205,7 +210,7 @@ class KnowledgeReader:
             self._revalidation = RevalidationCache(self.context)
         cache = self._revalidation
         cache.check()
-        budget = self.context.meter.private_budget.limited(max_visits=10_000)
+        budget = _selection_budget(self.context.meter.private_budget)
         with self.context.using_budget(budget):
             store = Store(
                 self.context.connection,

@@ -121,7 +121,8 @@ class AccountedConnection(sqlite3.Connection):
     def _before_statement(self) -> None:
         self._check_active()
         if self._budget is not None:
-            milliseconds = max(0, min(5000, int(self._budget.deadline.remaining() * 1000)))
+            maximum = 100 if self._budget.resource_profile == "graph-build/1" else 5000
+            milliseconds = max(0, min(maximum, int(self._budget._remaining() * 1000)))
             self._prepay_statement()
             try:
                 super().execute(f"PRAGMA busy_timeout={milliseconds}")
@@ -170,7 +171,7 @@ class AccountedConnection(sqlite3.Connection):
             if getattr(error, "sqlite_errorcode", None) in (
                 sqlite3.SQLITE_FULL, sqlite3.SQLITE_TOOBIG,
             ):
-                raise PrivateResourceStop() from None
+                self._budget._resource_stop()
 
     def _authorize(
         self, action: int, arg1: str | None, arg2: str | None,

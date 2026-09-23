@@ -16,7 +16,13 @@ from support.indexing import request as document_request
 from support.indexing import service as index_service
 from support.knowledge import schema
 
-from kg._execution_budget import Deadline, LocalExecutionMeter, PrivateBudget, PrivateResourceStop
+from kg._execution_budget import (
+    Deadline,
+    LocalExecutionMeter,
+    PrivateBudget,
+    PrivateResourceStop,
+    _graph_build_operation,
+)
 from kg.evidence import EvidenceDatabase, EvidenceService, EvidenceServiceError
 from kg.evidence._read_context import observe, read_context, release_fence
 from kg.evidence._support import TransactionEvidence
@@ -24,7 +30,7 @@ from kg.evidence._transactions import writing
 from kg.indexing._passages import produce
 from kg.knowledge import KnowledgeAdministration, KnowledgeService
 from kg.knowledge._reader import KnowledgeReader
-from kg.knowledge._selection import EntitySelector
+from kg.knowledge._selection import EligibleEOF, EntitySelector
 from kg.knowledge._store import Store
 from kg.models.evidence import (
     CorpusRegistration,
@@ -1144,3 +1150,70 @@ def test_passage_selection_inherits_local_page_and_global_scratch_limits(env):
         ):
             adapter.revalidate_member(member)
         assert meter.public_accounting().items_consumed == before
+
+
+def test_bulk_and_interactive_select_identical_mixed_support_and_stale_exclusion(env):
+    _, saved_a, page_a = passage(env, policy="supplied-anchors/1")
+    value_b, saved_b, page_b = passage(env, external="second", namespace="email")
+    sa, da = support(saved_a, page_a)
+    sb, db = support(saved_b, page_b)
+    anchor = env.service.anchors(
+        env.scope, saved_a.document_id, saved_a.processing.state_version,
+    ).entries[0].reference
+    mixed = SourceSupport(kind="source", evidence=(anchor,) + sa.evidence + sb.evidence)
+    ids = mappings(env.service.write(request(env, (entity(sa),), (da,))))
+    target = StoredEntity(kind="stored", entity_id=ids["project"])
+    records = mappings(env.service.write(request(
+        env, (decision(mixed, target, "mixed"), decision(sa, target, "independent")), (da, db),
+    )))
+
+    def select(bulk):
+        operation = _graph_build_operation(
+            deadline=Deadline(time.monotonic() + 300), cancel=Event(),
+        ) if bulk else None
+        budget = operation.budget if operation else PrivateBudget(Deadline(time.monotonic() + 30))
+        meter = LocalExecutionMeter(budget, max_operations=1, max_items=100)
+        step = operation.meter if operation else meter.begin_step("read")
+        with (
+            observe(
+                env.database, env.service.identity, env.scope, budget.deadline, budget,
+            ) as observer,
+            read_context(
+                env.database, env.service.identity, env.scope, observer.session_id,
+                budget.deadline, step,
+            ) as context,
+        ):
+            adapter = KnowledgeReader(context, env.service.identity)
+            cursor = adapter.select_decisions(ids["project"])
+            try:
+                page = cursor.read()
+                assert isinstance(page.terminal, EligibleEOF)
+                for member in page.items:
+                    adapter.revalidate_member(member)
+                count = (
+                    operation.snapshot().semantic_items_reserved
+                    if operation else meter.public_accounting().items_consumed
+                )
+                assert count == len(page.items)
+                return page.items
+            finally:
+                cursor.close()
+                adapter.close()
+
+    ordinary = select(False)
+    assert ordinary == select(True)
+    assert {item.record.record_id for item in ordinary} == set(records.values())
+    combined = next(item for item in ordinary if item.record.record_id == records["mixed"])
+    assert combined.record.support == mixed
+    assert tuple(p.reference for p in combined.dependencies.assertion_support) == mixed.evidence
+    removed = env.service.write(value_b.model_copy(update={
+        "retry_key": str(uuid4()),
+        "payload": RemoveDocument(
+            operation="remove_document", document=value_b.payload.document,
+            precondition=ExpectedState(kind="match", state_version=db.state_version),
+        ),
+    }))
+    assert removed.error is None
+    remaining = select(False)
+    assert remaining == select(True)
+    assert [item.record.record_id for item in remaining] == [records["independent"]]
