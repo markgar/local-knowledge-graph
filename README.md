@@ -36,8 +36,8 @@ retrieval-quality gates remain unmet.
 
 Native graph queries run in the [developer example](#optional-disposable-graph-example)
 and acceptance checks. `kg.graph.LocalGraphSession` manages reusable exact-scope
-graphs, guarded private reads and controlled writes; public business traversal/join
-facades are not implemented. A canonical write invalidates the captured graph generation;
+graphs, controlled writes and a typed, cited one-hop `traverse` API.
+Graph-to-decision joins are not implemented. A canonical write invalidates the captured generation;
 leftover graph files cannot establish freshness. Start with the
 [evidence example](#generic-evidence-service) for the canonical Python API, or the
 [Markdown demonstration](#markdown-demonstration) for local file/CLI usage. Their
@@ -57,7 +57,7 @@ databases are separate and not interchangeable.
 | Foundation values | Strict `foundation/1` request/result validation. Document and bounded enrichment operations execute through `EvidenceService`; canonical anchor/passage-evidence plans execute through `QueryService`. Whole-set seed replacement is not implemented. |
 | Canonical queries | `kg.query.QueryService`: full canonical ranked search, historical anchor/passage reads and actual K1 exact entity resolution, explicit decision records/counts, bounded retained support inspection, spawned deadline supervision and fresh release authorization. Paths remain unsupported. |
 | Execution diagnostics | Evidence, indexing, processing and query calls retain bounded, authorized in-memory summaries. Named explained wrappers execute once; detailed traces and source quotes require opt-in. |
-| Optional local graph | `kg.graph.LocalGraphSession` lazily builds/reuses an exact-scope disposable Ladybug graph, explicitly refreshes it and serializes controlled canonical writes. SQLite stays authoritative; business graph queries remain private/unimplemented. |
+| Optional local graph | `kg.graph.LocalGraphSession` lazily builds/reuses an exact-scope disposable Ladybug graph, explicitly refreshes it and serializes controlled canonical writes. Its typed one-hop `traverse` API returns full cited explicit relationship proofs; SQLite stays authoritative. |
 
 There are no live email/Teams connectors, inference/extraction providers, general
 query planner, continuation service, or source-level ACL/purge service.
@@ -204,6 +204,33 @@ an explicit mention alongside the decision. It needs no models or vectors.
 Passage support preserves exact immutable source/state membership; mentions do
 not infer relationships or merge same-named entities. Vector-only rebuilds keep
 knowledge valid, while source/metadata/passage-policy changes require fresh support.
+
+## Cited one-hop relationship queries
+
+With the supported optional graph runtime, run a supplied-note example without
+models or automatic extraction:
+
+```bash
+uv run --extra graph python examples/graph_relationships.py --output /tmp/cited-relationships
+```
+
+Use a fresh output directory. The example explicitly submits Alice/Atlas/ownership
+facts supported by the supplied note, then calls `LocalGraphSession.traverse`
+with `kg.models.graph.GraphTraversalRequest`. Select exactly one entity ID or
+case-sensitive name/eligible alias, a registered entity-valued predicate and
+`direction="outgoing"` or `"incoming"`. `max_hops` is strict integer 1 only.
+Ambiguous names return distinct candidate IDs rather than selecting a person.
+
+Results are complete, empty, ambiguous or failed; complete results retain every
+distinct assertion path and full original evidence/endpoint proof. The exact
+standalone result is bounded to 1,000 paths/candidates and 8 MiB: overflow returns
+no data, never a prefix. `capabilities()` probes installed runtime support without
+building or reading sources; unavailable runtime is explicit, with no fallback.
+Later citation hydration is separately authorized historical evidence, not a
+new proof of current ownership. Native crash limitations below still apply.
+See [query contracts](CONTRACTS.md#typed-cited-relationship-query-api).
+Existing `QueryService` paths, joins, paging and natural-language planning remain
+unsupported; this is not an arbitrary query-language interface.
 
 ## Optional disposable graph example
 

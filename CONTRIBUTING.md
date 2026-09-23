@@ -13,7 +13,7 @@ alone cannot establish freshness. Search remains canonical keyword/vector
 retrieval, fusion and reranking, not a Ladybug search replacement.
 
 The private graph builder, reusable `LocalGraphSession` controller and native
-examples are implemented; a public business traversal/join facade is not. Keep current behavior
+examples and typed cited one-hop query API are implemented; graph joins are not. Keep current behavior
 in [SPEC.md](SPEC.md) and [CONTRACTS.md](CONTRACTS.md), and planned scope on issues.
 The separately supported Markdown demonstration has its own SQLite schema,
 manifest/CLI and retrieval APIs. Do not use it as the canonical service design.

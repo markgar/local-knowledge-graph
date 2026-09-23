@@ -1,4 +1,4 @@
-"""Serialized trusted-local graph lifecycle, not a public business-query API."""
+"""Serialized trusted-local graph lifecycle and typed application queries."""
 
 from __future__ import annotations
 
@@ -11,7 +11,7 @@ from dataclasses import dataclass, replace
 from datetime import datetime
 from pathlib import Path
 from threading import Event, Lock
-from typing import Literal, Self, TypedDict, Unpack
+from typing import TYPE_CHECKING, Literal, Self, TypedDict, Unpack
 from uuid import uuid4
 
 from kg._execution_budget import (
@@ -67,6 +67,9 @@ from kg.models.foundation import (
     WriteOutcome,
     WriteRequest,
 )
+
+if TYPE_CHECKING:
+    from kg.models.graph import GraphCapabilities, GraphTraversalRequest, GraphTraversalResult
 
 LOGGER = logging.getLogger(__name__)
 _OUTPUT_BYTES = 8 << 20
@@ -281,6 +284,43 @@ class LocalGraphSession:
     def status(self) -> SessionStatus:
         with self._lock:
             return self._status
+
+    def capabilities(self) -> GraphCapabilities:
+        from kg.graph._native import _engine
+        from kg.models.graph import GraphCapabilities
+
+        request = self._admit(build=False, cancel=None)
+
+        def probe() -> GraphCapabilities:
+            try:
+                _engine()
+            except NativeError as error:
+                if error.code != "graph_unavailable":
+                    raise
+                return GraphCapabilities(runtime="unavailable", unavailable_reason=error.code)
+            return GraphCapabilities(runtime="available")
+
+        return self._call(request, probe)
+
+    def traverse(
+        self, request: GraphTraversalRequest, *, cancel: Event | None = None,
+    ) -> GraphTraversalResult:
+        from kg.graph._relationships import traverse
+        from kg.models.graph import GraphTraversalRequest, GraphTraversalResult
+
+        try:
+            request = validated(GraphTraversalRequest, request)
+        except EvidenceServiceError as error:
+            raise GraphSessionError(_translate(error)) from None
+        try:
+            return self._run_read(
+                request.scope, lambda context: traverse(context, request), cancel=cancel,
+            )
+        except GraphSessionError as error:
+            return GraphTraversalResult(
+                request_id=request.request_id, scope=request.scope, outcome="failed",
+                generation=None, error=error.failure,
+            )
 
     def _set(
         self, *, state: GraphState | None = None, **changes: Unpack[_StatusChanges],
