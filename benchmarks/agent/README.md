@@ -1,5 +1,8 @@
 # Agent CLI evaluation
 
+This harness targets the separate [Markdown demonstration](../../README.md#markdown-demonstration)
+and its SQLite-backed CLI, not the canonical evidence-service or Ladybug APIs.
+
 This scripted evaluation checks seven reviewed JSON, provenance, status, and
 revision workflows. It does **not** launch an agent or measure generated-answer
 quality. For an agent-answer comparison, use [work-memory](../work_memory/README.md).

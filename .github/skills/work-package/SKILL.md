@@ -12,10 +12,13 @@ This skill is the agent checklist, not a second roadmap.
 
 - Accept a package issue number or URL and, when resuming, its spec file and
   published spec comment.
-  Example: `Use /work-package for issue #24. Design and critic review only.`
+  Example: `Use /work-package for issue <issue-number>. Design and critic review only.`
 - If no issue is selected, inspect the
-  [tracking issue](https://github.com/markgar/local-knowledge-graph/issues/28),
-  present ready choices, and ask the user to select one. Do not start every package.
+  [open bounded issues](https://github.com/markgar/local-knowledge-graph/issues?q=is%3Aissue%20is%3Aopen)
+  and their dependencies, present ready choices, and ask the user to select one.
+  [Milestones](https://github.com/markgar/local-knowledge-graph/milestones) group goals;
+  the selected issue's current body owns actionable scope. Do not follow superseded
+  tracker instructions or start every package.
 - Default to design and review only. Do not change runtime code, schemas, tests,
   dependencies or repository planning files, start implementation, close issues,
   commit, or merge merely because this skill was invoked.
@@ -25,7 +28,7 @@ This skill is the agent checklist, not a second roadmap.
 
 ## 1. Establish the work
 
-Read the live package issue, its dependencies, the tracking issue's shared
+Read the live package issue, its dependencies, its linked approved shared
 requirements/acceptance cases, and `CONTRIBUTING.md`. Read relevant current code,
 `SPEC.md` and `CONTRACTS.md`; do not assume proposed services exist.
 
@@ -50,7 +53,7 @@ feature; do not create another session or block on enabling that feature.
 ## 2. Write or resume the spec file
 
 Use the actual session artifact directory outside the tracked repository, with
-a package-based filename such as `files/E1-spec.md`. Resolve and report its
+a package-based filename such as `files/<package>-spec.md`. Resolve and report its
 absolute path; do not assume `files/` means a directory under the repo. If no
 artifact directory is provided, ask for an appropriate external location.
 Resume the existing file rather than creating competing drafts.
@@ -142,6 +145,6 @@ another contributor's work. Keep one clearly identified current design record.
 
 After implementation, record delivered behavior and acceptance evidence. Close
 the issue only when its completion criteria are met and closure is authorized;
-partial work stays open. Update the tracking issue's package status and affected
+partial work stays open. Update linked current dependency/coverage records and affected
 dependencies so the two agree. A design-only handoff must not mark implementation
 complete.

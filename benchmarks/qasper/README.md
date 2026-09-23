@@ -1,5 +1,9 @@
 # QASPER benchmark
 
+The runner uses the separate Markdown demonstration's `kg.retrieval` components
+and SQLite source store. It does not evaluate the canonical service stack or
+Ladybug; see [current architecture](../../SPEC.md#architecture-and-data-ownership).
+
 This benchmark measures retrieval and citation integrity over scientific papers
 with human-authored questions and supporting evidence.
 [QASPER](https://huggingface.co/datasets/allenai/qasper) contains 5,049 questions

@@ -20,10 +20,10 @@ tags:
 > [`work-memory evaluation`](../work_memory/README.md). Historical strategies
 > explicitly select low-level components, not the current public search default.
 
-> **Current planning:** The [build roadmap issue](https://github.com/markgar/local-knowledge-graph/issues/28)
-> owns future work and takes precedence over historical future-direction statements
-> below. This archived record is not an active implementation plan or a claim that
-> planned capabilities exist.
+> **Current planning:** [Open bounded issues](https://github.com/markgar/local-knowledge-graph/issues?q=is%3Aissue%20is%3Aopen)
+> own actionable scope and take precedence over historical future-direction
+> statements below. This archived record is not an active implementation plan or
+> a claim that planned capabilities exist.
 
 ## Implementation Status
 

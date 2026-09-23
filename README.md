@@ -4,16 +4,43 @@
 [![Python 3.12+](https://img.shields.io/badge/python-3.12%2B-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
-A local-first, evidence-backed knowledge engine. The new generic Python evidence
-service stores exact supplied text, immutable revisions and citation context in
-SQLite. Canonical supplied-document search runs scoped keyword and semantic
-retrieval, fusion and reranking against that store. The separate Markdown
-demonstration retains its own database and search facade.
+A local-first, evidence-backed knowledge engine built on **canonical SQLite and
+an optional Ladybug graph projection**. SQLite owns exact supplied text, immutable
+revisions, identities, registered knowledge schema, entities, assertions and their
+evidence/history. Ladybug provides a rebuildable graph of eligible knowledge for
+one exact authorized scope; it is not a second source of authored truth.
+
+Canonical supplied-document search runs keyword and semantic retrieval, fusion
+and reranking against the SQLite evidence store. Graph building does not replace
+that search pipeline or extract knowledge from prose. The separate Markdown
+demonstration has its own database, manifest-driven ingestion and search CLI.
 
 **Pre-alpha:** this is evidence retrieval, not a production question-answering
 system. It does not generate answers, infer entities or contradictions, or
 reliably decide whether a natural-language question is answerable. Existing
 retrieval-quality gates remain unmet.
+
+## How the pieces fit
+
+1. **Supply evidence.** The embedding application registers trusted local identity
+   and policy, then submits exact text/metadata/anchors through `EvidenceService`.
+   Source connectors and automatic file intake are not part of that service.
+2. **Prepare the needed representation.** `IndexService` publishes passages and
+   vectors for search. Explicit enrichment writes registered entities/assertions
+   with exact anchor/passage support to SQLite; it does not run an extraction agent.
+3. **Read or project.** `EvidenceService`/`KnowledgeService` return exact evidence
+   and knowledge; `EvidenceSearchService` and `QueryService` execute their supported
+   canonical queries. The optional private graph builder projects complete eligible
+   entities, relationships and explicit decisions into Ladybug, preserving authored
+   identities and proofs rather than selecting a search-result subset.
+
+Native graph queries run in the [developer example](#optional-disposable-graph-example)
+and acceptance checks. There is no public business traversal/join facade or reusable
+graph controller yet. A canonical write invalidates the captured graph generation;
+leftover graph files cannot establish freshness. Start with the
+[evidence example](#generic-evidence-service) for the canonical Python API, or the
+[Markdown demonstration](#markdown-demonstration) for local file/CLI usage. Their
+databases are separate and not interchangeable.
 
 ## What is available
 
@@ -29,7 +56,7 @@ retrieval-quality gates remain unmet.
 | Foundation values | Strict `foundation/1` request/result validation. Document and bounded enrichment operations execute through `EvidenceService`; canonical anchor/passage-evidence plans execute through `QueryService`. Whole-set seed replacement is not implemented. |
 | Canonical queries | `kg.query.QueryService`: full canonical ranked search, historical anchor/passage reads and actual K1 exact entity resolution, explicit decision records/counts, bounded retained support inspection, spawned deadline supervision and fresh release authorization. Paths remain unsupported. |
 | Execution diagnostics | Evidence, indexing, processing and query calls retain bounded, authorized in-memory summaries. Named explained wrappers execute once; detailed traces and source quotes require opt-in. |
-| Optional graph staging | Private `kg.graph` builder exports the complete eligible relationship/explicit-decision mapping for one exact scope to a disposable Ladybug graph. SQLite stays authoritative; no public graph query/controller is provided. |
+| Optional graph projection | Private `kg.graph` builder exports the complete eligible relationship/explicit-decision mapping for one exact scope to Ladybug; the developer example executes native queries and exact parity checks. SQLite stays authoritative; no public business query/controller is provided. |
 
 There are no live email/Teams connectors, inference/extraction providers, general
 query planner, continuation service, or source-level ACL/purge service.
@@ -61,29 +88,6 @@ a separate read, not an atomic search-to-evidence dependency. Ordinary QueryServ
 search uses the pinned real providers and requires an approved prepared model cache.
 
 ## Generic evidence service
-
-### Optional disposable graph example
-
-On **macOS 15+ ARM64 with CPython 3.12**, install the optional pinned
-`ladybug==0.20.4` runtime and use a fresh synthetic output directory:
-
-```bash
-uv run --extra graph python examples/graph_build.py --output /tmp/graph-demo
-uv run --extra graph python examples/graph_build.py --case varied-10000 --output /tmp/graph-10k
-```
-
-The example supplies canonical facts (no models/downloads), builds/checkpoints/reopens
-the graph, compares all authored IDs and source/seed/endpoint proof associations,
-and disposes the stage. Output contains canonical SQLite and a measurement receipt,
-not a persistently admitted graph. Other package/search usage needs no graph extra.
-
-**Experimental native risk:** Ladybug executes in-process with a 256 MiB buffer
-pool and two threads. This is not a total RSS limit. Native checkpoint exhaustion
-and teardown can crash the Python host; exception handling/cleanup residue cannot
-contain a segmentation fault. This limitation is currently accepted; persistent
-worker isolation is deferred to [#137](https://github.com/markgar/local-knowledge-graph/issues/137).
-Larger buffer capacity does not fix failure containment. Never treat a leftover
-graph file as proof of canonical freshness.
 
 Run the self-contained Python example with a **fresh, separate** target:
 
@@ -145,22 +149,19 @@ See [canonical search contracts](CONTRACTS.md#canonical-full-search).
 Neither API implements processing coordination or establishes real-model
 quality/workload acceptance.
 
-Fresh stores use the complete `evidence-store/2` schema and the `evidence/2`
+The canonical store uses the complete `evidence-store/2` schema and the `evidence/2`
 service interface. Initialization verifies the actual schema and its recorded
-manifest, not just a version marker. Older or altered stores are refused without
-repair: use a fresh path and resupply sources. Reserved knowledge, indexing and
-processing tables do not themselves enable those services. The separate
+manifest, not just a version marker. Incompatible stores are refused without
+repair: use a fresh path and resupply sources. Schema presence alone does not
+enable service operations. The separate
 `ProcessingService` exposes only the control-plane operations below.
 There is no snapshot-completion or purge API; omitted batch documents stay active.
-The existing CLI and search pipeline below operate on the Markdown demonstration,
+The CLI and search pipeline below operate on the Markdown demonstration,
 not on `EvidenceDatabase`.
 
-Old generated databases are unsupported inputs. Use a new file and resupply
-content; no database migration, old-ID mapping or historical reconstruction is
-performed. Source corpus fixtures and authored evaluation expectations remain
-unchanged. Keep any old inputs/history you need; the service never deletes an
-incompatible file automatically. New evidence IDs survive updates/restores within
-one store, not a destructive rebuild.
+Evidence IDs and revision history survive updates/restores within one store;
+creating a fresh store does not reconstruct them. No migration or compatibility
+layer is provided, and initialization never deletes an incompatible file.
 
 ## Processing control
 
@@ -203,6 +204,42 @@ Passage support preserves exact immutable source/state membership; mentions do
 not infer relationships or merge same-named entities. Vector-only rebuilds keep
 knowledge valid, while source/metadata/passage-policy changes require fresh support.
 
+## Optional disposable graph example
+
+On **macOS 15+ ARM64 with CPython 3.12**, install the optional pinned
+`ladybug==0.20.4` runtime and use a fresh synthetic output directory:
+
+```bash
+uv run --extra graph python examples/graph_build.py --output /tmp/graph-demo
+uv run --extra graph python examples/graph_build.py --case varied-10000 --output /tmp/graph-10k
+```
+
+The example supplies explicit canonical facts without inference models, builds,
+checkpoints and reopens the graph, executes native queries, compares all authored
+IDs and source/seed/endpoint proof associations, and disposes the stage. Installing
+the graph extra may require an approved package download; the example itself needs
+no model downloads. Output contains canonical SQLite and a measurement receipt,
+not a persistently admitted graph. Base-package imports and search need no graph extra.
+
+The complete varied-10,000-decision native build/reopen and exact proof/edge parity
+gate passed with the pinned runtime and 256 MiB buffer configuration
+([acceptance record](https://github.com/markgar/local-knowledge-graph/issues/132)).
+This establishes synthetic build feasibility and fidelity, not end-to-end extraction
+from real notes, general performance targets or production quality.
+
+**Experimental native risk:** Ladybug executes in-process with a 256 MiB buffer
+pool and two threads. One graph-build operation carries a deadline of at most
+300 seconds across its phases; the buffer and cooperative deadline are not hard
+total RSS/time limits or process isolation. The separate SQLite TEMP cap remains
+128 MiB. Native checkpoint exhaustion and teardown can crash the Python host;
+exception handling/cleanup residue cannot contain a segmentation fault. This
+limitation is currently accepted; persistent worker isolation is deferred to
+[#137](https://github.com/markgar/local-knowledge-graph/issues/137).
+Larger buffer capacity does not fix failure containment. Never treat a leftover
+graph file as proof of canonical freshness. See
+[projection semantics](SPEC.md#private-disposable-graph-staging) for exact scope,
+source-observer and cleanup ownership.
+
 ## Install
 
 Python 3.12+ and [uv](https://docs.astral.sh/uv/) are required. Routine manually
@@ -232,8 +269,9 @@ sources or a prepopulated, approved local cache. `HF_HOME` can select a cache;
 model or dependency is blocked/unavailable, report the blocked host/error and
 prepare it through an approved route. There is no keyword-only fallback.
 
-`dense-index` loads the embedding model and builds vectors. It does **not** prepare
-the reranker: the first `search`, even one returning no hits, also initializes
+For the Markdown demonstration, `dense-index` loads the embedding model and builds
+vectors. It does **not** prepare the reranker: the first `search`, even one returning
+no hits, also initializes
 `cross-encoder/ms-marco-MiniLM-L6-v2` at its pinned revision. A successful empty
 search therefore requires both providers and a matching current index.
 
@@ -245,7 +283,14 @@ Larger batches, long passages, and the Qwen profile use more resources; reduce
 depend on corpus size, model profile and runtime; no minimum RAM/disk guarantee is
 established.
 
-## Configure a corpus
+## Markdown demonstration
+
+The following manifest, `kg` CLI and `kg.retrieval` examples use the separate
+Markdown demonstration database (`kg.db.Database`, `src/kg/schema.sql`), not
+`EvidenceDatabase` or Ladybug. Its explicit wikilink relationships and subject
+expansion are SQLite-backed demonstration behavior, not the canonical graph API.
+
+### Configure a corpus
 
 [`corpora/example.yml`](corpora/example.yml) is ready to use. To define your own:
 
@@ -271,7 +316,7 @@ Paths are relative to the manifest. Corpus configuration is data, not Python.
 Only selected sources are ingested. Symlinks are rejected by default and oversized
 sources fail explicitly. Generated databases under `.kg/` are ignored by Git.
 
-## Ingest, prepare, search
+### Ingest, prepare, search
 
 ```bash
 uv run kg ingest --manifest corpora/example.yml
@@ -296,7 +341,7 @@ IDs, source paths, revisions, and heading paths. **Preserve the returned order.*
 It is not confidence and cannot be compared across queries, models, or BM25
 scores. Do not sort ascending or apply a BM25 cutoff.
 
-### Matching profile and contextual settings
+#### Matching profile and contextual settings
 
 Default `gte-modernbert` uses the pinned `Alibaba-NLP/gte-modernbert-base`.
 The other fixed profile, `qwen3-embedding-0.6b`, uses pinned
@@ -319,7 +364,7 @@ projections coexist. Their compatibility includes model revision, runtime
 versions, actual inference device/dtype, encoding behavior, and corpus fingerprint;
 changing hardware/runtime or source representation can require rebuilding.
 
-### Inspect ingestion and search
+#### Inspect ingestion and search
 
 ```bash
 uv run kg ingest --manifest corpora/example.yml --explain --format json
@@ -356,7 +401,7 @@ means retry once writes finish, not partial success; unrelated corpus writes in
 the same database can also invalidate a call. Telemetry is not an explanation of
 model reasoning or evidence of answerability.
 
-## Inspect citations, context, and history
+### Inspect citations, context, and history
 
 Use IDs and source paths from returned results with the same manifest:
 
@@ -381,7 +426,7 @@ Revision comparison defaults to the immediate predecessor of the target's latest
 activation; explicit `--from`/`--to` select revisions. Legacy indexes without
 activation history require explicit IDs rather than guessed transition order.
 
-## Explicit records and current state
+### Explicit records and current state
 
 ```markdown
 ## Actions
@@ -435,7 +480,7 @@ adds explicit completion and rescheduling. To search either, run matching
 `dense-index` after ingestion. These fixtures are correctness tests, not proof
 of general agent reasoning quality.
 
-## Maintenance and errors
+### Maintenance and errors
 
 After editing sources, run `ingest` and then rebuild each affected dense
 projection with its matching profile/contextual settings. Search fails explicitly
@@ -444,7 +489,7 @@ After upgrades, reingest existing corpora and rebuild projections. Ready provide
 instances are reused within a Python service lifetime, but freshness is rechecked
 on every call; CLI processes load independently.
 
-The pre-alpha canonical schema is rebuildable from source. Keep an old database
+The demonstration index is rebuildable from source. Keep its database
 separately when historical revisions are needed: a fresh index from current files
 cannot recreate past contents or activation history. Parser upgrades do not rewrite
 historical source anchors; legacy malformed anchors require a fresh database if
@@ -464,7 +509,7 @@ with JSON requested. Failed ingestion sources exit 1. No missing dependency is
 reported as an empty successful result. `kg --verbose ingest ...` emits operational
 diagnostics to stderr without report bodies or quotes.
 
-## Agent and Python integration
+### Agent and Python integration
 
 `kg capabilities --format json` advertises **interface version 2**. The ordinary
 search result is a list; explained search returns report version 2. Ingestion
@@ -472,7 +517,7 @@ reports use version 1. Prepare a matching dense index and model cache before
 searching. `--embedding-profile` and `--contextual` are supported on indexing and
 search; `--query-mode` is unsupported and rejected rather than bypassing stages.
 
-The supported Python entry point is:
+The demonstration's Python search entry point is:
 
 ```python
 from pathlib import Path
@@ -503,14 +548,15 @@ uv run python examples/cited_status.py corpora/example.yml Atlas
 The example defaults to `--since 30d`; use its `--since` option to change that
 window. The underlying `kg status` command has no default time filter.
 
-### Foundation value validation
+## Foundation value validation
 
 `kg.models.foundation` supplies immutable, strict `foundation/1` values for
 document-write descriptions, bounded enrichment changes and dependent query plans.
 It checks shape, declared scope, exact source slices, references and result
 correlation. Models alone do **not** ingest, execute, authorize or persist requests;
-`EvidenceService` executes document operations separately. There is no CLI command
-for submitting these values.
+the canonical services execute their documented subsets separately, including
+document/enrichment writes and supported query plans. There is no CLI command for
+submitting these values.
 
 ```python
 from pathlib import Path
@@ -530,6 +576,8 @@ and proposed engineering targets. Those targets are not measured performance.
 
 ## Development and documentation
 
+For code-affecting changes:
+
 ```bash
 uv run pytest
 uv run ruff check .
@@ -537,19 +585,23 @@ uv run mypy
 uv build
 ```
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) and the current [contracts](SPEC.md).
+For docs/instruction-only changes, review the diff and relevant links instead;
+do not run the full Python suite or dispatch CI. See
+[CONTRIBUTING.md](CONTRIBUTING.md) and the current [contracts](SPEC.md).
 Routine tests use controlled providers; they do not download/run real models.
 Authored fixtures, reviewed gold, citations and component assertions are preserved.
 
 | Document | Purpose |
 | --- | --- |
-| [SPEC.md](SPEC.md) | Implemented ingestion, retrieval, evidence, CLI and validation contracts. |
-| [CONTRACTS.md](CONTRACTS.md) | Foundation values, validation limits, serialization and the `evidence/2` service API. |
+| [SPEC.md](SPEC.md) | Current SQLite/Ladybug architecture, canonical service behavior and separate Markdown demonstration. |
+| [CONTRACTS.md](CONTRACTS.md) | Executable evidence, knowledge, indexing, processing, query and diagnostic APIs; separately identified foundation value validation. |
 | [CONTRIBUTING.md](CONTRIBUTING.md) | Development layout, validation and contribution rules. |
 
 Planned work, implementation designs and delivery progress live in the
-[build roadmap issue](https://github.com/markgar/local-knowledge-graph/issues/28)
-and its linked package issues, not in repository planning documents.
+[open bounded issues](https://github.com/markgar/local-knowledge-graph/issues?q=is%3Aissue%20is%3Aopen),
+grouped by [milestones](https://github.com/markgar/local-knowledge-graph/milestones),
+not in repository planning documents. The selected issue's current scope and
+linked approved requirements govern implementation.
 
 Evaluation tooling covers [retrieval quality](benchmarks/qasper/README.md),
 [agent workflows](benchmarks/agent/README.md),

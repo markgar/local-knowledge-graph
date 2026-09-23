@@ -1,12 +1,14 @@
 # Product search parity validation
 
-This matrix checks the implemented product search pipeline against its reranked
-component using real embedding and cross-encoder models. It is **integration
+This matrix checks the Markdown demonstration's `kg.retrieval` product search
+pipeline against its reranked component using real embedding and cross-encoder
+models. It is **integration
 parity, not a relevance benchmark or quality-improvement claim**. Product
 `SearchService.search` and `explain_search` execute lexical/dense retrieval,
 fusion, and reranking; this runner checks their results and citation fields.
-It does not exercise validation-only foundation contracts as a query or write
-runtime.
+It does not exercise canonical `kg.indexing`/`kg.query` service composition or
+Ladybug graph building. See [current architecture](../../SPEC.md#architecture-and-data-ownership)
+for those separate execution boundaries.
 
 ## Run the real-model matrix
 

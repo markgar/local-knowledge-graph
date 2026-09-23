@@ -12,9 +12,11 @@ They are parsed by the implemented
 | [`query-ambiguous.json`](query-ambiguous.json) | The same dependent plan with a name selector for the workload's two distinct Sam entities. |
 
 Contract tests parse, reject mutations and round-trip these values. They do
-**not** commit or execute enrichment or queries; document writes have a separate
-implemented evidence service. Namespaced predicates demonstrate syntax, not a registered business
-ontology or authorization policy.
+**not** commit or execute enrichment or queries. Executable document/enrichment
+writes and supported query plans belong to the separate
+[canonical service APIs](../../CONTRACTS.md), not these fixture checks.
+Namespaced predicates demonstrate syntax, not a registered business ontology or
+authorization policy.
 
 The [workload generator](../../benchmarks/foundation/README.md) supplies 1,000
 deterministic documents and operation selections, including the distinct Sam
@@ -22,5 +24,6 @@ identities. Its labels describe synthetic setup, not enforced access or observed
 service outcomes.
 
 Pending integration scenarios and their owners live in the
-[A01-A17 issue inventory](https://github.com/markgar/local-knowledge-graph/issues/28#acceptance-recipes),
+[owning evaluation issues](https://github.com/markgar/local-knowledge-graph/milestone/3)
+and their linked approved requirements,
 not in these fixture files.
