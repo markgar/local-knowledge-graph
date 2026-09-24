@@ -21,7 +21,7 @@ The canonical engine is **SQLite plus an optional Ladybug graph projection**:
 | Canonical indexing/search | `kg.indexing` publishes passages/vectors and executes scoped keyword/dense retrieval, fusion and reranking. Search does not depend on Ladybug. |
 | Canonical query composition | `kg.query.QueryService` executes supported evidence, search, exact entity resolution and explicit-decision records/counts with fresh release authorization. |
 | Optional Ladybug projection | `kg.graph` builds complete eligible entity/relationship/explicit-decision coverage for one exact authorized scope. `LocalGraphSession` manages reusable lifecycle, typed cited one-hop relationships and fixed relationship-to-decision queries. It contains no unique authored truth; arbitrary joins and public retained inspection remain unimplemented. |
-| Canonical CLI | `kg` and `python -m kg`: single-profile setup, exact add/read/history/update/remove and full document search over public canonical services. |
+| Canonical CLI | `kg` and `python -m kg`: single-profile setup, exact add/read/history/update/remove, full document search, eligible entity/relationship inspection, grounded record and fixed direct/relationship decision queries over public canonical services. |
 | Markdown demonstration | Separate internal `kg.db.Database`, `src/kg/schema.sql`, manifest ingestion and `kg.retrieval`. Historical CLI retained as `kg.legacy_cli` for regression tests, not the installed entrypoint. |
 
 Applications supply text and explicitly supported knowledge; intake, passage
@@ -847,6 +847,14 @@ or `client/1` JSON. Save success survives preparation failure; manual resubmissi
 after unknown outcome may duplicate input. Reads expose exact copied support,
 and state-matched revisions/removal retain history. Models require explicit
 approval and load locally only. See [CLI usage](README.md#canonical-document-cli).
+Knowledge commands use existing bounded service reads and explicit grounded writes.
+Entity selection never treats a prefix as unique. Relationship filtering retains
+the underlying assertion page's continuation, even when no displayed row matches.
+Record derives dependencies only from copied exact support states, returns all
+canonical mappings, and never creates implicit endpoints. Withdrawals retain
+history. Direct and native relationship-decision results preserve their original
+count/proof/budget semantics; invocation-local handles expire on exit. The wheel
+ships its strategy skill and input recipe, reachable through model-free help.
 
 The following sections describe the **historical separate Markdown demonstration**, unless
 explicitly referring to `kg.evidence`. Its fixture/gold assets are preserved; its

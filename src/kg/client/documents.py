@@ -27,6 +27,8 @@ from kg.models.foundation import (
     SuppliedAnchor,
     SuppliedContent,
     Value,
+    WriteOutcome,
+    WritePayload,
     WriteRequest,
 )
 
@@ -46,10 +48,37 @@ def token() -> str:
     return str(uuid4())
 
 
+def submit(profile: Profile, payload: WritePayload) -> WriteOutcome | Response:
+    request = WriteRequest(
+        contract_version="foundation/1",
+        request_id=token(),
+        retry_key=token(),
+        scope=profile.scope,
+        attribution=profile.attribution,
+        payload=payload,
+    )
+    evidence = EvidenceService(profile.database(), profile.identity)
+    try:
+        return evidence.write(request)
+    except (Exception, KeyboardInterrupt):
+        LOGGER.error("Canonical write raised; commit outcome is unknown.")
+        return Response(
+            status="uncertain",
+            code="write_outcome_unknown",
+            exit_code=7,
+            message="Write outcome unknown. Manual resubmission may create duplicates.",
+            result={"request_id": request.request_id},
+        )
+
+
+def citation_target(citation: StoredCitation) -> str:
+    encoded = base64.urlsafe_b64encode(citation.model_dump_json().encode()).decode()
+    return "evidence:" + encoded
+
+
 def evidence_entry(view: EvidenceView) -> dict[str, JsonValue]:
-    encoded = base64.urlsafe_b64encode(view.citation.model_dump_json().encode()).decode()
     return {
-        "target": "evidence:" + encoded,
+        "target": citation_target(view.citation),
         "support": {
             "reference": view.reference.model_dump(mode="json"),
             "state_version": view.state_version,
@@ -152,25 +181,9 @@ class Documents:
         )
 
     def _write(self, payload: PutDocument | RemoveDocument, *, prepare: bool) -> Response:
-        request = WriteRequest(
-            contract_version="foundation/1",
-            request_id=token(),
-            retry_key=token(),
-            scope=self.profile.scope,
-            attribution=self.profile.attribution,
-            payload=payload,
-        )
-        try:
-            outcome = self.evidence.write(request)
-        except (Exception, KeyboardInterrupt):
-            LOGGER.error("Canonical write raised; commit outcome is unknown.")
-            return Response(
-                status="uncertain",
-                code="write_outcome_unknown",
-                exit_code=7,
-                message="Write outcome unknown. Manual resubmission may create duplicates.",
-                result={"request_id": request.request_id},
-            )
+        outcome = submit(self.profile, payload)
+        if isinstance(outcome, Response):
+            return outcome
         result: dict[str, JsonValue] = {"write": outcome.model_dump(mode="json")}
         if not isinstance(outcome.receipt, DocumentReceipt):
             return Response(
