@@ -27,8 +27,8 @@ Ladybug graph are disposable projections, not additional authored truth.
 Use the existing local profile. Setup is an explicit operator action, not a
 side effect of answering a question. Never manufacture identities or authority,
 reset an incompatible store, or replace an existing store to resolve an error.
-The starter vocabulary has people and projects, ownership and explicit decisions;
-an attached custom store may have different operator-provided vocabulary.
+New setup has no domain schema. Only explicit `--schema-preset personal/1` installs
+the people/project example; attached stores keep their own approved vocabulary.
 
 ## Discover before writing or answering
 
@@ -55,6 +55,30 @@ The shared general scratch ceiling is 128 MiB; tighter per-unit and complete-out
 limits still apply. It is a logical allowance, not a host memory guarantee.
 Empty/incomplete matches never prove an entity is new; list/page eligible entities
 or inspect source evidence before deliberately creating one.
+
+## Compose initial vocabulary verbs
+
+Use `kg capabilities --json` to distinguish installed operations from schema
+readiness; it does not check search readiness. For operator-requested intake before
+schema/model approval, use `kg add FILE --evidence-only --json` (or `update` with
+`--expect STATE --evidence-only`). This saves exact evidence, not search indexes
+or facts. Ordinary add/update still require approved cached-model preparation.
+
+For an unconfigured corpus, inspect operator-chosen documents with `kg read` and
+deliberately page their excerpts. Have the operator select exact support objects;
+do not broaden that selection or pretend it represents the whole corpus. Use
+`kg schema generate --example` and `--schema` to prepare SAMPLE.json, then
+`kg schema generate SAMPLE.json --json` for exact context. `awaiting_agent` means
+context prepared, not vocabulary inferred. You interpret it externally; if your
+host denies interpretation, report that blocker without inventing a proposal.
+
+Author the proposal with the complete `initial_generation.sample`, limitations,
+naming/synonym decisions and exact selected term examples. Narrow coverage is not
+proof of global adequacy. Report insufficient samples/unsupported concepts; defer
+if no term is justified. Validation rejects declared insufficient coverage.
+All selected sources, including unused examples, remain protected dependencies.
+These verbs are composable, not a mandatory orchestration engine. Validate and
+stop for human review before explicit apply; never create facts as a side effect.
 
 ## Propose vocabulary deliberately
 
@@ -83,8 +107,10 @@ This trusted-local command attests review; it is not authentication against anot
 same-OS administrator. Never manufacture approval or call it automatically.
 After uncertainty, only the identical schema request/key is safe to retry.
 A new key with a stale base conflicts; reassess rather than silently rebasing.
-Schema application creates no facts. Automatic initial-schema generation is not
-implemented. Classification refinement is a separate, explicit knowledge operation.
+Schema application creates no facts. Initial generation prepares external-agent
+context, not automatic interpretation. Software-design approval, setup `--yes`
+and model approval are not human approval of schema content.
+Classification refinement is a separate, explicit knowledge operation.
 
 ## Record deliberate, grounded knowledge
 
@@ -122,7 +148,7 @@ assertions when needed; never silently substitute preconditions or borrow type s
 Persist input and key before `kg record FILE --retry-key KEY --json`. Retry unknown
 outcomes with those exact bytes/key; honor `retry_conflict`/`retry_expired`. `/5` is
 an explicit fresh-store break: preserve incompatible files and resupply into a new
-path. No migration, automatic identity merge, schema generation or extraction is shipped.
+path. No migration, automatic identity merge or embedded extraction is shipped.
 
 Copy `kg schema show --json`'s exact `result.revision` into the record file's
 `expected_schema_revision`. A stale head requires reassessment and a fresh deliberate
@@ -144,7 +170,8 @@ submission. A source may support several statements, but all claims must really
 follow from it; do not label an interpretation explicit when it is inferred.
 Save the full canonical receipt and local-ID mappings.
 
-Document add prepares search, not facts. A saved document with failed preparation
+Ordinary document add prepares search, not facts; `--evidence-only` skips preparation.
+A saved document with failed preparation
 still exists: retain its receipt and report the failure. Unknown write outcomes
 remain unknown. Do not retry non-idempotent writes automatically; manual
 resubmission can duplicate documents or knowledge.

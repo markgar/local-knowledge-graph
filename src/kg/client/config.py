@@ -111,7 +111,12 @@ def configure(
     attach: Path | None,
     models_approved: bool,
     cache: Path | None,
+    schema_preset: str | None = None,
 ) -> Profile:
+    if schema_preset not in {None, "personal/1"}:
+        raise ClientError("invalid_option", "The only example schema preset is personal/1.")
+    if attach is not None and schema_preset is not None:
+        raise ClientError("invalid_option", "Attaching never installs a schema preset.")
     destination = profile_path()
     if destination.exists() or destination.is_symlink():
         raise ClientError("already_configured", f"Profile already exists: {destination}")
@@ -185,7 +190,8 @@ def configure(
                 ),
             )
         )
-        KnowledgeAdministration(database, authority).register_knowledge_schema(starter_schema())
+        if schema_preset is not None:
+            KnowledgeAdministration(database, authority).register_knowledge_schema(starter_schema())
         profile = Profile(
             store=str(store.resolve()),
             scope=Scope(

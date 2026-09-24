@@ -37,7 +37,9 @@ def configured(tmp_path, monkeypatch):
         "kg.indexing.search.SentenceTransformerCrossEncoderProvider",
         lambda **kw: Reranker(),
     )
-    result = runner.invoke(app, ["setup", "--yes", "--approve-models", "--json"])
+    result = runner.invoke(app, [
+        "setup", "--yes", "--approve-models", "--schema-preset", "personal/1", "--json",
+    ])
     assert result.exit_code == 0, result.output
     return tmp_path
 

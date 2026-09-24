@@ -326,6 +326,69 @@ def test_supervisor_signals_cannot_certify_success(tmp_path, runner, monkeypatch
     assert result["correctness"] == result["timed_gate"] == "incomplete"
 
 
+@pytest.mark.parametrize("phase", ["error", "cancellation", "wait-cancellation"])
+@pytest.mark.parametrize("persistence_failure", [False, True])
+def test_secondary_cleanup_failure_preserves_incomplete_report(
+    tmp_path, runner, monkeypatch, capsys, phase, persistence_failure,
+):
+    report = tmp_path / "report.json"
+    calls = []
+
+    class Process:
+        pid = 123456789
+
+        def wait(self):
+            if phase == "wait-cancellation":
+                raise KeyboardInterrupt()
+            return 0
+
+    def start(*args, **kwargs):
+        env = kwargs["env"]
+        gates.write_json(report, {
+            "correctness": "passed", "timed_gate": "pending", "run_id": env["KG_GATE_RUN_ID"],
+        })
+        gates.write_json(Path(env["KG_GATE_RECEIPT"]), {
+            "report": str(report), "sha256": hashlib.sha256(report.read_bytes()).hexdigest(),
+        })
+        return Process()
+
+    def cleanup(process, *, cancelled):
+        assert isinstance(process, Process)
+        calls.append(cancelled)
+        if len(calls) == 1:
+            if phase in {"error", "wait-cancellation"}:
+                raise PermissionError("primary cleanup EPERM")
+            return False
+        raise PermissionError("secondary cleanup EPERM")
+
+    def interrupt(*args):
+        raise KeyboardInterrupt()
+
+    def cannot_persist(*args):
+        raise OSError("cannot persist incomplete report")
+
+    monkeypatch.setattr(runner.subprocess, "Popen", start)
+    monkeypatch.setattr(runner, "finish_group", cleanup)
+    if phase == "cancellation":
+        monkeypatch.setattr(runner, "finalize_record", interrupt)
+    if persistence_failure:
+        monkeypatch.setattr(runner, "mark_interrupted", cannot_persist)
+        with pytest.raises(OSError, match="cannot persist incomplete report"):
+            runner.launch([], report)
+        assert "secondary cleanup EPERM" in capsys.readouterr().err
+    else:
+        assert runner.launch([], report) != 0
+        value = json.loads(report.read_text())
+        assert value["correctness"] == value["timed_gate"] == "incomplete"
+        assert "secondary cleanup EPERM" in value["error"]
+        assert value["error"] in capsys.readouterr().err
+        if phase in {"error", "wait-cancellation"}:
+            assert "primary cleanup EPERM" in value["error"]
+        if phase in {"cancellation", "wait-cancellation"}:
+            assert "Interrupted" in value["error"]
+    assert len(calls) == 2 and calls[-1] is True
+
+
 @pytest.mark.parametrize("sequence", [
     ("setup", "call", "teardown"), ("setup", "call"),
     ("setup", "call", "teardown", "teardown"),

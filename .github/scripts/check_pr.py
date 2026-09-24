@@ -409,6 +409,14 @@ def launch(arguments: list[str], report_path: Path) -> int:
         nonlocal cancelled
         cancelled = True
 
+    def cleanup_after_failure() -> str:
+        if process is not None:
+            try:
+                finish_group(process, cancelled=True)
+            except OSError as cleanup_error:
+                return f"; owned-group cleanup also failed: {cleanup_error}"
+        return ""
+
     clock = time.monotonic()
     try:
         with tempfile.TemporaryDirectory(prefix="kg-pr-clock-") as temporary:
@@ -451,17 +459,19 @@ def launch(arguments: list[str], report_path: Path) -> int:
     except KeyboardInterrupt:
         for sig in signals:
             signal.signal(sig, signal.SIG_IGN)
-        if process is not None:
-            finish_group(process, cancelled=True)
-        mark_interrupted(report_path, run_id, "Interrupted during startup or finalization")
+        message = "Interrupted during startup or finalization" + cleanup_after_failure()
+        print(f"Gate incomplete: {message}", file=sys.stderr)
+        mark_interrupted(report_path, run_id, message)
         return 130
     except (OSError, ValueError) as error:
         for sig in signals:
             signal.signal(sig, signal.SIG_IGN)
-        if process is not None:
-            finish_group(process, cancelled=True)
-        mark_interrupted(report_path, run_id, f"Supervisor failure: {error}")
-        print(f"Gate incomplete: {error}", file=sys.stderr)
+        message = (
+            ("Interrupted; " if cancelled else "")
+            + f"Supervisor failure: {error}" + cleanup_after_failure()
+        )
+        print(f"Gate incomplete: {message}", file=sys.stderr)
+        mark_interrupted(report_path, run_id, message)
         return 1
     finally:
         for sig, handler in previous.items():

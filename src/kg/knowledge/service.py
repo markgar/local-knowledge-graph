@@ -44,8 +44,10 @@ from kg.models.knowledge import (
 from kg.models.knowledge_events import KnowledgeSelection
 from kg.models.schema import (
     SchemaChangeView,
+    SchemaGenerationBrief,
     SchemaProposal,
     SchemaRevisionPage,
+    SchemaSample,
     SchemaValidation,
     SchemaView,
 )
@@ -194,7 +196,8 @@ class KnowledgeService:
                 return KnowledgeCapabilities(
                     schema_status="unconfigured", schema_revision=None, decision_encoding=None,
                     change_kinds=(), withdrawal=None, classification_withdrawal=None,
-                    reads=("schema", "schema_history", "schema_change", "validate_schema"),
+                    reads=("schema", "schema_history", "schema_change", "validate_schema",
+                           "schema_generation_context"),
                 )
             return KnowledgeCapabilities(
                 schema_revision=head, decision_encoding="direct-subject-decision/1"
@@ -263,6 +266,16 @@ class KnowledgeService:
 
         proposal = validated(SchemaProposal, proposal)
         return self._schema_read(scope, lambda store: _schema_operations.validate(store, proposal))
+
+    def schema_generation_context(
+        self, scope: Scope, sample: SchemaSample,
+    ) -> SchemaGenerationBrief:
+        from kg.knowledge import _schema_operations
+
+        sample = validated(SchemaSample, sample)
+        return self._schema_read(
+            scope, lambda store: _schema_operations.generation_context(store, sample),
+        )
 
     def entity(self, scope: Scope, entity_id: str, *, mode: Mode = "current") -> EntityView:
         history, entity_id = _history(mode), check_token(entity_id)

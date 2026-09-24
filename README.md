@@ -41,8 +41,11 @@ new skill has not been discovered in the current session.
 
 ## How the pieces fit
 
-Inspect vocabulary with `kg schema show --json`; setup's people/project vocabulary
-is an example, not a fixed domain model. `kg schema validate --example` documents
+Inspect vocabulary with `kg schema show --json`; new setup is schema-free.
+People/project vocabulary is only the explicit `--schema-preset personal/1`
+example. `kg schema generate --example` documents selected-excerpt context for
+external-agent initial proposals; the core does not interpret text.
+`kg schema validate --example` documents
 evidence-backed proposals and explicit human-reviewed admin apply. Proposals compare
 reuse, extension and deferral. Additions and monotonic endpoint widening preserve
 existing IDs, support and authored revisions; schema application never extracts facts.
@@ -379,7 +382,7 @@ network controls or change feeds merely to evade a block.
 
 After installation, `kg` and `python -m kg` work outside the source checkout.
 Start with guided `kg setup`. It asks for a new store location and explicit local
-model approval, and supplies the personal corpus/policy/writer defaults itself.
+model approval, and supplies the corpus/policy/writer defaults but no domain schema.
 The default profile is `~/.config/local-knowledge-graph/profile.json`; data is
 `~/.local/share/local-knowledge-graph/evidence.sqlite3`. `XDG_CONFIG_HOME` and
 `XDG_DATA_HOME` override their respective roots.
@@ -423,9 +426,18 @@ failure or non-complete query, 4 unsuccessful canonical
 write, 5 saved with failed preparation, 6 local/unexpected failure, 7 unknown
 write outcome. Receipt and preparation details remain separately represented.
 
-For unattended setup use `kg setup --yes --approve-models --json`, optionally
+For model-free evidence intake, use `kg setup --yes --json`, then
+`kg add FILE --evidence-only --json`. Exact reads and evidence-only updates work
+before any domain schema is approved. `kg capabilities --json` shows the current
+schema state and installed workflow boundaries without checking search readiness.
+An external agent can compose read, `schema generate SAMPLE.json`, validate and
+explicit human-reviewed apply; see `kg schema generate --example` for copy-ready
+input recipes. Generate returns `awaiting_agent`, not inferred vocabulary.
+
+For unattended setup with model preparation use `kg setup --yes --approve-models --json`, optionally
 `--store NEW_PATH --model-cache EXISTING_CACHE`. Approval includes the pinned
-GTE model's trusted cached code. Without approval, exact reads/removal work,
+GTE model's trusted cached code. Without approval, exact reads/removal and
+`--evidence-only` add/update work,
 while add/update/search fail before loading models. Profile settings remain
 explicitly editable local configuration: `models_approved` controls execution,
 `model_cache` selects an existing cache. No credentials or Python policy objects
