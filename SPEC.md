@@ -290,6 +290,11 @@ captures, preserve authored schema compatibility and full proof budgets, and ret
 original observer/final authorization fences. Saved writes survive graph failure.
 History/receipt/rationale disclosure reauthorizes every original reviewed dependency,
 while ordinary selected-type proofs need no rejected private alternatives.
+Full graph decision assembly physically shares bounded immutable classification
+bundles only after canonical assertion binding and exact passage-membership checks.
+Shared payloads, per-record containers and references retain overlapping custody
+through complete-result admission. All serialized occurrences and transient decoded
+copies still count; public/native proof shapes and original budgets are unchanged.
 
 Public service, `kg record --retry-key`, `kg classifications` and
 `kg withdraw-classification` expose this lifecycle. See [CONTRACTS.md](CONTRACTS.md#knowledge-enrichment-and-reads)

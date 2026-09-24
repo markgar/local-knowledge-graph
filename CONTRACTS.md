@@ -389,6 +389,11 @@ Claim and assertion authored revisions remain compatible with additive schema ev
 Graph mapping `canonical-relationships-decisions/2` binds original classification captures
 to canonical assertions, counts full distinct submitted IDs before display truncation,
 and cannot manufacture freshness from surviving graph files.
+During full relationship-decision assembly, at most 200 validated immutable
+classification bundles are physically shared within that operation. Shared payloads
+retain charged custody; every per-assertion container/reference remains charged.
+Overflow keeps original objects/full charges. Transient decode and complete serialized
+output still count all proof occurrences under the original limits.
 
 Modes are `current` and `history`. Pages use limits 1..200, nonnegative keyset
 cursors, visible-only `has_more`/`next_after_sequence`, and no hidden totals.

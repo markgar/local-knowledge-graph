@@ -533,3 +533,39 @@ def test_concurrent_selection_writers_have_one_cas_winner(env):
     failed = next(result for result in results if result.error is not None)
     assert failed.error.code == "state_conflict"
     assert len(service.classification_history(env.scope, ids["e"]).entries) == 3
+
+
+def test_claim_subset_does_not_reveal_hidden_nonclassification_ids(env):
+    from kg.models.foundation import AddAlias
+
+    support, dep = source(env)
+    private, private_dep = source(env, "private", "email")
+    ids = mappings(env.service.write(request(env, classified(support), (dep,))))
+    alias_id = mappings(
+        env.service.write(
+            request(
+                env,
+                (
+                    AddAlias(
+                        kind="alias",
+                        local_id="private-alias",
+                        entity=StoredEntity(kind="stored", entity_id=ids["e"]),
+                        alias="Private name",
+                        support=private,
+                    ),
+                ),
+                (private_dep,),
+            )
+        )
+    )["private-alias"]
+    narrow = env.scope.model_copy(
+        update={
+            "access": env.scope.access.model_copy(
+                update={"namespaces": ("markdown",)},
+            )
+        }
+    )
+    service = KnowledgeService(env.database, env.service.identity)
+    for claim_id in (alias_id, "nonexistent-claim"):
+        with pytest.raises(EvidenceServiceError, match="not_found"):
+            service.classification_review(narrow, ids["e"], claim_ids=(claim_id,))

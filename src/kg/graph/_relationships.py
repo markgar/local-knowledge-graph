@@ -165,7 +165,9 @@ def decode_relationship(
         ):
             raise NativeError("invalid_projection")
         ctx.require_authored_revision(identifier, assertion.schema_version)
-        ctx.require_classification_captures(identifier, assertion.classification_witnesses)
+        ctx.require_classification_captures(
+            identifier, assertion.classification_witnesses, assertion.classification_evidence,
+        )
         # G3 verified non-root entity types; they are not present in this proof row.
         return GraphRelationshipProof(
             path=Path(

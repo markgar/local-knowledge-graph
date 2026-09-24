@@ -62,7 +62,7 @@ def claim(store: Store, claim_id: str, *, entity_id: str | None = None) -> Class
         return cached
     row = store.row("contribution", claim_id)
     if row["kind"] != "classification":
-        raise EvidenceServiceError("invalid_request")
+        raise EvidenceServiceError("not_found")
     basis, current = store.support(row)
     detail = store.connection.execute(
         "SELECT * FROM classification WHERE corpus_id=? AND contribution_id=?",

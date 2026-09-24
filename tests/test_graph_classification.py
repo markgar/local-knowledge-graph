@@ -93,7 +93,7 @@ def test_native_same_type_selection_refresh_never_resurrects_old_edges(tmp_path)
         assert knowledge.entity(env.scope, env.projects[0]).entity_type == "project"
 
 
-@pytest.mark.parametrize("field", ["claim_id", "selection_id"])
+@pytest.mark.parametrize("field", ["claim_id", "selection_id", "passage_set_id"])
 def test_native_classification_substitution_cannot_release_a_count(tmp_path, monkeypatch, field):
     require_native()
     env = fixture(tmp_path / "source.sqlite", decisions=2)
@@ -117,11 +117,22 @@ def test_native_classification_substitution_cannot_release_a_count(tmp_path, mon
         def substituted(ctx, row, **kwargs):
             changed = list(row)
             value = json.loads(changed[1])
-            value["classification_witnesses"][0][field] = getattr(foreign, field)
-            value["decision_member"]["dependencies"]["subject_classification"][field] = getattr(
-                foreign,
-                field,
-            )
+            if field == "passage_set_id":
+                with env.database.connection() as connection:
+                    wrong_set = connection.execute(
+                        "SELECT passage_set_id FROM passage WHERE passage_id=?",
+                        (env.references[1].passage_id,),
+                    ).fetchone()[0]
+                for proof in value["classification_evidence"]:
+                    if proof["passage_set_id"] is not None:
+                        assert proof["passage_set_id"] != wrong_set
+                        proof["passage_set_id"] = wrong_set
+            else:
+                value["classification_witnesses"][0][field] = getattr(foreign, field)
+                value["decision_member"]["dependencies"]["subject_classification"][field] = getattr(
+                    foreign,
+                    field,
+                )
             changed[1] = json.dumps(value)
             return decode(ctx, tuple(changed), **kwargs)
 
@@ -129,3 +140,29 @@ def test_native_classification_substitution_cannot_release_a_count(tmp_path, mon
         result = graph.relationship_decisions(request(env))
         assert result.error.code == "invalid_projection"
         assert result.count is None and not result.members and not result.relationships
+
+
+def test_native_pool_still_binds_every_distinct_assertion(tmp_path, monkeypatch):
+    from kg.graph.session import GraphReadContext
+
+    require_native()
+    env = fixture(tmp_path / "source.sqlite", decisions=4)
+    validated = set()
+    original = GraphReadContext.require_classification_captures
+
+    def observed(ctx, assertion_id, captures, evidence):
+        original(ctx, assertion_id, captures, evidence)
+        validated.add(assertion_id)
+
+    monkeypatch.setattr(GraphReadContext, "require_classification_captures", observed)
+    with LocalGraphSession(
+        env.database,
+        env.identity,
+        env.scope,
+        graph_directory=tmp_path / "derived",
+    ) as graph:
+        result = graph.relationship_decisions(request(env))
+        assert result.count == 4 and result.exact
+        expected = {m.decision.assertion_id for m in result.members}
+        expected.update(p.assertion.assertion_id for p in result.relationships)
+        assert validated == expected

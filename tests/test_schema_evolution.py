@@ -312,14 +312,12 @@ def test_exact_head_fresh_write_and_successful_receipt_replay(env):
             operation="enrich",
             expected_schema_revision=authored,
             dependencies=(env.dependency,),
-            changes=(
-                typed_entity(
-                    kind="entity",
-                    local_id="p",
-                    name="Atlas",
-                    entity_type="project",
-                    support=env.support,
-                ),
+            changes=typed_entity(
+                kind="entity",
+                local_id="p",
+                name="Atlas",
+                entity_type="project",
+                support=env.support,
             ),
         ),
     )
