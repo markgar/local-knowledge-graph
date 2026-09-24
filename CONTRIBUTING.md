@@ -16,7 +16,8 @@ The private graph builder, reusable `LocalGraphSession` controller and native
 examples and typed cited one-hop query API are implemented; graph joins are not. Keep current behavior
 in [SPEC.md](SPEC.md) and [CONTRACTS.md](CONTRACTS.md), and planned scope on issues.
 The separately supported Markdown demonstration has its own SQLite schema,
-manifest/CLI and retrieval APIs. Do not use it as the canonical service design.
+manifest and retrieval APIs. Its historical CLI regression tests use
+`kg.legacy_cli`; the installed `kg.cli` uses canonical services.
 
 ## Development setup
 

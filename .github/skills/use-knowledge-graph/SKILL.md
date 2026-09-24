@@ -5,6 +5,12 @@ description: Use Local Knowledge Graph to store supplied sources and evidence-ba
 
 # Use Local Knowledge Graph
 
+For installed document operations, start with `kg --help` and the relevant
+command's help. The canonical CLI supports local setup, document add/search/read/
+history/update/removal with readable output or `--json`. Add prepares search but
+does not extract facts. This skill's knowledge/graph recipes below remain SDK
+instructions; those commands are not yet part of the installed document CLI.
+
 Use this guide first, rather than exploring the implementation to discover how to
 operate the KG. It describes delivered behavior. Runtime service capabilities and
 the configured corpus schema determine what is available for this caller.
@@ -71,8 +77,8 @@ automatic access to a user's database.
 
 Do not bootstrap policy, manufacture admin authority, initialize/recreate a user's
 store, or register a new schema as a side effect of answering a question. Those
-are explicit trusted setup tasks. The `kg` CLI and Markdown corpus manifests
-belong to a separate demonstration database, not this canonical service interface.
+are explicit trusted setup tasks. Markdown corpus manifests still belong to a
+separate demonstration database; the installed `kg` now uses canonical services.
 
 The current physical format is `evidence-store/3`. Incompatible older stores are
 rejected with recreate/reload guidance, not migrated or silently reset. A trusted

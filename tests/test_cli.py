@@ -6,9 +6,9 @@ from pathlib import Path
 import pytest
 from typer.testing import CliRunner
 
-from kg.cli import app
 from kg.config import load_manifest
 from kg.db import Database
+from kg.legacy_cli import app
 from kg.models.contracts import DenseIndexResult, SearchResult
 from kg.retrieval import RetrievalService
 from kg.retrieval.dense import DenseIndexError, EmbeddingProfile
@@ -243,7 +243,7 @@ def test_dense_index_and_product_search_configuration_through_cli(
                 )
             ]
 
-    monkeypatch.setattr("kg.cli.DenseRetrievalService", StubDenseRetrievalService)
+    monkeypatch.setattr("kg.legacy_cli.DenseRetrievalService", StubDenseRetrievalService)
 
     class StubSearchService(StubDenseRetrievalService):
         def __init__(
@@ -254,7 +254,7 @@ def test_dense_index_and_product_search_configuration_through_cli(
                 database, corpus_id, profile=embedding_profile, contextual=contextual
             )
 
-    monkeypatch.setattr("kg.cli.SearchService", StubSearchService)
+    monkeypatch.setattr("kg.legacy_cli.SearchService", StubSearchService)
 
     index_result = RUNNER.invoke(
         app,
@@ -322,7 +322,7 @@ def test_dense_encode_error_is_machine_readable(
         def search(self, query: str, **kwargs: object) -> list[SearchResult]:
             raise DenseIndexError("Could not encode query: model failure")
 
-    monkeypatch.setattr("kg.cli.SearchService", StubDenseRetrievalService)
+    monkeypatch.setattr("kg.legacy_cli.SearchService", StubDenseRetrievalService)
 
     result = RUNNER.invoke(
         app,
@@ -391,7 +391,7 @@ def test_product_search_preserves_hybrid_evidence_payload_through_cli(
             ]
 
     monkeypatch.setattr(
-        "kg.cli.SearchService",
+        "kg.legacy_cli.SearchService",
         StubHybridRetrievalService,
     )
     result = RUNNER.invoke(
@@ -460,7 +460,7 @@ def test_product_search_preserves_reranked_evidence_payload_through_cli(
             ]
 
     monkeypatch.setattr(
-        "kg.cli.SearchService",
+        "kg.legacy_cli.SearchService",
         StubRerankedRetrievalService,
     )
     result = RUNNER.invoke(

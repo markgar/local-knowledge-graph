@@ -4,7 +4,9 @@ The canonical Python services operate on SQLite `evidence-store/3`. SQLite owns
 supplied text/revisions, identities, knowledge schema, entities/assertions, exact
 support and history. Optional Ladybug is a rebuildable exact-scope graph
 projection, not a second authored store or a replacement for canonical search.
-The separate Markdown demonstration/CLI uses its own database and APIs; see
+The installed CLI exposes canonical document workflows; see
+[usage and client/1 outcomes](README.md#canonical-document-cli).
+The historical Markdown demonstration uses its own internal database and APIs; see
 [the architecture](SPEC.md#architecture-and-data-ownership).
 
 This reference covers executable evidence, indexing/search, knowledge, processing

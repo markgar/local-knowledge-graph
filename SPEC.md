@@ -21,7 +21,8 @@ The canonical engine is **SQLite plus an optional Ladybug graph projection**:
 | Canonical indexing/search | `kg.indexing` publishes passages/vectors and executes scoped keyword/dense retrieval, fusion and reranking. Search does not depend on Ladybug. |
 | Canonical query composition | `kg.query.QueryService` executes supported evidence, search, exact entity resolution and explicit-decision records/counts with fresh release authorization. |
 | Optional Ladybug projection | `kg.graph` builds complete eligible entity/relationship/explicit-decision coverage for one exact authorized scope. `LocalGraphSession` manages reusable lifecycle, typed cited one-hop relationships and fixed relationship-to-decision queries. It contains no unique authored truth; arbitrary joins and public retained inspection remain unimplemented. |
-| Markdown demonstration | Separate `kg.db.Database`, `src/kg/schema.sql`, manifest ingestion, `kg.retrieval` and `kg` CLI. Its database and explicit graph relationships are not the canonical service or Ladybug interface. |
+| Canonical CLI | `kg` and `python -m kg`: single-profile setup, exact add/read/history/update/remove and full document search over public canonical services. |
+| Markdown demonstration | Separate internal `kg.db.Database`, `src/kg/schema.sql`, manifest ingestion and `kg.retrieval`. Historical CLI retained as `kg.legacy_cli` for regression tests, not the installed entrypoint. |
 
 Applications supply text and explicitly supported knowledge; intake, passage
 indexing and enrichment writes are real service operations. No automatic
@@ -841,9 +842,16 @@ operation. Reports disappear with service/process lifetime and are not durable
 audit records or retained query support. See [CONTRACTS.md](CONTRACTS.md#execution-diagnostics)
 for the public API, exact fixed limits and explicit unavailable/redacted shapes.
 
-The following sections describe the **separate Markdown demonstration**, unless
+The installed canonical CLI composes exact save and indexing, with readable output
+or `client/1` JSON. Save success survives preparation failure; manual resubmission
+after unknown outcome may duplicate input. Reads expose exact copied support,
+and state-matched revisions/removal retain history. Models require explicit
+approval and load locally only. See [CLI usage](README.md#canonical-document-cli).
+
+The following sections describe the **historical separate Markdown demonstration**, unless
 explicitly referring to `kg.evidence`. Its fixture/gold assets are preserved; its
-databases and APIs are separate from the canonical evidence engine.
+databases and APIs are separate from the canonical evidence engine. Their CLI
+syntax is historical, not the current `kg` entrypoint.
 
 ## Markdown demonstration boundaries and invariants
 

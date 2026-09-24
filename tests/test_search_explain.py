@@ -9,10 +9,10 @@ from typing import Any, Literal
 import pytest
 from typer.testing import CliRunner
 
-from kg.cli import app
 from kg.config import load_manifest
 from kg.db import Database
 from kg.ingest import IngestService
+from kg.legacy_cli import app
 from kg.models.contracts import SearchResult
 from kg.models.manifest import CorpusManifest
 from kg.retrieval import explain as explanation_module

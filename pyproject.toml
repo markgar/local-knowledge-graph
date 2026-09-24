@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "local-knowledge-graph"
 version = "0.1.0"
-description = "Deterministic, evidence-backed retrieval over local Markdown corpora."
+description = "Canonical local evidence, document search and supported knowledge."
 readme = "README.md"
 requires-python = ">=3.12"
 license = "MIT"

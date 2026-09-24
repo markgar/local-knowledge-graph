@@ -60,7 +60,9 @@ class SentenceTransformerCrossEncoderProvider:
     revision = MODEL_REVISION
     license = MODEL_LICENSE
 
-    def __init__(self) -> None:
+    def __init__(
+        self, *, local_files_only: bool = False, cache_folder: str | None = None,
+    ) -> None:
         try:
             self.pipeline_version = "|".join(
                 (
@@ -77,6 +79,8 @@ class SentenceTransformerCrossEncoderProvider:
                 self.name,
                 revision=self.revision,
                 trust_remote_code=False,
+                local_files_only=local_files_only,
+                cache_folder=cache_folder,
             )
         except (ImportError, OSError, RuntimeError) as exc:
             raise RerankerError(f"Could not load reranker model: {exc}") from exc
