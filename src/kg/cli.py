@@ -86,12 +86,58 @@ find_app = typer.Typer(
 app.add_typer(find_app, name="find")
 schema_app = typer.Typer(
     no_args_is_help=True,
-    help="Inspect vocabulary and validate proposals. Apply is an explicit operator-admin action.",
+    help="Prepare external-agent generation context, inspect vocabulary and validate proposals. "
+    "Apply is an explicit human-reviewed operator-admin action.",
 )
 app.add_typer(schema_app, name="schema")
 Json = Annotated[bool, typer.Option("--json", help="Return a machine-readable client/1 result.")]
 Limit = Annotated[int, typer.Option(min=1, max=200, help="Maximum page entries.")]
 After = Annotated[int, typer.Option(min=0, help="Continue from the returned page position.")]
+EvidenceOnly = Annotated[
+    bool, typer.Option(
+        "--evidence-only", help="Save exact evidence without models or search preparation.",
+    ),
+]
+
+
+@app.command()
+def capabilities(json_output: Json = False) -> None:
+    """Inspect authorized schema state and installed workflows without loading models."""
+    execute(lambda: Schema(load_profile()).capabilities(), json_output)
+
+
+@schema_app.command("generate")
+def schema_generate(
+    file: Annotated[Path | None, typer.Argument()] = None,
+    schema: Annotated[bool, typer.Option("--schema")] = False,
+    example: Annotated[bool, typer.Option("--example")] = False,
+    json_output: Json = False,
+) -> None:
+    """Prepare exact operator-selected excerpts for EXTERNAL agent interpretation.
+
+    Returns awaiting_agent, not generated definitions. No model, schema or fact writes.
+    Use --example for the full sample/proposal recipe; stop for human content approval.
+    Already configured corpora use schema show and ordinary additive proposals.
+    """
+    from kg.models.schema import SchemaSample
+
+    def run() -> Response:
+        if sum((file is not None, schema, example)) != 1:
+            raise ClientError(
+                "invalid_arguments", "Supply FILE, --schema or --example, exactly one.",
+            )
+        if schema:
+            value = SchemaSample.model_json_schema()
+            return Response(
+                status="complete", message=json.dumps(value, indent=2), result={"schema": value},
+            )
+        if example:
+            text = files("kg.client").joinpath("schema-example.md").read_text(encoding="utf-8")
+            return Response(status="complete", message=text, result={"example": text})
+        assert file is not None
+        return Schema(load_profile()).generate(file)
+
+    execute(run, json_output)
 
 
 @schema_app.command("show")
@@ -245,7 +291,8 @@ def render(response: Response, machine: bool) -> None:
         typer.echo(safe_text(response.message))
         result = response.result
         if (
-            result.get("interface_version") == "knowledge-schema/1"
+            result.get("interface_version") in {"knowledge-schema/1", "schema-generation/1"}
+            or "workflows" in result
             or "apply" in result
             or {"request_id", "retry_key", "proposal_digest"} <= result.keys()
         ):
@@ -377,15 +424,25 @@ def setup(
         typer.Option(
             "--approve-models",
             help="Approve pinned cached models (GTE includes trusted model code). "
-            "No downloads. Without approval, exact reads/removal work but add/update/search stop.",
+            "No downloads. Without approval, exact reads/removal and --evidence-only "
+            "add/update work; ordinary add/update/search stop.",
         ),
     ] = False,
+    schema_preset: Annotated[
+        str | None, typer.Option(
+            help="Explicit example vocabulary: personal/1. Default: no schema.",
+        ),
+    ] = None,
     yes: Annotated[
         bool, typer.Option("--yes", help="Accept local defaults without prompting.")
     ] = False,
     json_output: Json = False,
 ) -> None:
-    """Set up one personal profile. Example: kg setup (guided); kg setup --yes --json."""
+    """Set up a schema-free local profile. Example: kg setup --yes --json.
+
+    --schema-preset personal/1 explicitly installs the people/project example.
+    Attaching never changes an existing corpus's vocabulary.
+    """
 
     def run() -> Response:
         nonlocal store, approve_models
@@ -412,6 +469,7 @@ def setup(
             attach=attach,
             models_approved=approve_models,
             cache=model_cache,
+            schema_preset=schema_preset,
         )
         return Response(
             status="complete",
@@ -426,13 +484,13 @@ def setup(
 
 
 @app.command()
-def add(file: Path, json_output: Json = False) -> None:
+def add(file: Path, evidence_only: EvidenceOnly = False, json_output: Json = False) -> None:
     """Save exact UTF-8 text and prepare search. Example: kg add meeting.md.
 
     Each invocation creates a document. An interrupted/uncertain write can leave
     saved data; manual resubmission may duplicate it.
     """
-    execute(lambda: Documents(load_profile()).save(file), json_output)
+    execute(lambda: Documents(load_profile()).save(file, evidence_only=evidence_only), json_output)
 
 
 @find_app.command("documents")
@@ -488,6 +546,7 @@ def update(
     expect: Annotated[
         str | None, typer.Option(help="Exact expected state from read output.")
     ] = None,
+    evidence_only: EvidenceOnly = False,
     json_output: Json = False,
 ) -> None:
     """Revise document:ID, preserving metadata/history, then prepare search."""
@@ -496,7 +555,9 @@ def update(
         documents = Documents(load_profile())
         previous = documents.document(document)
         expected = expected_state(previous.state_version, expect, document, json_output)
-        return documents.save(file, previous=previous, expected=expected)
+        return documents.save(
+            file, previous=previous, expected=expected, evidence_only=evidence_only,
+        )
 
     execute(run, json_output)
 

@@ -169,12 +169,19 @@ Path(os.environ['KG_GATE_RECEIPT']).write_text(json.dumps({
             process.terminate()  # Signal only the public launcher, not its group.
         stdout, stderr = process.communicate(timeout=10)
         value = json.loads(report.read_text())
+        diagnostic = {
+            "launcher_pid": process.pid,
+            "child_pid": pidfile.read_text() if pidfile.exists() else None,
+            "returncode": process.returncode, "report": value, "stdout": stdout, "stderr": stderr,
+        }
         if mode == "normal":
             assert process.returncode == 0, stdout + stderr
             assert value["correctness"] == value["timed_gate"] == "passed"
         else:
-            assert process.returncode != 0
-            assert value["correctness"] == "incomplete" and value["timed_gate"] != "passed"
+            assert process.returncode != 0, diagnostic
+            assert (
+                value["correctness"] == "incomplete" and value["timed_gate"] != "passed"
+            ), diagnostic
             with pytest.raises(ProcessLookupError):
                 os.kill(int(pidfile.read_text()), 0)
     finally:

@@ -349,6 +349,37 @@ fresh path and reload exact sources and reviewed knowledge. No migration, reset,
 dual-read or automatic classification/extraction is implemented.
 See [contracts](CONTRACTS.md#knowledge-registry-api) for bounds and APIs.
 
+### Initial schema context and model-free intake
+
+New CLI setup registers corpus/policy without a domain schema; only explicit
+`--schema-preset personal/1` installs the example vocabulary. Existing attachment
+does not change vocabulary. `add`/`update --evidence-only` saves exact supplied
+text without model approval or search preparation; default add/update retains
+approved cached-model preparation and separately reported failures.
+
+`schema generate` composes no inference: it returns `awaiting_agent` with exact
+operator-selected document excerpts, citations, offsets, hashes and current
+captures. The external agent interprets this bounded context and writes a proposal.
+Empty, unavailable or stale selections fail explicitly; no selection is silently
+reduced. Original read/observer/final authorization fences and hydration budgets
+apply. Small excerpts still incur whole-source hydration; this is no large-document
+budget bypass. Interpretation permissions belong to the external agent host.
+
+Optional `initial_generation` proposal provenance records the full selected sample,
+coverage limitations and reviewed naming decisions. Initial examples must come from
+that selection. All sample captures, including those unused as term examples, are
+current dependencies for validation/fresh apply and protected historical
+dependencies for audit/replay. Insufficient declared coverage is rejected, not
+repaired by inventing terms. Limited coverage is a human-reviewed judgment, not
+machine proof of representativeness. Synonym decisions do not install aliases.
+
+Existing proposal hashes/receipts are preserved by omitting only the new optional
+field when null. There is no physical format change, pending-workflow state or new
+transaction owner. Generation, validation and approved apply never create facts.
+Human content approval remains required; software approval and model permission
+are not substitutes. Independent identity/classification and exact selection-event
+assertion captures are unchanged.
+
 ### Atomic owned knowledge
 
 Anchor/passage-backed enrichment uses the existing canonical schema and the evidence

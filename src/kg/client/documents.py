@@ -155,8 +155,10 @@ class Documents:
         *,
         previous: DocumentView | None = None,
         expected: str | None = None,
+        evidence_only: bool = False,
     ) -> Response:
-        self.require_models()
+        if not evidence_only:
+            self.require_models()
         content = capture(file)
         if previous is not None:
             if expected is None or expected != previous.state_version:
@@ -183,7 +185,7 @@ class Documents:
                 content=content,
                 metadata=metadata,
             ),
-            prepare=True,
+            prepare=not evidence_only,
         )
 
     def remove(self, previous: DocumentView, expected: str) -> Response:
@@ -215,9 +217,16 @@ class Documents:
         result["target"] = f"document:{receipt.document_id}"
         result["state"] = receipt.processing.state_version
         if not prepare:
+            if isinstance(payload, PutDocument):
+                result["preparation"] = {"status": "not_requested"}
+                message = "Exact evidence saved; search not prepared; no facts extracted."
+                if isinstance(payload.precondition, ExpectedState):
+                    message += " Knowledge supported by the old state may need reassessment."
+            else:
+                message = "Document deactivated. Exact history retained."
             return Response(
                 status="complete",
-                message="Document deactivated. Exact history retained.",
+                message=message,
                 result=result,
             )
         try:

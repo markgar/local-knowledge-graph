@@ -268,6 +268,7 @@ values live in `kg.models.schema` (`knowledge-schema/1`, `schema-proposal/1`):
 | `service.schema_history(scope, after_sequence=0, limit=100)` | Bounded ascending revision summaries, head, continuation; no private actors/examples/rationale. |
 | `service.schema_change(scope, revision_id)` | Accepted proposal and approval, or preset provenance, only after current authorization to all original evidence. A preset has no evidence manifest: additionally requires the recorded bootstrap administrator's identity. |
 | `service.validate_schema(scope, proposal)` | Read-only exact-head and source validation; complete candidate definition/hash, proposal digest, added terms and endpoint-product effects. Always requires subsequent semantic/publication review. |
+| `service.schema_generation_context(scope, sample)` | Model-free exact `SchemaGenerationBrief` (`schema-generation/1`): `awaiting_agent`, null base, complete selected `EvidenceView` values and explicit external interpretation/human-review boundaries. Requires an unconfigured corpus and current authorized captures. |
 | `admin.register_knowledge_schema(SchemaPresetRequest)` | Bootstrap-only described operator preset with name/rationale; returns server revision, sequence 1 and applied/unchanged. Exact canonical repeat by same admin is unchanged only while genesis remains head; altered or evolved preset conflicts. |
 | `admin.apply_schema(SchemaApplyRequest)` | Atomic approved revision, head, protected change and permanent receipt; returns explicit status, commit certainty and either receipt or canonical failure. |
 
@@ -303,6 +304,33 @@ never repaired or treated as unconfigured. Existing errors/limits remain explici
 The former bare `KnowledgeSchema` registration is rejected; that value remains an
 internal/validation-only shape, not a compatibility path.
 See [schema bootstrap](examples/knowledge_schema.py) and `kg schema validate --example`.
+
+`SchemaSample` (`schema-sample/1`) contains 1..200 distinct exact
+`{reference: EvidenceRef, state_version}` captures, intended use and selection
+rationale. It is at most 1 MiB. Duplicate references, conflicting document states
+and cross-corpus samples reject; no selection or quote is synthesized. Generation
+returns all selected quotations or explicit failure using the original snapshot/
+release fence and private budgets. Whole-revision hydration and unchanged 8 MiB
+text/context reservation caps can reject a small excerpt from a large source.
+
+`SchemaProposal.initial_generation` optionally contains the sample, coverage status
+(`limited` or `insufficient`), 1..100 limitations, and 0..100 synonym decisions.
+Each decision has 1..20 unique surface forms, a candidate-definition `TermRef`
+and rationale. Existing 4,096-byte prose and total 1 MiB proposal bounds apply.
+It requires null base; every term example must match a sample capture. The complete
+sample/example dependency union is revalidated at fresh apply and reauthorized
+historically for accepted detail/replay. `insufficient` rejects with invalid_request;
+validation cannot prove a limited sample is semantically adequate.
+
+Initial provenance is returned in validation and stored inside existing protected
+proposal/request JSON. Only a null new field is omitted during serialization,
+preserving old proposal bytes/digests and receipts. Generic proposals remain valid
+without sampled provenance and do not claim sample coverage. Naming decisions
+create no aliases or facts. Public `kg schema generate --schema/--example`,
+`schema validate` and explicit `schema apply` are separately composable verbs.
+`kg capabilities --json` uses client/1, not the legacy demo capabilities interface;
+it exposes schema readiness separately from installed evidence operations and
+does not check search readiness.
 
 ## Knowledge enrichment and reads
 
