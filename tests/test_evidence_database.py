@@ -31,6 +31,7 @@ def snapshot(path: Path) -> tuple[object, ...]:
         )
 
 
+@pytest.mark.service
 def test_fresh_format_reopen_and_transaction(tmp_path: Path) -> None:
     database = EvidenceDatabase(tmp_path / "evidence.db")
     database.initialize()
@@ -45,6 +46,7 @@ def test_fresh_format_reopen_and_transaction(tmp_path: Path) -> None:
     assert snapshot(database.path) == before
 
 
+@pytest.mark.service
 @pytest.mark.parametrize("old", ["legacy", "unknown", "projection", "sqlitefoo", "view-only"])
 def test_incompatible_store_does_not_mutate(tmp_path: Path, old: str) -> None:
     path = tmp_path / "old.db"
@@ -64,6 +66,7 @@ def test_incompatible_store_does_not_mutate(tmp_path: Path, old: str) -> None:
     assert snapshot(path) == before
 
 
+@pytest.mark.service
 def test_admission_snapshot_during_competing_evidence_commit(tmp_path: Path, monkeypatch) -> None:
     path = tmp_path / "race.db"
     with sqlite3.connect(path) as connection:
@@ -103,6 +106,7 @@ def test_admission_snapshot_during_competing_evidence_commit(tmp_path: Path, mon
     assert snapshot(path)[:3] == (EVIDENCE_APPLICATION_ID, 4, "wal")
 
 
+@pytest.mark.service
 def test_old_and_projection_connections_reject_evidence(tmp_path: Path) -> None:
     path = tmp_path / "new.db"
     EvidenceDatabase(path).initialize()
@@ -119,6 +123,7 @@ def test_old_and_projection_connections_reject_evidence(tmp_path: Path) -> None:
     assert snapshot(path) == before
 
 
+@pytest.mark.service
 def test_schema_execution_keeps_lock_and_rolls_back(tmp_path: Path) -> None:
     path = tmp_path / "ddl.db"
     connection = sqlite3.connect(path)
@@ -135,6 +140,7 @@ def test_schema_execution_keeps_lock_and_rolls_back(tmp_path: Path) -> None:
     )
 
 
+@pytest.mark.process
 @pytest.mark.parametrize("kind", ["evidence", "legacy"])
 def test_wal_transition_waits_for_post_commit_writer(
     tmp_path: Path, monkeypatch, kind: str
@@ -176,6 +182,7 @@ def test_wal_transition_waits_for_post_commit_writer(
     assert snapshot(path)[2] == "wal"
 
 
+@pytest.mark.service
 def test_wal_contention_obeys_timeout_and_does_not_fall_back(tmp_path: Path) -> None:
     from kg._sqlite import enable_wal
 
@@ -206,6 +213,7 @@ def initialize_worker(path: str, kind: str, ready: object = None) -> None:
             _initialize_projection_schema(connection)
 
 
+@pytest.mark.process
 @pytest.mark.parametrize("winner", ["evidence", "legacy", "projection"])
 @pytest.mark.parametrize("loser", ["evidence", "legacy", "projection"])
 def test_initializers_in_both_orders(tmp_path: Path, winner: str, loser: str) -> None:

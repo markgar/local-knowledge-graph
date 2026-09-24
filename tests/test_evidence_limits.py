@@ -9,6 +9,7 @@ from kg.evidence import EvidenceServiceError
 from kg.models.foundation import SuppliedAnchor, WriteBatch
 
 
+@pytest.mark.service
 def test_service_enforces_text_anchor_request_and_batch_limits(tmp_path: Path) -> None:
     env = environment(tmp_path / "e.db")
     base = put(env.scope)

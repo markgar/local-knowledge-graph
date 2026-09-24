@@ -1,9 +1,13 @@
+
 import json
 import subprocess
 import sys
 from pathlib import Path
 
+import pytest
 
+
+@pytest.mark.functional
 def test_supplied_document_ranked_walkthrough_is_executable_and_exact(tmp_path):
     text = "release\r\nCafe\u0301 \U0001f680"
     source = tmp_path / "source.txt"

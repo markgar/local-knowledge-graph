@@ -23,6 +23,7 @@ def _corpus(root: Path, database: Path, corpus_id: str = "test") -> CorpusManife
     )
 
 
+@pytest.mark.service
 @pytest.mark.parametrize("moved_path", ["a.md", "zz.md"])
 @pytest.mark.parametrize("replacement", ["Replacement.", "Original."])
 def test_reusing_moved_path_allocates_a_new_identity(
@@ -56,6 +57,7 @@ def test_reusing_moved_path_allocates_a_new_identity(
         assert connection.execute("PRAGMA foreign_key_check").fetchall() == []
 
 
+@pytest.mark.service
 def test_reverts_record_transitions_without_duplicating_content(tmp_path: Path) -> None:
     manifest = _corpus(tmp_path / "vault", tmp_path / "index.sqlite3")
     source = manifest.vault_root / "note.md"
@@ -85,6 +87,7 @@ def test_reverts_record_transitions_without_duplicating_content(tmp_path: Path) 
     assert explicit.to_revision_id == revisions[1]
 
 
+@pytest.mark.service
 def test_activation_order_does_not_depend_on_wall_clock(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -102,6 +105,7 @@ def test_activation_order_does_not_depend_on_wall_clock(
     assert comparison.to_revision_id == revisions[-1]
 
 
+@pytest.mark.service
 def test_legacy_upgrade_does_not_invent_missing_transitions(tmp_path: Path) -> None:
     manifest = _corpus(tmp_path / "vault", tmp_path / "index.sqlite3")
     database = Database(manifest.database)
@@ -129,6 +133,7 @@ def test_legacy_upgrade_does_not_invent_missing_transitions(tmp_path: Path) -> N
     assert retrieval.compare_revisions("note.md").from_revision_id == revisions[1]
 
 
+@pytest.mark.service
 def test_historical_titles_are_revision_bound_for_every_record_type(tmp_path: Path) -> None:
     manifest = _corpus(tmp_path / "vault", tmp_path / "index.sqlite3")
     manifest.seed_entities = [
@@ -165,6 +170,7 @@ def test_historical_titles_are_revision_bound_for_every_record_type(tmp_path: Pa
     assert retrieval.actions()[0].title == "New"
 
 
+@pytest.mark.service
 def test_other_corpora_and_history_cannot_change_current_bm25(tmp_path: Path) -> None:
     database = Database(tmp_path / "shared.sqlite3")
     manifest = _corpus(tmp_path / "first", database.path)
@@ -199,6 +205,7 @@ def test_other_corpora_and_history_cannot_change_current_bm25(tmp_path: Path) ->
     assert retrieval.index_fingerprint() == fingerprint
 
 
+@pytest.mark.service
 @pytest.mark.parametrize("removal", ["deleted", "unselected", "failed"])
 def test_inactive_sources_do_not_influence_ranking(tmp_path: Path, removal: str) -> None:
     database = Database(tmp_path / "index.sqlite3")
@@ -230,6 +237,7 @@ def test_inactive_sources_do_not_influence_ranking(tmp_path: Path, removal: str)
     assert count == 2
 
 
+@pytest.mark.service
 def test_lexical_projection_is_stable_on_unchanged_ingestion(tmp_path: Path) -> None:
     database = Database(tmp_path / "index.sqlite3")
     manifest = _corpus(tmp_path / "vault", database.path, "hyphenated_corpus-1")
@@ -247,6 +255,7 @@ def test_lexical_projection_is_stable_on_unchanged_ingestion(tmp_path: Path) -> 
     assert RetrievalService(database, manifest.corpus_id).search("Evidence")
 
 
+@pytest.mark.service
 def test_nested_task_assignments_survive_ingestion(tmp_path: Path) -> None:
     manifest = _corpus(tmp_path / "vault", tmp_path / "index.sqlite3")
     (manifest.vault_root / "note.md").write_text(
@@ -271,6 +280,7 @@ def test_nested_task_assignments_survive_ingestion(tmp_path: Path) -> None:
     }
 
 
+@pytest.mark.service
 @pytest.mark.parametrize(
     "code",
     [
@@ -293,6 +303,7 @@ def test_nested_code_cannot_create_canonical_relationships(tmp_path: Path, code:
         assert connection.execute("SELECT count(*) FROM mention").fetchone()[0] == 0
 
 
+@pytest.mark.service
 @pytest.mark.parametrize("separator", ["\u2028", "\u2029", "\x85"])
 def test_unicode_separators_preserve_search_and_explicit_records(
     tmp_path: Path, separator: str,

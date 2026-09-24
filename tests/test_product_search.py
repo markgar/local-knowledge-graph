@@ -64,6 +64,7 @@ def invoke(service: SearchService, explained: bool, **kwargs: Any) -> Any:
     return method("archive signing certificate", **kwargs)
 
 
+@pytest.mark.service
 @pytest.mark.parametrize("profile", list(EmbeddingProfile))
 @pytest.mark.parametrize("contextual", [False, True])
 def test_actual_pipeline_parity_configuration_and_evidence(
@@ -129,6 +130,7 @@ def test_actual_pipeline_parity_configuration_and_evidence(
     assert execution_trace.get() is None
 
 
+@pytest.mark.service
 def test_full_union_trace_nulls_truncation_and_single_execution(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -239,6 +241,7 @@ def test_full_union_trace_nulls_truncation_and_single_execution(
     assert len(expanded.hits) == 75
 
 
+@pytest.mark.service
 @pytest.mark.parametrize("explained", [False, True])
 @pytest.mark.parametrize("empty", ["corpus", "source", "subject", "date"])
 @pytest.mark.parametrize("failure", ["embedding", "reranker", "none"])
@@ -298,6 +301,7 @@ def test_empty_search_requires_both_providers(
     assert reranker.calls == []
 
 
+@pytest.mark.service
 @pytest.mark.parametrize("explained", [False, True])
 @pytest.mark.parametrize("empty", [False, True])
 @pytest.mark.parametrize("state", ["missing", "stale", "incompatible"])
@@ -324,6 +328,7 @@ def test_unavailable_projection_never_degrades(
     assert reranker.calls == []
 
 
+@pytest.mark.service
 @pytest.mark.parametrize("explained", [False, True])
 @pytest.mark.parametrize("contextual", [False, True])
 def test_same_facade_edit_stale_rebuild_recovery(
@@ -362,6 +367,7 @@ def test_same_facade_edit_stale_rebuild_recovery(
         assert before.configuration.projection_id != after.configuration.projection_id
 
 
+@pytest.mark.service
 @pytest.mark.parametrize("explained", [False, True])
 @pytest.mark.parametrize(
     "query,kwargs,error",
@@ -392,6 +398,7 @@ def test_invalid_arguments_precede_provider_initialization(
     assert loads == []
 
 
+@pytest.mark.service
 @pytest.mark.parametrize("bound", [0, -1, 201, True, 1.5, "50"])
 def test_invalid_trace_limit_precedes_readiness(
     atlas: CorpusManifest,
@@ -405,6 +412,7 @@ def test_invalid_trace_limit_precedes_readiness(
     assert loads == []
 
 
+@pytest.mark.service
 @pytest.mark.parametrize("explained", [False, True])
 @pytest.mark.parametrize("restore", [False, True])
 @pytest.mark.parametrize("stage", ["embedding_load", "query", "reranker_load", "score"])
@@ -462,6 +470,7 @@ def test_intervening_ingestion_from_readiness_through_reranking_is_rejected(
     assert execution_trace.get() is None
 
 
+@pytest.mark.service
 def test_subject_scope_filters_corpus_isolation_and_legacy_operations(
     atlas: CorpusManifest,
     monkeypatch: pytest.MonkeyPatch,
@@ -516,6 +525,7 @@ def test_subject_scope_filters_corpus_isolation_and_legacy_operations(
     assert service.search("certificate") == before
 
 
+@pytest.mark.service
 @pytest.mark.parametrize("explained", [False, True])
 @pytest.mark.parametrize("stage", ["embedding", "reranker"])
 def test_nonempty_execution_failure_has_no_fallback_and_can_recover(
@@ -546,6 +556,7 @@ def test_nonempty_execution_failure_has_no_fallback_and_can_recover(
     assert loads == ["embedding", "reranker"]
 
 
+@pytest.mark.service
 @pytest.mark.parametrize("explained", [False, True])
 @pytest.mark.parametrize("stage", ["embedding", "reranker"])
 def test_initialization_failure_recovers_on_same_facade(
@@ -577,6 +588,7 @@ def test_initialization_failure_recovers_on_same_facade(
     assert loads == (["embedding", "reranker"] if stage == "embedding" else ["reranker"])
 
 
+@pytest.mark.service
 @pytest.mark.parametrize("explained", [False, True])
 @pytest.mark.parametrize("stage", ["embedding", "reranker"])
 def test_empty_readiness_commit_and_restore_are_rejected(
@@ -627,6 +639,7 @@ def test_empty_readiness_commit_and_restore_are_rejected(
     assert reranker.calls == []
 
 
+@pytest.mark.service
 @pytest.mark.parametrize("assembly", ["attribution", "report"])
 def test_commits_during_explanation_assembly_are_rejected(
     atlas: CorpusManifest,
@@ -671,6 +684,7 @@ def test_commits_during_explanation_assembly_are_rejected(
     assert execution_trace.get() is None
 
 
+@pytest.mark.service
 def test_component_scores_and_ties_are_recorded_without_rerunning(
     atlas: CorpusManifest,
     monkeypatch: pytest.MonkeyPatch,
@@ -711,6 +725,7 @@ def test_component_scores_and_ties_are_recorded_without_rerunning(
     assert "not confidence" in report.score_semantics["reranker"]
 
 
+@pytest.mark.service
 def test_configuration_and_quote_arguments_fail_without_models(
     atlas: CorpusManifest,
     monkeypatch: pytest.MonkeyPatch,

@@ -4,6 +4,8 @@ import importlib.util
 from pathlib import Path
 from types import ModuleType
 
+import pytest
+
 
 def _load_evaluator() -> ModuleType:
     path = Path("benchmarks/agent/evaluate.py")
@@ -14,6 +16,7 @@ def _load_evaluator() -> ModuleType:
     return module
 
 
+@pytest.mark.acceptance
 def test_agent_cli_workflows_pass() -> None:
     evaluator = _load_evaluator()
 

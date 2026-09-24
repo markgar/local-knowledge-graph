@@ -64,6 +64,7 @@ def corpus(tmp_path: Path) -> CorpusManifest:
     return manifest
 
 
+@pytest.mark.service
 def test_direct_and_inherited_subject_reasons(corpus: CorpusManifest) -> None:
     database = Database(corpus.database)
     direct = explain_search(database, corpus.corpus_id, "private", subject="Cobalt")
@@ -84,6 +85,7 @@ def test_direct_and_inherited_subject_reasons(corpus: CorpusManifest) -> None:
     assert reasons[0].mention_id == reason.mention_id
 
 
+@pytest.mark.service
 def test_two_hop_scope_has_real_supporting_edges(corpus: CorpusManifest) -> None:
     database = Database(corpus.database)
     report = explain_search(database, corpus.corpus_id, "Distant", subject="Cobalt")
@@ -117,6 +119,7 @@ def test_two_hop_scope_has_real_supporting_edges(corpus: CorpusManifest) -> None
     assert explain_search(database, corpus.corpus_id, "Beyondscope", subject="Cobalt").hits == []
 
 
+@pytest.mark.service
 def test_expanded_exact_mentions_and_metadata_match(corpus: CorpusManifest) -> None:
     database = Database(corpus.database)
     report = explain_search(
@@ -130,6 +133,7 @@ def test_expanded_exact_mentions_and_metadata_match(corpus: CorpusManifest) -> N
     assert len(expanded.supporting_edge_ids) == 1
 
 
+@pytest.mark.service
 def test_similar_name_and_unknown_subject_metadata_fallback(corpus: CorpusManifest) -> None:
     database = Database(corpus.database)
     assert explain_search(database, corpus.corpus_id, "Unrelated", subject="Cobalt").hits == []
@@ -142,6 +146,7 @@ def test_similar_name_and_unknown_subject_metadata_fallback(corpus: CorpusManife
     assert explain_search(database, corpus.corpus_id, "evidence", subject="Unlist").hits == []
 
 
+@pytest.mark.service
 @pytest.mark.parametrize("mode", ["strict", "natural"])
 @pytest.mark.parametrize("subject", [None, "Cobalt", "Blue", "Unlisted", "missing"])
 def test_explained_results_equal_ordinary_search(
@@ -170,6 +175,7 @@ def test_explained_results_equal_ordinary_search(
     assert SearchExplanation.model_validate_json(report.model_dump_json()) == report
 
 
+@pytest.mark.service
 def test_filters_empty_corpus_and_empty_results(corpus: CorpusManifest, tmp_path: Path) -> None:
     database = Database(corpus.database)
     cutoff = datetime(9999, 1, 1, tzinfo=UTC)
@@ -187,6 +193,7 @@ def test_filters_empty_corpus_and_empty_results(corpus: CorpusManifest, tmp_path
     assert "Hits: 0" in render_search_explanation(empty)
 
 
+@pytest.mark.service
 def test_corpus_scope_isolated(corpus: CorpusManifest) -> None:
     database = Database(corpus.database)
     before = explain_search(database, corpus.corpus_id, "evidence", subject="Cobalt")
@@ -196,6 +203,7 @@ def test_corpus_scope_isolated(corpus: CorpusManifest) -> None:
     assert after == before
 
 
+@pytest.mark.service
 def test_graph_paths_ignore_inactive_and_historical_edges(corpus: CorpusManifest) -> None:
     database = Database(corpus.database)
     before = explain_search(database, corpus.corpus_id, "Distant", subject="Cobalt")
@@ -217,6 +225,7 @@ def test_graph_paths_ignore_inactive_and_historical_edges(corpus: CorpusManifest
     assert explain_search(database, corpus.corpus_id, "Distant", subject="Cobalt").hits == []
 
 
+@pytest.mark.service
 def test_graph_paths_are_undirected(corpus: CorpusManifest) -> None:
     report = explain_search(
         Database(corpus.database), corpus.corpus_id, "private", subject="Ledger"
@@ -228,6 +237,7 @@ def test_graph_paths_are_undirected(corpus: CorpusManifest) -> None:
     assert len(reason.supporting_edge_ids) == 2
 
 
+@pytest.mark.service
 @pytest.mark.parametrize("format_", ["json", "text"])
 def test_lexical_quotes_are_separately_opted_in(corpus: CorpusManifest, format_: str) -> None:
     def render(include_quotes: bool) -> str:
@@ -255,6 +265,7 @@ def test_lexical_quotes_are_separately_opted_in(corpus: CorpusManifest, format_:
         assert "exact_mention" in redacted
 
 
+@pytest.mark.service
 def test_lexical_search_shape_unchanged(corpus: CorpusManifest) -> None:
     results = RetrievalService(Database(corpus.database), corpus.corpus_id).search("private")
     payload = [result.model_dump(mode="json") for result in results]
@@ -263,6 +274,7 @@ def test_lexical_search_shape_unchanged(corpus: CorpusManifest) -> None:
     assert set(payload[0]) == set(SearchResult.model_fields)
 
 
+@pytest.mark.functional
 @pytest.mark.parametrize(
     ("flags", "error"),
     [
@@ -289,6 +301,7 @@ def test_invalid_flags_fail_before_model_work(
     assert json.loads(result.stderr)["error"] == error
 
 
+@pytest.mark.service
 def test_invalid_query_and_stale_index_are_not_explained(corpus: CorpusManifest) -> None:
     database = Database(corpus.database)
     with pytest.raises(SearchQueryError):
@@ -299,6 +312,7 @@ def test_invalid_query_and_stale_index_are_not_explained(corpus: CorpusManifest)
         explain_search(database, corpus.corpus_id, "evidence")
 
 
+@pytest.mark.service
 def test_concurrent_commit_and_restore_are_rejected(
     corpus: CorpusManifest, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -321,6 +335,7 @@ def test_concurrent_commit_and_restore_are_rejected(
     assert error.value.code == "search_state_changed"
 
 
+@pytest.mark.service
 def test_changes_between_search_and_attribution_are_rejected(
     corpus: CorpusManifest, monkeypatch: pytest.MonkeyPatch
 ) -> None:

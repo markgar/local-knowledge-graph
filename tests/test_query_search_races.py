@@ -16,6 +16,7 @@ from kg.models.foundation import ExpectedState, RemoveDocument
 from kg.query import QueryService, _worker
 
 
+@pytest.mark.process
 @pytest.mark.parametrize(
     "change", ["text", "metadata", "remove_restore", "policy", "unrelated", "rebuild", "heartbeat"],
 )
@@ -101,6 +102,7 @@ def test_actual_mutations_invalidate_original_observer_and_all_reports(
         assert service._support.bytes == 0
 
 
+@pytest.mark.process
 def test_later_invalidation_remains_terminal_after_parent_eviction(tmp_path, monkeypatch):
     env = environment(tmp_path / "retained.db")
     _, _, _, _, _, saved = prepared(env, text="alpha")
@@ -124,6 +126,7 @@ def test_later_invalidation_remains_terminal_after_parent_eviction(tmp_path, mon
         assert child.group.state == "redacted" and not child.events and child.prepared is None
 
 
+@pytest.mark.process
 @pytest.mark.parametrize("stage", ["temp", "rerank"])
 @pytest.mark.parametrize("ending", ["die", "close", "deadline"])
 def test_process_loss_cleans_snapshot_temp_handles_and_scratch(

@@ -79,6 +79,7 @@ def inventory(env):
         }
 
 
+@pytest.mark.service
 @pytest.mark.parametrize("text", ["", " ", "a" * 1023 + "\r\nCafe\u0301 \U0001f680\0" + "b" * 1024])
 def test_exact_windows_empty_sets_reuse_and_pending_index(tmp_path, text):
     env = environment(tmp_path / "passages.db")
@@ -138,6 +139,7 @@ def test_exact_windows_empty_sets_reuse_and_pending_index(tmp_path, text):
     assert PassagePage.model_validate_json(page.model_dump_json()) == page
 
 
+@pytest.mark.service
 def test_supplied_overlap_order_reuse_and_generated_local_id_domain(tmp_path):
     env = environment(tmp_path / "supplied.db")
     text = "abcde"
@@ -176,6 +178,7 @@ def test_supplied_overlap_order_reuse_and_generated_local_id_domain(tmp_path):
     assert env.service.citation(env.scope, page.entries[0].citation).quote == text
 
 
+@pytest.mark.service
 @pytest.mark.parametrize(
     "policy,text,detail",
     [
@@ -201,12 +204,14 @@ def test_unsupported_policy_is_explicit_and_never_partial(tmp_path, policy, text
     assert inventory(env) == before
 
 
+@pytest.mark.service
 def test_empty_supplied_set_is_published(tmp_path):
     env = environment(tmp_path / "empty.db")
     _, result, page = build(env, request(env, text="", policy="supplied-anchors/1"))
     assert result.member_count == 0 and page.status == "complete"
 
 
+@pytest.mark.service
 def test_pagination_saved_metadata_and_policy_roundtrip(tmp_path):
     env = environment(tmp_path / "history.db")
     value = request(env, text="a" * 2049)
@@ -270,6 +275,7 @@ def test_pagination_saved_metadata_and_policy_roundtrip(tmp_path):
     assert env.service.citation(env.scope, original.entries[0].citation).quote == "a" * 1024
 
 
+@pytest.mark.service
 def test_prepare_publish_fences_changed_state_policy_and_authority(tmp_path):
     env = environment(tmp_path / "race.db")
     value = request(env)
@@ -301,6 +307,7 @@ def test_prepare_publish_fences_changed_state_policy_and_authority(tmp_path):
         )
 
 
+@pytest.mark.service
 def test_revocation_between_prepare_and_publication(tmp_path):
     env = environment(tmp_path / "revoke.db")
     value = request(env)
@@ -325,6 +332,7 @@ def test_revocation_between_prepare_and_publication(tmp_path):
     assert inventory(env) == before
 
 
+@pytest.mark.process
 def test_atomic_rollback_and_concurrent_same_state_convergence(tmp_path):
     env = environment(tmp_path / "atomic.db")
     value = request(env, text="z" * 2049)
@@ -373,6 +381,7 @@ def test_atomic_rollback_and_concurrent_same_state_convergence(tmp_path):
     )
 
 
+@pytest.mark.service
 @pytest.mark.parametrize(
     "sql",
     [
@@ -401,6 +410,7 @@ def test_reuse_detects_corruption_never_repairs_or_overwrites(tmp_path, sql):
     assert inventory(env) == before
 
 
+@pytest.mark.service
 def test_exact_chain_scope_and_state_checks_across_adapters(tmp_path):
     env = environment(tmp_path / "chain.db")
     saved, _, page = build(env, request(env))
@@ -440,6 +450,7 @@ def test_exact_chain_scope_and_state_checks_across_adapters(tmp_path):
         env.service.passages(scoped, saved.document_id, saved.processing.state_version)
 
 
+@pytest.mark.service
 def test_passage_support_same_transaction_no_index_dependency_and_stale_state(tmp_path):
     env = environment(tmp_path / "support.db")
     policy = LocalPolicy(
@@ -509,6 +520,7 @@ def test_passage_support_same_transaction_no_index_dependency_and_stale_state(tm
             )
 
 
+@pytest.mark.service
 def test_snapshot_resolver_exact_charges_shared_budget_and_observer(tmp_path):
     env = environment(tmp_path / "budget.db")
     _, _, page = build(env, request(env))
@@ -563,6 +575,7 @@ def test_snapshot_resolver_exact_charges_shared_budget_and_observer(tmp_path):
         assert direct.public_accounting().items_consumed == 1
 
 
+@pytest.mark.service
 def test_passage_reports_single_execution_quotes_opt_in_and_irreversible_redaction(
     tmp_path, monkeypatch
 ):
@@ -607,6 +620,7 @@ def test_passage_reports_single_execution_quotes_opt_in_and_irreversible_redacti
     assert env.service.diagnostics.report(env.scope, detailed.report.report_id).state == "redacted"
 
 
+@pytest.mark.service
 def test_remove_history_and_invalid_pagination(tmp_path):
     env = environment(tmp_path / "remove.db")
     value = request(env)

@@ -155,6 +155,7 @@ def reader(env, max_items=100_000):
         yield KnowledgeReader(context, env.service.identity), meter, context
 
 
+@pytest.mark.service
 def test_real_atomic_producer_reads_replay_and_cursor(env):
     support, dep = source(env)
     local = LocalEntity(kind="local", local_id="project")
@@ -204,6 +205,7 @@ def test_real_atomic_producer_reads_replay_and_cursor(env):
         cursor.read()
 
 
+@pytest.mark.service
 def test_seed_add_unchanged_is_owned_and_omission_does_not_withdraw(env):
     support = SeedSupport(
         kind="seed",
@@ -225,6 +227,7 @@ def test_seed_add_unchanged_is_owned_and_omission_does_not_withdraw(env):
     assert env.service.write(conflict).error.code == "state_conflict"
 
 
+@pytest.mark.service
 def test_failed_last_change_rolls_back_entities_seeds_and_key(env):
     support, dep = source(env)
     bad = decision(support, LocalEntity(kind="local", local_id="project")).model_copy(
@@ -250,6 +253,7 @@ def test_failed_last_change_rolls_back_entities_seeds_and_key(env):
     mappings(env.service.write(corrected))
 
 
+@pytest.mark.service
 def test_metadata_rotation_full_support_history_and_replay(env):
     support, dep = source(env)
     other, other_dep = source(env, "other", "email")
@@ -279,6 +283,7 @@ def test_metadata_rotation_full_support_history_and_replay(env):
     )
 
 
+@pytest.mark.service
 def test_knowledge_only_grants_and_reports(env):
     support, dep = source(env)
     scope = env.scope.model_copy(
@@ -300,6 +305,7 @@ def test_knowledge_only_grants_and_reports(env):
     assert result.report.state == "collected"
 
 
+@pytest.mark.service
 def test_expiry_precedes_changed_digest_and_clock_rollback(env):
     support, dep = source(env)
     at = datetime(2030, 1, 1, tzinfo=UTC)
@@ -322,6 +328,7 @@ def test_expiry_precedes_changed_digest_and_clock_rollback(env):
     assert env.service.write(req).error.code == "retry_expired"
 
 
+@pytest.mark.service
 def test_mixed_batch_and_distinct_decision_submissions(env):
     support, dep = source(env)
     ids = mappings(env.service.write(request(env, (entity(support),), (dep,))))
@@ -347,6 +354,7 @@ def test_mixed_batch_and_distinct_decision_submissions(env):
         assert page.terminal.kind == "public_budget_stop"
 
 
+@pytest.mark.acceptance
 def test_actual_1001_decisions_across_pages_and_private_local_cap(env):
     support, dep = source(env)
     ids = mappings(env.service.write(request(env, (entity(support),), (dep,))))
@@ -379,6 +387,7 @@ def test_actual_1001_decisions_across_pages_and_private_local_cap(env):
         assert meter.public_accounting().items_consumed == 1
 
 
+@pytest.mark.acceptance
 def test_bulk_actual_3001_varied_decisions_exceed_nested_visit_guard(env):
     supports = [source(env, external=f"bulk-{n}") for n in range(16)]
     support, dep = supports[0]
@@ -445,6 +454,7 @@ def test_bulk_actual_3001_varied_decisions_exceed_nested_visit_guard(env):
             cursor.close()
 
 
+@pytest.mark.service
 def test_bulk_seed_witness_and_exact_revalidation_do_not_charge_nested_evidence(env):
     seed = SeedSupport(
         kind="seed", source_namespace="markdown", seed_set_id="bulk", seed_key="project",
@@ -486,6 +496,7 @@ def test_bulk_seed_witness_and_exact_revalidation_do_not_charge_nested_evidence(
     assert operation.snapshot().scratch_live_bytes == 0
 
 
+@pytest.mark.service
 def test_forward_independent_support_reactivates_but_old_assertion_stays_stale(env):
     support, dep = source(env)
     ids = mappings(
@@ -525,6 +536,7 @@ def test_forward_independent_support_reactivates_but_old_assertion_stays_stale(e
         assert page.items[0].dependencies.subject_witness.contribution_id == new_ids["attestation"]
 
 
+@pytest.mark.service
 def test_full_conjunction_and_hidden_endpoint_prevent_alias_activation(env):
     support, dep = source(env)
     other, other_dep = source(env, "foreign", "email")
@@ -576,6 +588,7 @@ def test_full_conjunction_and_hidden_endpoint_prevent_alias_activation(env):
     assert env.service.write(forged).error.code == "not_found"
 
 
+@pytest.mark.service
 def test_entity_object_typed_endpoints_and_complete_owned_manifest(env):
     support, dep = source(env)
     person = CreateEntity(
@@ -608,6 +621,7 @@ def test_entity_object_typed_endpoints_and_complete_owned_manifest(env):
     }
 
 
+@pytest.mark.service
 def test_failed_ack_rollback_and_unlinked_ordinary_receipt_not_adopted(env):
     from kg.evidence._coordination import NewWork, UnitIdentity
     from kg.evidence._dispatch import write
@@ -651,6 +665,7 @@ def test_failed_ack_rollback_and_unlinked_ordinary_receipt_not_adopted(env):
     assert env.service.write(req).receipt == ordinary.receipt
 
 
+@pytest.mark.service
 def test_sequence_not_lexicographic_witness_and_no_reselect_on_revalidation(env, monkeypatch):
     import kg.knowledge._write as write_module
 
@@ -689,6 +704,7 @@ def test_sequence_not_lexicographic_witness_and_no_reselect_on_revalidation(env,
     assert service.entity(env.scope, ids["project"]).witness == first
 
 
+@pytest.mark.process
 def test_concurrent_same_retry_converges_and_failed_unknown_type_has_no_key(env):
     from concurrent.futures import ThreadPoolExecutor
 
@@ -701,6 +717,7 @@ def test_concurrent_same_retry_converges_and_failed_unknown_type_has_no_key(env)
         assert connection.execute("SELECT count(*) FROM entity").fetchone()[0] == 1
 
 
+@pytest.mark.service
 def test_report_binding_revocation_is_irreversible_and_no_data(env):
     support, dep = source(env)
     req = request(env, (entity(support),), (dep,))
@@ -713,6 +730,7 @@ def test_report_binding_revocation_is_irreversible_and_no_data(env):
     assert env.service.write(req).error.code == "forbidden"
 
 
+@pytest.mark.service
 @pytest.mark.parametrize(
     "field,value",
     [
@@ -729,6 +747,7 @@ def test_exact_writer_binding_required(env, field, value):
         assert connection.execute("SELECT count(*) FROM entity").fetchone()[0] == 0
 
 
+@pytest.mark.service
 def test_empty_unregistered_decision_capability_is_not_empty_selection(env):
     other = environment(env.database.path.parent / "no-decisions.db")
     KnowledgeAdministration(
@@ -742,6 +761,7 @@ def test_empty_unregistered_decision_capability_is_not_empty_selection(env):
         assert meter.public_accounting().items_consumed == 0
 
 
+@pytest.mark.service
 def test_retained_reader_deadline_and_inherited_write_exhaustion(env):
     from kg.evidence._dispatch import write
 
@@ -763,6 +783,7 @@ def test_retained_reader_deadline_and_inherited_write_exhaustion(env):
         cursor.close()
 
 
+@pytest.mark.service
 def test_fabricated_passage_and_mention_reject_atomically(env):
     from kg.models.foundation import AddMention
 
@@ -792,6 +813,7 @@ def test_fabricated_passage_and_mention_reject_atomically(env):
     assert "mention" not in caps.unsupported
 
 
+@pytest.mark.service
 def test_whole_batch_forged_shape_rejected_before_item_zero(env):
     support, dep = source(env)
     good = request(env, (entity(support),), (dep,))
@@ -812,6 +834,7 @@ def test_whole_batch_forged_shape_rejected_before_item_zero(env):
         assert connection.execute("SELECT count(*) FROM entity").fetchone()[0] == 0
 
 
+@pytest.mark.acceptance
 def test_seed_maximum_active_slots_and_generation_per_unit(env):
     def seed(n):
         return SeedSupport(
@@ -830,6 +853,7 @@ def test_seed_maximum_active_slots_and_generation_per_unit(env):
         assert connection.execute("SELECT generation FROM seed_set").fetchone()[0] == 1
 
 
+@pytest.mark.process
 def test_source_write_waits_for_atomic_enrichment_commit_then_invalidates(env, monkeypatch):
     from concurrent.futures import ThreadPoolExecutor
     from threading import Event
@@ -862,6 +886,7 @@ def test_source_write_waits_for_atomic_enrichment_commit_then_invalidates(env, m
     assert not service.entity(env.scope, ids["project"], mode="history").is_current
 
 
+@pytest.mark.service
 def test_linked_settled_expiry_maintenance_never_checks_new_work(env):
     from kg.evidence._coordination import SettledSuccess, UnitIdentity
     from kg.evidence._dispatch import write, write_batch
@@ -914,6 +939,7 @@ def test_linked_settled_expiry_maintenance_never_checks_new_work(env):
     assert env.service.write(req).error.code == "retry_expired"
 
 
+@pytest.mark.functional
 @pytest.mark.parametrize("passages", [False, True])
 def test_example_reopens_and_replays_exact_record(tmp_path, passages):
     import json
@@ -936,6 +962,7 @@ def test_example_reopens_and_replays_exact_record(tmp_path, passages):
     assert bool(first["evidence"][0]["reference"]["passage_id"]) == passages
 
 
+@pytest.mark.service
 def test_every_typed_scalar_round_trips_without_bool_integer_coercion(env):
     from kg.models.evidence import CorpusRegistration
     from kg.models.foundation import BooleanObject, IntegerObject, TimestampObject
@@ -1011,6 +1038,7 @@ def _process_write(path, request_json, queue):
     queue.put(service.write(WriteRequest.model_validate_json(request_json)).model_dump_json())
 
 
+@pytest.mark.process
 def test_independent_processes_share_one_atomic_retry_key(env):
     import multiprocessing
 
@@ -1040,6 +1068,7 @@ def test_independent_processes_share_one_atomic_retry_key(env):
     assert mappings(results[0]) == mappings(results[1])
 
 
+@pytest.mark.service
 @pytest.mark.parametrize("size", [20, 2_100_000])
 def test_foreign_source_cannot_leak_through_scratch_preflight(env, size):
     from kg.models.evidence import CorpusRegistration
@@ -1090,6 +1119,7 @@ def test_foreign_source_cannot_leak_through_scratch_preflight(env, size):
             store.close()
 
 
+@pytest.mark.service
 def test_missing_anchor_and_stale_dependency_have_canonical_failures(env):
     support, dep = source(env)
     missing = SourceSupport(
@@ -1102,6 +1132,7 @@ def test_missing_anchor_and_stale_dependency_have_canonical_failures(env):
     )
 
 
+@pytest.mark.service
 def test_actual_scratch_failure_is_failed_and_report_irreversibly_has_no_data(env):
     doc = receipt(env.service.write(put(env.scope, text="x" * 2_100_000)))
     ref = env.service.anchors(env.scope, doc.document_id, doc.processing.state_version).entries[0]
@@ -1133,6 +1164,7 @@ def test_actual_scratch_failure_is_failed_and_report_irreversibly_has_no_data(en
     )
 
 
+@pytest.mark.service
 def test_last_receipt_failure_rolls_back_every_knowledge_row(env, monkeypatch):
     import sqlite3
 
@@ -1160,6 +1192,7 @@ def test_last_receipt_failure_rolls_back_every_knowledge_row(env, monkeypatch):
     mappings(env.service.write(req))
 
 
+@pytest.mark.service
 def test_uncertain_commit_replays_same_key_without_duplicate_entities(env, monkeypatch):
     import sqlite3
 
@@ -1187,6 +1220,7 @@ def test_uncertain_commit_replays_same_key_without_duplicate_entities(env, monke
         assert connection.execute("SELECT count(*) FROM entity").fetchone()[0] == 1
 
 
+@pytest.mark.service
 def test_write_keeps_validated_quote_scratch_through_post_state_and_receipt(env, monkeypatch):
     import kg.knowledge._write as writes
 

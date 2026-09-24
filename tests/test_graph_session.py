@@ -10,6 +10,7 @@ from kg.evidence.errors import EvidenceServiceError
 from kg.graph._session_types import GraphSessionError, _WarmReadMeter
 
 
+@pytest.mark.service
 def test_lazy_reuse_same_original_observer_fresh_accounting_and_restart(tmp_path, monkeypatch):
     env, session, builds = setup(tmp_path, monkeypatch)
     try:
@@ -43,6 +44,7 @@ def test_lazy_reuse_same_original_observer_fresh_accounting_and_restart(tmp_path
         session.close()
 
 
+@pytest.mark.service
 def test_scope_generation_and_copy_rejection_do_not_destroy_ready(tmp_path, monkeypatch):
     env, session, builds = setup(tmp_path, monkeypatch)
     try:
@@ -62,6 +64,7 @@ def test_scope_generation_and_copy_rejection_do_not_destroy_ready(tmp_path, monk
         session.close()
 
 
+@pytest.mark.service
 def test_external_commit_invalidates_warm_without_rebuild(tmp_path, monkeypatch):
     env, session, builds = setup(tmp_path, monkeypatch)
     try:
@@ -77,6 +80,7 @@ def test_external_commit_invalidates_warm_without_rebuild(tmp_path, monkeypatch)
         session.close()
 
 
+@pytest.mark.service
 def test_escaped_native_rows_and_context_never_reusable(tmp_path, monkeypatch):
     env, session, _ = setup(tmp_path, monkeypatch)
     escaped = []
@@ -104,6 +108,7 @@ def test_escaped_native_rows_and_context_never_reusable(tmp_path, monkeypatch):
         session.close()
 
 
+@pytest.mark.service
 @pytest.mark.parametrize("bad", [[], {"raw": 42}, iter((42,)), "x" * (8 << 20)])
 def test_no_mutable_lazy_or_oversized_success(tmp_path, monkeypatch, bad):
     env, session, _ = setup(tmp_path, monkeypatch)
@@ -117,6 +122,7 @@ def test_no_mutable_lazy_or_oversized_success(tmp_path, monkeypatch, bad):
         session.close()
 
 
+@pytest.mark.service
 def test_output_cumulative_bound_before_accumulation(tmp_path, monkeypatch):
     env, session, _ = setup(tmp_path, monkeypatch)
     def consume(context):
@@ -132,6 +138,7 @@ def test_output_cumulative_bound_before_accumulation(tmp_path, monkeypatch):
         session.close()
 
 
+@pytest.mark.service
 def test_warm_meter_abi_cancel_latch_and_ordinary_limits():
     cancel = Event()
     meter = _WarmReadMeter(PrivateBudget(Deadline(monotonic() + 30)), cancel)
@@ -151,6 +158,7 @@ def test_warm_meter_abi_cancel_latch_and_ordinary_limits():
         meter.check_deadline()
 
 
+@pytest.mark.service
 def test_value_output_size_includes_field_structure_and_requires_frozen():
     from kg.graph._session_types import GraphGeneration
     from kg.graph.session import _size
@@ -173,6 +181,7 @@ def test_value_output_size_includes_field_structure_and_requires_frozen():
     assert _size(envelope) >= len(envelope.model_dump_json().encode())
 
 
+@pytest.mark.service
 @pytest.mark.parametrize("warm", [False, True])
 def test_precancelled_read_uses_same_graph_error_interface(tmp_path, monkeypatch, warm):
     env, session, builds = setup(tmp_path, monkeypatch)
@@ -189,6 +198,7 @@ def test_precancelled_read_uses_same_graph_error_interface(tmp_path, monkeypatch
         session.close()
 
 
+@pytest.mark.service
 def test_retained_and_returned_output_have_separate_bounds_and_fenced_scratch(
     tmp_path, monkeypatch,
 ):

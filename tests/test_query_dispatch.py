@@ -15,6 +15,7 @@ def wait_for(predicate):
         time.sleep(0.005)
 
 
+@pytest.mark.process
 def test_fifo_one_active_eight_waiters_and_queued_expiry_no_dispatch():
     gate, started = Event(), Event()
     dispatcher = Dispatcher(lambda: None)
@@ -51,6 +52,7 @@ def test_fifo_one_active_eight_waiters_and_queued_expiry_no_dispatch():
         dispatcher.close()
 
 
+@pytest.mark.process
 def test_queued_deadline_removes_waiter_without_executing_it():
     gate, started = Event(), Event()
     dispatcher = Dispatcher(lambda: None)

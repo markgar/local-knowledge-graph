@@ -33,6 +33,7 @@ def _bookkeeping(env):
         )
 
 
+@pytest.mark.service
 def test_state_changes_atomic_intents_and_noop_replay(tmp_path: Path) -> None:
     env = environment(tmp_path / "lifecycle.db")
     request = put(env.scope)
@@ -92,6 +93,7 @@ def test_state_changes_atomic_intents_and_noop_replay(tmp_path: Path) -> None:
     assert _bookkeeping(env) == (intents, scopes)
 
 
+@pytest.mark.service
 def test_policy_rotation_includes_inactive_and_only_affected_namespaces(tmp_path: Path) -> None:
     env = environment(tmp_path / "policy.db")
     active = receipt(env.service.write(put(env.scope, external="active")))
@@ -140,6 +142,7 @@ def test_policy_rotation_includes_inactive_and_only_affected_namespaces(tmp_path
     assert _bookkeeping(env) == after
 
 
+@pytest.mark.service
 def test_scope_epoch_uses_owner_not_writer_and_isolates_corpus(tmp_path: Path) -> None:
     env = environment(tmp_path / "scope.db")
     bindings = tuple(
@@ -207,6 +210,7 @@ def test_scope_epoch_uses_owner_not_writer_and_isolates_corpus(tmp_path: Path) -
     ]
 
 
+@pytest.mark.service
 @pytest.mark.parametrize("operation", ["create", "edit", "policy"])
 def test_intent_failure_rolls_back_epoch_state_and_policy(
     tmp_path: Path, monkeypatch, operation: str
@@ -256,6 +260,7 @@ def test_intent_failure_rolls_back_epoch_state_and_policy(
         assert tuple(connection.iterdump()) == before
 
 
+@pytest.mark.service
 @pytest.mark.parametrize(
     "column,value",
     [
@@ -275,6 +280,7 @@ def test_supplied_anchor_reuse_checks_immutable_origin(tmp_path: Path, column, v
     assert _bookkeeping(env) == before
 
 
+@pytest.mark.service
 @pytest.mark.parametrize("rollback", [False, True])
 def test_absence_primitive_is_atomic_and_has_no_synthetic_retry_key(tmp_path, rollback) -> None:
     from kg.evidence._coordination import DocumentTarget

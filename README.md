@@ -842,14 +842,37 @@ and proposed engineering targets. Those targets are not measured performance.
 
 ## Development and documentation
 
-For code-affecting changes:
+From the repository root, with the declared base/dev environment prepared:
 
 ```bash
-uv run pytest
-uv run ruff check .
-uv run mypy
-uv build
+uv run --no-sync pytest  # Small isolated unit selection, NOT the complete suite.
+bash .github/scripts/check_pr.sh --area cli \
+  --reason "Changed public command behavior and its service consumers" \
+  --report /absolute/path/outside/repository/pr-gate.json
 ```
+
+The PR command includes the unit selection, a real SQLite/provenance/CLI core,
+reviewed behavior-area additions, lint, type checking and distribution build.
+The offline build validates declared backend requirements and constructs sdist/wheel
+in the explicit prepared interpreter without build isolation; isolated packaging
+validation remains a separately recorded release obligation.
+Repeat `--area` and add exact `--case` nodes for affected guarantees and consumers;
+the example's `cli` area is not a universal selection. Reports require a fresh
+external path. The **target** is at most 60 seconds end to end on the reference
+prepared host; no timing result is implied by these commands.
+
+`pytest tests` explicitly collects the complete suite, independent of the unit
+default. Complete integration/native/capacity acceptance remains a separately
+authorized release gate. On the prepared supported native host:
+
+```bash
+KG_REQUIRE_NATIVE=1 HF_HUB_OFFLINE=1 uv run --no-sync pytest tests --durations=50 --tb=short
+```
+
+Required graph examples and applicable real-model matrices are separate from
+pytest. Unrun acceptance is **pending**, not passed. **GitHub Actions is off until
+further notice; do not dispatch it.** See CONTRIBUTING for selection review,
+environment preparation, timing boundaries and release obligations.
 
 For docs/instruction-only changes, review the diff and relevant links instead;
 do not run the full Python suite or dispatch CI. See

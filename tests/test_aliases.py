@@ -11,6 +11,7 @@ from kg.models import CorpusManifest, SeedEntity
 from kg.retrieval import RetrievalService
 
 
+@pytest.mark.service
 @pytest.mark.parametrize(
     ("text", "alias", "expected"),
     [
@@ -40,6 +41,7 @@ def test_alias_matching_is_literal_and_boundary_aware(
         ).fetchone()[0]) is expected
 
 
+@pytest.mark.service
 @pytest.mark.parametrize("configured", [False, True])
 def test_subject_filter_matches_title_only_and_heading_only_evidence(
     tmp_path: Path, configured: bool,

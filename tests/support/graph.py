@@ -8,6 +8,7 @@ from pathlib import Path
 import pytest
 
 from kg.graph._native import NativeError, _engine
+from support.gates import NATIVE_CONTEXT
 
 spec = importlib.util.spec_from_file_location(
     "graph_example", Path(__file__).parents[2] / "examples" / "graph_build.py",
@@ -20,6 +21,8 @@ fixture, verify, query = example.fixture, example.verify, example.query
 
 
 def require_native():
+    if os.environ.get(NATIVE_CONTEXT) != "1":
+        pytest.fail("Native test must declare requires_native before probing the runtime")
     try:
         _engine()
     except NativeError:

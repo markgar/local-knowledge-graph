@@ -13,6 +13,7 @@ from kg.graph._session_types import GraphSessionError
 from kg.models.foundation import WriteBatch
 
 
+@pytest.mark.service
 def test_controlled_write_saved_when_separate_refresh_fails(tmp_path, monkeypatch):
     env, session, _ = setup(tmp_path, monkeypatch)
     try:
@@ -30,6 +31,7 @@ def test_controlled_write_saved_when_separate_refresh_fails(tmp_path, monkeypatc
         session.close()
 
 
+@pytest.mark.service
 def test_batch_late_cancel_preserves_receipt_and_unstarted(tmp_path, monkeypatch):
     env, session, _ = setup(tmp_path, monkeypatch)
     cancel, seen = Event(), []
@@ -55,6 +57,7 @@ def test_batch_late_cancel_preserves_receipt_and_unstarted(tmp_path, monkeypatch
         session.close()
 
 
+@pytest.mark.service
 def test_exact_scope_checked_for_all_units_before_mutation(tmp_path, monkeypatch):
     env, session, _ = setup(tmp_path, monkeypatch)
     first, second = write_request(env, "one"), write_request(env, "two")
@@ -71,6 +74,7 @@ def test_exact_scope_checked_for_all_units_before_mutation(tmp_path, monkeypatch
         session.close()
 
 
+@pytest.mark.service
 @pytest.mark.parametrize("late", ["deadline", "close"])
 def test_confirmed_write_survives_late_stop(tmp_path, monkeypatch, late):
     env, session, _ = setup(tmp_path, monkeypatch)
@@ -99,6 +103,7 @@ def test_confirmed_write_survives_late_stop(tmp_path, monkeypatch, late):
         session.close()
 
 
+@pytest.mark.service
 def test_started_units_keep_individual_e1_reports_without_caller_context(tmp_path, monkeypatch):
     from kg.evidence import _reporting as reporting
     from kg.models.execution import SUMMARY_OPTIONS
@@ -135,6 +140,7 @@ def test_started_units_keep_individual_e1_reports_without_caller_context(tmp_pat
         session.close()
 
 
+@pytest.mark.process
 def test_real_concurrent_close_reports_closed_without_losing_receipt(tmp_path, monkeypatch):
     from concurrent.futures import ThreadPoolExecutor
     from time import sleep

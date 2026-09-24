@@ -72,8 +72,18 @@ kg = ["schema.sql", "py.typed"]
 "*" = ["__pycache__/*", "*.pyc"]
 
 [tool.pytest.ini_options]
-addopts = "-q"
-testpaths = ["tests"]
+addopts = "-q --strict-markers"
+testpaths = ["tests/unit"]
+pythonpath = ["tests"]
+markers = [
+  "unit: isolated values, parsing or algorithms without service execution",
+  "service: real SQLite/service behavior with controlled providers",
+  "functional: public command, example or evaluation interface",
+  "process: real worker, concurrency, lock or deadline behavior",
+  "native: small real Ladybug integration",
+  "acceptance: complete capacity, workload or evaluation acceptance",
+  "requires_native: requires the optional supported Ladybug runtime",
+]
 
 [tool.ruff]
 line-length = 100

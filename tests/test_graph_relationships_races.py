@@ -46,6 +46,8 @@ def remove(env):
     assert outcome.receipt is not None, outcome.error
 
 
+@pytest.mark.native
+@pytest.mark.requires_native
 @pytest.mark.parametrize("phase", ["idle", "decode", "fence", "revoke", "cancel"])
 def test_native_mutation_and_release_never_return_provisional_paths(tmp_path, monkeypatch, phase):
     require_native()
@@ -97,6 +99,8 @@ def test_native_mutation_and_release_never_return_provisional_paths(tmp_path, mo
             assert current.generation != original.generation
 
 
+@pytest.mark.native
+@pytest.mark.requires_native
 def test_valid_alternative_root_basis_is_not_selected_basis(tmp_path, monkeypatch):
     import json
 
@@ -138,6 +142,8 @@ def test_valid_alternative_root_basis_is_not_selected_basis(tmp_path, monkeypatc
         assert result.error.code == "invalid_projection" and not result.paths
 
 
+@pytest.mark.native
+@pytest.mark.requires_native
 def test_custom_predicate_self_loop_and_scope_isolation(tmp_path, monkeypatch):
     from kg.knowledge import KnowledgeAdministration
     from kg.models.schema import SchemaPredicateDefinition
@@ -182,6 +188,8 @@ def test_custom_predicate_self_loop_and_scope_isolation(tmp_path, monkeypatch):
                    for proof in scoped.paths for ref in proof.path.support.evidence)
 
 
+@pytest.mark.native
+@pytest.mark.requires_native
 def test_warm_cancel_during_canonical_resolution_keeps_latched_reason(tmp_path, monkeypatch):
     from kg.knowledge._reader import Cursor
     require_native()
