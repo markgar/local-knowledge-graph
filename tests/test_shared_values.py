@@ -15,6 +15,7 @@ from kg.models.foundation import AddEntitySupport, ChangeSet, SeedSupport, Write
 FIXTURE = Path(__file__).resolve().parents[1] / "corpora/foundation/entity-support.json"
 
 
+@pytest.mark.unit
 def test_attestation_fixture_schema_and_round_trip() -> None:
     value = WriteRequest.model_validate_json(FIXTURE.read_text())
     assert WriteRequest.model_validate_json(value.model_dump_json()) == value
@@ -25,6 +26,7 @@ def test_attestation_fixture_schema_and_round_trip() -> None:
     }
 
 
+@pytest.mark.unit
 @pytest.mark.parametrize(
     "mutation", ["local", "outside", "missing-namespace", "missing-set", "extra"],
 )
@@ -45,6 +47,7 @@ def test_attestation_rejects_invalid_seed_and_entity_scope(mutation) -> None:
         WriteRequest.model_validate_json(json.dumps(value))
 
 
+@pytest.mark.unit
 def test_source_attestation_obeys_existing_dependency_and_occurrence_limits() -> None:
     path = FIXTURE.with_name("enrichment.json")
     request = json.loads(path.read_text())
@@ -63,6 +66,7 @@ def test_source_attestation_obeys_existing_dependency_and_occurrence_limits() ->
         WriteRequest.model_validate_json(json.dumps(request))
 
 
+@pytest.mark.service
 def test_knowledge_binding_policy_roundtrip_and_namespace_rotation(tmp_path) -> None:
     env = environment(tmp_path / "policy.db")
     markdown = receipt(env.service.write(put(env.scope)))
@@ -91,6 +95,7 @@ def test_knowledge_binding_policy_roundtrip_and_namespace_rotation(tmp_path) -> 
         assert _read_policy(connection, "work").knowledge_bindings == ()
 
 
+@pytest.mark.service
 def test_binding_registration_equality_order_duplicates_and_unknown_namespace(tmp_path) -> None:
     env = environment(tmp_path / "register.db")
     bindings = tuple(

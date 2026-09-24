@@ -10,12 +10,15 @@ from kg.graph import _native
 from kg.graph._native import NativeError, NativeGraphReadHandle, NativeGraphWriter, scalar
 
 
+@pytest.mark.unit
 def test_optional_missing_runtime_is_import_safe(monkeypatch):
     monkeypatch.setattr(sys, "platform", "unsupported")
     with pytest.raises(NativeError, match="graph_unavailable"):
         _native._engine()
 
 
+@pytest.mark.native
+@pytest.mark.requires_native
 def test_native_ordinary_budget_readonly_and_timeout(tmp_path):
     require_native()
     budget, cancel = PrivateBudget(Deadline(monotonic() + 30)), Event()
@@ -49,6 +52,7 @@ def test_native_ordinary_budget_readonly_and_timeout(tmp_path):
         native.close()
 
 
+@pytest.mark.unit
 def test_failed_native_close_is_indeterminate_and_never_double_closes():
     calls = []
     class Connection:
@@ -63,6 +67,8 @@ def test_failed_native_close_is_indeterminate_and_never_double_closes():
     assert calls == [1]
 
 
+@pytest.mark.native
+@pytest.mark.requires_native
 def test_actual_native_query_timeout_preserves_deadline_stop(tmp_path):
     require_native()
     native = NativeGraphReadHandle()
@@ -78,6 +84,7 @@ def test_actual_native_query_timeout_preserves_deadline_stop(tmp_path):
         native.close()
 
 
+@pytest.mark.unit
 @pytest.mark.parametrize("seconds,cap,maximum", [(30, None, 30000), (30, 5000, 5000),
                                                (.5, 5000, 500)])
 def test_optional_native_timeout_never_extends_original_deadline(seconds, cap, maximum):
@@ -105,6 +112,7 @@ def test_optional_native_timeout_never_extends_original_deadline(seconds, cap, m
         native.close()
 
 
+@pytest.mark.unit
 @pytest.mark.parametrize("cap", [0, -1, True, 1.5, "5000"])
 def test_invalid_native_timeout_rejected_without_native_call(cap):
     native = NativeGraphReadHandle()
@@ -114,6 +122,8 @@ def test_invalid_native_timeout_rejected_without_native_call(cap):
                        cancel=Event(), timeout_milliseconds=cap)
 
 
+@pytest.mark.native
+@pytest.mark.requires_native
 def test_actual_native_cap_interrupts_before_request_deadline(tmp_path):
     require_native()
     native = NativeGraphReadHandle()
@@ -130,6 +140,7 @@ def test_actual_native_cap_interrupts_before_request_deadline(tmp_path):
         native.close()
 
 
+@pytest.mark.unit
 def test_committed_checkpoint_failure_never_rolls_back_or_replays():
     calls = []
 
@@ -155,6 +166,7 @@ def test_committed_checkpoint_failure_never_rolls_back_or_replays():
     assert calls == ["COMMIT", "close"]
 
 
+@pytest.mark.unit
 @pytest.mark.parametrize("actual", [True, 1.0, None, 2])
 def test_node_conflict_checks_types_and_values(monkeypatch, actual):
     writer = NativeGraphWriter()
@@ -164,6 +176,7 @@ def test_node_conflict_checks_types_and_values(monkeypatch, actual):
                      PrivateBudget(Deadline(monotonic() + 30)), Event())
 
 
+@pytest.mark.unit
 @pytest.mark.parametrize("actual", ["", '{"a":2,"b":1}', None])
 def test_node_conflict_checks_ordered_serialized_proof(monkeypatch, actual):
     writer = NativeGraphWriter()
@@ -173,6 +186,7 @@ def test_node_conflict_checks_ordered_serialized_proof(monkeypatch, actual):
                      PrivateBudget(Deadline(monotonic() + 30)), Event())
 
 
+@pytest.mark.unit
 @pytest.mark.parametrize("actual", [True, 1.0])
 def test_edge_ordinal_conflict_is_type_exact(monkeypatch, actual):
     writer = NativeGraphWriter()
@@ -182,6 +196,7 @@ def test_edge_ordinal_conflict_is_type_exact(monkeypatch, actual):
                      PrivateBudget(Deadline(monotonic() + 30)), Event(), 1)
 
 
+@pytest.mark.unit
 def test_rollback_result_failure_keeps_cleanup_custody_without_replay():
     calls = []
 
@@ -212,6 +227,7 @@ def test_rollback_result_failure_keeps_cleanup_custody_without_replay():
     assert writer._indeterminate
 
 
+@pytest.mark.unit
 @pytest.mark.parametrize("consumer", ["writer", "scalar"])
 def test_row_cleanup_preserves_primary_stop_and_detaches_request(monkeypatch, consumer, caplog):
     from kg._execution_budget import _graph_build_operation

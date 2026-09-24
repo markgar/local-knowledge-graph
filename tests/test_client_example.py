@@ -18,6 +18,7 @@ def _load_example() -> ModuleType:
     return module
 
 
+@pytest.mark.functional
 def test_external_client_renders_exact_citations() -> None:
     module = _load_example()
 
@@ -46,6 +47,7 @@ def test_external_client_renders_exact_citations() -> None:
     assert "revision abcdef123456" in rendered
 
 
+@pytest.mark.functional
 def test_external_client_invokes_cli_and_loads_status(tmp_path: Path) -> None:
     module = _load_example()
     vault = tmp_path / "vault"
@@ -79,6 +81,7 @@ def test_external_client_invokes_cli_and_loads_status(tmp_path: Path) -> None:
     assert status["decisions"][0]["summary"] == "Use SQLite."
 
 
+@pytest.mark.functional
 def test_external_client_preserves_executable_override_argv(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -102,6 +105,7 @@ def test_external_client_preserves_executable_override_argv(
     ]]
 
 
+@pytest.mark.functional
 def test_evidence_example_executes_and_replays(tmp_path: Path) -> None:
     import json
     import subprocess

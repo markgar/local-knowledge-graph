@@ -48,6 +48,7 @@ def _perfect_answers(evaluator: ModuleType, run: Path) -> dict[str, object]:
     return {"answers": answers}
 
 
+@pytest.mark.functional
 def test_gold_is_consistent_with_frozen_fixture(evaluator: ModuleType, run: Path) -> None:
     snapshot = evaluator.verify_snapshot(run)
     assert len(snapshot["sources"]) == 12
@@ -65,6 +66,7 @@ def test_gold_is_consistent_with_frozen_fixture(evaluator: ModuleType, run: Path
             )
 
 
+@pytest.mark.functional
 def test_tools_expose_same_sources_without_gold(evaluator: ModuleType, run: Path) -> None:
     kg_info, success = evaluator.tool(run, "kg", ["info"])
     assert success and "expected_facts" not in json.dumps(kg_info)
@@ -89,6 +91,7 @@ def test_tools_expose_same_sources_without_gold(evaluator: ModuleType, run: Path
     assert event["response_shape"]["collection_counts"]["open_actions"] == 2
 
 
+@pytest.mark.functional
 @pytest.mark.parametrize(
     ("arm", "arguments"),
     [
@@ -111,6 +114,7 @@ def test_invalid_tool_calls_are_logged(
     assert entry["returned_utf8_bytes"] > 0
 
 
+@pytest.mark.functional
 def test_snapshot_mutation_is_detected(evaluator: ModuleType, run: Path) -> None:
     path = run / "notes/atlas-updates/12-launch-rescheduling.md"
     path.write_text("Changed source\n")
@@ -120,6 +124,7 @@ def test_snapshot_mutation_is_detected(evaluator: ModuleType, run: Path) -> None
         evaluator.score(run)
 
 
+@pytest.mark.functional
 def test_scoring_requires_submissions_and_separates_facts_from_citations(
     evaluator: ModuleType, run: Path,
 ) -> None:
@@ -149,6 +154,7 @@ def test_scoring_requires_submissions_and_separates_facts_from_citations(
     assert result["arms"]["markdown"]["passed"] == 10
 
 
+@pytest.mark.functional
 def test_missing_citation_is_not_full_credit(evaluator: ModuleType, run: Path) -> None:
     gold = json.loads((evaluator.HERE / "gold.json").read_text())["answers"]["current-launch"]
     result = evaluator._score_answer({
@@ -158,11 +164,13 @@ def test_missing_citation_is_not_full_credit(evaluator: ModuleType, run: Path) -
     assert result["facts_correct"] and not result["passed"]
 
 
+@pytest.mark.functional
 def test_preparation_does_not_overwrite_existing_run(evaluator: ModuleType, run: Path) -> None:
     with pytest.raises(FileExistsError):
         evaluator.prepare(run)
 
 
+@pytest.mark.functional
 def test_delivery_failures_are_distinct_from_operation_failures(
     evaluator: ModuleType, run: Path,
 ) -> None:
@@ -180,6 +188,7 @@ def test_delivery_failures_are_distinct_from_operation_failures(
     assert entry["result"] == result
 
 
+@pytest.mark.functional
 def test_successful_delivery_is_recorded(evaluator: ModuleType, run: Path) -> None:
     output = []
     result, success = evaluator.tool(run, "markdown", ["info"], emit=output.append)
@@ -188,6 +197,7 @@ def test_successful_delivery_is_recorded(evaluator: ModuleType, run: Path) -> No
     assert entry["delivery_success"] is True and entry["delivery_error"] is None
 
 
+@pytest.mark.functional
 def test_custom_gold_is_frozen_locally(evaluator: ModuleType, tmp_path: Path) -> None:
     questions = json.loads((evaluator.HERE / "questions.json").read_text())
     questions["questions"] = questions["questions"][:1]
@@ -209,6 +219,7 @@ def test_custom_gold_is_frozen_locally(evaluator: ModuleType, tmp_path: Path) ->
         evaluator.score(run)
 
 
+@pytest.mark.functional
 def test_paged_responses_preserve_complete_data_and_arm_isolation(
     evaluator: ModuleType, tmp_path: Path,
 ) -> None:
@@ -244,6 +255,7 @@ def test_paged_responses_preserve_complete_data_and_arm_isolation(
     assert not success and changed["message"] == "Stored response changed"
 
 
+@pytest.mark.functional
 def test_bounded_native_response_and_catalog_paging(
     evaluator: ModuleType, tmp_path: Path,
 ) -> None:
@@ -271,6 +283,7 @@ def test_bounded_native_response_and_catalog_paging(
         assert not success and error["error"]
 
 
+@pytest.mark.functional
 def test_large_field_catalog_is_bounded(evaluator: ModuleType, tmp_path: Path) -> None:
     run = tmp_path / "fields-run"
     snapshot = evaluator.prepare(run, response_limit_bytes=4000)
@@ -284,6 +297,7 @@ def test_large_field_catalog_is_bounded(evaluator: ModuleType, tmp_path: Path) -
     assert success and page["items"] == list(result)[:2] and page["next_offset"] == 2
 
 
+@pytest.mark.functional
 def test_three_arms_share_document_tools(evaluator: ModuleType, run: Path) -> None:
     snapshot = evaluator.verify_snapshot(run)
     assert snapshot["version"] == 3
@@ -311,6 +325,7 @@ def test_three_arms_share_document_tools(evaluator: ModuleType, run: Path) -> No
     assert success and contextual
 
 
+@pytest.mark.functional
 @pytest.mark.parametrize("arguments", [
     ["status", "Atlas"], ["actions", "Atlas"], ["record-state"],
     ["search", "approval", "--subject", "Atlas"],
@@ -330,6 +345,7 @@ def test_index_arm_cannot_gain_graph_or_unfrozen_modes(
     assert not success and result["error"] == "ValueError"
 
 
+@pytest.mark.functional
 def test_selected_arms_and_old_two_arm_scores(
     evaluator: ModuleType, tmp_path: Path,
 ) -> None:
@@ -357,6 +373,7 @@ def test_selected_arms_and_old_two_arm_scores(
     assert not scores["shared_document_access"]
 
 
+@pytest.mark.functional
 def test_replicate_summary_validates_inputs_and_submissions(
     evaluator: ModuleType, tmp_path: Path,
 ) -> None:
@@ -389,6 +406,7 @@ def test_replicate_summary_validates_inputs_and_submissions(
         evaluator.summarize(runs)
 
 
+@pytest.mark.functional
 def test_document_tools_and_scoring_preserve_exact_newlines(
     evaluator: ModuleType, tmp_path: Path,
 ) -> None:
@@ -426,6 +444,7 @@ def test_document_tools_and_scoring_preserve_exact_newlines(
     assert all(arm["passed"] == 1 for arm in evaluator.score(run)["arms"].values())
 
 
+@pytest.mark.functional
 def test_administrative_cli_returns_summaries_not_full_snapshots_or_gold(
     evaluator: ModuleType, tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
     capsys: pytest.CaptureFixture[str],
@@ -451,6 +470,7 @@ def test_administrative_cli_returns_summaries_not_full_snapshots_or_gold(
     assert Path(scored["scores_file"]).is_file()
 
 
+@pytest.mark.functional
 @pytest.mark.parametrize(
     ("field", "value"),
     [("arms", None), ("shared_document_access", False), ("retrieval", "hybrid"), ("replicate", 0)],

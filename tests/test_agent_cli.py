@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+import pytest
 from typer.testing import CliRunner
 
 from kg.config import load_manifest
@@ -37,6 +38,7 @@ def _manifest(tmp_path: Path) -> Path:
     return manifest
 
 
+@pytest.mark.functional
 def test_agent_cli_publishes_versioned_capabilities() -> None:
     result = RUNNER.invoke(app, ["capabilities", "--format", "json"])
 
@@ -53,6 +55,7 @@ def test_agent_cli_publishes_versioned_capabilities() -> None:
     }
 
 
+@pytest.mark.functional
 def test_agent_cli_reads_ranges_and_compares_revisions(tmp_path: Path) -> None:
     manifest_path = _manifest(tmp_path)
     manifest = load_manifest(manifest_path)
@@ -146,6 +149,7 @@ def test_agent_cli_reads_ranges_and_compares_revisions(tmp_path: Path) -> None:
     assert json.loads(historical_result.stdout)["is_current"] is False
 
 
+@pytest.mark.functional
 def test_agent_cli_reports_invalid_source_and_revision_as_json(tmp_path: Path) -> None:
     manifest_path = _manifest(tmp_path)
     manifest = load_manifest(manifest_path)

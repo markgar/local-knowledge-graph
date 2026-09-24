@@ -19,6 +19,7 @@ from kg.models.foundation import (
 )
 
 
+@pytest.mark.service
 def test_identity_exact_content_noop_and_restore(tmp_path: Path) -> None:
     env = environment(tmp_path / "e.db")
     original = put(env.scope)
@@ -80,6 +81,7 @@ def test_identity_exact_content_noop_and_restore(tmp_path: Path) -> None:
     assert error.value.failure.code == "not_found"
 
 
+@pytest.mark.service
 @pytest.mark.parametrize("text", ["", "\x00", "\ufeff\r\n", "a\rb\nc\r\n", "\U0001f680e\u0301"])
 def test_all_supplied_bytes_roundtrip(tmp_path: Path, text: str) -> None:
     env = environment(tmp_path / "e.db")
@@ -90,6 +92,7 @@ def test_all_supplied_bytes_roundtrip(tmp_path: Path, text: str) -> None:
     assert result.text == text
 
 
+@pytest.mark.service
 def test_invalid_construct_and_batch_are_atomic(tmp_path: Path) -> None:
     env = environment(tmp_path / "e.db")
     request = put(env.scope)
@@ -139,6 +142,7 @@ def test_invalid_construct_and_batch_are_atomic(tmp_path: Path) -> None:
         assert connection.execute("SELECT count(*) FROM document").fetchone()[0] == 0
 
 
+@pytest.mark.service
 def test_original_python_types_rejected_before_batch_item_zero(tmp_path: Path) -> None:
     env = environment(tmp_path / "e.db")
     valid = put(env.scope, external="first")
@@ -178,6 +182,7 @@ def test_original_python_types_rejected_before_batch_item_zero(tmp_path: Path) -
             assert connection.execute(f"SELECT count(*) FROM {table}").fetchone()[0] == 0
 
 
+@pytest.mark.service
 def test_ordered_mixed_batch_and_omission_safety(tmp_path: Path) -> None:
     env = environment(tmp_path / "e.db")
     existing = receipt(env.service.write(put(env.scope, external="existing")))
@@ -206,6 +211,7 @@ def test_ordered_mixed_batch_and_omission_safety(tmp_path: Path) -> None:
         assert connection.execute("SELECT count(*) FROM write_key").fetchone()[0] == 3
 
 
+@pytest.mark.service
 def test_metadata_and_policy_states_are_independent_of_content(tmp_path: Path) -> None:
     env = environment(tmp_path / "e.db")
     first = receipt(env.service.write(put(env.scope)))
@@ -271,6 +277,7 @@ def test_metadata_and_policy_states_are_independent_of_content(tmp_path: Path) -
     assert env.service.citation(scope, old_citation).metadata.metadata.title == "Title"
 
 
+@pytest.mark.service
 def test_multiple_owners_and_binding_checks(tmp_path: Path) -> None:
     env = environment(tmp_path / "e.db")
     first = receipt(env.service.write(put(env.scope)))
@@ -335,6 +342,7 @@ def test_multiple_owners_and_binding_checks(tmp_path: Path) -> None:
     assert env.service.write(spoofed).error.code == "forbidden"
 
 
+@pytest.mark.service
 def test_fault_rolls_back_content_state_and_receipt(tmp_path: Path, monkeypatch) -> None:
     from kg.evidence import _receipts
 
@@ -358,6 +366,7 @@ def test_fault_rolls_back_content_state_and_receipt(tmp_path: Path, monkeypatch)
             assert connection.execute(f"SELECT count(*) FROM {table}").fetchone()[0] == 0
 
 
+@pytest.mark.service
 def test_noop_metadata_order_and_attribution(tmp_path: Path) -> None:
     from kg.models.foundation import MetadataEntry
 

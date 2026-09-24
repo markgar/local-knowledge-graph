@@ -12,6 +12,7 @@ from support.modules import module
 scope = module(".github/scripts/ci_scope.py")
 
 
+@pytest.mark.unit
 def test_workflow_is_manual_and_gates_matrix_before_installation() -> None:
     workflow = Path(scope.__file__).parents[1] / "workflows" / "ci.yml"
     config = yaml.load(workflow.read_text(), Loader=yaml.BaseLoader)
@@ -27,6 +28,7 @@ def test_workflow_is_manual_and_gates_matrix_before_installation() -> None:
     assert len(steps) == 2
 
 
+@pytest.mark.unit
 def test_workflow_defaults_to_local_python_with_optional_full_matrix() -> None:
     root = Path(scope.__file__).parents[2]
     config = yaml.load(
@@ -47,11 +49,15 @@ def test_workflow_defaults_to_local_python_with_optional_full_matrix() -> None:
     setup_uv = next(step for step in job["steps"] if step["name"] == "Install uv")
     assert setup_uv["with"]["python-version"] == "${{ matrix.python-version }}"
     assert [step["run"] for step in job["steps"] if "run" in step] == [
-        "uv sync --extra dev", "uv run pytest", "uv run ruff check .",
+        "uv sync --extra dev", "uv run pytest tests", "uv run ruff check .",
         "uv run mypy", "uv build",
     ]
+    assert next(
+        step["name"] for step in job["steps"] if step.get("run") == "uv run pytest tests"
+    ) == "Run complete test collection (optional native may skip)"
 
 
+@pytest.mark.unit
 @pytest.mark.parametrize("name", [
     "README.md", "CONTRIBUTING.md", "SPEC.md", "CONTRACTS.md",
     ".github/copilot-instructions.md", ".github/skills/work-package/SKILL.md",
@@ -64,6 +70,7 @@ def test_documentation_does_not_require_matrix(name: str) -> None:
     assert not scope.is_code_change(name)
 
 
+@pytest.mark.unit
 @pytest.mark.parametrize("name", [
     "src/kg/cli.py", "src/kg/schema.sql", "src/kg/py.typed",
     "tests/test_cli.py", "tests/fixtures/source.md", "corpora/example/note.md",
@@ -102,6 +109,7 @@ def repo(tmp_path: Path) -> Path:
     return tmp_path
 
 
+@pytest.mark.functional
 def test_feature_branch_checks_entire_change_not_just_last_commit(repo: Path) -> None:
     baseline = git(repo, "rev-parse", "HEAD")
     git(repo, "checkout", "-b", "feature")
@@ -113,6 +121,7 @@ def test_feature_branch_checks_entire_change_not_just_last_commit(repo: Path) ->
     assert any(map(scope.is_code_change, scope.changed_paths(repo, base)))
 
 
+@pytest.mark.functional
 def test_default_branch_checks_latest_change_only(repo: Path) -> None:
     previous = commit(repo, "src/change.py")
     commit(repo, "CONTRIBUTING.md")
@@ -122,6 +131,7 @@ def test_default_branch_checks_latest_change_only(repo: Path) -> None:
     assert not any(map(scope.is_code_change, scope.changed_paths(repo, base)))
 
 
+@pytest.mark.functional
 def test_initial_commit_and_unchanged_branch(repo: Path) -> None:
     base = scope.comparison_base(repo, "refs/heads/main", "main")
     assert scope.changed_paths(repo, base) == ["README.md"]
@@ -130,6 +140,7 @@ def test_initial_commit_and_unchanged_branch(repo: Path) -> None:
     assert scope.changed_paths(repo, base) == []
 
 
+@pytest.mark.functional
 def test_merge_uses_first_parent(repo: Path) -> None:
     baseline = git(repo, "rev-parse", "HEAD")
     git(repo, "checkout", "-b", "feature")
@@ -139,6 +150,7 @@ def test_merge_uses_first_parent(repo: Path) -> None:
     assert scope.comparison_base(repo, "refs/heads/main", "main") == baseline
 
 
+@pytest.mark.functional
 def test_renaming_code_to_markdown_keeps_deleted_code_in_scope(repo: Path) -> None:
     baseline = commit(repo, "example.py")
     git(repo, "mv", "example.py", "example.md")
@@ -148,6 +160,7 @@ def test_renaming_code_to_markdown_keeps_deleted_code_in_scope(repo: Path) -> No
     assert any(map(scope.is_code_change, paths))
 
 
+@pytest.mark.functional
 def test_deleted_code_and_unusual_filenames(repo: Path) -> None:
     baseline = commit(repo, "examples/space and\nnewline.py")
     git(repo, "rm", "examples/space and\nnewline.py")
@@ -157,6 +170,7 @@ def test_deleted_code_and_unusual_filenames(repo: Path) -> None:
     assert any(map(scope.is_code_change, paths))
 
 
+@pytest.mark.functional
 @pytest.mark.parametrize(("name", "expected"), [
     ("CONTRIBUTING.md", "false"),
     ("src/change.py", "true"),
@@ -173,6 +187,7 @@ def test_workflow_output(repo: Path, tmp_path: Path, name: str, expected: str) -
     assert output.read_text() == f"run_tests={expected}\n"
 
 
+@pytest.mark.functional
 def test_missing_base_fails_instead_of_skipping(repo: Path) -> None:
     with pytest.raises(subprocess.CalledProcessError):
         scope.comparison_base(repo, "refs/heads/feature", "missing")

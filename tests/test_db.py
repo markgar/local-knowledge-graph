@@ -1,8 +1,12 @@
+
 from pathlib import Path
+
+import pytest
 
 from kg.db import Database
 
 
+@pytest.mark.service
 def test_schema_initialization_is_idempotent(tmp_path: Path) -> None:
     database = Database(tmp_path / "index.sqlite3")
 

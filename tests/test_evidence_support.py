@@ -14,6 +14,7 @@ from kg.models.evidence import LocalPolicy, PolicyGrant
 from kg.models.foundation import DocumentDependency, ExpectedState, RemoveDocument
 
 
+@pytest.mark.service
 @pytest.mark.parametrize("changed_index", [0, 1])
 @pytest.mark.parametrize(
     "transition", ["metadata", "content", "remove", "restore", "anchors", "policy"]

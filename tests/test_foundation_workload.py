@@ -1,10 +1,12 @@
 from __future__ import annotations
 
+import pytest
 from support.modules import module
 
 from kg.markdown import parse_markdown
 
 
+@pytest.mark.acceptance
 def test_workload_is_reproducible_and_pins_sizes() -> None:
     workload = module("benchmarks/foundation/workload.py")
     assert workload.serialized() == workload.serialized()
@@ -31,6 +33,7 @@ def test_workload_is_reproducible_and_pins_sizes() -> None:
     assert len(workload.workload()["graph"]["edges"]) == 480
 
 
+@pytest.mark.acceptance
 def test_long_workload_documents_have_real_paragraph_boundaries() -> None:
     workload = module("benchmarks/foundation/workload.py")
     counts: dict[int, int] = {}

@@ -44,6 +44,8 @@ def empty_count(context):
         rows.close()
 
 
+@pytest.mark.native
+@pytest.mark.requires_native
 def test_native_controlled_withdrawal_exact_proofs_receipts_and_refresh(tmp_path, monkeypatch):
     require_native()
     env = fixture(tmp_path / "native.sqlite", decisions=25)
@@ -90,6 +92,8 @@ def test_native_controlled_withdrawal_exact_proofs_receipts_and_refresh(tmp_path
         assert graph.status().state == "dirty"
 
 
+@pytest.mark.native
+@pytest.mark.requires_native
 def test_external_withdrawal_invalidates_even_empty_count_and_release(tmp_path):
     require_native()
     env = fixture(tmp_path / "external.sqlite", decisions=2)
@@ -111,6 +115,8 @@ def test_external_withdrawal_invalidates_even_empty_count_and_release(tmp_path):
         assert graph.status().state == "dirty"
 
 
+@pytest.mark.native
+@pytest.mark.requires_native
 def test_native_build_excludes_withdrawal_committed_during_export(tmp_path, monkeypatch):
     from kg.knowledge import _graph_export
 
@@ -136,6 +142,8 @@ def test_native_build_excludes_withdrawal_committed_during_export(tmp_path, monk
         assert target not in {p.assertion_id for p in graph._run_read(env.scope, assertions)}
 
 
+@pytest.mark.native
+@pytest.mark.requires_native
 def test_confirmed_withdrawal_survives_late_graph_cancel(tmp_path, monkeypatch):
     from threading import Event
 
@@ -158,6 +166,8 @@ def test_confirmed_withdrawal_survives_late_graph_cancel(tmp_path, monkeypatch):
         assert env.evidence.write(req).receipt == outcome.receipt
 
 
+@pytest.mark.native
+@pytest.mark.requires_native
 @pytest.mark.parametrize("phase", ["before_snapshot", "before_adoption"])
 def test_native_withdrawal_invalidates_build_boundaries(tmp_path, monkeypatch, phase):
     from kg.graph import _build

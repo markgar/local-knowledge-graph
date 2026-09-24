@@ -23,6 +23,8 @@ def operation():
     return _graph_build_operation(deadline=Deadline(monotonic() + 299), cancel=Event())
 
 
+@pytest.mark.native
+@pytest.mark.requires_native
 def test_real_native_complete_reopen_transfer_and_current_budget(tmp_path):
     require_native()
     env = fixture(tmp_path / "source.sqlite", decisions=210)
@@ -58,6 +60,7 @@ def test_real_native_complete_reopen_transfer_and_current_budget(tmp_path):
         stage.close()
 
 
+@pytest.mark.service
 @pytest.mark.parametrize("physical_closed", [False, True])
 def test_real_early_pragma_then_close_failure_keeps_single_residue(
     tmp_path, monkeypatch, physical_closed,
@@ -107,6 +110,8 @@ def test_real_early_pragma_then_close_failure_keeps_single_residue(
     assert op.snapshot().scratch_live_bytes == 0
 
 
+@pytest.mark.native
+@pytest.mark.requires_native
 @pytest.mark.parametrize("phase", ["insert", "checkpoint", "reopen", "verification", "fence"])
 def test_failures_never_return_partial_stage_and_release_all(tmp_path, monkeypatch, phase):
     require_native()
@@ -153,6 +158,7 @@ def test_failures_never_return_partial_stage_and_release_all(tmp_path, monkeypat
     assert not list(tmp_path.glob("graph-*"))
 
 
+@pytest.mark.service
 def test_cancelled_admission_has_original_terminal_accounting(tmp_path, monkeypatch):
     env = fixture(tmp_path / "source.sqlite", decisions=0)
     op = operation()
@@ -165,6 +171,8 @@ def test_cancelled_admission_has_original_terminal_accounting(tmp_path, monkeypa
     assert caught.value.cleanup.complete
 
 
+@pytest.mark.native
+@pytest.mark.requires_native
 def test_native_relationship_join_distinct_members_and_all_path_proofs(tmp_path):
     require_native()
     env = fixture(tmp_path / "source.sqlite", decisions=210)

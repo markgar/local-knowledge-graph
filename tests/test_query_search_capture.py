@@ -1,5 +1,6 @@
 """Transport checks, not acceptance of a search implementation."""
 
+import pytest
 from support.evidence import environment
 
 from kg.diagnostics._collector import Capture, Collector
@@ -35,6 +36,7 @@ def captures(tmp_path):
     return worker, parent, child
 
 
+@pytest.mark.service
 def test_actual_captured_facts_stay_provisional_and_parent_redaction_wins(tmp_path):
     worker, parent, child = captures(tmp_path)
     targets = ReportTargets(values=(DocumentTarget(document_id="document"),))
@@ -58,6 +60,7 @@ def test_actual_captured_facts_stay_provisional_and_parent_redaction_wins(tmp_pa
     assert worker.group.state == "provisional"
 
 
+@pytest.mark.service
 def test_optional_capture_serialization_failure_is_explicit(tmp_path, monkeypatch):
     worker, _, _ = captures(tmp_path)
     wire = Wire()
@@ -71,6 +74,7 @@ def test_optional_capture_serialization_failure_is_explicit(tmp_path, monkeypatc
     assert worker.group.state == "unavailable"
 
 
+@pytest.mark.service
 def test_optional_supervisor_capture_failure_discards_group(tmp_path, monkeypatch):
     worker, parent, child = captures(tmp_path)
     wire = Wire()
@@ -86,6 +90,7 @@ def test_optional_supervisor_capture_failure_discards_group(tmp_path, monkeypatc
     assert child.prepared is None
 
 
+@pytest.mark.service
 def test_capture_failure_does_not_replace_ranked_business_output(tmp_path, monkeypatch):
     from kg.models.foundation import RankedResult
 
@@ -111,6 +116,7 @@ def test_capture_failure_does_not_replace_ranked_business_output(tmp_path, monke
     allocation.close()
 
 
+@pytest.mark.service
 def test_diagnostic_drop_cannot_discard_partial_business_output(tmp_path):
     import pytest
 
@@ -123,6 +129,7 @@ def test_diagnostic_drop_cannot_discard_partial_business_output(tmp_path):
     allocation.close()
 
 
+@pytest.mark.service
 def test_reclamation_preserves_pending_ranked_transfer(tmp_path):
     from kg.models.foundation import RankedResult
 

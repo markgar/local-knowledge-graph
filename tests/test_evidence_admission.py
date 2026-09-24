@@ -24,6 +24,7 @@ def pool():
     return PrivateBudget(Deadline(time.monotonic() + 30))
 
 
+@pytest.mark.service
 @pytest.mark.parametrize("text,batches", [("", 0), ("Synthetic source", 8)])
 def test_lifecycle_and_batched_transactions_share_original_allowances(tmp_path, text, batches):
     env = environment(tmp_path / "lifecycle.db")
@@ -61,6 +62,7 @@ def test_lifecycle_and_batched_transactions_share_original_allowances(tmp_path, 
         assert tuple(connection.iterdump()) == before
 
 
+@pytest.mark.service
 def test_fresh_admission_is_bounded_but_not_free(tmp_path):
     database = EvidenceDatabase(tmp_path / "format.db")
     database.initialize()
@@ -77,6 +79,7 @@ def test_fresh_admission_is_bounded_but_not_free(tmp_path):
         assert vm < budget._vm < 400_000
 
 
+@pytest.mark.service
 def test_each_metadata_batch_prepays_all_nested_engine_instructions(tmp_path, monkeypatch):
     database = EvidenceDatabase(tmp_path / "instructions.db")
     database.initialize()
@@ -109,6 +112,7 @@ def test_each_metadata_batch_prepays_all_nested_engine_instructions(tmp_path, mo
     assert len(measured) == 4
 
 
+@pytest.mark.service
 def test_repeated_admission_still_exhausts_original_pool_and_rolls_back(tmp_path):
     database = EvidenceDatabase(tmp_path / "bounded.db")
     database.initialize()
@@ -139,6 +143,7 @@ def test_repeated_admission_still_exhausts_original_pool_and_rolls_back(tmp_path
         assert connection.execute("SELECT count(*) FROM corpus").fetchone()[0] == 0
 
 
+@pytest.mark.service
 def test_interleaved_cursor_cannot_resume_after_precise_admission_exhaustion(tmp_path):
     database = EvidenceDatabase(tmp_path / "interleaved.db")
     database.initialize()
@@ -161,6 +166,7 @@ def test_interleaved_cursor_cannot_resume_after_precise_admission_exhaustion(tmp
         connection.rollback()
 
 
+@pytest.mark.service
 @pytest.mark.parametrize(
     "alteration",
     [
@@ -199,6 +205,7 @@ def test_rechecks_reject_tampering_even_with_restored_schema_cookie(tmp_path, al
             assert tuple(after.iterdump()) == before
 
 
+@pytest.mark.service
 @pytest.mark.parametrize(
     "ddl",
     [
@@ -220,6 +227,7 @@ def test_actual_pragma_structure_is_checked_even_when_catalog_and_manifest_match
             _format.check(connection)
 
 
+@pytest.mark.service
 def test_batched_metadata_and_manifest_share_one_snapshot(tmp_path, monkeypatch):
     database = EvidenceDatabase(tmp_path / "snapshot.db")
     database.initialize()
@@ -242,6 +250,7 @@ def test_batched_metadata_and_manifest_share_one_snapshot(tmp_path, monkeypatch)
             _format.check(connection)
 
 
+@pytest.mark.service
 def test_owner_rechecks_after_connection_admission_before_any_mutation(tmp_path, monkeypatch):
     database = EvidenceDatabase(tmp_path / "owner.db")
     database.initialize()
@@ -264,6 +273,7 @@ def test_owner_rechecks_after_connection_admission_before_any_mutation(tmp_path,
         assert connection.execute("SELECT count(*) FROM corpus").fetchone()[0] == 0
 
 
+@pytest.mark.acceptance
 def test_bulk_repeated_actual_admission_counts_work_without_hidden_interactive_ceiling(tmp_path):
     database = EvidenceDatabase(tmp_path / "bulk-admission.db")
     database.initialize()

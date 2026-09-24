@@ -268,6 +268,7 @@ def variants(evidence, target):
     )
 
 
+@pytest.mark.service
 @pytest.mark.parametrize("policy", ["codepoint-window/1", "supplied-anchors/1"])
 def test_all_passage_variants_exact_provenance_and_capabilities_before_vectors(env, policy):
     value, saved, page = passage(env, policy=policy)
@@ -328,6 +329,7 @@ def test_all_passage_variants_exact_provenance_and_capabilities_before_vectors(e
     assert env.service.citation(env.scope, page.entries[0].citation).quote == TEXT
 
 
+@pytest.mark.service
 def test_a09_a17_same_names_conjunction_alternatives_and_no_inferred_edges(env):
     value, a, a_page = passage(env)
     _, b, b_page = passage(env, "b", "email")
@@ -435,6 +437,7 @@ def test_a09_a17_same_names_conjunction_alternatives_and_no_inferred_edges(env):
         env.service.write(req.model_copy(update={"scope": narrow}))
 
 
+@pytest.mark.service
 @pytest.mark.parametrize("source_number", [0, 1])
 @pytest.mark.parametrize("mutation", ["text", "metadata", "passage_policy", "boundaries", "remove"])
 def test_each_source_staleness_atomically_rejects_all_variants(env, source_number, mutation):
@@ -498,6 +501,7 @@ def test_each_source_staleness_atomically_rejects_all_variants(env, source_numbe
     assert inventory(env) == before
 
 
+@pytest.mark.service
 @pytest.mark.parametrize("transition", ["text", "metadata", "policy", "remove"])
 @pytest.mark.parametrize("withdraw", [False, True])
 def test_roundtrip_never_resurrects_support_and_fresh_support_is_explicit(
@@ -583,6 +587,7 @@ def test_roundtrip_never_resurrects_support_and_fresh_support_is_explicit(
     assert (historical.withdrawal is not None) == withdraw
 
 
+@pytest.mark.service
 @pytest.mark.parametrize("revoked", ["read", "write_knowledge", "binding"])
 @pytest.mark.parametrize("replay", [False, True])
 def test_withdrawal_two_namespace_authority_and_report_redaction(env, revoked, replay):
@@ -637,6 +642,7 @@ def test_withdrawal_two_namespace_authority_and_report_redaction(env, revoked, r
         assert c.execute("SELECT count(*) FROM assertion_withdrawal").fetchone()[0] == int(replay)
 
 
+@pytest.mark.service
 def test_withdrawal_requires_historical_endpoint_even_outside_assertion_support(env):
     _, a, page = passage(env)
     _, b, other = passage(env, "b", "email")
@@ -653,6 +659,7 @@ def test_withdrawal_requires_historical_endpoint_even_outside_assertion_support(
     assert env.service.write(withdrawal(env, target, scope=narrowed)).error.code == "not_found"
 
 
+@pytest.mark.service
 @pytest.mark.parametrize(
     "field", ["passage_id", "anchor_id", "revision_id", "document_id", "namespace"]
 )
@@ -685,6 +692,7 @@ def test_forged_chain_rejected_before_any_knowledge_mutation(env, field):
     assert inventory(env) == before
 
 
+@pytest.mark.service
 def test_same_revision_passage_from_wrong_policy_membership_is_not_accepted(env):
     _, first, first_page = passage(env, policy="supplied-anchors/1")
     _, second, second_page = passage(
@@ -709,6 +717,7 @@ def test_same_revision_passage_from_wrong_policy_membership_is_not_accepted(env)
     assert inventory(env) == before
 
 
+@pytest.mark.service
 def test_cross_corpus_passage_forgery_and_scope_revocation_fail_closed(env):
     registered = env.admin.register(
         CorpusRegistration(
@@ -764,6 +773,7 @@ def test_cross_corpus_passage_forgery_and_scope_revocation_fail_closed(env):
     )
 
 
+@pytest.mark.service
 def test_real_transaction_validation_lifetime_and_exact_quotes(env):
     _, saved, page = passage(env)
     evidence, dep = support(saved, page)
@@ -776,6 +786,7 @@ def test_real_transaction_validation_lifetime_and_exact_quotes(env):
         validator.validate_current(env.scope, (dep,), evidence.evidence)
 
 
+@pytest.mark.service
 def test_late_receipt_failure_rolls_back_every_variant_and_batch_units_are_independent(
     env, monkeypatch
 ):
@@ -829,6 +840,7 @@ def _process_write(path, request_json, queue):
     queue.put(service.write(WriteRequest.model_validate_json(request_json)).model_dump_json())
 
 
+@pytest.mark.process
 def test_two_process_retry_convergence_reopen_expiry_and_uncertain_commit(env, monkeypatch):
     from kg.evidence._sql import AccountedConnection
 
@@ -892,6 +904,7 @@ def test_two_process_retry_convergence_reopen_expiry_and_uncertain_commit(env, m
     assert restarted.write(timed).error.code == "retry_expired"
 
 
+@pytest.mark.process
 def test_owner_transaction_serializes_source_edit_after_passage_validation(env, monkeypatch):
     import kg.knowledge._write as writes
 
@@ -948,6 +961,7 @@ def test_owner_transaction_serializes_source_edit_after_passage_validation(env, 
     assert env.service.write(req).receipt == outcome.receipt
 
 
+@pytest.mark.service
 def test_passage_snapshot_cache_preserves_complete_bundle_bounds_and_lifetime(env):
     value, a, page = passage(env)
     _, b, other = passage(env, "b", "email")
@@ -1068,6 +1082,7 @@ def test_passage_snapshot_cache_preserves_complete_bundle_bounds_and_lifetime(en
         fresh.revalidate_member(member)
 
 
+@pytest.mark.service
 def test_mentions_cannot_activate_stale_or_inaccessible_endpoints(env):
     original, a, page = passage(env)
     sa, da = support(a, page)
@@ -1111,6 +1126,7 @@ def test_mentions_cannot_activate_stale_or_inaccessible_endpoints(env):
         service.entity(env.scope, target.entity_id)
 
 
+@pytest.mark.service
 def test_revoked_support_history_replay_and_namespace_policy_roundtrip(env):
     _, a, page = passage(env)
     _, b, other = passage(env, "b", "email")
@@ -1159,6 +1175,7 @@ def test_revoked_support_history_replay_and_namespace_policy_roundtrip(env):
         service.contribution(env.scope, ids["mention"])
 
 
+@pytest.mark.service
 def test_mixed_anchor_passage_conjunction_and_mention_page_boundaries(env):
     _, saved, page = passage(env, policy="supplied-anchors/1")
     passage_support, dep = support(saved, page)
@@ -1193,6 +1210,7 @@ def test_mixed_anchor_passage_conjunction_and_mention_page_boundaries(env):
     )
 
 
+@pytest.mark.service
 def test_passage_selection_inherits_local_page_and_global_scratch_limits(env):
     _, saved, page = passage(env)
     evidence, dep = support(saved, page)
@@ -1233,6 +1251,7 @@ def test_passage_selection_inherits_local_page_and_global_scratch_limits(env):
         assert meter.public_accounting().items_consumed == before
 
 
+@pytest.mark.service
 def test_bulk_and_interactive_select_identical_mixed_support_and_stale_exclusion(env):
     _, saved_a, page_a = passage(env, policy="supplied-anchors/1")
     value_b, saved_b, page_b = passage(env, external="second", namespace="email")

@@ -62,6 +62,7 @@ def pack(
     return result
 
 
+@pytest.mark.acceptance
 def test_pack_reuses_all_original_sources_and_manifest(
     inputs: Path, pack: dict[str, Any],
 ) -> None:
@@ -84,6 +85,7 @@ def test_pack_reuses_all_original_sources_and_manifest(
         assert hashlib.sha256((inputs / name).read_bytes()).hexdigest() == digest
 
 
+@pytest.mark.acceptance
 def test_build_is_deterministic_and_refuses_any_existing_output(
     builder: ModuleType, inputs: Path, pack: dict[str, Any], tmp_path: Path,
 ) -> None:
@@ -105,6 +107,7 @@ def test_build_is_deterministic_and_refuses_any_existing_output(
     assert file.read_text() == "keep"
 
 
+@pytest.mark.acceptance
 @pytest.mark.parametrize("relative", ["new-pack", "notes/discovery"])
 def test_private_output_cannot_enter_input_corpus(
     builder: ModuleType, inputs: Path, relative: str,
@@ -114,6 +117,7 @@ def test_private_output_cannot_enter_input_corpus(
     assert not (inputs / relative).exists()
 
 
+@pytest.mark.acceptance
 def test_generic_public_contract_and_no_recursive_leaks(
     builder: ModuleType, pack: dict[str, Any],
 ) -> None:
@@ -138,6 +142,7 @@ def test_generic_public_contract_and_no_recursive_leaks(
     assert any("For every question" in item for item in public["conventions"])
 
 
+@pytest.mark.acceptance
 @pytest.mark.parametrize("secret", [
     "NovaOps", "novaops", "expected_novaops", "selected_project_Cedar",
     "inherited-role reconciliation", "N42", "invoice-cohort-comparison", "d044",
@@ -155,6 +160,7 @@ def test_leak_validation_includes_nested_schema_keys(
         )
 
 
+@pytest.mark.acceptance
 def test_every_gold_alternative_fits_an_exact_single_source_anchor(
     pack: dict[str, Any],
 ) -> None:
@@ -188,6 +194,7 @@ def test_every_gold_alternative_fits_an_exact_single_source_anchor(
     assert alternatives >= 1
 
 
+@pytest.mark.acceptance
 def test_frozen_time_semantics_and_deliberately_wrong_date(
     builder: ModuleType, pack: dict[str, Any],
 ) -> None:
@@ -219,6 +226,7 @@ def test_frozen_time_semantics_and_deliberately_wrong_date(
     assert pack["summary"]["imperfect_memory_questions"] == 1
 
 
+@pytest.mark.acceptance
 def test_private_manual_cue_reviews_cover_every_prompt(
     builder: ModuleType, pack: dict[str, Any],
 ) -> None:
@@ -239,6 +247,7 @@ def test_private_manual_cue_reviews_cover_every_prompt(
             assert set(q["candidate_projects"]) <= case_projects
 
 
+@pytest.mark.acceptance
 def test_ambiguity_and_nameless_reply_have_real_thread_grounding(
     builder: ModuleType, pack: dict[str, Any],
 ) -> None:
@@ -279,6 +288,7 @@ def _replace_spec(
     )
 
 
+@pytest.mark.acceptance
 @pytest.mark.parametrize("corruption,match", [
     ("project", "expected project"),
     ("reference", "reference date"),
@@ -321,6 +331,7 @@ def test_invalid_specs_fail_before_creating_output(
     assert not output.exists()
 
 
+@pytest.mark.acceptance
 def test_source_integrity_is_checked_without_touching_input(
     builder: ModuleType, inputs: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -337,6 +348,7 @@ def test_source_integrity_is_checked_without_touching_input(
     assert not (tmp_path / "invalid").exists()
 
 
+@pytest.mark.acceptance
 def test_cli_builds_only_question_pack(inputs: Path, tmp_path: Path) -> None:
     result = subprocess.run(
         [

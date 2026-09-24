@@ -35,6 +35,7 @@ def _revoke_worker(path, version, barrier, results):
     results.put(("policy", None))
 
 
+@pytest.mark.process
 @pytest.mark.parametrize("revocation", [False, True])
 def test_separate_process_cas_and_policy_linearization(tmp_path: Path, revocation: bool) -> None:
     env = environment(tmp_path / "e.db")
@@ -145,6 +146,7 @@ def _initializer(path, kind, pause_at_schema, entered, release, result):
         result.put("incompatible")
 
 
+@pytest.mark.process
 @pytest.mark.parametrize(
     "winner,loser",
     [

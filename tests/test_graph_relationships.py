@@ -37,6 +37,8 @@ def native(tmp_path):
         yield env, session
 
 
+@pytest.mark.native
+@pytest.mark.requires_native
 def test_native_public_directions_exact_full_proof_and_historical_citations(native):
     env, session = native
     assert session.capabilities().runtime == "available"
@@ -70,6 +72,8 @@ def test_native_public_directions_exact_full_proof_and_historical_citations(nati
     assert session.traverse(request(env)) == result
 
 
+@pytest.mark.native
+@pytest.mark.requires_native
 def test_native_ambiguity_absence_preflight_alias_and_strict_direction(native):
     env, session = native
     ambiguous = session.traverse(request(env, start=GraphEntitySelector(name="Alice")))
@@ -103,6 +107,8 @@ def test_native_ambiguity_absence_preflight_alias_and_strict_direction(native):
     )).outcome == "empty"
 
 
+@pytest.mark.native
+@pytest.mark.requires_native
 def test_native_explicit_filter_and_cancel_closed(native):
     env, session = native
     env.write((AddAssertion(
@@ -127,6 +133,7 @@ def test_native_explicit_filter_and_cancel_closed(native):
         session.capabilities()
 
 
+@pytest.mark.service
 @pytest.mark.parametrize("hops", [True, False, 1.0, "1", 0, 2, 3, None])
 def test_strict_one_hop_rejected_before_admission(tmp_path, monkeypatch, hops):
     env = fixture(tmp_path / "source.sqlite", decisions=0)
@@ -141,6 +148,7 @@ def test_strict_one_hop_rejected_before_admission(tmp_path, monkeypatch, hops):
             session.traverse(forged)
 
 
+@pytest.mark.service
 def test_content_free_unavailable_capability_and_optional_import(tmp_path, monkeypatch):
     from kg.graph import _native
     from kg.graph._native import NativeError

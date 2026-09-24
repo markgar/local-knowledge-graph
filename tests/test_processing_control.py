@@ -146,6 +146,7 @@ def enable_plan(env: Environment, enabled: bool) -> None:
     )
 
 
+@pytest.mark.service
 def test_explicit_fail_delay_exhaustion_and_idempotent_retry(tmp_path: Path) -> None:
     env, service, request = setup(tmp_path / "retry.db")
     retry = exhaust(service, request)
@@ -179,6 +180,7 @@ def test_explicit_fail_delay_exhaustion_and_idempotent_retry(tmp_path: Path) -> 
     assert service.job(job_request(request, retry.job_id)) == current
 
 
+@pytest.mark.service
 def test_failure_due_order_rollback_and_disabled_plan_preserve_not_before(tmp_path: Path) -> None:
     env, service, request = setup(tmp_path / "due.db")
     service.schedule(request)
@@ -206,6 +208,7 @@ def test_failure_due_order_rollback_and_disabled_plan_preserve_not_before(tmp_pa
     assert service.job(job_request(request, failed.job_id)) == next_failure
 
 
+@pytest.mark.service
 @pytest.mark.parametrize("terminal", ["failed", "cancelled", "superseded", "succeeded"])
 def test_control_calls_cannot_resurrect_terminal_outcomes(tmp_path: Path, terminal: str) -> None:
     env, service, request = setup(tmp_path / "terminal.db")
@@ -248,6 +251,7 @@ def test_control_calls_cannot_resurrect_terminal_outcomes(tmp_path: Path, termin
         )
 
 
+@pytest.mark.service
 def test_retry_receipt_expiry_precedes_changed_input_and_survives_rollback(tmp_path: Path) -> None:
     env, service, request = setup(tmp_path / "expiry.db")
     retry = exhaust(service, request)
@@ -286,6 +290,7 @@ def test_retry_receipt_expiry_precedes_changed_input_and_survives_rollback(tmp_p
         )
 
 
+@pytest.mark.service
 @pytest.mark.parametrize("change", ["source", "guard", "plan", "worker", "grant", "replacement"])
 def test_fail_checks_actual_current_authority_and_claim(tmp_path: Path, change: str) -> None:
     env, service, request = setup(tmp_path / "fail-guards.db")
@@ -333,6 +338,7 @@ def test_fail_checks_actual_current_authority_and_claim(tmp_path: Path, change: 
         assert after.lifetime_attempts == before.lifetime_attempts + (change == "replacement")
 
 
+@pytest.mark.service
 def test_inclusive_failure_expiry_and_clock_watermark(tmp_path: Path) -> None:
     _, service, request = setup(tmp_path / "expired-fail.db")
     service.schedule(request)
@@ -349,6 +355,7 @@ def test_inclusive_failure_expiry_and_clock_watermark(tmp_path: Path) -> None:
     assert service.job(job_request(request, claimed.claim.job_id)).status == "retry_wait"
 
 
+@pytest.mark.service
 @pytest.mark.parametrize("reason", ["processor_unavailable", "purge_blocked", "awaiting_input"])
 def test_recovery_cannot_launder_owner_only_block(tmp_path: Path, reason: str) -> None:
     env, service, request = setup(tmp_path / "owner-only.db")
@@ -369,6 +376,7 @@ def test_recovery_cannot_launder_owner_only_block(tmp_path: Path, reason: str) -
     assert service.job(job_request(request, scheduled.job_id)).status == "superseded"
 
 
+@pytest.mark.service
 def test_recovery_plan_cas_counter_preservation_and_exhaustion(tmp_path: Path) -> None:
     env, service, request = setup(tmp_path / "plan.db")
     service.schedule(request)
@@ -420,6 +428,7 @@ def _process_control(path: str, operation: str, payload: str, at: str) -> str:
         return error.failure.code
 
 
+@pytest.mark.process
 def test_two_process_retry_controls_start_only_one_episode(tmp_path: Path) -> None:
     env, service, request = setup(tmp_path / "retry-race.db")
     retry = exhaust(service, request)
@@ -439,6 +448,7 @@ def test_two_process_retry_controls_start_only_one_episode(tmp_path: Path) -> No
     assert service.job(job_request(request, retry.job_id)).retry_episode == 2
 
 
+@pytest.mark.process
 def test_two_process_failure_cas_records_only_one_outcome(tmp_path: Path) -> None:
     env, service, request = setup(tmp_path / "fail-race.db")
     service.schedule(request)
@@ -460,6 +470,7 @@ def test_two_process_failure_cas_records_only_one_outcome(tmp_path: Path) -> Non
     assert service.job(job_request(request, claimed.claim.job_id)).status_version == 3
 
 
+@pytest.mark.process
 def test_recovery_and_late_failure_race_cannot_overwrite_reclaimed_attempt(tmp_path: Path) -> None:
     env, service, request = setup(tmp_path / "recover-race.db")
     service.schedule(request)
@@ -487,6 +498,7 @@ def test_recovery_and_late_failure_race_cannot_overwrite_reclaimed_attempt(tmp_p
     assert state.status == "retry_wait" and state.episode_attempts == 1
 
 
+@pytest.mark.service
 def test_recovery_pages_and_due_selection_order(tmp_path: Path) -> None:
     env, service, request = setup(tmp_path / "ordering.db")
     first = service.schedule(request)
@@ -524,6 +536,7 @@ def test_recovery_pages_and_due_selection_order(tmp_path: Path) -> None:
     assert service.claim(worker(request)).claim.job_id == second.job_id
 
 
+@pytest.mark.service
 @pytest.mark.parametrize("reason", ["plan_disabled", "authority_unavailable"])
 def test_actual_policy_rotation_supersedes_recoverable_block(tmp_path: Path, reason: str) -> None:
     env, service, request = setup(tmp_path / "policy.db")
@@ -553,6 +566,7 @@ def test_actual_policy_rotation_supersedes_recoverable_block(tmp_path: Path, rea
     assert service.job(job_request(current, scheduled.job_id)).status == "superseded"
 
 
+@pytest.mark.service
 def test_retry_replay_requires_original_worker_and_all_retained_targets(tmp_path: Path) -> None:
     env, service, request = setup(tmp_path / "retained.db")
     retry = exhaust(service, request)
@@ -577,6 +591,7 @@ def test_retry_replay_requires_original_worker_and_all_retained_targets(tmp_path
     )
 
 
+@pytest.mark.service
 @pytest.mark.parametrize("operation", ["fail", "retry", "recover"])
 def test_new_control_business_rollback_and_diagnostic_failure_independence(
     tmp_path: Path,
@@ -627,6 +642,7 @@ def test_new_control_business_rollback_and_diagnostic_failure_independence(
     assert service.job(job_request(request, job_id)).status_version == before.status_version + 1
 
 
+@pytest.mark.service
 def test_control_request_validation_rejects_unapproved_failure_classes(tmp_path: Path) -> None:
     _, service, request = setup(tmp_path / "strict.db")
     service.schedule(request)
@@ -646,6 +662,7 @@ def test_control_request_validation_rejects_unapproved_failure_classes(tmp_path:
         )
 
 
+@pytest.mark.service
 @pytest.mark.parametrize("explained", [False, True])
 def test_failure_diagnostic_correlates_actual_capture_only(tmp_path: Path, explained: bool) -> None:
     env, service, request = setup(tmp_path / "failure-report.db")
@@ -682,6 +699,7 @@ def test_failure_diagnostic_correlates_actual_capture_only(tmp_path: Path, expla
     )
 
 
+@pytest.mark.service
 def test_schedule_registration_and_restart(tmp_path: Path) -> None:
     env, service, request = setup(tmp_path / "store.db")
     admin = ProcessingAdministration(env.database, LocalAdminAuthority(principal_id="admin"))
@@ -729,6 +747,7 @@ def test_schedule_registration_and_restart(tmp_path: Path) -> None:
         assert connection.execute("SELECT COUNT(*) FROM write_key").fetchone()[0] == 1
 
 
+@pytest.mark.service
 def test_inclusive_expiry_backoff_fence_and_attempt_cap(tmp_path: Path) -> None:
     env, service, request = setup(tmp_path / "store.db")
     scheduled = service.schedule(request)
@@ -761,6 +780,7 @@ def test_inclusive_expiry_backoff_fence_and_attempt_cap(tmp_path: Path) -> None:
     assert service.job(job_request(request, scheduled.job_id)).lifetime_attempts == 10
 
 
+@pytest.mark.service
 def test_backward_clock_never_revives_and_heartbeat_renews(tmp_path: Path) -> None:
     _, service, request = setup(tmp_path / "store.db")
     service.schedule(request)
@@ -779,6 +799,7 @@ def test_backward_clock_never_revives_and_heartbeat_renews(tmp_path: Path) -> No
     assert service.claim(worker(request)).status == "no_work"
 
 
+@pytest.mark.service
 def test_schedule_retained_receipt_expiry_precedes_digest(tmp_path: Path) -> None:
     env, service, request = setup(tmp_path / "store.db")
     original = service.schedule(request)
@@ -809,6 +830,7 @@ def test_schedule_retained_receipt_expiry_precedes_digest(tmp_path: Path) -> Non
         service.schedule(request)
 
 
+@pytest.mark.service
 @pytest.mark.parametrize("change", ["source", "guard", "plan"])
 def test_live_claim_guards(tmp_path: Path, change: str) -> None:
     env, service, request = setup(tmp_path / "store.db")
@@ -834,6 +856,7 @@ def test_live_claim_guards(tmp_path: Path, change: str) -> None:
         assert row[1] is None and row[2] is None
 
 
+@pytest.mark.service
 @pytest.mark.parametrize(
     "field,value",
     [
@@ -860,6 +883,7 @@ def test_exact_selection_and_no_result_reports(
     assert not service.diagnostics.for_request(request.scope, denied.request_id).entries
 
 
+@pytest.mark.service
 @pytest.mark.parametrize("operation", ["claim", "jobs"])
 @pytest.mark.parametrize("revocation", ["worker", "grant", "plan"])
 def test_empty_report_fresh_authorization(
@@ -888,6 +912,7 @@ def test_empty_report_fresh_authorization(
     assert not service.diagnostics.recent(request.scope).entries
 
 
+@pytest.mark.service
 def test_reports_observe_real_execution_and_current_status(tmp_path: Path) -> None:
     env, service, request = setup(tmp_path / "store.db")
     result = service.schedule_explained(request)
@@ -926,6 +951,7 @@ def test_reports_observe_real_execution_and_current_status(tmp_path: Path) -> No
         stranger.claim(worker(request))
 
 
+@pytest.mark.service
 def test_strict_values_and_selection_target(tmp_path: Path) -> None:
     _, service, request = setup(tmp_path / "store.db")
     target = ProcessingSelectionTarget(**SELECTION.model_dump())
@@ -954,6 +980,7 @@ def _process_claim(path: str, payload: str) -> str:
     return service.claim(WorkerRequest.model_validate_json(payload)).model_dump_json()
 
 
+@pytest.mark.process
 def test_two_processes_cannot_claim_same_job(tmp_path: Path) -> None:
     env, service, request = setup(tmp_path / "store.db")
     service.schedule(request)
@@ -966,6 +993,7 @@ def test_two_processes_cannot_claim_same_job(tmp_path: Path) -> None:
     assert sorted(r.status for r in results) == ["claimed", "no_work"]
 
 
+@pytest.mark.service
 def test_diagnostic_allocation_failure_does_not_suppress_business(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -982,6 +1010,7 @@ def test_diagnostic_allocation_failure_does_not_suppress_business(
     assert service.job(job_request(request, result.job_id)).status == "queued"
 
 
+@pytest.mark.service
 def test_ordinary_summary_and_opt_in_details(tmp_path: Path) -> None:
     _, service, request = setup(tmp_path / "store.db")
     service.claim(worker(request))
@@ -992,6 +1021,7 @@ def test_ordinary_summary_and_opt_in_details(tmp_path: Path) -> None:
     assert detailed.report.capture_level == "detailed"
 
 
+@pytest.mark.service
 def test_restore_new_state_is_distinct_work_and_pages_are_bounded(tmp_path: Path) -> None:
     env, service, request = setup(tmp_path / "store.db")
     first = service.schedule(request)
@@ -1026,6 +1056,7 @@ def test_restore_new_state_is_distinct_work_and_pages_are_bounded(tmp_path: Path
     assert last.entries[0].job_id == second.job_id and last.next_after is None
 
 
+@pytest.mark.service
 def test_cross_corpus_document_and_job_isolation(tmp_path: Path) -> None:
     env, service, request = setup(tmp_path / "store.db")
     other = environment(env.database.path, corpus="other")
@@ -1050,6 +1081,7 @@ def test_cross_corpus_document_and_job_isolation(tmp_path: Path) -> None:
         assert connection.execute("SELECT COUNT(*) FROM processing_job").fetchone()[0] == 1
 
 
+@pytest.mark.service
 def test_inherited_budget_and_business_failure_roll_back(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -1080,6 +1112,7 @@ def test_inherited_budget_and_business_failure_roll_back(
         assert tuple(row) == ("queued", 0)
 
 
+@pytest.mark.service
 def test_immediate_report_revocation_and_irreversible_redaction(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -1119,6 +1152,7 @@ def test_immediate_report_revocation_and_irreversible_redaction(
     )
 
 
+@pytest.mark.service
 def test_other_owner_rejects_processing_selection(tmp_path: Path) -> None:
     from kg.diagnostics._targets import AuthorizationBinding
     from kg.evidence._diagnostic_authorization import EvidenceReportAuthorizer
@@ -1153,6 +1187,7 @@ def _process_reclaim(path: str, payload: str, at: str) -> str:
     return service.claim(WorkerRequest.model_validate_json(payload)).status
 
 
+@pytest.mark.process
 def test_heartbeat_reclaim_race_has_one_serialized_outcome(tmp_path: Path) -> None:
     env, service, request = setup(tmp_path / "store.db")
     scheduled = service.schedule(request)
@@ -1179,6 +1214,7 @@ def test_heartbeat_reclaim_race_has_one_serialized_outcome(tmp_path: Path) -> No
     assert outcome in {"renewed", "state_conflict"}
 
 
+@pytest.mark.service
 def test_claim_scan_bound_cannot_hide_remaining_due_work(tmp_path: Path) -> None:
     env, service, request = setup(tmp_path / "store.db")
     for i in range(201):
@@ -1208,6 +1244,7 @@ def test_claim_scan_bound_cannot_hide_remaining_due_work(tmp_path: Path) -> None
         )
 
 
+@pytest.mark.service
 def test_cursor_sqlite_integer_boundary(tmp_path: Path) -> None:
     _, service, request = setup(tmp_path / "store.db")
     assert (
@@ -1230,6 +1267,7 @@ def test_cursor_sqlite_integer_boundary(tmp_path: Path) -> None:
         )
 
 
+@pytest.mark.service
 @pytest.mark.parametrize("operation", ["plan", "worker"])
 @pytest.mark.parametrize("failure", ["deadline", "resource"])
 @pytest.mark.parametrize("phase", ["entry", "after_mutation"])

@@ -13,6 +13,7 @@ from kg.graph import session as module
 from kg.graph._session_types import GraphSessionError
 
 
+@pytest.mark.service
 def test_unexpected_disposal_keeps_custody_after_partial_release(tmp_path, monkeypatch):
     env, session, builds = setup(tmp_path, monkeypatch)
     session._run_read(env.scope, count)
@@ -40,6 +41,7 @@ def test_unexpected_disposal_keeps_custody_after_partial_release(tmp_path, monke
         session.close()
 
 
+@pytest.mark.service
 def test_stage_close_exception_never_consumes_reachable_owner(tmp_path, monkeypatch):
     env, session, builds = setup(tmp_path, monkeypatch)
     original, cleanup = build.StagedGraph.transfer, build.retry_graph_cleanup
@@ -62,6 +64,7 @@ def test_stage_close_exception_never_consumes_reachable_owner(tmp_path, monkeypa
         session.close()
 
 
+@pytest.mark.service
 def test_early_sql_setup_and_failed_close_residue_blocks_next_build(tmp_path, monkeypatch):
     env, session, builds = setup(tmp_path, monkeypatch)
     initialize, close = observer._initialize_connection, AccountedConnection._close_observer
@@ -93,6 +96,7 @@ def test_early_sql_setup_and_failed_close_residue_blocks_next_build(tmp_path, mo
         assert not session.close().cleanup_pending
 
 
+@pytest.mark.service
 def test_owner_parks_for_explicit_retry_even_when_log_handler_raises(tmp_path, monkeypatch):
     env, session, _ = setup(tmp_path, monkeypatch)
     session._run_read(env.scope, count)
@@ -119,6 +123,7 @@ def test_owner_parks_for_explicit_retry_even_when_log_handler_raises(tmp_path, m
     assert not thread.is_alive() and len(calls) == 1
 
 
+@pytest.mark.service
 def test_lost_original_observer_cannot_be_reopened_into_trust(tmp_path, monkeypatch):
     env, session, builds = setup(tmp_path, monkeypatch)
     try:
@@ -133,6 +138,7 @@ def test_lost_original_observer_cannot_be_reopened_into_trust(tmp_path, monkeypa
         session.close()
 
 
+@pytest.mark.service
 def test_failed_stage_close_permanently_forbids_transfer(tmp_path, monkeypatch):
     env, session, _ = setup(tmp_path, monkeypatch)
     request = session._admit(build=True, cancel=None)
@@ -166,6 +172,7 @@ def test_failed_stage_close_permanently_forbids_transfer(tmp_path, monkeypatch):
         session.close()
 
 
+@pytest.mark.service
 @pytest.mark.parametrize("failure", ["mapping_log", "partial_cleanup"])
 def test_failed_build_always_hands_off_custody_after_unexpected_exception(
     tmp_path, monkeypatch, failure,

@@ -38,6 +38,7 @@ def _complete(call_id: str, content: str) -> dict[str, object]:
     }
 
 
+@pytest.mark.unit
 def test_host_success_is_not_process_or_delivery_success(tmp_path: Path) -> None:
     collector = _collector()
     run = tmp_path / "run"
@@ -82,6 +83,7 @@ def test_host_success_is_not_process_or_delivery_success(tmp_path: Path) -> None
     assert "Do not export" not in json.dumps(result)
 
 
+@pytest.mark.unit
 def test_only_selected_run_is_exported_and_paths_with_spaces_work(tmp_path: Path) -> None:
     collector = _collector()
     run = tmp_path / "run with spaces"
@@ -102,6 +104,7 @@ def test_only_selected_run_is_exported_and_paths_with_spaces_work(tmp_path: Path
     assert result["calls"][0]["invocations"][0]["arguments"] == ["read", "note.md"]
 
 
+@pytest.mark.unit
 def test_incomplete_host_log_is_explicit_not_an_empty_success(tmp_path: Path) -> None:
     path = tmp_path / "events.jsonl"
     path.write_text('{"type":')
@@ -109,6 +112,7 @@ def test_incomplete_host_log_is_explicit_not_an_empty_success(tmp_path: Path) ->
         _collector().collect(path, tmp_path / "run")
 
 
+@pytest.mark.unit
 def test_index_arm_correlates_and_unconfigured_attempts_remain_visible(tmp_path: Path) -> None:
     run = tmp_path / "run"
     run.mkdir()

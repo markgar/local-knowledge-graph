@@ -52,8 +52,8 @@ jobs:
       - name: Install dependencies
         run: uv sync --extra dev
 
-      - name: Run tests
-        run: uv run pytest
+      - name: Run complete test collection (optional native may skip)
+        run: uv run pytest tests
 
       - name: Run lint
         run: uv run ruff check .
