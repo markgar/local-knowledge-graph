@@ -2,6 +2,7 @@
 
 from pathlib import Path
 
+import pytest
 from support.classification import typed_entity
 from support.evidence import put, receipt
 from support.knowledge import revision
@@ -111,6 +112,7 @@ def apply(env, value):
     return reader
 
 
+@pytest.mark.process
 def test_fixture_coverage_review_decision_export_and_certificate_without_false_ownership(tmp_path):
     env = setup(tmp_path / "coverage.sqlite")
     root = Path(__file__).parents[1] / "corpora/fixtures/atlas-vault"
@@ -240,6 +242,7 @@ def test_fixture_coverage_review_decision_export_and_certificate_without_false_o
     assert not reader.entities(env.scope, name="Example").entries
 
 
+@pytest.mark.service
 def test_non_atlas_document_local_same_names_keep_distinct_ids_and_no_edges(tmp_path):
     env = setup(tmp_path / "local-identities.sqlite")
     first = capture(env, "north", "The north collection labels its basalt specimen Core.")

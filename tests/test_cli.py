@@ -16,6 +16,7 @@ from kg.retrieval.dense import DenseIndexError, EmbeddingProfile
 RUNNER = CliRunner()
 
 
+@pytest.mark.functional
 def test_json_manifest_error_is_machine_readable(tmp_path: Path) -> None:
     result = RUNNER.invoke(
         app,
@@ -35,6 +36,7 @@ def test_json_manifest_error_is_machine_readable(tmp_path: Path) -> None:
     assert "Could not read manifest" in error["message"]
 
 
+@pytest.mark.functional
 def test_json_query_error_is_machine_readable(tmp_path: Path) -> None:
     manifest = tmp_path / "corpus.yml"
     vault = tmp_path / "vault"
@@ -67,6 +69,7 @@ def test_json_query_error_is_machine_readable(tmp_path: Path) -> None:
     assert json.loads(result.stderr)["error"] == "invalid_query"
 
 
+@pytest.mark.functional
 def test_evidence_command_returns_exact_record_anchor(tmp_path: Path) -> None:
     manifest = tmp_path / "corpus.yml"
     vault = tmp_path / "vault"
@@ -102,6 +105,7 @@ def test_evidence_command_returns_exact_record_anchor(tmp_path: Path) -> None:
     assert json.loads(evidence.stdout)["quote"] == "Evidence passage."
 
 
+@pytest.mark.functional
 def test_natural_query_matching_remains_available_at_component_boundary(tmp_path: Path) -> None:
     manifest = tmp_path / "corpus.yml"
     vault = tmp_path / "vault"
@@ -127,6 +131,7 @@ def test_natural_query_matching_remains_available_at_component_boundary(tmp_path
     assert result[0].quote == "Evidence passage."
 
 
+@pytest.mark.functional
 def test_status_without_since_includes_old_dated_evidence(tmp_path: Path) -> None:
     manifest = tmp_path / "corpus.yml"
     vault = tmp_path / "vault"
@@ -175,6 +180,7 @@ def test_status_without_since_includes_old_dated_evidence(tmp_path: Path) -> Non
     )
 
 
+@pytest.mark.functional
 @pytest.mark.parametrize("use_context", [False, True])
 def test_dense_index_and_product_search_configuration_through_cli(
     tmp_path: Path,
@@ -292,6 +298,7 @@ def test_dense_index_and_product_search_configuration_through_cli(
     assert json.loads(search_result.stdout)[0]["quote"] == "Semantic evidence."
 
 
+@pytest.mark.functional
 def test_dense_encode_error_is_machine_readable(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -344,6 +351,7 @@ def test_dense_encode_error_is_machine_readable(
     }
 
 
+@pytest.mark.functional
 @pytest.mark.parametrize("use_context", [False, True])
 def test_product_search_preserves_hybrid_evidence_payload_through_cli(
     tmp_path: Path,
@@ -413,6 +421,7 @@ def test_product_search_preserves_hybrid_evidence_payload_through_cli(
     assert json.loads(result.stdout)[0]["quote"] == "Hybrid evidence."
 
 
+@pytest.mark.functional
 @pytest.mark.parametrize("use_context", [False, True])
 def test_product_search_preserves_reranked_evidence_payload_through_cli(
     tmp_path: Path,

@@ -19,6 +19,7 @@ from kg.models.foundation import Failure, WriteBatch
 AT = datetime(2026, 1, 1, tzinfo=UTC)
 
 
+@pytest.mark.service
 def test_inherited_write_budget_and_nested_fetch_stop_roll_back(tmp_path):
     env = environment(tmp_path / "local.db")
     budget = PrivateBudget(Deadline(time.monotonic() + 30))
@@ -41,6 +42,7 @@ def test_inherited_write_budget_and_nested_fetch_stop_roll_back(tmp_path):
         pytest.fail("Expired owner context admitted a cap")
 
 
+@pytest.mark.service
 def test_write_budget_deadline_cannot_widen_and_default_remains_unbudgeted(tmp_path, monkeypatch):
     env = environment(tmp_path / "local.db")
     deadline = Deadline(time.monotonic() + 30)
@@ -66,6 +68,7 @@ def test_write_budget_deadline_cannot_widen_and_default_remains_unbudgeted(tmp_p
         assert connection.execute("SELECT epoch FROM processing_guard").fetchone()[0] == 0
 
 
+@pytest.mark.service
 def test_inherited_write_commits_immediately_after_final_settlement(tmp_path, monkeypatch):
     env = environment(tmp_path / "local.db")
     deadline = Deadline(time.monotonic() + 30)
@@ -121,6 +124,7 @@ def coordinated(env, request, participant, *, at=AT):
     )
 
 
+@pytest.mark.service
 def test_one_owner_transaction_ack_then_immediate_commit_and_lifetime(tmp_path) -> None:
     env = environment(tmp_path / "coord.db")
     participant = Participant()
@@ -136,6 +140,7 @@ def test_one_owner_transaction_ack_then_immediate_commit_and_lifetime(tmp_path) 
         assert connection.execute("SELECT count(*) FROM state_intent").fetchone()[0] == 1
 
 
+@pytest.mark.service
 def test_ack_failure_rolls_back_state_intent_epoch_receipt_clock(tmp_path) -> None:
     env = environment(tmp_path / "rollback.db")
     participant = Participant(fail=True)
@@ -150,6 +155,7 @@ def test_ack_failure_rolls_back_state_intent_epoch_receipt_clock(tmp_path) -> No
             assert connection.execute(f"SELECT count(*) FROM {table}").fetchone()[0] == 0
 
 
+@pytest.mark.service
 @pytest.mark.parametrize(
     "action", ["commit", "rollback", "close", "COMMIT", "ROLLBACK", "SAVEPOINT x"],
 )
@@ -166,6 +172,7 @@ def test_participant_cannot_own_transaction(tmp_path, action) -> None:
         assert connection.in_transaction
 
 
+@pytest.mark.service
 def test_settled_replay_is_historical_and_never_guarded_or_acknowledged(tmp_path) -> None:
     env = environment(tmp_path / "replay.db")
     env.service._clock = lambda: AT
@@ -180,6 +187,7 @@ def test_settled_replay_is_historical_and_never_guarded_or_acknowledged(tmp_path
     assert not any("INSERT INTO state_intent" in sql for sql in settled.sql)
 
 
+@pytest.mark.service
 def test_first_observation_requires_original_receipt_state_still_current(tmp_path) -> None:
     env = environment(tmp_path / "first.db")
     env.service._clock = lambda: AT
@@ -195,6 +203,7 @@ def test_first_observation_requires_original_receipt_state_still_current(tmp_pat
     assert stale.events == ["classify", "guard"]
 
 
+@pytest.mark.service
 def test_linkage_mismatch_is_not_receipt_adoption(tmp_path) -> None:
     env = environment(tmp_path / "link.db")
     request = put(env.scope)
@@ -206,6 +215,7 @@ def test_linkage_mismatch_is_not_receipt_adoption(tmp_path) -> None:
     assert bad.events == ["classify"]
 
 
+@pytest.mark.service
 def test_retained_authorization_precedes_clock_expiry_and_digest(tmp_path) -> None:
     env = environment(tmp_path / "auth.db")
     request = put(env.scope)
@@ -233,6 +243,7 @@ def test_retained_authorization_precedes_clock_expiry_and_digest(tmp_path) -> No
     assert result.error.code == "retry_expired"
 
 
+@pytest.mark.service
 def test_mixed_units_expiry_maintenance_survives_conflict_and_continues(tmp_path) -> None:
     env = environment(tmp_path / "mixed.db")
     early = put(env.scope, external="expired")
@@ -275,6 +286,7 @@ def test_mixed_units_expiry_maintenance_survives_conflict_and_continues(tmp_path
         assert connection.execute("SELECT count(*) FROM write_response").fetchone()[0] == 1
 
 
+@pytest.mark.service
 def test_settled_failure_does_not_retry_or_ack(tmp_path) -> None:
     env = environment(tmp_path / "failed.db")
     failure = Failure(code="state_conflict", diagnostic_id="recorded-failure")
@@ -283,6 +295,7 @@ def test_settled_failure_does_not_retry_or_ack(tmp_path) -> None:
     assert participant.events == ["classify"]
 
 
+@pytest.mark.service
 def test_missing_unexpired_response_is_corruption_not_new_work(tmp_path) -> None:
     env = environment(tmp_path / "corrupt.db")
     request = put(env.scope)
@@ -296,6 +309,7 @@ def test_missing_unexpired_response_is_corruption_not_new_work(tmp_path) -> None
         assert connection.execute("SELECT count(*) FROM state_intent").fetchone()[0] == 1
 
 
+@pytest.mark.service
 @pytest.mark.parametrize("commit_happened", [False, True])
 def test_commit_exception_is_unknown_even_when_rollback_returns(
     tmp_path, monkeypatch, commit_happened,
@@ -319,6 +333,7 @@ def test_commit_exception_is_unknown_even_when_rollback_returns(
         assert count == int(commit_happened)
 
 
+@pytest.mark.service
 def test_rollback_error_preserves_primary_error_and_unknown_outcome(tmp_path, monkeypatch):
     env = environment(tmp_path / "rollback-error.db")
 
@@ -335,6 +350,7 @@ def test_rollback_error_preserves_primary_error_and_unknown_outcome(tmp_path, mo
     assert context.commit_outcome == "unknown"
 
 
+@pytest.mark.service
 def test_read_only_receipt_seam_miss_does_not_allocate_key(tmp_path):
     env = environment(tmp_path / "missing.db")
     request = put(env.scope)

@@ -2,8 +2,11 @@
 
 import json
 
+import pytest
 from test_canonical_cli import call
 from test_canonical_cli import configured as configured
+
+pytestmark = pytest.mark.functional
 
 
 def test_unresolved_claim_selection_history_and_withdrawal_json_workflow(configured):

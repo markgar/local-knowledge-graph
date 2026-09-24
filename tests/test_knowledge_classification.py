@@ -21,6 +21,8 @@ from kg.models.foundation import (
     WithdrawClassification,
 )
 
+pytestmark = pytest.mark.service
+
 
 def classified(support, name="Export"):
     return (

@@ -42,6 +42,7 @@ def _json(path: Path) -> Any:
     return json.loads(path.read_text(encoding="utf-8"))
 
 
+@pytest.mark.acceptance
 def test_output_is_byte_deterministic_and_refuses_overwrite(
     generator: ModuleType, tmp_path: Path,
 ) -> None:
@@ -58,6 +59,7 @@ def test_output_is_byte_deterministic_and_refuses_overwrite(
     assert (tmp_path / "first/gold.json").read_bytes() == snapshots[0][Path("gold.json")]
 
 
+@pytest.mark.acceptance
 def test_cli_builds_inputs_in_new_directory(tmp_path: Path) -> None:
     output = tmp_path / "cli-input"
     command = [
@@ -72,6 +74,7 @@ def test_cli_builds_inputs_in_new_directory(tmp_path: Path) -> None:
     assert second.returncode != 0 and "FileExistsError" in second.stderr
 
 
+@pytest.mark.acceptance
 def test_scale_dates_genres_and_original_sources(expanded: dict[str, Any]) -> None:
     manifest = load_manifest(expanded["manifest_path"])
     selection = select_sources(manifest)
@@ -106,6 +109,7 @@ def test_scale_dates_genres_and_original_sources(expanded: dict[str, Any]) -> No
     assert len(metadata["sources"]) == 483
 
 
+@pytest.mark.acceptance
 def test_gold_is_frozen_upfront_and_citations_exist(expanded: dict[str, Any]) -> None:
     questions = _json(expanded["questions_path"])
     gold = _json(expanded["gold_path"])["answers"]
@@ -150,6 +154,7 @@ def test_gold_is_frozen_upfront_and_citations_exist(expanded: dict[str, Any]) ->
     assert "removed 15 omissions" in august and "not a task completion" in august
 
 
+@pytest.mark.acceptance
 def test_every_gold_rule_has_an_anchored_citation(expanded: dict[str, Any]) -> None:
     root = load_manifest(expanded["manifest_path"]).vault_root
     gold = _json(expanded["gold_path"])["answers"]
@@ -169,6 +174,7 @@ def test_every_gold_rule_has_an_anchored_citation(expanded: dict[str, Any]) -> N
         assert not any(needle.startswith("date: ") for needle in rule["contains"])
 
 
+@pytest.mark.acceptance
 def test_unknown_approval_cites_latest_explicit_absence(expanded: dict[str, Any]) -> None:
     gold = _json(expanded["gold_path"])
     expected = gold["answers"]["unknown-approval"]
@@ -186,6 +192,7 @@ def test_unknown_approval_cites_latest_explicit_absence(expanded: dict[str, Any]
     assert any("Post-run gold maintenance" in note for note in metadata["design"])
 
 
+@pytest.mark.acceptance
 def test_ingestion_effective_state_and_exact_provenance(expanded: dict[str, Any]) -> None:
     manifest = load_manifest(expanded["manifest_path"])
     database = Database(manifest.database)

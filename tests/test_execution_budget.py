@@ -30,6 +30,7 @@ def pool() -> PrivateBudget:
     return PrivateBudget(Deadline(time.monotonic() + 30))
 
 
+@pytest.mark.unit
 def test_exact_five_stage_schedule_and_stop_before_fifth() -> None:
     stages = (
         "search_temp", "search_lexical", "search_vector", "search_rerank", "search_final_evidence",
@@ -53,6 +54,7 @@ def test_exact_five_stage_schedule_and_stop_before_fifth() -> None:
             meter.begin_step("empty")
 
 
+@pytest.mark.unit
 def test_steps_inherit_one_private_pool_no_hidden_public_charges() -> None:
     budget = pool()
     meter = LocalExecutionMeter(budget, max_operations=3, max_items=10)
@@ -66,6 +68,7 @@ def test_steps_inherit_one_private_pool_no_hidden_public_charges() -> None:
     assert vars(meter.public_accounting()) == {"operations_executed": 2, "items_consumed": 0}
 
 
+@pytest.mark.unit
 def test_scratch_aggregate_unit_copy_and_idempotent_release() -> None:
     budget = pool()
     held = budget.reserve_scratch(128 << 20, "general")
@@ -93,6 +96,7 @@ def test_scratch_aggregate_unit_copy_and_idempotent_release() -> None:
         pass
 
 
+@pytest.mark.unit
 def test_deadline_and_lock_wait_are_bounded(monkeypatch) -> None:
     budget = pool()
     reservation = budget.reserve_scratch(1, "text")
@@ -111,6 +115,7 @@ def test_deadline_and_lock_wait_are_bounded(monkeypatch) -> None:
         expired_lock._lock.release()
 
 
+@pytest.mark.unit
 @pytest.mark.parametrize("amount", [0, -1, True, 1.5])
 def test_invalid_reservations(amount) -> None:
     budget = pool()
@@ -120,6 +125,7 @@ def test_invalid_reservations(amount) -> None:
         budget.reserve_vm(amount)
 
 
+@pytest.mark.service
 def test_sql_prepays_quantum_shrinks_remainder_and_never_refunds() -> None:
     budget = pool()
     connection = sqlite3.connect(":memory:", factory=AccountedConnection)
@@ -137,6 +143,7 @@ def test_sql_prepays_quantum_shrinks_remainder_and_never_refunds() -> None:
         connection.close()
 
 
+@pytest.mark.service
 def test_busy_timeout_helper_is_metered_before_its_first_instruction() -> None:
     budget = pool()
     connection = sqlite3.connect(":memory:", factory=AccountedConnection)
@@ -150,6 +157,7 @@ def test_busy_timeout_helper_is_metered_before_its_first_instruction() -> None:
         connection.close()
 
 
+@pytest.mark.service
 def test_precise_progress_prepays_helpers_shrinks_remainder_and_never_refunds():
     budget = pool()
     connection = sqlite3.connect(":memory:", factory=AccountedConnection)
@@ -171,6 +179,7 @@ def test_precise_progress_prepays_helpers_shrinks_remainder_and_never_refunds():
         connection.close()
 
 
+@pytest.mark.service
 def test_precise_progress_interrupt_preserves_local_pool_and_restores_mode():
     budget = pool()
     local = budget.limited(max_visits=10_000)
@@ -190,6 +199,7 @@ def test_precise_progress_interrupt_preserves_local_pool_and_restores_mode():
         connection.close()
 
 
+@pytest.mark.service
 def test_sql_progress_interrupt_is_typed_and_rows_charge_privately() -> None:
     budget = pool()
     connection = sqlite3.connect(":memory:", factory=AccountedConnection)
@@ -213,6 +223,7 @@ ROWS = (
 )
 
 
+@pytest.mark.service
 def test_nested_local_caps_enforce_actual_fetches_and_do_not_reset_global_pool():
     budget = pool()
     connection = sqlite3.connect(":memory:", factory=AccountedConnection)
@@ -243,6 +254,7 @@ def test_nested_local_caps_enforce_actual_fetches_and_do_not_reset_global_pool()
         connection.close()
 
 
+@pytest.mark.unit
 def test_local_siblings_share_vm_scratch_and_deadline(monkeypatch):
     budget = pool()
     first = budget.limited(max_visits=2)
@@ -271,12 +283,14 @@ def test_local_siblings_share_vm_scratch_and_deadline(monkeypatch):
         first.limited(max_visits=1)
 
 
+@pytest.mark.unit
 @pytest.mark.parametrize("amount", [0, -1, True, 1.5, 100_001])
 def test_invalid_local_caps(amount):
     with pytest.raises(ValueError):
         pool().limited(max_visits=amount)
 
 
+@pytest.mark.service
 def test_connection_cannot_widen_or_replace_local_pool():
     budget = pool()
     local = budget.limited(max_visits=1)
@@ -296,6 +310,7 @@ def bulk():
     return _graph_build_operation(deadline=Deadline(time.monotonic() + 300), cancel=Event())
 
 
+@pytest.mark.unit
 def test_bulk_factory_preserves_exact_operation_identity_and_frozen_fields():
     deadline, cancel = Deadline(time.monotonic() + 300), Event()
     operation = _graph_build_operation(deadline=deadline, cancel=cancel)
@@ -320,6 +335,7 @@ def test_bulk_factory_preserves_exact_operation_identity_and_frozen_fields():
         _graph_build_operation(deadline=deadline, cancel=cancel)
 
 
+@pytest.mark.acceptance
 def test_bulk_retained_nested_sql_views_exceed_interactive_totals_without_reset():
     operation = bulk()
     budget = operation.budget
@@ -357,6 +373,7 @@ def test_bulk_retained_nested_sql_views_exceed_interactive_totals_without_reset(
         connection.close()
 
 
+@pytest.mark.unit
 def test_bulk_explicit_limits_are_not_widened_and_stops_are_terminal():
     operation = bulk()
     finite = operation.budget.limited(max_visits=2)
@@ -373,6 +390,7 @@ def test_bulk_explicit_limits_are_not_widened_and_stops_are_terminal():
             bulk().budget.limited(max_visits=invalid)
 
 
+@pytest.mark.acceptance
 @pytest.mark.parametrize("precise", [False, True])
 def test_bulk_sql_prepayment_and_progress_exceed_ten_million(precise):
     operation = bulk()
@@ -401,6 +419,7 @@ def test_bulk_sql_prepayment_and_progress_exceed_ten_million(precise):
         connection.close()
 
 
+@pytest.mark.unit
 def test_bulk_semantic_schedule_stays_on_existing_step_abi():
     operation = bulk()
     child = _selection_budget(operation.budget)
@@ -419,6 +438,7 @@ def test_bulk_semantic_schedule_stays_on_existing_step_abi():
     assert operation.snapshot().stop_reason is None
 
 
+@pytest.mark.unit
 @pytest.mark.parametrize("stop", ["cancelled", "deadline", "resource"])
 def test_bulk_terminal_snapshots_and_cleanup_preserve_work_and_peak(stop, monkeypatch):
     operation = bulk()
@@ -457,6 +477,7 @@ def test_bulk_terminal_snapshots_and_cleanup_preserve_work_and_peak(stop, monkey
     assert after.semantic_items_reserved == 1
 
 
+@pytest.mark.service
 @pytest.mark.parametrize("precise", [False, True])
 def test_bulk_cancellation_during_sql_progress_and_between_batches(precise, monkeypatch):
     operation = bulk()
@@ -504,6 +525,7 @@ def test_bulk_cancellation_during_sql_progress_and_between_batches(precise, monk
         connection.close()
 
 
+@pytest.mark.process
 def test_bulk_cancel_interrupts_root_lock_wait_without_replacing_deadline(monkeypatch):
     operation = bulk()
     checked = Event()
@@ -528,6 +550,7 @@ def test_bulk_cancel_interrupts_root_lock_wait_without_replacing_deadline(monkey
     assert operation.snapshot().stop_reason == "cancelled"
 
 
+@pytest.mark.unit
 @pytest.mark.parametrize("unit,limit", [("text", 8), ("context", 8),
                                       ("vector", 16), ("reranker", 8)])
 def test_bulk_per_unit_scratch_limits_unchanged(unit, limit):
@@ -538,6 +561,7 @@ def test_bulk_per_unit_scratch_limits_unchanged(unit, limit):
     assert operation.snapshot().scratch_live_bytes == 0
 
 
+@pytest.mark.service
 @pytest.mark.parametrize("profile,maximum", [("interactive", 5000), ("bulk", 100)])
 def test_busy_timeout_profile_preserves_prepaid_helper(profile, maximum):
     budget = bulk().budget if profile == "bulk" else pool()
@@ -550,6 +574,7 @@ def test_busy_timeout_profile_preserves_prepaid_helper(profile, maximum):
         connection.close()
 
 
+@pytest.mark.unit
 def test_remote_budget_profile_and_selection_keep_existing_rpc_contract():
     from kg.query._meter import RemoteBudget
 
@@ -566,6 +591,7 @@ def test_remote_budget_profile_and_selection_keep_existing_rpc_contract():
     assert child.resource_profile == "interactive/1"
 
 
+@pytest.mark.service
 def test_graph_observer_rebinding_charges_current_poll_and_clears_statement_stop():
     connection = sqlite3.connect(":memory:", factory=AccountedConnection)
     first, second = pool(), pool()

@@ -34,7 +34,10 @@ def inspection(request, result, **kwargs):
     )
 
 
-@pytest.mark.parametrize("count", [25, 1001])
+@pytest.mark.parametrize("count", [
+    pytest.param(25, marks=pytest.mark.process),
+    pytest.param(1001, marks=pytest.mark.acceptance),
+])
 def test_real_produced_count_display_and_full_inspection(tmp_path, count, monkeypatch):
     from kg.query._meter import Ledger
 
@@ -109,6 +112,7 @@ def test_real_produced_count_display_and_full_inspection(tmp_path, count, monkey
         )
 
 
+@pytest.mark.process
 @pytest.mark.parametrize("limit", [1, 2, 25, 26])
 def test_public_partial_count_and_exact_boundary(tmp_path, limit):
     env = setup(tmp_path / "partial.db")
@@ -125,6 +129,7 @@ def test_public_partial_count_and_exact_boundary(tmp_path, limit):
         assert {r.record_id for r in page.records} <= expected
 
 
+@pytest.mark.process
 def test_empty_ambiguity_and_retention_lifecycle(tmp_path):
     env = setup(tmp_path / "empty.db")
     with QueryService(env.database, env.service.identity) as service:
@@ -164,6 +169,7 @@ def no_data(outcome, reason):
     assert outcome.read_state_id is outcome.result_set_id is None
 
 
+@pytest.mark.process
 def test_exact_alias_ambiguity_incomplete_dependency_and_output_correlation(tmp_path):
     env = setup(tmp_path / "selectors.db")
     first, expected = produce(env, 3)
@@ -218,6 +224,7 @@ def test_exact_alias_ambiguity_incomplete_dependency_and_output_correlation(tmp_
         assert ambiguous.result.operations_executed == 1
 
 
+@pytest.mark.process
 @pytest.mark.parametrize("kind", ["action", "blocker", "conflict", "paths"])
 def test_unsupported_semantics_preflight_even_empty(tmp_path, kind):
     env = setup(tmp_path / "unsupported.db")
@@ -246,6 +253,7 @@ def test_unsupported_semantics_preflight_even_empty(tmp_path, kind):
         assert not service._support.sets
 
 
+@pytest.mark.process
 def test_unregistered_encoding_empty_subject_is_not_exact_zero(tmp_path):
     env = setup(tmp_path / "unregistered.db", registered=False)
     with QueryService(env.database, env.service.identity) as service:
@@ -253,6 +261,7 @@ def test_unregistered_encoding_empty_subject_is_not_exact_zero(tmp_path):
         assert service.capabilities(env.scope).record_types == ()
 
 
+@pytest.mark.process
 @pytest.mark.parametrize("phase", ["between_steps", "release", "inspection"])
 def test_actual_write_restore_invalidates_original_observer(tmp_path, monkeypatch, phase):
     from kg.query._meter import Ledger
@@ -305,6 +314,7 @@ def test_actual_write_restore_invalidates_original_observer(tmp_path, monkeypatc
         assert not service.diagnostics.for_request(env.scope, request.request_id).entries
 
 
+@pytest.mark.process
 def test_scope_policy_and_restart_do_not_unlock_support(tmp_path):
     env = setup(tmp_path / "scope.db")
     subject, _ = produce(env, 2)
@@ -354,6 +364,7 @@ def test_scope_policy_and_restart_do_not_unlock_support(tmp_path):
         )
 
 
+@pytest.mark.process
 def test_private_stop_after_retained_prefix_discards_everything(tmp_path, monkeypatch):
     from kg.query._meter import Ledger
 
@@ -376,6 +387,7 @@ def test_private_stop_after_retained_prefix_discards_everything(tmp_path, monkey
         assert exhausted and not service._support.sets and service._support.bytes == 0
 
 
+@pytest.mark.process
 def test_inspection_public_limit_never_releases_partial_slice(tmp_path):
     env = setup(tmp_path / "inspect-limit.db")
     subject, _ = produce(env, 25)
@@ -391,6 +403,7 @@ def test_inspection_public_limit_never_releases_partial_slice(tmp_path):
         assert service.inspect_support(inspection(request, result.result)).total == 25
 
 
+@pytest.mark.process
 def test_retention_quotas_do_not_evict_or_partially_publish(tmp_path, monkeypatch):
     from kg.query import _retention
 
@@ -410,6 +423,7 @@ def test_retention_quotas_do_not_evict_or_partially_publish(tmp_path, monkeypatc
         assert service._support.bytes == retained
 
 
+@pytest.mark.process
 def test_complete_conjunctive_support_and_exact_sequence_witness(tmp_path, monkeypatch):
     import kg.knowledge._write as writes
     from kg.knowledge import KnowledgeService
@@ -512,6 +526,7 @@ def test_complete_conjunctive_support_and_exact_sequence_witness(tmp_path, monke
         assert service.execute(request).result.data.count == 0
 
 
+@pytest.mark.process
 def test_deadline_close_and_expiry_do_not_publish_or_release_late(tmp_path, monkeypatch):
     env = setup(tmp_path / "late.db")
     subject, _ = produce(env, 1)
@@ -541,6 +556,7 @@ def test_deadline_close_and_expiry_do_not_publish_or_release_late(tmp_path, monk
     assert service._support.bytes == 0
 
 
+@pytest.mark.functional
 def test_executable_count_inspection_example(tmp_path):
     import json
     import subprocess
@@ -570,6 +586,7 @@ def test_executable_count_inspection_example(tmp_path):
     assert {r["record_id"] for r in page["records"]} == expected
 
 
+@pytest.mark.process
 def test_diagnostics_capacity_does_not_spend_business_revalidation_budget(tmp_path, monkeypatch):
     env = setup(tmp_path / "report-parity.db")
     subject, expected = produce(env, 133)
@@ -596,6 +613,7 @@ def test_diagnostics_capacity_does_not_spend_business_revalidation_budget(tmp_pa
         assert normal.outcome.records_examined == unavailable_result.outcome.records_examined == 133
 
 
+@pytest.mark.process
 def test_inspection_quota_is_reserved_before_retained_payload_copy(tmp_path, monkeypatch):
     from kg.query import _retention
     from kg.query._retention import size
@@ -621,6 +639,7 @@ def test_inspection_quota_is_reserved_before_retained_payload_copy(tmp_path, mon
         no_data(service.inspect_support(value), "retention_limit")
 
 
+@pytest.mark.process
 def test_ambiguity_report_labels_actual_entity_output(tmp_path):
     from kg.models.execution import ExplainOptions
 
@@ -638,6 +657,7 @@ def test_ambiguity_report_labels_actual_entity_output(tmp_path):
         assert event.support_set_id is None
 
 
+@pytest.mark.process
 def test_report_eviction_does_not_remove_valid_retained_support(tmp_path):
     env = setup(tmp_path / "independent-retention.db")
     subject, expected = produce(env, 25)

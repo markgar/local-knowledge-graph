@@ -1,9 +1,13 @@
+
+import pytest
 from support.graph import fixture, require_native
 
 from kg.evidence._read_context import read_evidence
 from kg.graph import LocalGraphSession
 
 
+@pytest.mark.native
+@pytest.mark.requires_native
 def test_real_native_lifecycle_sourceproofs_and_restart(tmp_path):
     require_native()
     env = fixture(tmp_path / "source.sqlite", decisions=12)

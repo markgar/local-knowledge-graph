@@ -117,6 +117,7 @@ def recorded(configured):
     return configured, file, added, support, mappings
 
 
+@pytest.mark.functional
 def test_complete_read_record_query_withdraw_update_journey(recorded):
     directory, file, added, support, mappings = recorded
     listed = call("find", "entities", "--limit", 1)["result"]
@@ -181,6 +182,7 @@ def test_complete_read_record_query_withdraw_update_journey(recorded):
     assert call("read", added["target"] + "@" + added["state"])["message"].startswith("Mira owns")
 
 
+@pytest.mark.functional
 def test_incident_relationships_preserve_empty_page_continuation(recorded):
     _, _, _, support, mappings = recorded
     first = call("find", "relationships", "Mira", "--limit", 1)["result"]
@@ -195,6 +197,7 @@ def test_incident_relationships_preserve_empty_page_continuation(recorded):
     assert "outgoing" in runner.invoke(app, ["find", "relationships", "Mira"]).stdout
 
 
+@pytest.mark.functional
 def test_exact_alias_ambiguity_and_no_prefix_uniqueness(recorded):
     directory, _, _, support, mappings = recorded
     changes = [
@@ -219,6 +222,7 @@ def test_exact_alias_ambiguity_and_no_prefix_uniqueness(recorded):
     call("find", "relationships", "entity:" + mappings["atlas"])
 
 
+@pytest.mark.functional
 @pytest.mark.parametrize("mutation", ["extra", "implicit", "missing_capture", "seed", "duplicate"])
 def test_strict_record_rejects_bad_input_atomically(recorded, mutation):
     directory, _, _, support, _ = recorded
@@ -249,6 +253,7 @@ def test_strict_record_rejects_bad_input_atomically(recorded, mutation):
     assert call("find", "entities", "New")["status"] == "empty"
 
 
+@pytest.mark.functional
 def test_duplicate_keys_and_invalid_json(configured):
     file = configured / "invalid.json"
     for text in ('{"support":[],"support":[],"changes":[]}', "{", '{"support":NaN}'):
@@ -256,6 +261,7 @@ def test_duplicate_keys_and_invalid_json(configured):
         call("record", "--retry-key", str(uuid4()), file, code=2)
 
 
+@pytest.mark.functional
 def test_owned_withdrawal_rejects_wrong_writer_and_non_assertions(recorded):
     _, _, _, _, mappings = recorded
     entity_read = call("read", "entity:" + mappings["atlas"])["result"]
@@ -277,6 +283,7 @@ def test_owned_withdrawal_rejects_wrong_writer_and_non_assertions(recorded):
     assert failed["code"] == "forbidden"
 
 
+@pytest.mark.functional
 def test_selection_budget_failure_is_not_unique(recorded, monkeypatch):
     from kg.evidence import EvidenceServiceError
 
@@ -288,6 +295,7 @@ def test_selection_budget_failure_is_not_unique(recorded, monkeypatch):
     assert response["code"] == "budget_exceeded" and "selected" not in response["result"]
 
 
+@pytest.mark.functional
 @pytest.mark.parametrize("error", [RuntimeError, KeyboardInterrupt])
 def test_unknown_record_outcome_is_not_retried(recorded, monkeypatch, error):
     directory, _, _, support, mappings = recorded
@@ -313,6 +321,7 @@ def test_unknown_record_outcome_is_not_retried(recorded, monkeypatch, error):
     assert result["status"] == "uncertain" and len(calls) == 1
 
 
+@pytest.mark.functional
 @pytest.mark.parametrize(
     "args",
     [
@@ -329,6 +338,7 @@ def test_knowledge_help_needs_no_profile(tmp_path, monkeypatch, args):
     assert not (tmp_path / "absent").exists()
 
 
+@pytest.mark.functional
 def test_installed_schema_example_and_strategy_are_discoverable():
     schema = call("record", "--retry-key", str(uuid4()), "--schema")["result"]["schema"]
     assert schema["additionalProperties"] is False
@@ -341,6 +351,7 @@ def test_installed_schema_example_and_strategy_are_discoverable():
     assert skill == files("kg.client").joinpath("SKILL.md").read_text()
 
 
+@pytest.mark.service
 def test_repository_and_installed_skill_match():
     repository = Path(__file__).resolve().parents[1] / ".github/skills/use-knowledge-graph/SKILL.md"
     if not repository.exists():
@@ -348,6 +359,7 @@ def test_repository_and_installed_skill_match():
     assert repository.read_bytes() == files("kg.client").joinpath("SKILL.md").read_bytes()
 
 
+@pytest.mark.functional
 @pytest.mark.parametrize("through,direction", [("owns", "outgoing"), ("^owns", "incoming")])
 def test_graph_request_and_full_envelope_forwarding(recorded, monkeypatch, through, direction):
     from kg.graph import LocalGraphSession
@@ -379,6 +391,7 @@ def test_graph_request_and_full_envelope_forwarding(recorded, monkeypatch, throu
     assert output["result"]["graph"] == returned[0]
 
 
+@pytest.mark.functional
 def test_actual_graph_session_unavailable_and_cleanup_failure(recorded, monkeypatch):
     from kg.graph import GraphSessionError, LocalGraphSession
     from kg.graph._native import NativeError
@@ -403,6 +416,7 @@ def test_actual_graph_session_unavailable_and_cleanup_failure(recorded, monkeypa
     assert failed["code"] == "cleanup_failed" and not failed["result"]
 
 
+@pytest.mark.functional
 def test_direct_query_partial_count_is_not_promoted_to_exact(recorded, monkeypatch):
     from kg.models.foundation import QueryBudget
     from kg.query import QueryService
@@ -434,6 +448,7 @@ def test_direct_query_partial_count_is_not_promoted_to_exact(recorded, monkeypat
     assert output["result"]["decisions"] == []
 
 
+@pytest.mark.functional
 def test_read_authorization_not_weakened(recorded):
     _, _, _, _, mappings = recorded
     profile = load_profile()
@@ -453,6 +468,7 @@ def test_read_authorization_not_weakened(recorded):
     assert call("read", "entity:" + mappings["atlas"], code=3)["code"] == "forbidden"
 
 
+@pytest.mark.functional
 def test_named_support_and_returned_entities_roundtrip(recorded):
     directory, _, added, support, mappings = recorded
     stored = call("read", "entity:" + mappings["atlas"])["result"]["reference"]
@@ -484,6 +500,7 @@ def test_named_support_and_returned_entities_roundtrip(recorded):
     assert stale["result"]["write"]["receipt"] is None
 
 
+@pytest.mark.functional
 @pytest.mark.parametrize(
     "mutation",
     ["unknown", "unused", "duplicate_capture", "duplicate_name", "duplicate_occurrence",
@@ -541,6 +558,7 @@ def test_named_input_rejection_precedes_any_write(recorded, monkeypatch, mutatio
     assert call("find", "entities", "New")["status"] == "empty"
 
 
+@pytest.mark.functional
 def test_named_conjunction_and_expanded_occurrence_limit(recorded, monkeypatch):
     from copy import deepcopy
 
@@ -587,6 +605,7 @@ def test_named_conjunction_and_expanded_occurrence_limit(recorded, monkeypatch):
     assert not writes
 
 
+@pytest.mark.functional
 def test_record_file_and_expanded_request_byte_limits(recorded, monkeypatch):
     from kg.client.knowledge import record_input
     from kg.models.foundation import MAX_REQUEST_BYTES, WriteRequest
@@ -620,6 +639,7 @@ def test_record_file_and_expanded_request_byte_limits(recorded, monkeypatch):
     assert not writes
 
 
+@pytest.mark.functional
 def test_entity_matching_help_and_empty_guidance(recorded):
     help_text = runner.invoke(app, ["find", "entities", "--help"]).stdout
     assert "not semantic search" in help_text
@@ -629,6 +649,7 @@ def test_entity_matching_help_and_empty_guidance(recorded):
     assert "source evidence" in empty["message"] and "--after" in empty["message"]
 
 
+@pytest.mark.functional
 @pytest.mark.parametrize("mutation", ["withdraw", "update", "unrelated", "revoke", "expiry"])
 def test_direct_hydration_withholds_composite_after_change(recorded, monkeypatch, mutation):
     from kg.evidence import EvidenceAdministration
@@ -669,6 +690,7 @@ def test_direct_hydration_withholds_composite_after_change(recorded, monkeypatch
     assert not ({"query", "inspection", "decisions", "count"} & result["result"].keys())
 
 
+@pytest.mark.functional
 @pytest.mark.parametrize("mutation", ["identity", "support", "denied", "budget"])
 def test_direct_hydration_rejects_mismatch_and_read_failure(recorded, monkeypatch, mutation):
     from kg.evidence import EvidenceServiceError
@@ -688,6 +710,7 @@ def test_direct_hydration_rejects_mismatch_and_read_failure(recorded, monkeypatc
     assert not ({"query", "inspection", "decisions", "count"} & result["result"].keys())
 
 
+@pytest.mark.functional
 @pytest.mark.parametrize("field", ["total", "exact", "read_state_id", "result_set_id",
                                  "records_step_id", "records", "next_ordinal", "exhausted"])
 def test_direct_inspection_correlation_rejects_mismatch(recorded, monkeypatch, field):
@@ -713,6 +736,7 @@ def test_direct_inspection_correlation_rejects_mismatch(recorded, monkeypatch, f
     assert not ({"query", "inspection", "decisions", "count"} & result["result"].keys())
 
 
+@pytest.mark.functional
 def test_direct_display_hydrates_only_selected_ids(recorded, monkeypatch):
     from kg.query import QueryService
 
@@ -736,6 +760,7 @@ def test_direct_display_hydrates_only_selected_ids(recorded, monkeypatch):
     assert result["display_complete"] and result["selection_complete"]
 
 
+@pytest.mark.functional
 def test_named_example_executes_and_schema_describes_both_modes(configured):
     document = configured / "meeting.md"
     document.write_text("Mira owns Atlas; Atlas will ship Friday.")
@@ -759,6 +784,7 @@ def test_named_example_executes_and_schema_describes_both_modes(configured):
     ] == "string"
 
 
+@pytest.mark.functional
 @pytest.mark.parametrize("truncated", [False, True])
 def test_graph_decision_presentation_preserves_both_proof_sides(recorded, monkeypatch, truncated):
     from kg.graph import LocalGraphSession
@@ -856,6 +882,7 @@ def test_graph_decision_presentation_preserves_both_proof_sides(recorded, monkey
     assert "Graph:" not in human
 
 
+@pytest.mark.functional
 def test_partial_nonzero_count_and_empty_exact_display(recorded, monkeypatch):
     from kg.models.foundation import QueryBudget
     from kg.query import QueryService
@@ -886,6 +913,7 @@ def test_partial_nonzero_count_and_empty_exact_display(recorded, monkeypatch):
     assert empty["selection_complete"] and empty["display_complete"]
 
 
+@pytest.mark.functional
 def test_final_inspection_release_withholds_intervening_write(recorded, monkeypatch):
     from kg.query import QueryService
 
@@ -913,6 +941,7 @@ def test_final_inspection_release_withholds_intervening_write(recorded, monkeypa
     assert not ({"query", "inspection", "decisions", "count"} & result["result"].keys())
 
 
+@pytest.mark.functional
 @pytest.mark.parametrize("oversized", ["changes", "declarations", "occurrences", "duplicates"])
 def test_named_support_is_bounded_before_expansion(recorded, monkeypatch, oversized):
     from kg.client.knowledge import normalize_record

@@ -5,6 +5,7 @@ import pytest
 from kg.config import ManifestError, load_manifest, read_source, select_sources
 
 
+@pytest.mark.unit
 def test_example_manifest_resolves_paths() -> None:
     manifest = load_manifest(Path("corpora/example.yml"))
 
@@ -16,6 +17,7 @@ def test_example_manifest_resolves_paths() -> None:
     assert selection.missing == []
 
 
+@pytest.mark.unit
 def test_manifest_rejects_symlink_sources_by_default(tmp_path: Path) -> None:
     vault = tmp_path / "vault"
     vault.mkdir()
@@ -36,6 +38,7 @@ def test_manifest_rejects_symlink_sources_by_default(tmp_path: Path) -> None:
         select_sources(load_manifest(manifest_path))
 
 
+@pytest.mark.unit
 def test_manifest_rejects_symlinked_parent_component(tmp_path: Path) -> None:
     vault = tmp_path / "vault"
     target = vault / "target"
@@ -56,6 +59,7 @@ def test_manifest_rejects_symlinked_parent_component(tmp_path: Path) -> None:
         select_sources(load_manifest(manifest_path))
 
 
+@pytest.mark.unit
 def test_source_bytes_and_metadata_come_from_open_descriptor(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -92,6 +96,7 @@ def test_source_bytes_and_metadata_come_from_open_descriptor(
     assert opened.observed_mtime
 
 
+@pytest.mark.unit
 def test_secure_read_rejects_source_swapped_outside_vault(tmp_path: Path) -> None:
     vault = tmp_path / "vault"
     vault.mkdir()
@@ -118,6 +123,7 @@ def test_secure_read_rejects_source_swapped_outside_vault(tmp_path: Path) -> Non
         read_source(manifest, selected)
 
 
+@pytest.mark.unit
 @pytest.mark.parametrize("use_symlink", [False, True])
 def test_allow_symlinks_reads_sources_that_remain_inside_vault(
     tmp_path: Path,

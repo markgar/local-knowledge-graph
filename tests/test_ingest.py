@@ -35,6 +35,7 @@ def _manifest(tmp_path: Path) -> Path:
     return manifest
 
 
+@pytest.mark.service
 def test_ingestion_is_idempotent_and_preserves_revisions(tmp_path: Path) -> None:
     manifest = load_manifest(_manifest(tmp_path))
     service = IngestService(Database(manifest.database))
@@ -87,6 +88,7 @@ def test_ingestion_is_idempotent_and_preserves_revisions(tmp_path: Path) -> None
     assert historical.status == "open"
 
 
+@pytest.mark.service
 def test_retrieval_returns_cited_actions_and_search_results(tmp_path: Path) -> None:
     manifest = load_manifest(_manifest(tmp_path))
     database = Database(manifest.database)
@@ -104,6 +106,7 @@ def test_retrieval_returns_cited_actions_and_search_results(tmp_path: Path) -> N
     assert retrieval.actions("Atlas", source_path="missing.md") == []
 
 
+@pytest.mark.service
 def test_removed_source_is_not_returned_as_current_evidence(tmp_path: Path) -> None:
     manifest = load_manifest(_manifest(tmp_path))
     database = Database(manifest.database)
@@ -118,6 +121,7 @@ def test_removed_source_is_not_returned_as_current_evidence(tmp_path: Path) -> N
     assert retrieval.search("evidence") == []
 
 
+@pytest.mark.service
 def test_moved_source_preserves_document_and_revision_identity(tmp_path: Path) -> None:
     manifest = load_manifest(_manifest(tmp_path))
     database = Database(manifest.database)
@@ -150,6 +154,7 @@ def test_moved_source_preserves_document_and_revision_identity(tmp_path: Path) -
     assert after["source_path"] == "renamed.md"
 
 
+@pytest.mark.service
 def test_move_onto_inactive_historical_path_preserves_active_lineage(
     tmp_path: Path,
 ) -> None:
@@ -188,6 +193,7 @@ def test_move_onto_inactive_historical_path_preserves_active_lineage(
     assert rows[1]["document_id"] != current_id
 
 
+@pytest.mark.service
 def test_shared_database_keeps_corpora_isolated(tmp_path: Path) -> None:
     first_manifest_path = _manifest(tmp_path / "first")
     first_manifest = load_manifest(first_manifest_path)
@@ -217,6 +223,7 @@ def test_shared_database_keeps_corpora_isolated(tmp_path: Path) -> None:
     assert [action.summary for action in second_actions] == ["Other task."]
 
 
+@pytest.mark.service
 def test_search_treats_punctuation_as_user_text(tmp_path: Path) -> None:
     manifest = load_manifest(_manifest(tmp_path))
     database = Database(manifest.database)
@@ -225,6 +232,7 @@ def test_search_treats_punctuation_as_user_text(tmp_path: Path) -> None:
     assert RetrievalService(database, manifest.corpus_id).search("evidence!")
 
 
+@pytest.mark.service
 def test_natural_search_matches_any_safely_quoted_term(tmp_path: Path) -> None:
     manifest = load_manifest(_manifest(tmp_path))
     database = Database(manifest.database)
@@ -235,6 +243,7 @@ def test_natural_search_matches_any_safely_quoted_term(tmp_path: Path) -> None:
     assert retrieval.search("unrelated evidence", query_mode="natural")
 
 
+@pytest.mark.service
 def test_invalid_source_does_not_rollback_valid_sources(tmp_path: Path) -> None:
     manifest = load_manifest(_manifest(tmp_path))
     (manifest.vault_root / "broken.md").write_text(
@@ -250,6 +259,7 @@ def test_invalid_source_does_not_rollback_valid_sources(tmp_path: Path) -> None:
     assert RetrievalService(database, manifest.corpus_id).search("evidence")
 
 
+@pytest.mark.service
 def test_failed_update_deactivates_stale_current_evidence(tmp_path: Path) -> None:
     manifest = load_manifest(_manifest(tmp_path))
     database = Database(manifest.database)
@@ -262,6 +272,7 @@ def test_failed_update_deactivates_stale_current_evidence(tmp_path: Path) -> Non
     assert RetrievalService(database, manifest.corpus_id).search("evidence") == []
 
 
+@pytest.mark.service
 def test_manifest_alias_change_reindexes_unchanged_revision(tmp_path: Path) -> None:
     manifest_path = _manifest(tmp_path)
     manifest_path.write_text(
@@ -291,6 +302,7 @@ def test_manifest_alias_change_reindexes_unchanged_revision(tmp_path: Path) -> N
     assert result[0].source_revision_id == revision
 
 
+@pytest.mark.service
 def test_seed_entities_can_be_removed_without_deleting_historical_identity(
     tmp_path: Path,
 ) -> None:
@@ -326,6 +338,7 @@ def test_seed_entities_can_be_removed_without_deleting_historical_identity(
     assert anchors > 0
 
 
+@pytest.mark.service
 def test_seed_entity_can_be_replaced_by_new_id_with_same_identity(
     tmp_path: Path,
 ) -> None:
@@ -361,6 +374,7 @@ def test_seed_entity_can_be_replaced_by_new_id_with_same_identity(
     ]
 
 
+@pytest.mark.service
 def test_ingestion_migrates_legacy_uniqueness_constraints(tmp_path: Path) -> None:
     manifest = load_manifest(_manifest(tmp_path))
     with sqlite3.connect(manifest.database) as connection:
@@ -412,6 +426,7 @@ def test_ingestion_migrates_legacy_uniqueness_constraints(tmp_path: Path) -> Non
     assert indexes == {"source_document_active_path_idx", "entity_active_name_idx"}
 
 
+@pytest.mark.service
 def test_status_resolves_explicit_wikilink_relationships(tmp_path: Path) -> None:
     vault = tmp_path / "vault"
     vault.mkdir()
@@ -468,6 +483,7 @@ metadata_fields:
     )
 
 
+@pytest.mark.service
 def test_status_uses_one_read_snapshot_during_concurrent_update(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -518,6 +534,7 @@ def test_status_uses_one_read_snapshot_during_concurrent_update(
     ]
 
 
+@pytest.mark.service
 def test_search_rejects_non_positive_limit(tmp_path: Path) -> None:
     manifest = load_manifest(_manifest(tmp_path))
     database = Database(manifest.database)
@@ -527,6 +544,7 @@ def test_search_rejects_non_positive_limit(tmp_path: Path) -> None:
         RetrievalService(database, manifest.corpus_id).search("evidence", limit=0)
 
 
+@pytest.mark.service
 def test_ingestion_persists_structured_tasks_and_explicit_records(tmp_path: Path) -> None:
     manifest = load_manifest(_manifest(tmp_path))
     (manifest.vault_root / "atlas.md").write_text(
@@ -558,6 +576,7 @@ def test_ingestion_persists_structured_tasks_and_explicit_records(tmp_path: Path
     assert [item.summary for item in status.conflicts] == ["Two sources disagree."]
 
 
+@pytest.mark.service
 def test_ingestion_preserves_multiline_explicit_record_text(tmp_path: Path) -> None:
     manifest = load_manifest(_manifest(tmp_path))
     (manifest.vault_root / "atlas.md").write_text(
@@ -588,6 +607,7 @@ def test_ingestion_preserves_multiline_explicit_record_text(tmp_path: Path) -> N
     ]
 
 
+@pytest.mark.service
 def test_code_and_literal_wikilinks_do_not_create_graph_evidence(
     tmp_path: Path,
 ) -> None:
@@ -635,6 +655,7 @@ def test_code_and_literal_wikilinks_do_not_create_graph_evidence(
     assert relationships == 1
 
 
+@pytest.mark.service
 def test_subject_scope_traverses_two_hops_across_documents(tmp_path: Path) -> None:
     vault = tmp_path / "vault"
     vault.mkdir()

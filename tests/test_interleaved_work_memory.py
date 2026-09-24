@@ -40,6 +40,7 @@ def _json(path: Path) -> Any:
     return json.loads(path.read_text(encoding="utf-8"))
 
 
+@pytest.mark.acceptance
 def test_default_corpus_is_large_interleaved_and_not_path_labeled(corpus: dict[str, Any]) -> None:
     manifest = load_manifest(corpus["manifest_path"])
     selected = select_sources(manifest)
@@ -71,6 +72,7 @@ def test_default_corpus_is_large_interleaved_and_not_path_labeled(corpus: dict[s
     assert not any(path.name in {"gold.json", "metadata.json"} for path in selected.paths)
 
 
+@pytest.mark.acceptance
 def test_frozen_gold_is_grounded_in_accessible_source_passages(corpus: dict[str, Any]) -> None:
     manifest = load_manifest(corpus["manifest_path"])
     questions = _json(corpus["questions_path"])
@@ -101,6 +103,7 @@ def test_frozen_gold_is_grounded_in_accessible_source_passages(corpus: dict[str,
     assert complex_questions >= 8
 
 
+@pytest.mark.acceptance
 def test_replies_resolve_without_private_ids_or_project_name_shortcuts(
     generator: ModuleType, corpus: dict[str, Any],
 ) -> None:
@@ -124,6 +127,7 @@ def test_replies_resolve_without_private_ids_or_project_name_shortcuts(
     assert omitted >= 5
 
 
+@pytest.mark.acceptance
 def test_generation_is_reproducible_and_refuses_overwrite(
     generator: ModuleType, tmp_path: Path,
 ) -> None:
@@ -148,6 +152,7 @@ def test_generation_is_reproducible_and_refuses_overwrite(
         generator.build(tmp_path / "invalid", background_documents=-1)
 
 
+@pytest.mark.acceptance
 def test_ingestion_accepts_raw_sources_without_inventing_structured_state(
     corpus: dict[str, Any],
 ) -> None:
@@ -164,6 +169,7 @@ def test_ingestion_accepts_raw_sources_without_inventing_structured_state(
     # This checks index compatibility, not successful extraction of prose promises.
 
 
+@pytest.mark.acceptance
 def test_new_inputs_work_with_existing_frozen_comparison_harness(
     generator: ModuleType, tmp_path: Path,
 ) -> None:
@@ -193,6 +199,7 @@ def test_new_inputs_work_with_existing_frozen_comparison_harness(
     )
 
 
+@pytest.mark.acceptance
 def test_invalid_reply_graph_and_gold_ids_are_rejected(generator: ModuleType) -> None:
     scenario = _json(generator.HERE / "interleaved_scenarios.json")
     cyclic = copy.deepcopy(scenario)

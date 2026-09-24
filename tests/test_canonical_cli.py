@@ -48,6 +48,7 @@ def call(*args, code=0):
     return json.loads(result.stdout)
 
 
+@pytest.mark.functional
 def test_document_journey_exact_evidence_history_and_search(configured):
     file = configured / "note.md"
     text = "\ufeffAtlas\r\nCafe\u0301 \U0001f680\0"
@@ -99,6 +100,7 @@ def test_document_journey_exact_evidence_history_and_search(configured):
     assert call("find", "documents", "Atlas")["status"] == "empty"
 
 
+@pytest.mark.functional
 @pytest.mark.parametrize("failure", ["typed", "exception", "interrupt"])
 def test_saved_receipt_survives_preparation_failure(configured, monkeypatch, failure):
     def broken(*args, **kwargs):
@@ -127,6 +129,7 @@ def test_saved_receipt_survives_preparation_failure(configured, monkeypatch, fai
     assert "sensitive model exception" not in json.dumps(result)
 
 
+@pytest.mark.functional
 @pytest.mark.parametrize("error", [OSError, KeyboardInterrupt])
 def test_unknown_write_does_not_claim_rollback(configured, monkeypatch, error):
     original = EvidenceService.write
@@ -143,6 +146,7 @@ def test_unknown_write_does_not_claim_rollback(configured, monkeypatch, error):
     assert "duplicates" in result["message"]
 
 
+@pytest.mark.functional
 @pytest.mark.parametrize(
     "args",
     [
@@ -162,12 +166,14 @@ def test_parser_errors_use_json_envelope(args):
     assert result["exit_code"] == 2
 
 
+@pytest.mark.functional
 def test_parser_errors_remain_readable_without_json():
     result = runner.invoke(app, ["add"])
     assert result.exit_code == 2
     assert "Missing argument" in result.output
 
 
+@pytest.mark.functional
 def test_direct_evidence_warns_when_no_longer_current(configured):
     file = configured / "note.md"
     file.write_text("original")
@@ -187,6 +193,7 @@ def test_direct_evidence_warns_when_no_longer_current(configured):
     assert warning in inactive_read.stdout and "revised" in inactive_read.stdout
 
 
+@pytest.mark.functional
 def test_paging_and_invalid_input(configured):
     file = configured / "note.md"
     file.write_text("a" * 2050)
@@ -205,6 +212,7 @@ def test_paging_and_invalid_input(configured):
     call("add", file, code=2)
 
 
+@pytest.mark.functional
 def test_model_approval_is_required_before_save(configured):
     profile = load_profile()
     profile_path().write_text(
@@ -216,6 +224,7 @@ def test_model_approval_is_required_before_save(configured):
     assert call("find", "documents", "text", code=2)["code"] == "models_not_approved"
 
 
+@pytest.mark.functional
 def test_setup_refuses_existing_and_attach_never_initializes(configured, monkeypatch):
     profile = load_profile()
     original = profile_path()
@@ -230,6 +239,7 @@ def test_setup_refuses_existing_and_attach_never_initializes(configured, monkeyp
     assert not Path(profile.store).exists()
 
 
+@pytest.mark.functional
 @pytest.mark.parametrize(
     "args",
     [
@@ -250,6 +260,7 @@ def test_every_help_level_is_model_free(tmp_path, monkeypatch, args):
     assert not (tmp_path / "config").exists()
 
 
+@pytest.mark.functional
 def test_module_entrypoint_outside_checkout(configured):
     env = dict(os.environ)
     # Interpreter imports the installed/editable project, never this test's cwd.
@@ -265,6 +276,7 @@ def test_module_entrypoint_outside_checkout(configured):
     assert "dense-index" not in result.stdout
 
 
+@pytest.mark.functional
 def test_workflow_uses_public_offline_service_options(configured, monkeypatch):
     calls = []
 
@@ -279,6 +291,7 @@ def test_workflow_uses_public_offline_service_options(configured, monkeypatch):
     assert calls == [{"local_files_only": True, "cache_folder": None}]
 
 
+@pytest.mark.functional
 def test_guided_setup_and_cancel(tmp_path, monkeypatch):
     monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "config"))
     monkeypatch.setenv("XDG_DATA_HOME", str(tmp_path / "data"))
@@ -291,6 +304,7 @@ def test_guided_setup_and_cancel(tmp_path, monkeypatch):
     assert "Local profile configured" in result.stdout
 
 
+@pytest.mark.functional
 def test_existing_incompatible_store_is_not_changed(configured, monkeypatch):
     profile = load_profile()
     invalid = configured / "incompatible.db"
@@ -304,6 +318,7 @@ def test_existing_incompatible_store_is_not_changed(configured, monkeypatch):
     assert not profile_path().exists()
 
 
+@pytest.mark.service
 def test_providers_forward_local_only_without_model_execution(monkeypatch):
     import types
 

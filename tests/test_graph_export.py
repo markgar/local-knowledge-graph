@@ -40,6 +40,7 @@ def cursor(env, op, **kwargs):
         yield stream
 
 
+@pytest.mark.service
 def test_complete_mapping_proof_identity_and_exact_semantic_charge(tmp_path):
     env = fixture(tmp_path / "source.sqlite", decisions=230)
     op = operation()
@@ -71,6 +72,7 @@ def test_complete_mapping_proof_identity_and_exact_semantic_charge(tmp_path):
     assert op.snapshot().scratch_live_bytes == 0
 
 
+@pytest.mark.service
 def test_byte_boundary_pending_is_neither_lost_nor_recharged(tmp_path, monkeypatch):
     env = fixture(tmp_path / "source.sqlite")
     op = operation()
@@ -90,6 +92,7 @@ def test_byte_boundary_pending_is_neither_lost_nor_recharged(tmp_path, monkeypat
     assert op.snapshot().scratch_live_bytes == 0
 
 
+@pytest.mark.service
 def test_page_lease_close_and_coverage_mismatch(tmp_path):
     env = fixture(tmp_path / "source.sqlite")
     op = operation()
@@ -108,6 +111,7 @@ def test_page_lease_close_and_coverage_mismatch(tmp_path):
     assert op.snapshot().scratch_live_bytes == 0
 
 
+@pytest.mark.service
 def test_same_snapshot_canonical_cursor_decision_differential(tmp_path):
     from kg.knowledge._reader import KnowledgeReader
     from kg.knowledge._selection import EligibleEOF
@@ -142,6 +146,7 @@ def test_same_snapshot_canonical_cursor_decision_differential(tmp_path):
     assert op.snapshot().scratch_live_bytes == 0
 
 
+@pytest.mark.service
 @pytest.mark.parametrize("rejected,seed", [(2000, False), (4000, True)])
 def test_real_rejected_activation_trials_have_bounded_live_scratch(tmp_path, rejected, seed):
     env = fixture(tmp_path / "source.sqlite", decisions=0)

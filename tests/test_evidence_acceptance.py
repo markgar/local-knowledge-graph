@@ -11,6 +11,7 @@ from kg.evidence import EvidenceServiceError
 from kg.models.foundation import SuppliedAnchor
 
 
+@pytest.mark.service
 def test_a01_actual_workload_indices_and_isolated_copy(tmp_path: Path) -> None:
     work = environment(tmp_path / "e.db")
     isolated = environment(work.database.path, corpus="isolated")
@@ -37,6 +38,7 @@ def test_a01_actual_workload_indices_and_isolated_copy(tmp_path: Path) -> None:
             assert connection.execute(f"SELECT count(*) FROM {table}").fetchone()[0] == 3
 
 
+@pytest.mark.service
 def test_a02_exact_recipe_and_rejected_ranges(tmp_path: Path) -> None:
     env = environment(tmp_path / "e.db")
     text = "A\r\nCafe\u0301 \U0001f680"

@@ -73,6 +73,7 @@ def _snapshot(connection: sqlite3.Connection) -> dict[str, list[tuple[object, ..
     }
 
 
+@pytest.mark.service
 def test_writer_uses_prepared_values_without_source_io(
     database: Database, prepared: PreparedDocument, monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -116,6 +117,7 @@ def test_writer_uses_prepared_values_without_source_io(
         assert (binding["record_key"], binding["supersedes_key"]) == ("review", None)
 
 
+@pytest.mark.service
 def test_writer_requires_caller_transaction(
     database: Database, prepared: PreparedDocument,
 ) -> None:
@@ -125,6 +127,7 @@ def test_writer_requires_caller_transaction(
         assert all(not rows for rows in _snapshot(connection).values())
 
 
+@pytest.mark.service
 def test_writer_failure_rolls_back_only_callers_source_savepoint(
     database: Database, prepared: PreparedDocument,
 ) -> None:
@@ -148,6 +151,7 @@ def test_writer_failure_rolls_back_only_callers_source_savepoint(
         assert _snapshot(connection) == before
 
 
+@pytest.mark.service
 def test_writer_success_is_still_owned_by_outer_transaction(
     database: Database, prepared: PreparedDocument,
 ) -> None:
@@ -158,6 +162,7 @@ def test_writer_success_is_still_owned_by_outer_transaction(
         assert all(not rows for rows in _snapshot(connection).values())
 
 
+@pytest.mark.service
 def test_current_revision_skips_validation_but_rebuild_does_not(
     database: Database, prepared: PreparedDocument,
 ) -> None:
@@ -181,6 +186,7 @@ def test_current_revision_skips_validation_but_rebuild_does_not(
         assert _snapshot(connection) == before
 
 
+@pytest.mark.service
 def test_intake_defers_state_validation_and_facade_retains_source_isolation(tmp_path: Path) -> None:
     source = tmp_path / "bad.md"
     source.write_text("- [ ] Review. [key:: bad key]\n")

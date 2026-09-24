@@ -138,6 +138,7 @@ def _image(path: Path) -> tuple[bytes, tuple[object, ...]]:
     return path.read_bytes(), logical
 
 
+@pytest.mark.service
 def test_complete_inventory_and_relational_programs(tmp_path: Path) -> None:
     assert expected_manifest().signature == (
         "abba0723ec31fb9ce3c32c9c1bdb62d8f5a98de1ec72693a6d67ce1073efe5a9"
@@ -172,6 +173,7 @@ def test_complete_inventory_and_relational_programs(tmp_path: Path) -> None:
                     assert column["notnull"], (table, column["name"])
 
 
+@pytest.mark.service
 @pytest.mark.parametrize(
     "alteration",
     [
@@ -208,6 +210,7 @@ def test_altered_format_rejected_without_mutation(tmp_path: Path, alteration: st
         assert _image(database.path) == before
 
 
+@pytest.mark.service
 @pytest.mark.parametrize(
     "replacement",
     [
@@ -229,6 +232,7 @@ def test_copied_manifest_cannot_hide_constraint_changes(tmp_path: Path, replacem
     assert _image(database.path) == before
 
 
+@pytest.mark.service
 @pytest.mark.parametrize("version", [1, 2, 3, 4])
 def test_old_or_spoofed_nonempty_format_is_not_repaired(tmp_path: Path, version: int) -> None:
     path = tmp_path / "old.db"
@@ -246,6 +250,7 @@ def test_old_or_spoofed_nonempty_format_is_not_repaired(tmp_path: Path, version:
     assert _image(path) == before
 
 
+@pytest.mark.service
 @pytest.mark.parametrize("stage", ["ddl", "manifest"])
 def test_failed_full_initialization_rolls_back_headers_and_objects(
     tmp_path: Path,
@@ -342,6 +347,7 @@ def relational_store(tmp_path: Path):
     return env, saved, foreign
 
 
+@pytest.mark.service
 @pytest.mark.parametrize(
     "kind,extra",
     [
@@ -377,6 +383,7 @@ def test_typed_details_reject_wrong_kind_and_cross_corpus(relational_store, kind
         connection.rollback()
 
 
+@pytest.mark.service
 @pytest.mark.parametrize(
     "object_kind,column,value",
     [
@@ -414,6 +421,7 @@ def test_assertion_exactly_one_discriminated_object(
         connection.rollback()
 
 
+@pytest.mark.service
 def test_evidence_scope_and_passage_nullity(relational_store) -> None:
     env, saved, foreign = relational_store
     ref = env.service.anchors(env.scope, saved.document_id, saved.processing.state_version).entries[
@@ -448,6 +456,7 @@ def test_evidence_scope_and_passage_nullity(relational_store) -> None:
         connection.rollback()
 
 
+@pytest.mark.service
 def test_schema_presence_does_not_enable_services(tmp_path: Path) -> None:
     env = environment(tmp_path / "capabilities.db")
     capabilities = env.service.capabilities()
@@ -478,6 +487,7 @@ def test_schema_presence_does_not_enable_services(tmp_path: Path) -> None:
             assert connection.execute(f"SELECT count(*) FROM {table}").fetchone()[0] == 0
 
 
+@pytest.mark.service
 @pytest.mark.parametrize(
     "table,column",
     [
@@ -598,6 +608,7 @@ def passage_store(relational_store):
     return env, saved, foreign, ref, scope
 
 
+@pytest.mark.service
 def test_passage_evidence_requires_actual_state_membership_and_anchor(passage_store) -> None:
     env, saved, _, ref, scope = passage_store
     newer = receipt(
@@ -661,6 +672,7 @@ def test_passage_evidence_requires_actual_state_membership_and_anchor(passage_st
         connection.rollback()
 
 
+@pytest.mark.service
 @pytest.mark.parametrize(
     "table,owner",
     [
@@ -698,6 +710,7 @@ def test_vectors_and_projection_scope_constraints(passage_store, table, owner) -
         connection.rollback()
 
 
+@pytest.mark.service
 def test_attempt_terminal_and_identity_nullity(passage_store) -> None:
     env, _, _, _, _ = passage_store
     with env.database.connection() as connection:
@@ -717,6 +730,7 @@ def test_attempt_terminal_and_identity_nullity(passage_store) -> None:
         connection.rollback()
 
 
+@pytest.mark.service
 def test_worker_claim_target_and_settlement_constraints(relational_store) -> None:
     env, saved, foreign = relational_store
     with env.database.connection() as connection:

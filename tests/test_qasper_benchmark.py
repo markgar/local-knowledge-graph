@@ -64,6 +64,7 @@ def _paper() -> dict[str, object]:
     }
 
 
+@pytest.mark.service
 def test_qasper_fixture_prepares_and_evaluates_exact_evidence(tmp_path: Path) -> None:
     prepare = _load_benchmark_module("prepare")
     evaluate = _load_benchmark_module("evaluate")
@@ -90,6 +91,7 @@ def test_qasper_fixture_prepares_and_evaluates_exact_evidence(tmp_path: Path) ->
     assert result["metrics"]["anchor_integrity"] == 1.0
 
 
+@pytest.mark.service
 @pytest.mark.parametrize("use_context", [False, True])
 def test_qasper_fixture_evaluates_hybrid_strategy(
     tmp_path: Path,
@@ -158,6 +160,7 @@ def test_qasper_fixture_evaluates_hybrid_strategy(
     assert result["metrics"]["anchor_integrity"] == 1.0
 
 
+@pytest.mark.service
 @pytest.mark.parametrize("use_context", [False, True])
 def test_qasper_fixture_evaluates_reranked_strategy(
     tmp_path: Path,
@@ -230,6 +233,7 @@ def test_qasper_fixture_evaluates_reranked_strategy(
     assert result["question_results"][0]["reciprocal_rank"] == 1.0
 
 
+@pytest.mark.service
 def test_qasper_e4_calibrates_paper_grouped_answerability() -> None:
     calibrate = _load_benchmark_module("calibrate")
     questions = []
@@ -273,6 +277,7 @@ def test_qasper_e4_calibrates_paper_grouped_answerability() -> None:
     }
 
 
+@pytest.mark.service
 def test_qasper_e4_requires_unmodified_e3_result_fields() -> None:
     calibrate = _load_benchmark_module("calibrate")
 
@@ -285,6 +290,7 @@ def test_qasper_e4_requires_unmodified_e3_result_fields() -> None:
         )
 
 
+@pytest.mark.service
 def test_qasper_fixture_refuses_unowned_markdown(tmp_path: Path) -> None:
     prepare = _load_benchmark_module("prepare")
     vault = tmp_path / "vault"
@@ -303,6 +309,7 @@ def test_qasper_fixture_refuses_unowned_markdown(tmp_path: Path) -> None:
         raise AssertionError("Expected unowned Markdown protection")
 
 
+@pytest.mark.service
 def test_qasper_fixture_refuses_unexpected_markdown_on_rerun(tmp_path: Path) -> None:
     prepare = _load_benchmark_module("prepare")
     prepare.prepare_corpus(
@@ -323,6 +330,7 @@ def test_qasper_fixture_refuses_unexpected_markdown_on_rerun(tmp_path: Path) -> 
         )
 
 
+@pytest.mark.service
 @pytest.mark.parametrize(
     "relative_path",
     [
@@ -358,6 +366,7 @@ def test_qasper_fixture_refuses_symlinked_outputs(
     assert victim.read_text(encoding="utf-8") == "unchanged"
 
 
+@pytest.mark.service
 def test_qasper_fixture_refuses_symlinked_vault(tmp_path: Path) -> None:
     prepare = _load_benchmark_module("prepare")
     redirected = tmp_path / "redirected"
@@ -372,6 +381,7 @@ def test_qasper_fixture_refuses_symlinked_vault(tmp_path: Path) -> None:
         )
 
 
+@pytest.mark.service
 def test_qasper_fixture_refuses_symlinked_output_directory(tmp_path: Path) -> None:
     prepare = _load_benchmark_module("prepare")
     redirected = tmp_path / "redirected"
@@ -389,6 +399,7 @@ def test_qasper_fixture_refuses_symlinked_output_directory(tmp_path: Path) -> No
     assert list(redirected.iterdir()) == []
 
 
+@pytest.mark.service
 def test_qasper_download_uses_private_temporary_and_atomic_replace(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -415,6 +426,7 @@ def test_qasper_download_uses_private_temporary_and_atomic_replace(
     assert not list(tmp_path.glob(".qasper.tgz.*.tmp"))
 
 
+@pytest.mark.service
 def test_qasper_download_refuses_symlinked_destination(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,

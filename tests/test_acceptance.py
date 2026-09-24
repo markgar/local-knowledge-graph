@@ -13,10 +13,12 @@ from kg.retrieval import RetrievalService
 ACCEPTANCE_PATHS = sorted(Path("corpora/acceptance").glob("*.yml"))
 
 
+@pytest.mark.service
 def test_acceptance_manifests_exist() -> None:
     assert ACCEPTANCE_PATHS, "No acceptance manifests found in corpora/acceptance"
 
 
+@pytest.mark.service
 @pytest.mark.parametrize(
     "acceptance_path",
     ACCEPTANCE_PATHS,
@@ -68,6 +70,7 @@ def test_reviewed_acceptance_cases(
             raise AssertionError(f"Unsupported acceptance command: {command}")
 
 
+@pytest.mark.service
 def test_rebuild_produces_equivalent_logical_results(tmp_path: Path) -> None:
     manifest = load_manifest(Path("corpora/research.yml"))
     manifest.database = tmp_path / "first.sqlite3"

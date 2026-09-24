@@ -24,6 +24,7 @@ def runner(monkeypatch: pytest.MonkeyPatch) -> ModuleType:
     return result
 
 
+@pytest.mark.acceptance
 def test_controlled_matrix_uses_all_eight_exact_combinations(
     runner: ModuleType, tmp_path: Path,
 ) -> None:
@@ -58,6 +59,7 @@ def test_controlled_matrix_uses_all_eight_exact_combinations(
     assert json.loads((tmp_path / "matrix/report.json").read_text()) == report
 
 
+@pytest.mark.acceptance
 @pytest.mark.parametrize("dependency", ["embedding", "reranker"])
 def test_blocked_matrix_persists_every_combination_and_exact_error(
     runner: ModuleType, tmp_path: Path, dependency: str,
@@ -90,6 +92,7 @@ def test_blocked_matrix_persists_every_combination_and_exact_error(
     assert json.loads((tmp_path / "blocked/report.json").read_text()) == report
 
 
+@pytest.mark.service
 @pytest.mark.parametrize("method", ["search", "explain_search"])
 def test_runner_detects_empty_readiness_bypass(
     runner: ModuleType, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, method: str,
@@ -113,6 +116,7 @@ def test_runner_detects_empty_readiness_bypass(
     monkeypatch.setattr(runner.SearchService, method, original)
 
 
+@pytest.mark.unit
 @pytest.mark.parametrize("field,value", [
     ("record_id", "wrong"), ("quote", "wrong"), ("anchor_id", "wrong"),
     ("source_revision_id", "wrong"), ("rank", 1.1), ("rank", float("nan")),
@@ -124,6 +128,7 @@ def test_parity_mismatches_fail(runner: ModuleType, field: str, value: Any) -> N
         runner.compare([expected], [{**expected, field: value}], exact=False)
 
 
+@pytest.mark.unit
 def test_score_tolerance_is_real_only(runner: ModuleType) -> None:
     expected = [{"record_id": "r", "rank": 1.0}]
     actual = [{"record_id": "r", "rank": 1.000001}]
@@ -132,11 +137,13 @@ def test_score_tolerance_is_real_only(runner: ModuleType) -> None:
         runner.compare(expected, actual, exact=True)
 
 
+@pytest.mark.service
 def test_runner_refuses_overwrite(runner: ModuleType, tmp_path: Path) -> None:
     with pytest.raises(FileExistsError):
         runner.run_matrix(tmp_path)
 
 
+@pytest.mark.service
 def test_main_returns_failure_for_incomplete_matrix(
     runner: ModuleType, tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -145,6 +152,7 @@ def test_main_returns_failure_for_incomplete_matrix(
     assert runner.main() == 1
 
 
+@pytest.mark.acceptance
 def test_failed_comparison_is_durable_and_remaining_combinations_run(
     runner: ModuleType, tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
 ) -> None:

@@ -146,6 +146,7 @@ def supervisor(tmp_path, monkeypatch):
         assert budget._scratch == 0 and ledger.scratch == {}
 
 
+@pytest.mark.process
 @pytest.mark.parametrize(
     "done_at,exit_at",
     [(14.25, 14.1), (14.1, 14.4), (14.25, 14.55)],
@@ -163,6 +164,7 @@ def test_terminal_delivery_and_clean_exit_use_original_remaining_budget(
     assert len(supervisor.replies) == 4  # Terminal frames are not reservation RPCs.
 
 
+@pytest.mark.process
 @pytest.mark.parametrize(
     "terminal,error",
     [
@@ -179,6 +181,7 @@ def test_exit_cannot_replace_valid_terminal_delivery(supervisor, terminal, error
     assert supervisor.now < 15
 
 
+@pytest.mark.process
 def test_done_cannot_replace_zero_exit_status(supervisor):
     supervisor.exit_at = 14.4
     supervisor.exit_code = 8
@@ -189,6 +192,7 @@ def test_done_cannot_replace_zero_exit_status(supervisor):
     assert supervisor.cleanup == ["process", "channel"]
 
 
+@pytest.mark.process
 def test_done_requires_acknowledged_accounting(supervisor):
     supervisor.events.pop(1)
     supervisor.expected_records = 0
@@ -199,6 +203,7 @@ def test_done_requires_acknowledged_accounting(supervisor):
     assert supervisor.ledger.records == 0
 
 
+@pytest.mark.process
 @pytest.mark.parametrize("phase", ["drain", "exit"])
 def test_deadline_bounds_both_terminal_phases_and_kills_hung_worker(supervisor, phase):
     supervisor.exit_at = float("inf")
@@ -213,6 +218,7 @@ def test_deadline_bounds_both_terminal_phases_and_kills_hung_worker(supervisor, 
     assert supervisor.cleanup == ["terminate", "kill", "process", "channel"]
 
 
+@pytest.mark.process
 def test_dead_worker_with_delayed_terminal_cannot_extend_deadline(supervisor):
     supervisor.events.append((15.1, Frame(action="done")))
     with pytest.raises(DeadlineStop):
@@ -221,6 +227,7 @@ def test_dead_worker_with_delayed_terminal_cannot_extend_deadline(supervisor):
     assert supervisor.cleanup == ["process", "channel"]
 
 
+@pytest.mark.process
 @pytest.mark.parametrize("phase", ["drain", "exit"])
 def test_close_interrupts_both_terminal_phases(supervisor, phase):
     supervisor.exit_at = float("inf")
@@ -234,6 +241,7 @@ def test_close_interrupts_both_terminal_phases(supervisor, phase):
     assert supervisor.cleanup == ["terminate", "process", "channel"]
 
 
+@pytest.mark.process
 @pytest.mark.parametrize("phase", ["drain", "exit"])
 def test_real_worker_terminal_races_cleanup_and_following_call(tmp_path, monkeypatch, phase):
     env = environment(tmp_path / "real-shutdown.db")

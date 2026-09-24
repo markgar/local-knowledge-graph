@@ -11,6 +11,7 @@ from kg.evidence._sql import AccountedConnection
 from kg.models.foundation import WriteBatch
 
 
+@pytest.mark.service
 @pytest.mark.parametrize("stage", ["content", "state", "receipt", "ledger", "commit"])
 def test_failure_boundaries_leave_no_unit_rows(tmp_path: Path, monkeypatch, stage: str) -> None:
     env = environment(tmp_path / "e.db")
@@ -55,6 +56,7 @@ def test_failure_boundaries_leave_no_unit_rows(tmp_path: Path, monkeypatch, stag
             assert connection.execute(f"SELECT count(*) FROM {table}").fetchone()[0] == 0
 
 
+@pytest.mark.service
 def test_batch_interruption_replays_only_committed_units(tmp_path: Path, monkeypatch) -> None:
     env = environment(tmp_path / "e.db")
     batch = WriteBatch(

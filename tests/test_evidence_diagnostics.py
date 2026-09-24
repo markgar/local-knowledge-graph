@@ -20,6 +20,7 @@ def observed(report):
     return tuple(item.event for item in report.events)
 
 
+@pytest.mark.service
 def test_ordinary_discovery_headers_repeat_request_and_no_lookup_execution(tmp_path):
     env = environment(tmp_path / "evidence.db")
     request = put(env.scope)
@@ -47,6 +48,7 @@ def test_ordinary_discovery_headers_repeat_request_and_no_lookup_execution(tmp_p
         assert report.observation_kind == "captured_execution"
 
 
+@pytest.mark.service
 def test_explained_write_once_and_ordinary_shape_unchanged(tmp_path):
     env = environment(tmp_path / "evidence.db")
     with patch("kg.evidence._writer.apply", wraps=_writer.apply) as apply:
@@ -57,6 +59,7 @@ def test_explained_write_once_and_ordinary_shape_unchanged(tmp_path):
     assert CommitEvent(observation="confirmed_committed") in observed(result.report)
 
 
+@pytest.mark.service
 def test_quote_opt_in_read_wrappers_single_read_and_current_inspection(tmp_path):
     env = environment(tmp_path / "evidence.db")
     secret = "SOURCE-CANARY-\u2603"
@@ -82,6 +85,7 @@ def test_quote_opt_in_read_wrappers_single_read_and_current_inspection(tmp_path)
     assert env.service.diagnostics.recent(env.scope).entries[0].request_id is None
 
 
+@pytest.mark.service
 def test_full_read_surface_preserves_results(tmp_path):
     env = environment(tmp_path / "evidence.db")
     request = put(env.scope)
@@ -124,6 +128,7 @@ def test_full_read_surface_preserves_results(tmp_path):
     )
 
 
+@pytest.mark.service
 def test_batch_once_bounded_events_and_atomic_units(tmp_path):
     env = environment(tmp_path / "evidence.db")
     batch = WriteBatch(
@@ -141,6 +146,7 @@ def test_batch_once_bounded_events_and_atomic_units(tmp_path):
     assert len(env.service.diagnostics.for_request(env.scope, "batch").entries) == 1
 
 
+@pytest.mark.service
 def test_mixed_scope_batch_allocation_failure_still_executes_every_unit(tmp_path, monkeypatch):
     from kg.diagnostics._collector import CaptureUnavailable, DisclosureGroup
 
@@ -171,6 +177,7 @@ def test_mixed_scope_batch_allocation_failure_still_executes_every_unit(tmp_path
         assert connection.execute("SELECT count(*) FROM write_response").fetchone()[0] == 2
 
 
+@pytest.mark.service
 def test_unknown_commit_is_not_rollback_or_original_trace(tmp_path, monkeypatch):
     env = environment(tmp_path / "evidence.db")
     commit = AccountedConnection.commit
@@ -190,6 +197,7 @@ def test_unknown_commit_is_not_rollback_or_original_trace(tmp_path, monkeypatch)
         assert connection.execute("SELECT count(*) FROM document").fetchone()[0] == 1
 
 
+@pytest.mark.service
 def test_confirmed_rollback_and_diagnostic_correlation(tmp_path, monkeypatch):
     env = environment(tmp_path / "evidence.db")
 
@@ -208,6 +216,7 @@ def test_confirmed_rollback_and_diagnostic_correlation(tmp_path, monkeypatch):
     )
 
 
+@pytest.mark.service
 def test_postcommit_retention_failure_does_not_corrupt_business_result(tmp_path, monkeypatch):
     env = environment(tmp_path / "evidence.db")
 
@@ -223,6 +232,7 @@ def test_postcommit_retention_failure_does_not_corrupt_business_result(tmp_path,
         assert connection.execute("SELECT count(*) FROM write_response").fetchone()[0] == 1
 
 
+@pytest.mark.service
 @pytest.mark.parametrize(
     "point",
     [
@@ -285,6 +295,7 @@ def test_diagnostic_allocation_failure_never_replaces_committed_success(
         assert connection.execute("SELECT count(*) FROM write_response").fetchone()[0] == 1
 
 
+@pytest.mark.service
 def test_read_target_construction_failure_preserves_ordinary_outcome(tmp_path, monkeypatch):
     from kg.diagnostics import _targets
 
@@ -301,6 +312,7 @@ def test_read_target_construction_failure_preserves_ordinary_outcome(tmp_path, m
     assert result.report.state == "unavailable"
 
 
+@pytest.mark.service
 def test_business_allocation_failure_is_not_suppressed_by_diagnostic_guard(tmp_path, monkeypatch):
     env = environment(tmp_path / "evidence.db")
 
@@ -315,6 +327,7 @@ def test_business_allocation_failure_is_not_suppressed_by_diagnostic_guard(tmp_p
     assert all(not item.active for item in env.service._collector._captures.values())
 
 
+@pytest.mark.service
 def test_capture_and_lookup_no_canonical_mutations_or_receipt_clock(tmp_path, monkeypatch):
     env = environment(tmp_path / "evidence.db")
     saved = receipt(env.service.write(put(env.scope)))
@@ -346,6 +359,7 @@ def test_capture_and_lookup_no_canonical_mutations_or_receipt_clock(tmp_path, mo
         assert len(env.service.diagnostics.recent(env.scope).entries) == 2
 
 
+@pytest.mark.service
 def test_foreign_scope_unknown_and_restart_indistinguishable(tmp_path):
     env = environment(tmp_path / "evidence.db")
     result = env.service.write_explained(put(env.scope))
@@ -370,6 +384,7 @@ def test_foreign_scope_unknown_and_restart_indistinguishable(tmp_path):
     assert env.service.diagnostics.report(env.scope, report_id) == result.report
 
 
+@pytest.mark.service
 @pytest.mark.parametrize("limit", [0, 33, -1, True, 1.0, "1"])
 def test_header_list_limits(tmp_path, limit):
     env = environment(tmp_path / "evidence.db")

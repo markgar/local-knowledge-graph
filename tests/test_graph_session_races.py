@@ -11,6 +11,7 @@ from kg.evidence._graph_observer import GraphSourceObserver, GraphSourceOperatio
 from kg.graph._session_types import GraphSessionError
 
 
+@pytest.mark.service
 @pytest.mark.parametrize("phase", ["adoption", "answer", "fence"])
 def test_cold_cancellation_after_builder_keeps_original_latched_reason(
     tmp_path, monkeypatch, phase,
@@ -53,6 +54,7 @@ def test_cold_cancellation_after_builder_keeps_original_latched_reason(
         session.close()
 
 
+@pytest.mark.service
 @pytest.mark.parametrize("phase", ["adoption", "answer"])
 def test_source_commit_at_final_fence_releases_nothing(tmp_path, monkeypatch, phase):
     env, session, builds = setup(tmp_path, monkeypatch)
@@ -74,6 +76,7 @@ def test_source_commit_at_final_fence_releases_nothing(tmp_path, monkeypatch, ph
         session.close()
 
 
+@pytest.mark.service
 def test_fence_exit_failure_rolls_back_ready_pointer(tmp_path, monkeypatch):
     env, session, _ = setup(tmp_path, monkeypatch)
     original, calls = GraphSourceOperation.release_fence, []
@@ -93,6 +96,7 @@ def test_fence_exit_failure_rolls_back_ready_pointer(tmp_path, monkeypatch):
         session.close()
 
 
+@pytest.mark.service
 def test_native_callback_holds_snapshot_but_no_writer_lock(tmp_path, monkeypatch):
     env, session, _ = setup(tmp_path, monkeypatch)
     def consume(context):
@@ -106,6 +110,7 @@ def test_native_callback_holds_snapshot_but_no_writer_lock(tmp_path, monkeypatch
         session.close()
 
 
+@pytest.mark.process
 def test_queue_fifo_cap_reentry_and_ordinary_expiry(tmp_path, monkeypatch):
     env, session, _ = setup(tmp_path, monkeypatch)
     entered, release = Event(), Event()
@@ -145,6 +150,7 @@ def test_queue_fifo_cap_reentry_and_ordinary_expiry(tmp_path, monkeypatch):
         session.close()
 
 
+@pytest.mark.process
 def test_warm_queued_behind_write_does_not_upgrade(tmp_path, monkeypatch):
     env, session, builds = setup(tmp_path, monkeypatch)
     session._run_read(env.scope, count)
@@ -173,6 +179,7 @@ def test_warm_queued_behind_write_does_not_upgrade(tmp_path, monkeypatch):
         session.close()
 
 
+@pytest.mark.service
 @pytest.mark.parametrize("phase", ["idle", "answer"])
 def test_revocation_is_forbidden_not_empty_graph(tmp_path, monkeypatch, phase):
     env, session, _ = setup(tmp_path, monkeypatch)

@@ -22,7 +22,7 @@ from kg.models.foundation import (
     WriteRequest,
 )
 
-FIXTURES = Path(__file__).resolve().parents[1] / "corpora" / "foundation"
+FIXTURES = Path(__file__).resolve().parents[2] / "corpora" / "foundation"
 
 
 def enrichment() -> dict:

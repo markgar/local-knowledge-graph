@@ -22,6 +22,7 @@ from kg.models.query import SupportInspectionRequest
 from kg.query import QueryService
 
 
+@pytest.mark.process
 def test_exact_withdrawal_history_replay_and_independent_members(tmp_path):
     env = setup(tmp_path / "withdraw.db")
     subject, ids = produce(env, 2)
@@ -58,6 +59,7 @@ def test_exact_withdrawal_history_replay_and_independent_members(tmp_path):
         ).fetchone()[0] == 2
 
 
+@pytest.mark.service
 def test_target_authorization_batch_and_rollback(tmp_path):
     env = setup(tmp_path / "withdraw.db")
     subject, ids = produce(env, 2)
@@ -86,6 +88,7 @@ def test_target_authorization_batch_and_rollback(tmp_path):
     ).is_current
 
 
+@pytest.mark.service
 def test_expiry_preserves_event_and_authorizes_tombstone(tmp_path):
     env = setup(tmp_path / "withdraw.db")
     _, ids = produce(env, 1)
@@ -108,6 +111,7 @@ def test_expiry_preserves_event_and_authorizes_tombstone(tmp_path):
     assert service.write(changed).error.code == "not_found"
 
 
+@pytest.mark.service
 def test_expiry_precedes_digest_and_clock_rollback_after_reopen(tmp_path):
     env = setup(tmp_path / "clock.db")
     _, ids = produce(env, 2)
@@ -134,6 +138,7 @@ def test_expiry_precedes_digest_and_clock_rollback_after_reopen(tmp_path):
     assert timestamp == datetime(2030, 1, 1, tzinfo=UTC)
 
 
+@pytest.mark.service
 def test_lost_response_after_commit_reopens_to_identical_receipt(tmp_path, monkeypatch):
     from kg.evidence import _dispatch
 
@@ -155,6 +160,7 @@ def test_lost_response_after_commit_reopens_to_identical_receipt(tmp_path, monke
         assert c.execute("SELECT count(*) FROM assertion_withdrawal").fetchone()[0] == 1
 
 
+@pytest.mark.service
 def test_all_assertion_object_kinds_and_incoming_outgoing_pages(tmp_path):
     from support.knowledge import schema
 
@@ -219,6 +225,7 @@ def test_all_assertion_object_kinds_and_incoming_outgoing_pages(tmp_path):
             assert captured.withdrawal is not None and not captured.is_current
 
 
+@pytest.mark.process
 @pytest.mark.parametrize("same_key", [False, True])
 def test_concurrent_requests_have_one_immutable_event(tmp_path, same_key):
     env = setup(tmp_path / "concurrent.db")
@@ -237,6 +244,7 @@ def test_concurrent_requests_have_one_immutable_event(tmp_path, same_key):
         assert c.execute("SELECT count(*) FROM assertion_withdrawal").fetchone()[0] == 1
 
 
+@pytest.mark.service
 def test_save_failure_rolls_back_event_key_provenance_and_clock(tmp_path, monkeypatch):
     from kg.knowledge import _withdraw
 
@@ -261,6 +269,7 @@ def test_save_failure_rolls_back_event_key_provenance_and_clock(tmp_path, monkey
     assert env.service.write(request).status == "applied"
 
 
+@pytest.mark.service
 def test_stale_historical_target_and_source_restore_never_resurrect(tmp_path):
     env = setup(tmp_path / "stale.db")
     _, ids = produce(env, 1)
@@ -284,6 +293,7 @@ def test_stale_historical_target_and_source_restore_never_resurrect(tmp_path):
     assert env.service.evidence(env.scope, history.evidence[0].reference).quote
 
 
+@pytest.mark.service
 def test_creation_replay_does_not_revive_and_fresh_correction_is_independent(tmp_path):
     env = setup(tmp_path / "creation.db")
     subject, _ = produce(env, 0)
@@ -303,6 +313,7 @@ def test_creation_replay_does_not_revive_and_fresh_correction_is_independent(tmp
     assert not reader.contribution(env.scope, target, mode="history").is_current
 
 
+@pytest.mark.service
 def test_revocation_and_original_namespace_conjunction_on_replay(tmp_path):
     env = setup(tmp_path / "auth.db")
     _, ids = produce(env, 1)
@@ -322,6 +333,7 @@ def test_revocation_and_original_namespace_conjunction_on_replay(tmp_path):
     assert env.service.write(withdrawal(env, target, scope=scope)).error.code == "forbidden"
 
 
+@pytest.mark.service
 def test_exact_retry_conflict_and_knowledge_only_batch_reports(tmp_path):
     env = setup(tmp_path / "retry.db")
     _, ids = produce(env, 2)
@@ -347,6 +359,7 @@ def test_exact_retry_conflict_and_knowledge_only_batch_reports(tmp_path):
     assert outcome.report.state == "collected"
 
 
+@pytest.mark.service
 def test_authorized_other_corpus_cannot_address_target(tmp_path):
     from kg.models.evidence import CorpusRegistration
 
@@ -366,6 +379,7 @@ def test_authorized_other_corpus_cannot_address_target(tmp_path):
     assert result.error.code == "not_found"
 
 
+@pytest.mark.process
 @pytest.mark.parametrize("phase", ["between_steps", "release", "inspection"])
 def test_withdrawal_invalidates_direct_query_inflight_proof(tmp_path, monkeypatch, phase):
     from kg.query._meter import Ledger
@@ -407,6 +421,7 @@ def test_withdrawal_invalidates_direct_query_inflight_proof(tmp_path, monkeypatc
         assert not query._support.sets and query._support.bytes == 0
 
 
+@pytest.mark.service
 def test_coordinated_withdrawal_rejects_before_participant_or_clock(tmp_path):
     from kg.evidence._coordination import UnitIdentity
     from kg.evidence._dispatch import write as dispatch
@@ -434,6 +449,7 @@ def test_coordinated_withdrawal_rejects_before_participant_or_clock(tmp_path):
             assert tuple(c.execute("SELECT * FROM receipt_clock").fetchone()) == before
 
 
+@pytest.mark.process
 @pytest.mark.parametrize("count", [25, 1001])
 def test_full_count_and_inspected_members_after_withdrawal(tmp_path, count):
     env = setup(tmp_path / "count.db")

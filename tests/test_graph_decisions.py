@@ -79,6 +79,8 @@ def assert_parity(env, selection):
             ) == expected_relation["support"]
 
 
+@pytest.mark.native
+@pytest.mark.requires_native
 def test_actual_native_join_and_full_proofs(tmp_path):
     require_native()
     env = fixture(tmp_path / "source.sqlite", decisions=12)
@@ -111,6 +113,8 @@ def test_actual_native_join_and_full_proofs(tmp_path):
                 assert view.quote and "Synthetic note" in view.quote
 
 
+@pytest.mark.acceptance
+@pytest.mark.requires_native
 @pytest.mark.parametrize("mixed_revisions", [False, True])
 def test_realistic_1001_capacity(tmp_path, monkeypatch, mixed_revisions):
     require_native()
@@ -214,6 +218,8 @@ def native(tmp_path):
         yield env, graph
 
 
+@pytest.mark.native
+@pytest.mark.requires_native
 def test_ambiguity_empty_alias_preflight_and_no_traversal_loop(native, monkeypatch):
     env, graph = native
     monkeypatch.setattr(graph, "traverse", lambda *a, **kw: pytest.fail("two graph calls"))
@@ -248,6 +254,8 @@ def test_ambiguity_empty_alias_preflight_and_no_traversal_loop(native, monkeypat
     )).count == 0
 
 
+@pytest.mark.native
+@pytest.mark.requires_native
 def test_incoming_reached_endpoint_and_unrelated_decisions(tmp_path):
     require_native()
     env = setup(tmp_path / "source.sqlite", registered=False)
@@ -293,6 +301,8 @@ def test_incoming_reached_endpoint_and_unrelated_decisions(tmp_path):
         assert {m.decision.assertion_id for m in outgoing.members} == root_decisions
 
 
+@pytest.mark.native
+@pytest.mark.requires_native
 @pytest.mark.parametrize("field,value", [
     ("max_hops", True), ("max_hops", 2), ("max_hops", 1.0),
     ("display_limit", True), ("display_limit", 0), ("display_limit", 1001),
@@ -307,6 +317,8 @@ def test_request_revalidation_before_admission(native, monkeypatch, field, value
         graph.relationship_decisions(request(env).model_copy(update={field: value}))
 
 
+@pytest.mark.native
+@pytest.mark.requires_native
 def test_withdrawal_exact_current_history_refresh_and_independent_paths(native, monkeypatch):
     env, graph = native
     before = graph.relationship_decisions(request(env))
@@ -358,6 +370,8 @@ def test_withdrawal_exact_current_history_refresh_and_independent_paths(native, 
     assert final.count == len(final.members)
 
 
+@pytest.mark.native
+@pytest.mark.requires_native
 @pytest.mark.parametrize("phase", ["idle", "decode", "fence", "cancel", "revoke"])
 def test_joined_withdrawal_race_and_no_data(native, monkeypatch, phase):
     env, graph = native
@@ -402,6 +416,8 @@ def test_joined_withdrawal_race_and_no_data(native, monkeypatch, phase):
     assert not failed.members and not failed.relationships and not failed.candidate_ids
 
 
+@pytest.mark.native
+@pytest.mark.requires_native
 @pytest.mark.parametrize("failure", ["decode", "retain", "final"])
 def test_allocation_and_canonical_custody_failures(native, monkeypatch, failure):
     env, graph = native
@@ -447,6 +463,8 @@ def test_allocation_and_canonical_custody_failures(native, monkeypatch, failure)
     assert contexts[0].meter.private_budget._scratch == 0
 
 
+@pytest.mark.native
+@pytest.mark.requires_native
 @pytest.mark.parametrize(
     "mutation", ["decision-id", "decision-witness", "relationship", "duplicate"],
 )
@@ -476,6 +494,8 @@ def test_corrupt_join_row_never_releases_count(native, monkeypatch, mutation):
     assert failed.count is None and not failed.members and not failed.relationships
 
 
+@pytest.mark.native
+@pytest.mark.requires_native
 def test_source_restore_and_creation_replay_never_resurrect_withdrawn_decision(native):
     env, graph = native
     reference = env.references[2]
@@ -550,6 +570,8 @@ def test_source_restore_and_creation_replay_never_resurrect_withdrawn_decision(n
     } | {replacement_id}
 
 
+@pytest.mark.native
+@pytest.mark.requires_native
 @pytest.mark.parametrize("mutation", ["count", "empty-addition"])
 def test_count_and_eof_share_original_generation(tmp_path, monkeypatch, mutation):
     require_native()
@@ -588,6 +610,8 @@ def test_count_and_eof_share_original_generation(tmp_path, monkeypatch, mutation
             assert graph.relationship_decisions(request(env)).count == 1
 
 
+@pytest.mark.native
+@pytest.mark.requires_native
 def test_borrowed_proof_page_dropped_before_next_read_and_eof(native, monkeypatch):
     env, graph = native
     assert graph.refresh().state == "ready"

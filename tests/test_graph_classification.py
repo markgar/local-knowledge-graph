@@ -19,6 +19,8 @@ from kg.models.foundation import (
     WriteRequest,
 )
 
+pytestmark = [pytest.mark.native, pytest.mark.requires_native]
+
 
 def choose(env, graph, claim_id):
     entity_id = env.projects[0]

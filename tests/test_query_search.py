@@ -18,6 +18,7 @@ def controlled(monkeypatch):
     monkeypatch.setattr(_worker, "run", controlled_worker)
 
 
+@pytest.mark.process
 def test_real_ranked_output_five_charges_exact_quotes_and_linked_stage_facts(
     tmp_path, monkeypatch,
 ):
@@ -75,6 +76,7 @@ def test_real_ranked_output_five_charges_exact_quotes_and_linked_stage_facts(
     trace.close()
 
 
+@pytest.mark.process
 @pytest.mark.parametrize("limit", [1, 2, 3, 4])
 def test_no_partial_pipeline_at_each_public_boundary(tmp_path, controlled, limit):
     env = environment(tmp_path / "budget.db")
@@ -88,6 +90,7 @@ def test_no_partial_pipeline_at_each_public_boundary(tmp_path, controlled, limit
             assert all(not c.events and c.prepared is None for c in collector.candidates())
 
 
+@pytest.mark.process
 @pytest.mark.parametrize("expired", [False, True])
 def test_search_reclaims_only_expired_retained_support(tmp_path, controlled, monkeypatch, expired):
     from support.query_knowledge import plan, produce, setup
@@ -118,6 +121,7 @@ def test_search_reclaims_only_expired_retained_support(tmp_path, controlled, mon
             assert service._support.bytes == retained.payload_bytes
 
 
+@pytest.mark.process
 @pytest.mark.parametrize("empty", [False, True])
 @pytest.mark.parametrize("mode,reason", [
     ("provider_unavailable", "provider_unavailable"),
@@ -140,6 +144,7 @@ def test_provider_readiness_and_private_failures_are_not_empty(
         assert service._support.bytes == 0
 
 
+@pytest.mark.process
 def test_empty_still_initializes_both_providers_and_encodes_query(tmp_path, monkeypatch):
     env = environment(tmp_path / "empty.db")
     prepared(env, text="")
@@ -157,6 +162,7 @@ def test_empty_still_initializes_both_providers_and_encodes_query(tmp_path, monk
     trace.close()
 
 
+@pytest.mark.process
 def test_unrelated_search_and_dependent_record_branches_are_pruned(tmp_path, controlled):
     from kg.models.foundation import CountStep, RecordsStep, ResolveStep
 
@@ -177,6 +183,7 @@ def test_unrelated_search_and_dependent_record_branches_are_pruned(tmp_path, con
         assert result.result.records_examined == 5 and result.result.operations_executed == 1
 
 
+@pytest.mark.process
 def test_scope_filters_before_readiness_and_ranking(tmp_path, controlled):
     from support.evidence import receipt
     from support.indexing import request as document
@@ -200,6 +207,7 @@ def test_scope_filters_before_readiness_and_ranking(tmp_path, controlled):
         no_data(broad, "index_not_ready")
 
 
+@pytest.mark.process
 def test_wrong_logical_configuration_is_not_reused(tmp_path, controlled):
     from kg.models.indexing import IndexConfiguration
 
@@ -212,6 +220,7 @@ def test_wrong_logical_configuration_is_not_reused(tmp_path, controlled):
         no_data(service.execute(request(env)), "index_not_ready")
 
 
+@pytest.mark.process
 @pytest.mark.parametrize("failure", ["worker", "supervisor", "admission"])
 def test_optional_capture_failure_preserves_actual_ranking(
     tmp_path, controlled, monkeypatch, failure,
@@ -243,6 +252,7 @@ def test_optional_capture_failure_preserves_actual_ranking(
         assert service._support.bytes == 0
 
 
+@pytest.mark.process
 @pytest.mark.parametrize("reserved", [62 << 20, (62 << 20) + (512 << 10)])
 def test_optional_transport_scratch_refusal_does_not_spend_business_allowance(
     tmp_path, controlled, monkeypatch, reserved,
@@ -269,6 +279,7 @@ def test_optional_transport_scratch_refusal_does_not_spend_business_allowance(
         assert not isinstance(explained.report, ExecutionReport)
 
 
+@pytest.mark.process
 def test_ranked_passage_backs_real_knowledge_and_retained_query_support(tmp_path, controlled):
     from support.indexing import process
     from support.query_knowledge import plan, produce, setup
@@ -314,6 +325,7 @@ def test_ranked_passage_backs_real_knowledge_and_retained_query_support(tmp_path
         assert fresh.result.data.count == 25 and fresh.result.data.exact
 
 
+@pytest.mark.process
 def test_nondefault_contextual_profile_reaches_spawned_search(tmp_path, controlled):
     from support.evidence import receipt
     from support.index_search import SearchProvider

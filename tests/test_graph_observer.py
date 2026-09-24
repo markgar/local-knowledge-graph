@@ -68,6 +68,7 @@ def failure(code):
     assert caught.value.failure.code == code
 
 
+@pytest.mark.service
 def test_idle_and_one_hundred_operations_keep_physical_baseline(opened, monkeypatch):
     env, source, old = opened
     connection, baseline, binding = source._connection, source._version, source.binding
@@ -99,6 +100,7 @@ def test_idle_and_one_hundred_operations_keep_physical_baseline(opened, monkeypa
     assert (old._visits, old._vm) == old_usage
 
 
+@pytest.mark.service
 def test_three_scopes_share_root_but_not_snapshot_authority(opened):
     env, source, budget = opened
     execution = meter(budget)
@@ -135,6 +137,7 @@ def test_three_scopes_share_root_but_not_snapshot_authority(opened):
     assert counters[0][1] < counters[1][1] < counters[2][1]
 
 
+@pytest.mark.service
 def test_bulk_build_root_spans_three_scopes_then_parks_for_interactive_request(tmp_path):
     env = environment(tmp_path / "bulk-graph.db")
     build = _graph_build_operation(deadline=Deadline(time.monotonic() + 300), cancel=Event())
@@ -184,6 +187,7 @@ def test_bulk_build_root_spans_three_scopes_then_parks_for_interactive_request(t
         source.close()
 
 
+@pytest.mark.service
 @pytest.mark.parametrize("cancel_phase", range(3))
 def test_bulk_cancellation_unwinds_current_scope_without_losing_original_source(
     tmp_path, cancel_phase,
@@ -217,6 +221,7 @@ def test_bulk_cancellation_unwinds_current_scope_without_losing_original_source(
         source.close()
 
 
+@pytest.mark.service
 @pytest.mark.parametrize("phase", range(3))
 def test_foreign_binding_is_rejected_in_every_cold_scope(opened, phase):
     env, source, budget = opened
@@ -231,6 +236,7 @@ def test_foreign_binding_is_rejected_in_every_cold_scope(opened, phase):
         pass
 
 
+@pytest.mark.service
 @pytest.mark.parametrize("difference", [
     "principal", "corpus", "policy", "narrow", "broad", "grants", "namespace_order", "grant_order",
 ])
@@ -259,6 +265,7 @@ def test_exact_validated_identity_and_scope(opened, difference):
         pass
 
 
+@pytest.mark.service
 def test_malformed_scope_and_mismatched_deadline_never_rebind(opened):
     env, source, _ = opened
     bad = env.scope.model_copy(update={"corpus_id": 1})
@@ -271,6 +278,7 @@ def test_malformed_scope_and_mismatched_deadline_never_rebind(opened):
     assert source._connection._budget is None
 
 
+@pytest.mark.process
 def test_no_nested_rebinding_and_wrong_thread_cannot_close_owner(opened):
     env, source, _ = opened
     with operation(env, source) as current:
@@ -288,6 +296,7 @@ def test_no_nested_rebinding_and_wrong_thread_cannot_close_owner(opened):
             pass
 
 
+@pytest.mark.service
 @pytest.mark.parametrize("misuse", ["foreign_meter", "snapshot_twice", "fence_in_snapshot"])
 def test_snapshot_misuse_aborts_the_operation(opened, misuse):
     env, source, _ = opened
@@ -308,6 +317,7 @@ def test_snapshot_misuse_aborts_the_operation(opened, misuse):
             pytest.fail("Aborted operation released")
 
 
+@pytest.mark.service
 def test_terminal_fence_and_expired_operation_are_not_reusable(opened):
     env, source, _ = opened
     with operation(env, source) as current:
@@ -323,6 +333,7 @@ def test_terminal_fence_and_expired_operation_are_not_reusable(opened):
         current.check_current()
 
 
+@pytest.mark.service
 @pytest.mark.parametrize("stop", ["visits", "vm", "deadline"])
 def test_stops_are_not_reset_but_a_later_request_can_reuse_source(opened, monkeypatch, stop):
     env, source, _ = opened
@@ -344,6 +355,7 @@ def test_stops_are_not_reset_but_a_later_request_can_reuse_source(opened, monkey
     assert (budget._visits, budget._vm) == consumed
 
 
+@pytest.mark.service
 @pytest.mark.parametrize(
     "gap", ["before_snapshot", "in_snapshot", "after_snapshot", "after_export"],
 )
@@ -374,6 +386,7 @@ def test_actual_commit_at_every_gap_withholds_all_payload(opened, gap):
     assert released is None and not source._usable
 
 
+@pytest.mark.service
 @pytest.mark.parametrize("change", ["new", "metadata", "restore", "unrelated", "policy", "revoke"])
 def test_idle_commits_and_policy_changes_invalidate(tmp_path, change):
     env = environment(tmp_path / "change.db")
@@ -419,6 +432,7 @@ def test_idle_commits_and_policy_changes_invalidate(tmp_path, change):
         source.close()
 
 
+@pytest.mark.service
 def test_final_fence_reauthorizes_and_excludes_writers_only_while_active(opened):
     env, source, _ = opened
     with env.database.connection() as witness:
@@ -437,6 +451,7 @@ def test_final_fence_reauthorizes_and_excludes_writers_only_while_active(opened)
         assert witness.execute("PRAGMA data_version").fetchone()[0] == version
 
 
+@pytest.mark.service
 def test_revocation_after_snapshot_is_forbidden_at_fence(opened):
     env, source, _ = opened
     with operation(env, source) as current:
@@ -450,6 +465,7 @@ def test_revocation_after_snapshot_is_forbidden_at_fence(opened):
             pytest.fail("Revocation disclosed a result")
 
 
+@pytest.mark.service
 @pytest.mark.parametrize("loss", ["close", "raw_close", "replace"])
 def test_lost_physical_observer_is_never_replaced(opened, loss):
     env, source, _ = opened
@@ -471,6 +487,7 @@ def test_lost_physical_observer_is_never_replaced(opened, loss):
             replacement.close()
 
 
+@pytest.mark.service
 def test_fresh_observer_and_serialized_binding_cannot_certify_old_source(opened):
     env, old, _ = opened
     budget = pool()
@@ -494,6 +511,7 @@ def test_fresh_observer_and_serialized_binding_cannot_certify_old_source(opened)
         fresh.close()
 
 
+@pytest.mark.service
 def test_database_path_is_pinned_and_no_live_snapshot_can_escape(opened, tmp_path):
     env, source, _ = opened
     env.database.path = tmp_path / "not-this-source.db"
@@ -508,6 +526,7 @@ def test_database_path_is_pinned_and_no_live_snapshot_can_escape(opened, tmp_pat
         pass
 
 
+@pytest.mark.service
 @pytest.mark.parametrize("exit_failure", ["deadline", "rollback", "close"])
 def test_post_body_failure_withholds_tentative_publication(opened, monkeypatch, exit_failure):
     env, source, _ = opened
@@ -534,6 +553,7 @@ def test_post_body_failure_withholds_tentative_publication(opened, monkeypatch, 
     assert ready is None
 
 
+@pytest.mark.service
 def test_exact_evidence_survives_unchanged_source_across_requests(tmp_path):
     env = environment(tmp_path / "evidence.db")
     saved = receipt(env.service.write(put(env.scope)))
@@ -555,6 +575,7 @@ def test_exact_evidence_survives_unchanged_source_across_requests(tmp_path):
         source.close()
 
 
+@pytest.mark.service
 @pytest.mark.parametrize("setup_failure", ["before_setup", "pragma", "admission"])
 @pytest.mark.parametrize("closed_before_error", [False, True])
 def test_factory_custody_before_setup_and_confirmation_aware_retry(
@@ -613,6 +634,7 @@ def test_factory_custody_before_setup_and_confirmation_aware_retry(
         sqlite3.Connection.execute(acquired[0], "SELECT 1")
 
 
+@pytest.mark.service
 def test_factory_preserves_stop_subtype_and_original_failure_identity(tmp_path, monkeypatch):
     env = environment(tmp_path / "cancelled.db")
     budget = pool()
@@ -638,6 +660,7 @@ def test_factory_preserves_stop_subtype_and_original_failure_identity(tmp_path, 
     caught.value.source.close()
 
 
+@pytest.mark.service
 @pytest.mark.parametrize("phase", ["entry", "poll", "fence"])
 def test_current_operation_preserves_latched_stop_subtype(opened, monkeypatch, phase):
     env, source, _ = opened
@@ -667,6 +690,7 @@ def test_current_operation_preserves_latched_stop_subtype(opened, monkeypatch, p
         pass
 
 
+@pytest.mark.service
 @pytest.mark.parametrize("visit", [1, 2, 3])
 def test_retained_authorization_failure_cannot_pin_an_idle_snapshot(opened, monkeypatch, visit):
     env, source, _ = opened
@@ -692,6 +716,7 @@ def test_retained_authorization_failure_cannot_pin_an_idle_snapshot(opened, monk
         pytest.fail("Retained authorization cursor hid the external commit")
 
 
+@pytest.mark.service
 def test_authorization_execute_failure_also_closes_the_owned_cursor(opened, monkeypatch):
     env, source, _ = opened
     execute = AccountedCursor.execute
@@ -713,6 +738,7 @@ def test_authorization_execute_failure_also_closes_the_owned_cursor(opened, monk
         pytest.fail("Failed execute pinned an implicit snapshot")
 
 
+@pytest.mark.service
 def test_direct_close_failure_keeps_cleanup_owner_until_confirmation(opened, monkeypatch):
     env, source, _ = opened
     physical = source._physical
@@ -734,6 +760,7 @@ def test_direct_close_failure_keeps_cleanup_owner_until_confirmation(opened, mon
     assert source._close_confirmed and source._physical is None
 
 
+@pytest.mark.service
 def test_factory_failure_with_successful_cleanup_reraises_original(tmp_path, monkeypatch):
     env = environment(tmp_path / "failure.db")
     budget = pool()
@@ -752,6 +779,7 @@ def test_factory_failure_with_successful_cleanup_reraises_original(tmp_path, mon
         sqlite3.Connection.execute(acquired[0], "SELECT 1")
 
 
+@pytest.mark.service
 def test_ordinary_open_reuses_setup_and_ordinary_close_path(tmp_path, monkeypatch):
     from kg.evidence import database
 
@@ -784,6 +812,7 @@ def test_ordinary_open_reuses_setup_and_ordinary_close_path(tmp_path, monkeypatc
         graph.GraphSourceObserver(env.database, env.service.identity, env.scope, _key=object())
 
 
+@pytest.mark.service
 def test_missing_database_does_not_create_one(tmp_path):
     path = tmp_path / "missing.db"
     env = environment(tmp_path / "available.db")

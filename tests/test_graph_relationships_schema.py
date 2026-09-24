@@ -87,6 +87,8 @@ def request(env):
     )
 
 
+@pytest.mark.native
+@pytest.mark.requires_native
 def test_mixed_revision_native_proofs_refresh_and_canonical_history(tmp_path):
     require_native()
     env = fixture(tmp_path / "source.sqlite", decisions=4)
@@ -144,6 +146,8 @@ def test_mixed_revision_native_proofs_refresh_and_canonical_history(tmp_path):
             )
 
 
+@pytest.mark.native
+@pytest.mark.requires_native
 @pytest.mark.parametrize("side", ["relationship", "decision"])
 def test_valid_compatible_revision_substitution_rejected(tmp_path, monkeypatch, side):
     require_native()

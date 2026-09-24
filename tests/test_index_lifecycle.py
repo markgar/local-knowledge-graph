@@ -36,6 +36,7 @@ from kg.models.indexing import DEFAULT_CONFIGURATION, IndexConfiguration, Proces
 from kg.retrieval.dense import DenseIndexError, EmbeddingProfile
 
 
+@pytest.mark.service
 @pytest.mark.parametrize("text", ["", " ", "A\r\nCafe\u0301 \U0001f680\0" * 150])
 def test_real_standalone_process_unchanged_and_rebuild(tmp_path, text):
     env = environment(tmp_path / "index.db")
@@ -70,6 +71,7 @@ def test_real_standalone_process_unchanged_and_rebuild(tmp_path, text):
         assert connection.execute("SELECT count(*) FROM index_staging_member").fetchone()[0] == 0
 
 
+@pytest.mark.service
 @pytest.mark.parametrize("contextual", [False, True])
 def test_metadata_change_reuses_only_identical_representation(tmp_path, contextual):
     env = environment(tmp_path / "metadata.db")
@@ -99,6 +101,7 @@ def test_metadata_change_reuses_only_identical_representation(tmp_path, contextu
     assert env.service.citation(env.scope, citation).metadata.metadata.title == "T"
 
 
+@pytest.mark.service
 @pytest.mark.parametrize("profile", list(EmbeddingProfile))
 @pytest.mark.parametrize("policy", ["codepoint-window/1", "supplied-anchors/1"])
 def test_both_policies_and_profiles_are_real_projections(tmp_path, profile, policy):
@@ -126,6 +129,7 @@ def test_both_policies_and_profiles_are_real_projections(tmp_path, profile, poli
     assert ProcessResult.model_validate_json(result.model_dump_json()) == result
 
 
+@pytest.mark.service
 @pytest.mark.parametrize("policy", ["unknown/1", "supplied-anchors/1"])
 def test_unsupported_policy_records_failure_without_provider_or_false_readiness(tmp_path, policy):
     env = environment(tmp_path / "policy.db")
@@ -141,6 +145,7 @@ def test_unsupported_policy_records_failure_without_provider_or_false_readiness(
     assert index.pending(env.scope).entries == (status,)
 
 
+@pytest.mark.service
 @pytest.mark.parametrize("bad", ["count", "dimension", "nan", "infinity", "zero"])
 def test_invalid_vectors_never_publish_and_keep_real_passages(tmp_path, bad):
     env = environment(tmp_path / "invalid.db")
@@ -174,6 +179,7 @@ def test_invalid_vectors_never_publish_and_keep_real_passages(tmp_path, bad):
         )
 
 
+@pytest.mark.service
 def test_unavailable_runtime_changed_and_failed_rebuild_preserve_good_projection(tmp_path):
     env = environment(tmp_path / "runtime.db")
     value = request(env)
@@ -199,6 +205,7 @@ def test_unavailable_runtime_changed_and_failed_rebuild_preserve_good_projection
     assert provider.calls
 
 
+@pytest.mark.service
 @pytest.mark.parametrize(
     "attribute,value",
     [
@@ -222,6 +229,7 @@ def test_exact_provider_identity_is_mandatory(tmp_path, attribute, value):
     assert index.status(env.scope, saved.document_id).status == "failed"
 
 
+@pytest.mark.process
 @pytest.mark.parametrize("late_failure", [False, True])
 def test_two_file_backed_workers_newer_attempt_fences_late_result(tmp_path, late_failure):
     env = environment(tmp_path / "race.db")
@@ -261,6 +269,7 @@ def test_two_file_backed_workers_newer_attempt_fences_late_result(tmp_path, late
         )
 
 
+@pytest.mark.service
 @pytest.mark.parametrize("change", ["text", "title", "policy"])
 def test_edit_while_encoding_rejects_stale_output(tmp_path, change):
     env = environment(tmp_path / "state.db")
@@ -299,6 +308,7 @@ def test_edit_while_encoding_rejects_stale_output(tmp_path, change):
     )
 
 
+@pytest.mark.service
 def test_crash_after_passages_and_partial_staging_restarts_not_resumes(tmp_path, monkeypatch):
     env = environment(tmp_path / "crash.db")
     value = request(env, text="x" * 16000)
@@ -330,6 +340,7 @@ def test_crash_after_passages_and_partial_staging_restarts_not_resumes(tmp_path,
         assert connection.execute("SELECT count(*) FROM state_passage_set").fetchone()[0] == 1
 
 
+@pytest.mark.service
 def test_staging_transaction_failure_rolls_back_whole_batch(tmp_path, monkeypatch):
     env = environment(tmp_path / "rollback.db")
     value = request(env, text="x" * 3000)
@@ -356,6 +367,7 @@ def test_staging_transaction_failure_rolls_back_whole_batch(tmp_path, monkeypatc
         )
 
 
+@pytest.mark.service
 def test_publication_failure_preserves_old_projection_and_canonical_evidence(tmp_path, monkeypatch):
     env = environment(tmp_path / "publication.db")
     value = request(env)
@@ -379,6 +391,7 @@ def test_publication_failure_preserves_old_projection_and_canonical_evidence(tmp
     assert cleaned.removed == 1 and not cleaned.has_more
 
 
+@pytest.mark.service
 def test_policy_fence_and_effective_default_never_destroy_history(tmp_path):
     env = environment(tmp_path / "access.db")
     policy = env.policy.model_copy(
@@ -440,6 +453,7 @@ def test_policy_fence_and_effective_default_never_destroy_history(tmp_path):
     assert process(index, env, value, saved).outcome == "stale"
 
 
+@pytest.mark.service
 def test_normal_policy_rotation_invalidates_state_without_rewriting_old_citation(tmp_path):
     env = environment(tmp_path / "rotation.db")
     value = request(env)
@@ -478,6 +492,7 @@ def test_normal_policy_rotation_invalidates_state_without_rewriting_old_citation
     assert env.service.citation(env.scope, page.entries[0].citation).quote == page.entries[0].quote
 
 
+@pytest.mark.service
 def test_reports_observe_once_and_never_contain_source_or_provider_exception(tmp_path):
     env = environment(tmp_path / "reports.db")
     value = request(env, text="SECRET_SOURCE_CANARY")
@@ -508,18 +523,21 @@ def test_reports_observe_once_and_never_contain_source_or_provider_exception(tmp
     assert again.outcome.outcome == "unchanged" and len(provider.calls) == 1
 
 
+@pytest.mark.service
 @pytest.mark.parametrize("vector", [[0.0, 0.0], [float("nan"), 1.0], [float("inf"), 1.0]])
 def test_canonical_vector_rejects_invalid_values(vector):
     with pytest.raises(_vectors.InvalidVector):
         _vectors.encode(vector, 2)
 
 
+@pytest.mark.service
 def test_canonical_vector_is_normalized_float32():
     encoded = _vectors.encode([3.0, 4.0], 2)
     assert struct.unpack("<2f", encoded) == pytest.approx((0.6, 0.8))
     _vectors.validate(encoded, 2)
 
 
+@pytest.mark.service
 def test_unchanged_projection_does_not_fake_ready_after_empty_member_table(tmp_path):
     env = environment(tmp_path / "missing.db")
     value = request(env)
@@ -536,6 +554,7 @@ def test_unchanged_projection_does_not_fake_ready_after_empty_member_table(tmp_p
     assert repaired.outcome == "ready" and repaired.produced_vectors == 1
 
 
+@pytest.mark.service
 def test_cleanup_preserves_live_staging_but_drains_provably_stale_attempt(tmp_path):
     env = environment(tmp_path / "stale-cleanup.db")
     value = request(env, text="x" * 16000)
@@ -570,6 +589,7 @@ def test_cleanup_preserves_live_staging_but_drains_provably_stale_attempt(tmp_pa
         assert connection.execute("SELECT count(*) FROM passage").fetchone()[0] == 16
 
 
+@pytest.mark.service
 def test_terminal_summary_pruning_preserves_monotonic_fence(tmp_path):
     env = environment(tmp_path / "pruning.db")
     value = request(env)
@@ -600,6 +620,7 @@ def test_terminal_summary_pruning_preserves_monotonic_fence(tmp_path):
         assert connection.execute("SELECT count(*) FROM index_attempt").fetchone()[0] == 100
 
 
+@pytest.mark.service
 def test_bounded_pending_scoped_cursor_and_model_free_inspection(tmp_path):
     env = environment(tmp_path / "pending.db")
     index, _, loads = service(env)
@@ -650,6 +671,7 @@ def test_bounded_pending_scoped_cursor_and_model_free_inspection(tmp_path):
         index.status(scoped, denied_id)
 
 
+@pytest.mark.service
 def test_remove_restore_and_readiness_remain_separate_from_historical_citation(tmp_path):
     env = environment(tmp_path / "restore.db")
     value = request(env)
@@ -685,6 +707,7 @@ def test_remove_restore_and_readiness_remain_separate_from_historical_citation(t
     assert again.passage_set_id == result.passage_set_id
 
 
+@pytest.mark.service
 def test_vector_rebuild_keeps_actual_same_transaction_support_valid(tmp_path):
     env = environment(tmp_path / "support.db")
     policy = env.policy.model_copy(
@@ -747,6 +770,7 @@ def test_vector_rebuild_keeps_actual_same_transaction_support_valid(tmp_path):
         )
 
 
+@pytest.mark.service
 @pytest.mark.parametrize("index_first", [False, True])
 def test_vector_rebuild_preserves_committed_k1_anchor_support(tmp_path, monkeypatch, index_first):
     env = environment(tmp_path / "committed-support.db")
@@ -872,6 +896,7 @@ def test_vector_rebuild_preserves_committed_k1_anchor_support(tmp_path, monkeypa
     )
 
 
+@pytest.mark.service
 def test_expired_root_deadline_discards_late_provider_output(tmp_path, monkeypatch):
     env = environment(tmp_path / "late.db")
     value = request(env)
@@ -888,6 +913,7 @@ def test_expired_root_deadline_discards_late_provider_output(tmp_path, monkeypat
     assert budget._scratch == 0
 
 
+@pytest.mark.service
 def test_oversized_single_representation_is_not_silently_truncated_for_budget(tmp_path):
     env = environment(tmp_path / "oversized.db")
     text = "x" * 9000
@@ -914,6 +940,7 @@ def test_oversized_single_representation_is_not_silently_truncated_for_budget(tm
     )
 
 
+@pytest.mark.service
 def test_no_claim_participant_or_search_capability_is_faked(tmp_path):
     env = environment(tmp_path / "unsupported.db")
     index, _, _ = service(env)
@@ -923,6 +950,7 @@ def test_no_claim_participant_or_search_capability_is_faked(tmp_path):
     assert not hasattr(index, "search")
 
 
+@pytest.mark.service
 def test_configuration_hash_binds_representation_and_profile():
     baseline = configuration_id(DEFAULT_CONFIGURATION)
     assert baseline != configuration_id(
@@ -937,6 +965,7 @@ def test_configuration_hash_binds_representation_and_profile():
     assert baseline == configuration_id(IndexConfiguration())
 
 
+@pytest.mark.service
 def test_commit_then_lost_response_is_observable_and_retry_verifies_unchanged(
     tmp_path, monkeypatch
 ):
@@ -967,6 +996,7 @@ def test_commit_then_lost_response_is_observable_and_retry_verifies_unchanged(
     assert process(index, env, value, saved).outcome == "unchanged"
 
 
+@pytest.mark.service
 def test_status_releases_no_snapshot_after_concurrent_commit(tmp_path, monkeypatch):
     from kg.indexing import _inspection
 
@@ -989,6 +1019,7 @@ def test_status_releases_no_snapshot_after_concurrent_commit(tmp_path, monkeypat
         index.status(env.scope, saved.document_id)
 
 
+@pytest.mark.service
 def test_diagnostic_allocation_failure_cannot_change_projection(tmp_path, monkeypatch):
     from kg.indexing import _process
 
@@ -1006,6 +1037,7 @@ def test_diagnostic_allocation_failure_cannot_change_projection(tmp_path, monkey
     assert index.status(env.scope, saved.document_id).status == "ready"
 
 
+@pytest.mark.service
 def test_context_metadata_reserves_before_fetch_and_holds_through_use(tmp_path):
     from kg.indexing._inspection import title
     from kg.models.foundation import MetadataEntry
@@ -1045,6 +1077,7 @@ def test_context_metadata_reserves_before_fetch_and_holds_through_use(tmp_path):
         assert budget._scratch == 0
 
 
+@pytest.mark.service
 def test_explicit_cleanup_retires_inactive_pointer_within_row_limit(tmp_path):
     env = environment(tmp_path / "inactive-cleanup.db")
     value = request(env)
@@ -1090,6 +1123,7 @@ def test_explicit_cleanup_retires_inactive_pointer_within_row_limit(tmp_path):
     assert env.service.citation(env.scope, passage.citation).quote == passage.quote
 
 
+@pytest.mark.service
 def test_postcommit_budget_stop_is_explicit_pending_then_reclaimed(tmp_path, monkeypatch):
     env = environment(tmp_path / "cleanup-pending.db")
     value = request(env)
@@ -1116,6 +1150,7 @@ def test_postcommit_budget_stop_is_explicit_pending_then_reclaimed(tmp_path, mon
     assert index.status(env.scope, saved.document_id).projection_id == result.projection_id
 
 
+@pytest.mark.service
 def test_constructed_configuration_is_revalidated_before_admission(tmp_path):
     env = environment(tmp_path / "forged.db")
     value = request(env)
