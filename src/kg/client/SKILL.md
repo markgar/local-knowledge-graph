@@ -13,8 +13,9 @@ available through `kg skill`; no repository access or Python glue is needed.
 ## Understand what is being claimed
 
 Evidence is exact supplied text with immutable revisions and addressable
-anchors/passages. Entities have stable IDs and registered types; names are not
-unique. Assertions are independently submitted statements with attribution and
+anchors/passages. Entities have stable IDs and independent existence support; they
+may remain unclassified. Types are supported authored claims, with an explicit
+selected claim, not verified truth. Names are not unique. Assertions have attribution and
 support, not independently verified truth. Decisions are explicitly recorded
 assertions; their counts distinguish submitted IDs, not real-world events.
 
@@ -80,10 +81,46 @@ This trusted-local command attests review; it is not authentication against anot
 same-OS administrator. Never manufacture approval or call it automatically.
 After uncertainty, only the identical schema request/key is safe to retry.
 A new key with a stale base conflicts; reassess rather than silently rebasing.
-Schema application creates no facts. Automatic initial-schema generation and
-later entity reclassification are not implemented.
+Schema application creates no facts. Automatic initial-schema generation is not
+implemented. Classification refinement is a separate, explicit knowledge operation.
 
 ## Record deliberate, grounded knowledge
+
+If the source identifies a thing but its precise classification is unresolved,
+submit an `entity` change with exact existence support and no `entity_type`. Do not
+invent a project/other classification, global identity, merge, or relationship.
+Two unrelated documents' "the export" mentions are not the same entity by name.
+`entity_support` also carries no type. Classification cannot replace existence support.
+
+When support justifies classification, author a `classification` change with the
+entity reference, registered `entity_type`, `interpretation` and its own exact support.
+Then use `kg classifications entity:ID --json` to review authorized current claims.
+Copy `result.selection_id`, `reviewed_candidates_digest`, `reviewed_claim_ids`, and
+`review_coverage` into an explicit `classification_selection` change with rationale
+and a local/stored claim reference (or null to clear). Only the original entity
+owner AND writer may select/clear; other authorized writers can contribute claims.
+There is no newest-wins or hidden global veto. Selection-only files use `"support":[]`.
+`kg record --example` includes compound identity/claim/selection/assertion inputs.
+
+Complete review is bounded at 200 eligible visible claims and fails rather than
+silently truncating. Explicit `--review-claim fact:ID` subsets or `--review-empty`
+are incomplete and require `accept_incomplete_review:true`; never describe them as
+complete agreement. Read selection history using `--history` and its returned opaque
+`--after-event-id`. Private alternatives also protect derived rationale/history.
+
+Typed assertions require explicit `subject_classification`, plus
+`object_classification` for entity endpoints: a local selection reference in the
+same unit, or a copied stored selection event ID. A changed selected claim, including
+same-type replacement and A-to-B-to-A, permanently invalidates old assertion captures.
+Revocation, stale support, withdrawal, replay or graph refresh never repairs them.
+Use `kg withdraw-classification fact:ID --retry-key KEY` for owned terminal withdrawal;
+history and independently supported identity survive. Reassess and submit new claims/
+assertions when needed; never silently substitute preconditions or borrow type support.
+
+Persist input and key before `kg record FILE --retry-key KEY --json`. Retry unknown
+outcomes with those exact bytes/key; honor `retry_conflict`/`retry_expired`. `/5` is
+an explicit fresh-store break: preserve incompatible files and resupply into a new
+path. No migration, automatic identity merge, schema generation or extraction is shipped.
 
 Copy `kg schema show --json`'s exact `result.revision` into the record file's
 `expected_schema_revision`. A stale head requires reassessment and a fresh deliberate

@@ -48,11 +48,13 @@ def token() -> str:
     return str(uuid4())
 
 
-def submit(profile: Profile, payload: WritePayload) -> WriteOutcome | Response:
+def submit(
+    profile: Profile, payload: WritePayload, *, retry_key: str | None = None,
+) -> WriteOutcome | Response:
     request = WriteRequest(
         contract_version="foundation/1",
         request_id=token(),
-        retry_key=token(),
+        retry_key=retry_key if retry_key is not None else token(),
         scope=profile.scope,
         attribution=profile.attribution,
         payload=payload,
@@ -62,12 +64,28 @@ def submit(profile: Profile, payload: WritePayload) -> WriteOutcome | Response:
         return evidence.write(request)
     except (Exception, KeyboardInterrupt):
         LOGGER.error("Canonical write raised; commit outcome is unknown.")
+        from kg.evidence._values import canonical, sha
+
         return Response(
             status="uncertain",
             code="write_outcome_unknown",
             exit_code=7,
-            message="Write outcome unknown. Manual resubmission may create duplicates.",
-            result={"request_id": request.request_id},
+            message=(
+                "Write outcome unknown. Retry only the exact input and saved retry key."
+                if retry_key is not None
+                else "Write outcome unknown. Manual resubmission may create duplicates."
+            ),
+            result={
+                "request_id": request.request_id,
+                **({
+                    "retry_key": request.retry_key,
+                    "prepared_input_digest": sha(canonical({
+                        "payload": payload.model_dump(mode="json"),
+                        "attribution": request.attribution.model_dump(mode="json"),
+                        "corpus_id": request.scope.corpus_id,
+                    }).encode()),
+                } if retry_key is not None else {}),
+            },
         )
 
 

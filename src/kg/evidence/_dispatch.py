@@ -31,7 +31,9 @@ from kg.models.foundation import (
     PutDocument,
     Receipt,
     RemoveDocument,
+    SelectClassification,
     WithdrawAssertion,
+    WithdrawClassification,
     WriteBatch,
     WriteOutcome,
     WriteRequest,
@@ -103,9 +105,14 @@ def write(
             raise EvidenceServiceError("invalid_request")
     context: CanonicalWriteContext | None = None
     receipt: Receipt
-    knowledge = isinstance(request.payload, (ChangeSet, WithdrawAssertion))
+    knowledge = isinstance(request.payload, (ChangeSet, WithdrawAssertion, WithdrawClassification))
     try:
-        if participant is not None and isinstance(request.payload, WithdrawAssertion):
+        if participant is not None and (
+            isinstance(request.payload, (WithdrawAssertion, WithdrawClassification))
+            or isinstance(request.payload, ChangeSet) and any(
+                isinstance(c, SelectClassification) for c in request.payload.changes
+            )
+        ):
             raise EvidenceServiceError("unsupported")
         if knowledge:
             root = budget or PrivateBudget(Deadline(time.monotonic() + 30))
@@ -223,7 +230,7 @@ def write(
                 from kg.knowledge._reports import retain_manifest
 
                 assert budget is not None
-                if isinstance(request.payload, WithdrawAssertion):
+                if isinstance(request.payload, (WithdrawAssertion, WithdrawClassification)):
                     from kg.knowledge import _withdraw
 
                     receipt, status, key_id, manifest = _withdraw.apply(

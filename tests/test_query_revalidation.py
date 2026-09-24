@@ -178,7 +178,6 @@ def test_snapshot_cache_capacity_and_transient_scratch_are_bounded(tmp_path):
                         kind="entity",
                         local_id=f"e{i}",
                         name=f"Project {i}",
-                        entity_type="project",
                         support=env.support,
                     )
                     for i in range(start, min(start + 100, 201))

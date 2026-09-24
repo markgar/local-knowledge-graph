@@ -820,7 +820,6 @@ def test_vector_rebuild_preserves_committed_k1_anchor_support(tmp_path, monkeypa
                         kind="entity",
                         local_id="project",
                         name="Supported project",
-                        entity_type="project",
                         support=SourceSupport(kind="source", evidence=(anchor.reference,)),
                     ),
                 ),

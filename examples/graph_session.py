@@ -16,12 +16,14 @@ from kg.evidence._read_context import read_evidence
 from kg.graph import LocalGraphSession
 from kg.graph._native import BUFFER_POOL_BYTES
 from kg.graph._session_types import GraphSessionError
+from kg.knowledge import KnowledgeService
 from kg.knowledge._graph_export import GraphAssertion
 from kg.models.foundation import (
     AddAssertion,
     ChangeSet,
     SourceSupport,
     StoredEntity,
+    StoredSelectionRef,
     StringObject,
     WriteBatch,
     WriteRequest,
@@ -81,6 +83,11 @@ def lifecycle(output: Path) -> dict:
                     object=StringObject(kind="string", value="A saved decision"),
                     interpretation="explicit",
                     support=SourceSupport(kind="source", evidence=(reference,)),
+                    subject_classification=StoredSelectionRef(
+                        kind="stored", event_id=KnowledgeService(
+                            env.database, env.identity,
+                        ).entity(env.scope, env.projects[0]).classification.selection_id,
+                    ),
                 ),),
             ),
         )

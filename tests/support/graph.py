@@ -9,6 +9,14 @@ import pytest
 
 from kg.graph._native import NativeError, _engine
 
+inputs_spec = importlib.util.spec_from_file_location(
+    "classification_inputs", Path(__file__).parents[2] / "examples" / "classification_inputs.py",
+)
+assert inputs_spec is not None and inputs_spec.loader is not None
+inputs = importlib.util.module_from_spec(inputs_spec)
+sys.modules[inputs_spec.name] = inputs
+inputs_spec.loader.exec_module(inputs)
+
 spec = importlib.util.spec_from_file_location(
     "graph_example", Path(__file__).parents[2] / "examples" / "graph_build.py",
 )

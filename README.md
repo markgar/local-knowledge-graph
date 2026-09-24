@@ -179,7 +179,7 @@ See [canonical search contracts](CONTRACTS.md#canonical-full-search).
 Neither API implements processing coordination or establishes real-model
 quality/workload acceptance.
 
-The canonical store uses the complete `evidence-store/4` schema and the `evidence/2`
+The canonical store uses the complete `evidence-store/5` schema and the `evidence/2`
 service interface. Initialization verifies the actual schema and its recorded
 manifest, not just a version marker. Incompatible stores are refused without
 repair: use a fresh path and resupply sources, policy/schema and explicit knowledge.
@@ -448,7 +448,7 @@ kg read entity:RETURNED_ID --json
 kg find relationships Atlas --limit 20 --json
 kg record --example
 kg record --schema --json
-kg record facts.json --json
+kg record facts.json --retry-key reviewed-facts-1 --json
 kg find decisions Atlas --json
 kg find decisions Mira --through owns --json
 kg find decisions Atlas --through '^owns' --json
@@ -481,6 +481,19 @@ conjunctive evidence. The original support-array/native-reference form remains
 accepted. Modes cannot be mixed; unknown/unused names, duplicate keys/evidence
 and conflicting captured states are rejected before writing. Canonical limits
 apply after expansion. See `kg record --example` and `--schema`.
+
+Identity can remain unresolved with exact existence support and no edges. Do not put
+`entity_type` on `entity`/`entity_support` or coerce a local export/certificate into a
+project. Author a supported `classification` claim separately and explicitly select it
+using the exact review from `kg classifications entity:ID --json`. Only the original
+identity owner/writer selects or clears. Typed assertions capture selected events;
+same-type replacements, A-to-B-to-A and refresh never revive old assertions.
+`kg classifications entity:ID --history --json` preserves authorized history;
+`kg withdraw-classification fact:ID --retry-key KEY` terminally withdraws a claim
+without erasing identity/evidence. Persist the input and retry key before recording.
+See [the input recipe](src/kg/client/record-example.md) for compound creation,
+selection-only input, bounded subset recovery and unknown-outcome retry.
+
 The client derives dependencies
 from the captured states, never current/latest replacements. Every endpoint is an
 explicit local creation or stored-ID reuse. The complete canonical write receipt

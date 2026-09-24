@@ -47,6 +47,17 @@ class KnowledgeWriterTarget(Value):
     writer_id: Token
 
 
+class ClassificationTarget(Value):
+    kind: Literal["classification"] = "classification"
+    contribution_ids: tuple[Token, ...] = Field(min_length=1, max_length=302)
+
+
+class ClassificationEventTarget(Value):
+    kind: Literal["classification_event"] = "classification_event"
+    entity_id: Token
+    event_id: Token
+
+
 class SeedSetTarget(Value):
     """Owned set identity, including an empty set with no contribution IDs."""
 
@@ -87,6 +98,8 @@ ReportTarget = Annotated[
     | EvidenceTarget
     | WriterTarget
     | KnowledgeTarget
+    | ClassificationTarget
+    | ClassificationEventTarget
     | KnowledgeWriterTarget
     | SeedSetTarget
     | IndexTarget

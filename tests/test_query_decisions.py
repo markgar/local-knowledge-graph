@@ -435,7 +435,6 @@ def test_complete_conjunctive_support_and_exact_sequence_witness(tmp_path, monke
                     local_id="later",
                     entity=StoredEntity(kind="stored", entity_id=subject),
                     name="Project",
-                    entity_type="project",
                     support=env.support,
                 ),
             ),

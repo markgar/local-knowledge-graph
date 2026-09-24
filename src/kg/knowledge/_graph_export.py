@@ -15,6 +15,7 @@ from kg.evidence.errors import EvidenceServiceError
 from kg.knowledge._reader import _decision_item
 from kg.knowledge._selection import (
     CapturedEvidence,
+    ClassificationWitness,
     DecisionSelectionItem,
     EntityWitness,
     SourceWitness,
@@ -34,8 +35,8 @@ class GraphExportError(Exception):
 
 
 class GraphCoverage(Value):
-    mapping_version: Literal["canonical-relationships-decisions/1"] = (
-        "canonical-relationships-decisions/1"
+    mapping_version: Literal["canonical-relationships-decisions/2"] = (
+        "canonical-relationships-decisions/2"
     )
     schema_version: Token
     schema_definition_hash: str = Field(pattern=r"^[0-9a-f]{64}$")
@@ -67,7 +68,9 @@ class GraphEntity(Value):
     kind: Literal["entity"] = "entity"
     entity_id: Token
     name: Label
-    entity_type: Name
+    entity_type: Name | None
+    classification: ClassificationWitness | None
+    classification_evidence: tuple[GraphEvidence, ...] = Field(max_length=200)
     creation_sequence: int = Field(ge=1)
     witness: EntityWitness
     witness_evidence: tuple[GraphEvidence, ...] = Field(max_length=200)
@@ -81,6 +84,16 @@ class GraphEntity(Value):
             or tuple(e.captured for e in self.witness_evidence) != expected
         ):
             raise ValueError("Entity proof mismatch")
+        selected = self.classification
+        if (
+            (selected.entity_type if selected else None) != self.entity_type
+            or selected is not None and selected.entity_id != self.entity_id
+            or tuple(e.captured for e in self.classification_evidence) != (
+                selected.basis.evidence
+                if selected is not None and isinstance(selected.basis, SourceWitness) else ()
+            )
+        ):
+            raise ValueError("Entity classification mismatch")
         return self
 
 
@@ -100,9 +113,21 @@ class GraphAssertion(Value):
     subject_witness: EntityWitness
     object_witness: EntityWitness | None
     decision_member: DecisionSelectionItem | None
+    classification_witnesses: tuple[ClassificationWitness, ...] = Field(min_length=1, max_length=2)
+    classification_evidence: tuple[GraphEvidence, ...] = Field(max_length=400)
 
     @model_validator(mode="after")
     def proof(self) -> Self:
+        captures = self.classification_witnesses
+        if (
+            len(captures) != (2 if self.object_entity_id is not None else 1)
+            or captures[0].entity_id != self.subject_id
+            or self.object_entity_id is not None and captures[1].entity_id != self.object_entity_id
+            or tuple(e.captured for e in self.classification_evidence) != tuple(
+                e for c in captures if isinstance(c.basis, SourceWitness) for e in c.basis.evidence
+            )
+        ):
+            raise ValueError("Assertion classification mismatch")
         if self.subject_witness.entity_id != self.subject_id:
             raise ValueError("Subject proof mismatch")
         if len(set(self.support)) != len(self.support):
@@ -126,6 +151,7 @@ class GraphAssertion(Value):
                 or member.subject_id != self.subject_id
                 or member.schema_version != self.schema_version
                 or member.dependencies.subject_witness != self.subject_witness
+                or member.dependencies.subject_classification != captures[0]
                 or member.dependencies.assertion_support != tuple(e.captured for e in self.support)
             ):
                 raise ValueError("Decision proof mismatch")
@@ -210,19 +236,27 @@ class GraphExportCursor:
         return tuple(result)
 
     def _entity(self, store: Store, identifier: str) -> GraphEntity:
+        from kg.knowledge import _classification
+
         witness = store.require_entity(identifier)
         row = store.row("entity", identifier)
         proofs = witness.basis.evidence if isinstance(witness.basis, SourceWitness) else ()
+        selected = _classification.selected(store, identifier)
         return GraphEntity(
-            entity_id=identifier, name=row["name"], entity_type=row["entity_type"],
+            entity_id=identifier, name=row["name"],
+            entity_type=selected.entity_type if selected else None,
+            classification=selected,
+            classification_evidence=self._evidence(
+                selected.basis.evidence
+                if selected is not None and isinstance(selected.basis, SourceWitness) else (),
+            ),
             creation_sequence=row["creation_sequence"], witness=witness,
             witness_evidence=self._evidence(proofs),
         )
 
     def _assertion(self, store: Store, identifier: str) -> GraphAssertion | None:
         with closing(store.connection.execute(
-            "SELECT c.*,a.subject_id,a.predicate,a.interpretation,a.object_kind,"
-            "e.entity_type AS subject_type "
+            "SELECT c.*,a.subject_id,a.predicate,a.interpretation,a.object_kind "
             "FROM contribution c JOIN assertion a USING(corpus_id,contribution_id) "
             "JOIN entity e ON e.corpus_id=a.corpus_id AND e.entity_id=a.subject_id "
             "WHERE c.corpus_id=? AND c.contribution_id=?",
@@ -266,6 +300,11 @@ class GraphExportCursor:
             subject_witness=view.witnesses[0],
             object_witness=view.witnesses[1] if obj is not None else None,
             decision_member=member,
+            classification_witnesses=view.classification_witnesses,
+            classification_evidence=self._evidence(tuple(
+                e for c in view.classification_witnesses
+                if isinstance(c.basis, SourceWitness) for e in c.basis.evidence
+            )),
         )
 
     def _produce(self) -> Generator[tuple[GraphExportItem, ScratchReservation, int], None, None]:

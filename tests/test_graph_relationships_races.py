@@ -106,7 +106,7 @@ def test_valid_alternative_root_basis_is_not_selected_basis(tmp_path, monkeypatc
     mapping = env.write((AddEntitySupport(
         kind="entity_support", local_id="alternative",
         entity=StoredEntity(kind="stored", entity_id=env.person),
-        name="Alice", entity_type="person",
+        name="Alice",
         support=SourceSupport(kind="source", evidence=(env.references[2],)),
     ),))
     decode = _relationships.decode_relationship

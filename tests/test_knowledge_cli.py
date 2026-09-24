@@ -3,6 +3,7 @@
 import json
 from importlib.resources import files
 from pathlib import Path
+from uuid import uuid4
 
 import pytest
 from test_canonical_cli import call, runner
@@ -28,12 +29,36 @@ def entity(local_id, name, entity_type, support):
         kind="entity",
         local_id=local_id,
         name=name,
-        entity_type=entity_type,
         support={"kind": "source", "evidence": [support["reference"]]},
     )
 
 
+def typed_entity(local_id, name, entity_type, support):
+    return (
+        entity(local_id, name, entity_type, support),
+        dict(
+            kind="classification", local_id=f"{local_id}:classification",
+            entity=local(local_id), entity_type=entity_type, interpretation="explicit",
+            support={"kind": "source", "evidence": [support["reference"]]},
+        ),
+        dict(
+            kind="classification_selection", local_id=f"{local_id}:selection",
+            entity=local(local_id),
+            claim={"kind": "local", "local_id": f"{local_id}:classification"},
+            expected_selection_id=None, reviewed_candidates_digest=None, reviewed_claim_ids=[],
+            review_coverage="complete", accept_incomplete_review=False,
+            rationale="Explicit synthetic typed CLI fixture.",
+        ),
+    )
+
+
 def assertion(local_id, subject, predicate, obj, support):
+    def selected(ref):
+        if ref["kind"] == "local":
+            return {"kind": "local", "local_id": ref["local_id"] + ":selection"}
+        view = call("read", "entity:" + ref["entity_id"])["result"]["entity"]
+        return {"kind": "stored", "event_id": view["classification"]["selection_id"]}
+
     return dict(
         kind="assertion",
         local_id=local_id,
@@ -42,6 +67,8 @@ def assertion(local_id, subject, predicate, obj, support):
         object=obj,
         interpretation="explicit",
         support={"kind": "source", "evidence": [support["reference"]]},
+        subject_classification=selected(subject),
+        object_classification=selected(obj["entity"]) if obj["kind"] == "entity" else None,
     )
 
 
@@ -56,8 +83,8 @@ def recorded(configured):
     added = call("add", file)["result"]
     support = call("read", added["target"])["result"]["entries"][0]["support"]
     changes = [
-        entity("mira", "Mira", "person", support),
-        entity("atlas", "Atlas", "project", support),
+        *typed_entity("mira", "Mira", "person", support),
+        *typed_entity("atlas", "Atlas", "project", support),
         # A scalar assertion before the relationship makes an empty filtered first page.
         assertion(
             "approval",
@@ -81,7 +108,9 @@ def recorded(configured):
             support,
         ),
     ]
-    response = call("record", record_file(configured, support, changes))["result"]["write"]
+    response = call(
+        "record", "--retry-key", str(uuid4()), record_file(configured, support, changes)
+    )["result"]["write"]
     assert response["status"] == "applied"
     mappings = {item["local_id"]: item["stored_id"] for item in response["receipt"]["mappings"]}
     assert len(mappings) == len(changes)
@@ -103,7 +132,9 @@ def test_complete_read_record_query_withdraw_update_journey(recorded):
     change = assertion(
         "again", read["reference"], "decision", {"kind": "string", "value": "Ship Friday"}, support
     )
-    recorded_again = call("record", record_file(directory, support, [change]))
+    recorded_again = call(
+        "record", "--retry-key", str(uuid4()), record_file(directory, support, [change])
+    )
     assert recorded_again["result"]["write"]["receipt"]["mappings"][0]["local_id"] == "again"
     query = call("find", "decisions", "Atlas", "--limit", 1)["result"]
     assert query["query"]["result"]["data"]["count"] == 2
@@ -143,7 +174,9 @@ def test_complete_read_record_query_withdraw_update_journey(recorded):
     history = call("read", atlas["target"], "--history")
     assert not history["result"]["entity"]["is_current"]
     # Do not replace the captured support state with the latest state.
-    stale = call("record", record_file(directory, support, [change]), code=4)
+    stale = call(
+        "record", "--retry-key", str(uuid4()), record_file(directory, support, [change]), code=4
+    )
     assert stale["result"]["write"]["receipt"] is None
     assert call("read", added["target"] + "@" + added["state"])["message"].startswith("Mira owns")
 
@@ -165,7 +198,7 @@ def test_incident_relationships_preserve_empty_page_continuation(recorded):
 def test_exact_alias_ambiguity_and_no_prefix_uniqueness(recorded):
     directory, _, _, support, mappings = recorded
     changes = [
-        entity("other", "Atlas", "project", support),
+        *typed_entity("other", "Atlas", "project", support),
         {
             "kind": "alias",
             "local_id": "alias",
@@ -174,7 +207,7 @@ def test_exact_alias_ambiguity_and_no_prefix_uniqueness(recorded):
             "support": {"kind": "source", "evidence": [support["reference"]]},
         },
     ]
-    call("record", record_file(directory, support, changes))
+    call("record", "--retry-key", str(uuid4()), record_file(directory, support, changes))
     assert (
         call("find", "entities", "M")["result"]["entries"][0]["target"]
         == "entity:" + mappings["mira"]
@@ -212,7 +245,7 @@ def test_strict_record_rejects_bad_input_atomically(recorded, mutation):
     else:
         value["support"].append(support)
     file.write_text(json.dumps(value))
-    call("record", file, code=2)
+    call("record", "--retry-key", str(uuid4()), file, code=2)
     assert call("find", "entities", "New")["status"] == "empty"
 
 
@@ -220,7 +253,7 @@ def test_duplicate_keys_and_invalid_json(configured):
     file = configured / "invalid.json"
     for text in ('{"support":[],"support":[],"changes":[]}', "{", '{"support":NaN}'):
         file.write_text(text)
-        call("record", file, code=2)
+        call("record", "--retry-key", str(uuid4()), file, code=2)
 
 
 def test_owned_withdrawal_rejects_wrong_writer_and_non_assertions(recorded):
@@ -274,7 +307,9 @@ def test_unknown_record_outcome_is_not_retried(recorded, monkeypatch, error):
         {"kind": "string", "value": "Ship Friday"},
         support,
     )
-    result = call("record", record_file(directory, support, [change]), code=7)
+    result = call(
+        "record", "--retry-key", str(uuid4()), record_file(directory, support, [change]), code=7
+    )
     assert result["status"] == "uncertain" and len(calls) == 1
 
 
@@ -295,10 +330,12 @@ def test_knowledge_help_needs_no_profile(tmp_path, monkeypatch, args):
 
 
 def test_installed_schema_example_and_strategy_are_discoverable():
-    schema = call("record", "--schema")["result"]["schema"]
+    schema = call("record", "--retry-key", str(uuid4()), "--schema")["result"]["schema"]
     assert schema["additionalProperties"] is False
     assert "ChangeSet" not in schema["properties"] and "support" in schema["properties"]
-    assert "SUPPORT" in call("record", "--example")["result"]["example"]
+    assert (
+        "SUPPORT" in call("record", "--retry-key", str(uuid4()), "--example")["result"]["example"]
+    )
     skill = call("skill")["result"]["skill"]
     assert "Start with `kg --help`" in skill
     assert skill == files("kg.client").joinpath("SKILL.md").read_text()
@@ -430,7 +467,7 @@ def test_named_support_and_returned_entities_roundtrip(recorded):
         "expected_schema_revision": call("schema", "show")["result"]["revision"],
         "support": {"meeting": support}, "changes": changes,
     }))
-    response = call("record", path)["result"]["write"]
+    response = call("record", "--retry-key", str(uuid4()), path)["result"]["write"]
     assert len(response["receipt"]["mappings"]) == 2
     identifier = response["receipt"]["mappings"][1]["stored_id"]
     result = call("read", "fact:" + identifier)["result"]
@@ -443,7 +480,7 @@ def test_named_support_and_returned_entities_roundtrip(recorded):
     revised = directory / "revised.md"
     revised.write_text("New source state.")
     call("update", added["target"], revised, "--expect", added["state"])
-    stale = call("record", path, code=4)
+    stale = call("record", "--retry-key", str(uuid4()), path, code=4)
     assert stale["result"]["write"]["receipt"] is None
 
 
@@ -499,7 +536,7 @@ def test_named_input_rejection_precedes_any_write(recorded, monkeypatch, mutatio
     path.write_text(text)
     writes = []
     monkeypatch.setattr(EvidenceService, "write", lambda *args: writes.append(args))
-    call("record", path, code=2)
+    call("record", "--retry-key", str(uuid4()), path, code=2)
     assert not writes
     assert call("find", "entities", "New")["status"] == "empty"
 
@@ -520,7 +557,7 @@ def test_named_conjunction_and_expanded_occurrence_limit(recorded, monkeypatch):
         "support": {"meeting": support, "other": other_support}, "changes": [change],
     }
     path.write_text(json.dumps(value))
-    receipt = call("record", path)["result"]["write"]["receipt"]
+    receipt = call("record", "--retry-key", str(uuid4()), path)["result"]["write"]["receipt"]
     stored = receipt["mappings"][0]["stored_id"]
     entity_read = call("read", "entity:" + stored)["result"]
     assert entity_read["entries"][0]["support"] == [support, other_support]
@@ -531,7 +568,14 @@ def test_named_conjunction_and_expanded_occurrence_limit(recorded, monkeypatch):
         {**deepcopy(change), "local_id": f"new{i}", "name": f"New {i}"} for i in range(100)
     ]
     path.write_text(json.dumps(value))
-    assert len(call("record", path)["result"]["write"]["receipt"]["mappings"]) == 100
+    assert (
+        len(
+            call("record", "--retry-key", str(uuid4()), path)["result"]["write"]["receipt"][
+                "mappings"
+            ]
+        )
+        == 100
+    )
     third = deepcopy(support)
     third["reference"]["anchor_id"] = "distinct-anchor"
     value["support"]["third"] = third
@@ -539,7 +583,7 @@ def test_named_conjunction_and_expanded_occurrence_limit(recorded, monkeypatch):
     path.write_text(json.dumps(value))
     writes = []
     monkeypatch.setattr(EvidenceService, "write", lambda *args: writes.append(args))
-    call("record", path, code=2)
+    call("record", "--retry-key", str(uuid4()), path, code=2)
     assert not writes
 
 
@@ -561,7 +605,7 @@ def test_record_file_and_expanded_request_byte_limits(recorded, monkeypatch):
         stream.write(" ")
     writes = []
     monkeypatch.setattr(EvidenceService, "write", lambda *args: writes.append(args))
-    call("record", path, code=2)
+    call("record", "--retry-key", str(uuid4()), path, code=2)
     path.write_text(text)
     profile = load_profile()
     request = WriteRequest(
@@ -572,7 +616,7 @@ def test_record_file_and_expanded_request_byte_limits(recorded, monkeypatch):
     assert size > len(text.encode())
     # Test the existing full-envelope bound after expansion, not only file size.
     monkeypatch.setattr("kg.models.foundation.MAX_REQUEST_BYTES", size - 1)
-    call("record", path, code=2)
+    call("record", "--retry-key", str(uuid4()), path, code=2)
     assert not writes
 
 
@@ -697,14 +741,15 @@ def test_named_example_executes_and_schema_describes_both_modes(configured):
     document.write_text("Mira owns Atlas; Atlas will ship Friday.")
     target = call("add", document)["result"]["target"]
     support = call("read", target)["result"]["entries"][0]["support"]
-    example = call("record", "--example")["result"]["example"]
+    example = call("record", "--retry-key", str(uuid4()), "--example")["result"]["example"]
     value = json.loads(example.split("```json\n")[1].split("```")[0])
     value["support"]["meeting"] = support
     value["expected_schema_revision"] = call("schema", "show")["result"]["revision"]
     path = configured / "example.json"
     path.write_text(json.dumps(value))
-    assert len(call("record", path)["result"]["write"]["receipt"]["mappings"]) == 4
-    schema = call("record", "--schema")["result"]["schema"]
+    saved = call("record", "--retry-key", str(uuid4()), path)["result"]["write"]["receipt"]
+    assert len(saved["mappings"]) == 8
+    schema = call("record", "--retry-key", str(uuid4()), "--schema")["result"]["schema"]
     assert len(schema["properties"]["support"]["oneOf"]) == 2
     assert [entry["properties"]["support"]["type"] for entry in schema["oneOf"]] == [
         "array", "object",
@@ -744,6 +789,7 @@ def test_graph_decision_presentation_preserves_both_proof_sides(recorded, monkey
             schema_version=view.schema_version,
             dependencies=DecisionDependencies(
                 assertion_support=view.evidence, subject_witness=view.witnesses[0],
+                subject_classification=view.classification_witnesses[0],
             ),
         ) if is_decision else None
         return GraphAssertion(
@@ -753,6 +799,12 @@ def test_graph_decision_presentation_preserves_both_proof_sides(recorded, monkey
             object_entity_id=None if is_decision else payload.object.entity.entity_id,
             decision_text=payload.object.value if is_decision else None,
             attribution=view.attribution, committed_at=view.committed_at,
+            classification_witnesses=view.classification_witnesses,
+            classification_evidence=tuple(
+                GraphEvidence(captured=e, passage_set_id=None)
+                for witness in view.classification_witnesses
+                for e in getattr(witness.basis, "evidence", ())
+            ),
             support=tuple(
                 GraphEvidence(captured=item, passage_set_id=None) for item in view.evidence
             ),
@@ -813,7 +865,7 @@ def test_partial_nonzero_count_and_empty_exact_display(recorded, monkeypatch):
         "again", {"kind": "stored", "entity_id": mappings["atlas"]}, "decision",
         {"kind": "string", "value": "Ship Friday"}, support,
     )
-    call("record", record_file(directory, support, [change]))
+    call("record", "--retry-key", str(uuid4()), record_file(directory, support, [change]))
     original = QueryService.execute
 
     def limited(self, request):

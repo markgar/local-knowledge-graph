@@ -87,15 +87,30 @@ def test_discover_validate_approve_apply_record_read_and_retry(configured):
                     {
                         "kind": "entity",
                         "local_id": "certificate",
-                        "entity_type": "certificate",
                         "name": "Archive signing certificate",
                         "support": {"kind": "source", "evidence": ["audit"]},
-                    }
+                    },
+                    {
+                        "kind": "classification", "local_id": "type",
+                        "entity": {"kind": "local", "local_id": "certificate"},
+                        "entity_type": "certificate", "interpretation": "explicit",
+                        "support": {"kind": "source", "evidence": ["audit"]},
+                    },
+                    {
+                        "kind": "classification_selection", "local_id": "selection",
+                        "entity": {"kind": "local", "local_id": "certificate"},
+                        "claim": {"kind": "local", "local_id": "type"},
+                        "expected_selection_id": None, "reviewed_candidates_digest": None,
+                        "reviewed_claim_ids": [], "review_coverage": "complete",
+                        "accept_incomplete_review": False, "rationale": "Reviewed certificate.",
+                    },
                 ],
             }
         )
     )
-    mapping = call("record", facts)["result"]["write"]["receipt"]["mappings"][0]
+    mapping = call("record", facts, "--retry-key", "facts")["result"]["write"]["receipt"][
+        "mappings"
+    ][0]
     entity = call("read", "entity:" + mapping["stored_id"])["result"]["entity"]
     assert entity["entity_type"] == "certificate"
     assert call("find", "relationships", "entity:" + mapping["stored_id"])["status"] == "empty"

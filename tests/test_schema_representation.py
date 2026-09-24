@@ -2,6 +2,7 @@
 
 from pathlib import Path
 
+from support.classification import typed_entity
 from support.evidence import put, receipt
 from support.knowledge import revision
 from support.query_knowledge import plan, setup, write
@@ -13,7 +14,6 @@ from kg.models.foundation import (
     AddAssertion,
     Attribution,
     BooleanObject,
-    CreateEntity,
     DocumentDependency,
     EntityObject,
     LocalEntity,
@@ -186,7 +186,7 @@ def test_fixture_coverage_review_decision_export_and_certificate_without_false_o
     )
     reader = apply(env, proposal)
     creations = [
-        CreateEntity(kind="entity", local_id=key, name=name, entity_type=kind, support=supported(e))
+        typed_entity(kind="entity", local_id=key, name=name, entity_type=kind, support=supported(e))
         for key, name, kind, e in (
             ("meeting", "Security Review", "review", meeting),
             ("export", "Required export", "artifact", meeting),
@@ -265,7 +265,7 @@ def test_non_atlas_document_local_same_names_keep_distinct_ids_and_no_edges(tmp_
     ids = record(
         env,
         tuple(
-            CreateEntity(
+            typed_entity(
                 kind="entity",
                 local_id=e.example_id,
                 name="Core",

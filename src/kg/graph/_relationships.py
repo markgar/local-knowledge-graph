@@ -101,16 +101,17 @@ def check_root_type(
     ctx: GraphReadContext, root: EntitySelectionItem, schema: KnowledgeSchema, *,
     predicate: str, direction: GraphDirection,
 ) -> None:
+    from kg.knowledge._classification import selected
+    from kg.knowledge._store import Store
+
     definition = next(p for p in schema.predicates if p.name == predicate)
-    with closing(ctx.canonical.connection.execute(
-        "SELECT entity_type FROM entity WHERE corpus_id=? AND entity_id=?",
-        (ctx.canonical.scope.corpus_id, root.entity_id),
-    )) as rows:
-        row = rows.fetchone()
-    if row is None:
-        raise NativeError("invalid_projection")
+    with closing(Store(
+        ctx.canonical.connection, ctx.canonical.scope, ctx.meter.private_budget,
+        context=ctx.canonical,
+    )) as store:
+        classification = selected(store, root.entity_id)
     allowed = definition.subject_types if direction == "outgoing" else definition.object_types
-    if row[0] not in allowed:
+    if classification is None or classification.entity_type not in allowed:
         raise EvidenceServiceError("unsupported")
 
 
@@ -164,6 +165,7 @@ def decode_relationship(
         ):
             raise NativeError("invalid_projection")
         ctx.require_authored_revision(identifier, assertion.schema_version)
+        ctx.require_classification_captures(identifier, assertion.classification_witnesses)
         # G3 verified non-root entity types; they are not present in this proof row.
         return GraphRelationshipProof(
             path=Path(

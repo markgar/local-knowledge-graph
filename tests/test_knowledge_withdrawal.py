@@ -3,6 +3,7 @@ from datetime import UTC, datetime, timedelta
 from uuid import uuid4
 
 import pytest
+from support.classification import typed_entity
 from support.evidence import put
 from support.knowledge import preset
 from support.query_knowledge import plan, produce, setup, write
@@ -160,7 +161,6 @@ def test_all_assertion_object_kinds_and_incoming_outgoing_pages(tmp_path):
     from kg.knowledge import KnowledgeAdministration
     from kg.models.foundation import (
         BooleanObject,
-        CreateEntity,
         EntityObject,
         IntegerObject,
         TimestampObject,
@@ -179,7 +179,7 @@ def test_all_assertion_object_kinds_and_incoming_outgoing_pages(tmp_path):
         })),
     )
     project, _ = produce(env, 0)
-    person = write(env, (CreateEntity(
+    person = write(env, (typed_entity(
         kind="entity", local_id="person", name="Person", entity_type="person", support=env.support,
     ),))["person"]
     values = (

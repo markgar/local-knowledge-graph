@@ -19,6 +19,8 @@ from kg.models.query_events import QueryEvent
 
 ServiceName = Literal["evidence", "knowledge", "indexing", "query", "processing"]
 OperationName = Literal[
+    "classification_review",
+    "classification_history",
     "write",
     "write_batch",
     "current",

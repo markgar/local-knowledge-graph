@@ -612,6 +612,9 @@ def record(
     example: Annotated[
         bool, typer.Option("--example", help="Print the annotated input recipe.")
     ] = False,
+    retry_key: Annotated[
+        str | None, typer.Option(help="Persisted retry identity; required with FILE.")
+    ] = None,
     json_output: Json = False,
 ) -> None:
     """Record supported knowledge, explicitly creating local entities or reusing stored IDs.
@@ -622,7 +625,8 @@ def record(
     Starter vocabulary: person,
     project, owns (person -> project), decision (string). Support must be copied
     from reads without replacing old states. No endpoints are implicitly created.
-    Every submission is a new write; manual resubmission may duplicate knowledge.
+    FILE requires --retry-key. Retry an unknown outcome with the exact input/key.
+    Identity is independent of classification; select a supported claim explicitly.
     """
 
     def run() -> Response:
@@ -639,9 +643,63 @@ def record(
             text = files("kg.client").joinpath("record-example.md").read_text(encoding="utf-8")
             return Response(status="complete", message=text, result={"example": text})
         assert file is not None
-        return Knowledge(load_profile()).record(file)
+        if retry_key is None:
+            raise ClientError("invalid_arguments", "FILE requires a persisted --retry-key.")
+        return Knowledge(load_profile()).record(file, retry_key=retry_key)
 
     execute(run, json_output)
+
+
+@app.command()
+def classifications(
+    entity: str,
+    history: Annotated[
+        bool, typer.Option(help="Read authorized immutable selection history.")
+    ] = False,
+    after_event_id: Annotated[str | None, typer.Option(help="Opaque history cursor.")] = None,
+    limit: Limit = 100,
+    review_claim: Annotated[
+        list[str] | None, typer.Option(help="Explicit fact:ID subset; repeat for each claim.")
+    ] = None,
+    review_empty: Annotated[
+        bool, typer.Option(help="Explicit empty subset review, for clearing a selection.")
+    ] = False,
+    json_output: Json = False,
+) -> None:
+    """Review classification claims before an explicit selection-only kg record."""
+    def run() -> Response:
+        if (
+            history and (review_claim is not None or review_empty)
+            or review_empty and review_claim is not None
+            or not history and after_event_id is not None
+        ):
+            raise ClientError(
+                "invalid_arguments", "Choose history, complete review or one subset mode.",
+            )
+        if review_claim is not None and any(not c.startswith("fact:") for c in review_claim):
+            raise ClientError("invalid_target", "--review-claim requires exact fact:ID targets.")
+        claim_ids = (
+            tuple(c.removeprefix("fact:") for c in review_claim)
+            if review_claim is not None else () if review_empty else None
+        )
+        return Knowledge(load_profile()).classifications(
+            entity, history=history, after_event_id=after_event_id,
+            limit=limit, claim_ids=claim_ids,
+        )
+    execute(run, json_output)
+
+
+@app.command()
+def withdraw_classification(
+    fact: str,
+    retry_key: Annotated[str, typer.Option(help="Persisted retry identity.")],
+    json_output: Json = False,
+) -> None:
+    """Terminally withdraw one caller-owned classification claim; never erase identity."""
+    execute(
+        lambda: Knowledge(load_profile()).withdraw_classification(fact, retry_key=retry_key),
+        json_output,
+    )
 
 
 @app.command()
