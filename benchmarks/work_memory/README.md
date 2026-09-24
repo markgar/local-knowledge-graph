@@ -148,7 +148,8 @@ Per-arm `tools-ARM.jsonl` journals preserve requests and returned payloads,
 including failures, request/run IDs, subprocess argv/exit status, sizes, timing,
 response hash/counts, and separate `operation_success` and `delivery_success`.
 Indexed search records backend `legacy_lexical`; other CLI operations use
-`kg_cli`. A successful operation can still fail stdout delivery, and a successful
+`kg_cli`, invoking `python -m kg.legacy_cli` rather than the canonical `kg` entrypoint.
+A successful operation can still fail stdout delivery, and a successful
 stdout write does not prove the tool host delivered the complete response.
 
 Validate transport using actual wrapper/CLI calls, including successful, empty,

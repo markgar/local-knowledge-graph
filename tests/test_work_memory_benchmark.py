@@ -85,7 +85,7 @@ def test_tools_expose_same_sources_without_gold(evaluator: ModuleType, run: Path
     assert event["request_id"] and event["run_id"]
     assert event["execution"]["backend"] == "kg_cli"
     assert event["execution"]["exit_code"] == 0
-    assert "kg" in event["execution"]["argv"]
+    assert event["execution"]["argv"][:3] == [evaluator.sys.executable, "-m", "kg.legacy_cli"]
     assert event["response_shape"]["collection_counts"]["open_actions"] == 2
 
 

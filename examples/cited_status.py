@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Invoke the kg CLI and render a small cited status report."""
+"""Invoke the historical demo CLI and render a small cited status report."""
 
 from __future__ import annotations
 
@@ -15,11 +15,12 @@ def load_status(
     manifest: Path,
     subject: str,
     since: str,
-    executable: str = "kg",
+    executable: str | None = None,
 ) -> dict[str, Any]:
+    prefix = [sys.executable, "-m", "kg.legacy_cli"] if executable is None else [executable]
     process = subprocess.run(
         [
-            executable,
+            *prefix,
             "status",
             subject,
             "--manifest",

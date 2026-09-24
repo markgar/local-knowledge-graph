@@ -379,7 +379,7 @@ def _perform(
                 and arg.split("=", 1)[1] not in {"strict", "natural"}
             ):
                 raise ValueError("This comparison uses lexical retrieval only")
-        entrypoint = ["-m", "kg", command]
+        entrypoint = ["-m", "kg.legacy_cli", command]
         backend = "kg_cli"
         if command == "search":
             entrypoint = [str(REPOSITORY / "benchmarks" / "_lexical_search.py")]

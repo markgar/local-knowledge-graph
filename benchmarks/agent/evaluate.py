@@ -14,7 +14,7 @@ def _run_cli(manifest: Path, *arguments: str) -> Any:
     command, *rest = arguments
     entrypoint = (
         [str(Path(__file__).resolve().parents[1] / "_lexical_search.py")]
-        if command == "search" else ["-m", "kg", command]
+        if command == "search" else ["-m", "kg.legacy_cli", command]
     )
     process = subprocess.run(
         [
