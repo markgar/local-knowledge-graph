@@ -381,11 +381,17 @@ network controls or change feeds merely to evade a block.
 ## Canonical document CLI
 
 After installation, `kg` and `python -m kg` work outside the source checkout.
+From a prepared checkout, use `uv run kg` (or `uv run --no-sync kg` to avoid
+syncing). Discover public verbs with `kg --help`, per-command `--help` and `kg skill`;
+the external agent composes them, not a required ingestion pipeline.
 Start with guided `kg setup`. It asks for a new store location and explicit local
 model approval, and supplies the corpus/policy/writer defaults but no domain schema.
 The default profile is `~/.config/local-knowledge-graph/profile.json`; data is
 `~/.local/share/local-knowledge-graph/evidence.sqlite3`. `XDG_CONFIG_HOME` and
 `XDG_DATA_HOME` override their respective roots.
+For a separate experiment, set **both** roots to fresh owned directories before
+setup; `--store` alone does not isolate the profile. Use an existing authorized
+profile for ordinary work, not a new setup on every invocation.
 
 ```sh
 kg setup
@@ -469,9 +475,14 @@ kg remove fact:RETURNED_ID --confirm --json
 kg read fact:RETURNED_ID --history --json
 ```
 
-The default personal vocabulary is `person`, `project`, `owns` (person to project),
-and `decision` (an explicit string statement about either type). Attached custom
-stores retain their registered vocabulary; obtain it from their operator.
+Only explicit setup with `--schema-preset personal/1` installs the example
+`person`, `project`, `owns` (person to project), and `decision` (an explicit string
+statement about either type) vocabulary. New setup otherwise has no domain schema;
+attached stores retain their approved vocabulary. Inspect `kg schema show --json`
+for actual terms and `kg find decisions --help` for supported query syntax.
+Direct queries return decisions about the selected entity; `--through PREDICATE`
+returns decisions about outgoing neighbors, and `--through '^PREDICATE'` about
+incoming neighbors. Use an actual registered predicate, not an inferred path.
 Entity discovery uses eligible listing and exact case-sensitive name/alias matches,
 not semantic search or first-match selection. Empty/incomplete matches do not prove
 an entity is new; list/page entities or inspect source evidence first.
