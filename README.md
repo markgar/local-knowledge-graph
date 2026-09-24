@@ -13,7 +13,7 @@ one exact authorized scope; it is not a second source of authored truth.
 Canonical supplied-document search runs keyword and semantic retrieval, fusion
 and reranking against the SQLite evidence store. Graph building does not replace
 that search pipeline or extract knowledge from prose. The separate Markdown
-demonstration has its own database, manifest-driven ingestion and search CLI.
+demonstration retains its own internal database and manifest-driven APIs.
 
 **Pre-alpha:** this is evidence retrieval, not a production question-answering
 system. It does not generate answers, infer entities or contradictions, or
@@ -21,6 +21,11 @@ reliably decide whether a natural-language question is answerable. Existing
 retrieval-quality gates remain unmet.
 
 ## Using the KG with an agent
+
+The installed `kg` command now serves the **canonical document workflow**.
+Run `kg --help` and command-specific help; only shipped commands are advertised.
+Knowledge/graph operations currently remain Python SDK capabilities, not CLI
+commands. The repository skill below describes those SDK capabilities.
 
 The [use-knowledge-graph skill](.github/skills/use-knowledge-graph/SKILL.md) teaches
 an agent the evidence/knowledge model, public interfaces, query and ingestion
@@ -54,8 +59,8 @@ graphs, controlled writes, typed cited one-hop `traverse`, and fixed native
 A canonical write invalidates the captured generation;
 leftover graph files cannot establish freshness. Start with the
 [evidence example](#generic-evidence-service) for the canonical Python API, or the
-[Markdown demonstration](#markdown-demonstration) for local file/CLI usage. Their
-databases are separate and not interchangeable.
+[canonical document CLI](#canonical-document-cli) for local file usage. Both use
+the canonical evidence store.
 
 ## What is available
 
@@ -360,18 +365,81 @@ development environment and contains no credentials. If it is unavailable,
 use an index approved for your environment; do not bypass organizational
 network controls or change feeds merely to evade a block.
 
+## Canonical document CLI
+
+After installation, `kg` and `python -m kg` work outside the source checkout.
+Start with guided `kg setup`. It asks for a new store location and explicit local
+model approval, and supplies the personal corpus/policy/writer defaults itself.
+The default profile is `~/.config/local-knowledge-graph/profile.json`; data is
+`~/.local/share/local-knowledge-graph/evidence.sqlite3`. `XDG_CONFIG_HOME` and
+`XDG_DATA_HOME` override their respective roots.
+
+```sh
+kg setup
+kg add meeting.md --json
+kg read document:RETURNED_ID --json
+kg find documents "release plans" --json
+kg update document:RETURNED_ID revised.md --expect RETURNED_STATE --json
+kg read document:RETURNED_ID --history --json
+kg remove document:RETURNED_ID --expect RETURNED_STATE --confirm --json
+```
+
+`RETURNED_ID`/`RETURNED_STATE` mean actual values from the preceding response.
+Use a returned `evidence:...` target to read an exact citation, or a history
+`document:ID@STATE` target to read an earlier state's evidence. Read returns anchor
+pages; `--limit` and `--after` continue them without pretending a prefix is the
+whole document. JSON entries include the exact
+`support: {reference: EvidenceRef, state_version: ...}` plus original evidence,
+metadata and citation, for grounded consumers. Empty text has an empty anchor page.
+
+Each `add` creates a new document; filename and content do not imply identity.
+Update preserves all saved metadata and uses the explicitly selected document.
+Interactive update/removal displays state for confirmation; JSON/noninteractive
+mutations require `--expect`, and removal also requires `--confirm`.
+Removal deactivates the source, retaining text/history. No facts are extracted.
+
+Add/update save exact UTF-8 without newline normalization, then call the existing
+index service. If preparation fails after saving, the command returns non-success
+and the confirmed receipt: **"Saved; search preparation failed."** A failure with
+unknown commit outcome says so. There is no automatic retry or cross-process
+exactly-once claim; manual resubmission can duplicate data. A saved document
+whose preparation failed remains readable; an explicit update of its observed
+state can attempt preparation again.
+
+Text output is readable; `--json` emits one `client/1` object with status, message,
+result, error code and exit code. Exit 0 means complete/empty, 2 invalid input/
+configuration/confirmation, 3 service read/setup failure, 4 unsuccessful canonical
+write, 5 saved with failed preparation, 6 local/unexpected failure, 7 unknown
+write outcome. Receipt and preparation details remain separately represented.
+
+For unattended setup use `kg setup --yes --approve-models --json`, optionally
+`--store NEW_PATH --model-cache EXISTING_CACHE`. Approval includes the pinned
+GTE model's trusted cached code. Without approval, exact reads/removal work,
+while add/update/search fail before loading models. Profile settings remain
+explicitly editable local configuration: `models_approved` controls execution,
+`model_cache` selects an existing cache. No credentials or Python policy objects
+need to be assembled.
+
+`kg setup --attach EXISTING_PROFILE --yes` validates its existing store and scoped
+access, then creates this user's profile without initializing the database.
+Existing destination profiles/stores are refused rather than overwritten.
+Setup has separate registration/file operations: a failure can leave a partial
+new store; it reports failure and never deletes or silently resets that store.
+Attaching arbitrary SDK stores requires a compatible supplied profile; the CLI
+does not discover or grant their policy. This is trusted personal-local use.
+
 ### First-use models and resources
 
 Embeddings and reranking run locally through Sentence Transformers/PyTorch;
-corpus text is not sent to a remote inference API. First use may download pinned
-model files through Hugging Face's normal cache path. Use only approved download
-sources or a prepopulated, approved local cache. `HF_HOME` can select a cache;
-`HF_HUB_OFFLINE=1` requires cached files instead of network access. If a required
+corpus text is not sent to a remote inference API. The canonical CLI loads pinned
+models with `local_files_only=True` and **never downloads models**. Supply a
+prepopulated approved cache. Python SDK callers retain their explicit provider
+configuration; `IndexService` and `EvidenceSearchService` also accept
+`local_files_only=True, model_cache=...`. If a required
 model or dependency is blocked/unavailable, report the blocked host/error and
 prepare it through an approved route. There is no keyword-only fallback.
 
-For the Markdown demonstration, `dense-index` loads the embedding model and builds
-vectors. It does **not** prepare the reranker: the first `search`, even one returning
+`add` prepares embeddings but does **not** prepare the reranker: `find documents`, even returning
 no hits, also initializes
 `cross-encoder/ms-marco-MiniLM-L6-v2` at its pinned revision. A successful empty
 search therefore requires both providers and a matching current index.
@@ -380,11 +448,17 @@ Allow disk space for dependencies, model caches, the canonical database, and
 separate vector projections, plus working memory for both models and inference
 batches. CPU is supported; CUDA or Apple MPS may be selected when available.
 Larger batches, long passages, and the Qwen profile use more resources; reduce
-`dense-index --batch-size` if indexing memory is constrained. Resource requirements
+the configured index batch size if indexing memory is constrained. Resource requirements
 depend on corpus size, model profile and runtime; no minimum RAM/disk guarantee is
 established.
 
 ## Markdown demonstration
+
+**Historical reference only:** the command examples in this section describe
+baseline `b66fa46f7f643cd5cf57571fa34fa6e300aefaa1`, not the installed canonical
+CLI above. Old runtime modules/regression tests remain internally available;
+their benchmark results do not validate the new CLI. Do not run these historical
+`kg` commands against the current entrypoint.
 
 The following manifest, `kg` CLI and `kg.retrieval` examples use the separate
 Markdown demonstration database (`kg.db.Database`, `src/kg/schema.sql`), not

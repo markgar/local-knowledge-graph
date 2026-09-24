@@ -5,10 +5,10 @@ from pathlib import Path
 
 from typer.testing import CliRunner
 
-from kg.cli import app
 from kg.config import load_manifest
 from kg.db import Database
 from kg.ingest import IngestService
+from kg.legacy_cli import app
 from kg.retrieval import RetrievalService
 
 RUNNER = CliRunner()

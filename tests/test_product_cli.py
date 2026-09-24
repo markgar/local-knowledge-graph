@@ -12,9 +12,9 @@ from support.modules import module
 from support.providers import Embeddings, Reranker, providers
 from typer.testing import CliRunner
 
-from kg.cli import app
 from kg.config import load_manifest
 from kg.db import Database
+from kg.legacy_cli import app
 from kg.models.contracts import SearchResult
 from kg.retrieval import ProductSearchExplanation, SearchExplanationError
 from kg.retrieval.dense import DenseIndexError, EmbeddingProfile
@@ -97,7 +97,9 @@ def test_unqualified_pipeline_filters_graph_isolation_and_evidence(
         "--source", source["source_path"], "--limit", "1", *flags,
     )
     assert len(filtered) == 1 and filtered[0]["source_path"] == source["source_path"]
-    monkeypatch.setattr("kg.cli._parse_since", lambda value: datetime(2099, 1, 1, tzinfo=UTC))
+    monkeypatch.setattr(
+        "kg.legacy_cli._parse_since", lambda value: datetime(2099, 1, 1, tzinfo=UTC),
+    )
     assert invoke(manifest_path, "search", "certificate", "--since", "1h", *flags) == []
     other = yaml.safe_load(manifest_path.read_text())
     other["corpus_id"] = "other"
@@ -402,7 +404,7 @@ def test_other_explanation_error_codes_are_preserved(
 ) -> None:
     def unavailable(*args: Any, **kwargs: Any) -> Any:
         raise SearchExplanationError("incomplete_search_trace", "Trace unavailable")
-    monkeypatch.setattr("kg.cli.SearchService.explain_search", unavailable)
+    monkeypatch.setattr("kg.legacy_cli.SearchService.explain_search", unavailable)
     result = RUNNER.invoke(app, [
         "search", "certificate", "--manifest", str(manifest_path), "--format", "json", "--explain",
     ])

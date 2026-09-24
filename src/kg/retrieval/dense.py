@@ -130,6 +130,9 @@ class SentenceTransformerEmbeddingProvider:
     def __init__(
         self,
         profile: EmbeddingProfile = DEFAULT_EMBEDDING_PROFILE,
+        *,
+        local_files_only: bool = False,
+        cache_folder: str | None = None,
     ) -> None:
         config = EMBEDDING_PROFILES[profile]
         self.profile = profile
@@ -148,6 +151,8 @@ class SentenceTransformerEmbeddingProvider:
                 self.name,
                 revision=self.revision,
                 trust_remote_code=config.trust_remote_code,
+                local_files_only=local_files_only,
+                cache_folder=cache_folder,
             )
             self.pipeline_version = "|".join(
                 (

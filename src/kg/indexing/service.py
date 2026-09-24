@@ -3,6 +3,7 @@
 import sqlite3
 import time
 from collections.abc import Callable
+from functools import partial
 from typing import Literal
 
 from kg._execution_budget import (
@@ -69,10 +70,18 @@ def _limit(value: int, maximum: int) -> None:
 
 
 class IndexService:
-    def __init__(self, database: EvidenceDatabase, identity: LocalIdentity) -> None:
+    def __init__(
+        self, database: EvidenceDatabase, identity: LocalIdentity, *,
+        local_files_only: bool = False, model_cache: str | None = None,
+    ) -> None:
         self.database = database
         self.identity = validated(LocalIdentity, identity)
         self._provider_factory: ProviderFactory = SentenceTransformerEmbeddingProvider
+        if local_files_only or model_cache is not None:
+            self._provider_factory = partial(
+                SentenceTransformerEmbeddingProvider,
+                local_files_only=local_files_only, cache_folder=model_cache,
+            )
         self._collector = Collector("indexing", self.identity)
         self.diagnostics = DiagnosticService(self._collector, IndexReportAuthorizer(database))
 
