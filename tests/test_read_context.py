@@ -332,7 +332,7 @@ def test_evidence_preflight_reserves_before_content_or_quote_decode(
 
         monkeypatch.setattr(_store, "content_bytes", unexpected)
         if exhausted == "scratch":
-            held = budget.reserve_scratch(64 << 20, "general")
+            held = budget.reserve_scratch(128 << 20, "general")
         else:
             step.reserve_public("resolve_entity", 64)
             step.reserve_public("resolve_entity", 36)
@@ -398,7 +398,7 @@ def test_bulk_scratch_registration_tracks_only_live_ownership(tmp_path, monkeypa
             error = DeadlineStop
         else:
             with pytest.raises(PrivateResourceStop):
-                budget.reserve_scratch(64 << 20, "general")
+                budget.reserve_scratch(128 << 20, "general")
             error = PrivateResourceStop
         with pytest.raises(error):
             context._reserve_scratch(1, "general")

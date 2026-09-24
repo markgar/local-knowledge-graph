@@ -16,7 +16,12 @@ from kg._execution_budget import (
 )
 from kg.diagnostics import DiagnosticService
 from kg.diagnostics._collector import Capture, CaptureUnavailable, Collector
-from kg.diagnostics._targets import KnowledgeTarget, ReportTargets
+from kg.diagnostics._targets import (
+    ClassificationEventTarget,
+    ClassificationTarget,
+    KnowledgeTarget,
+    ReportTargets,
+)
 from kg.evidence import _reporting
 from kg.evidence._read_context import observe, read_context, release_fence
 from kg.evidence._reads import _page, check_token
@@ -29,6 +34,8 @@ from kg.models.evidence import LocalIdentity
 from kg.models.execution import SUMMARY_OPTIONS, Explained, ExplainOptions, OperationName
 from kg.models.foundation import Scope, Value
 from kg.models.knowledge import (
+    ClassificationHistory,
+    ClassificationReview,
     ContributionView,
     EntityView,
     KnowledgeCapabilities,
@@ -44,7 +51,7 @@ from kg.models.schema import (
 )
 
 Mode = Literal["current", "history"]
-Kind = Literal["entity_support", "alias", "identifier", "mention", "assertion"]
+Kind = Literal["entity_support", "alias", "identifier", "mention", "assertion", "classification"]
 
 
 def _history(mode: Mode) -> bool:
@@ -65,6 +72,10 @@ def _retain(capture: Capture | CaptureUnavailable, result: object) -> None:
                 )
             )
         )
+        if result.classification.selected is not None:
+            capture.retain(ReportTargets(values=(ClassificationTarget(
+                contribution_ids=(result.classification.selected.claim_id,),
+            ),)))
     elif isinstance(result, ContributionView):
         capture.retain(
             ReportTargets(
@@ -79,6 +90,19 @@ def _retain(capture: Capture | CaptureUnavailable, result: object) -> None:
     elif isinstance(result, KnowledgePage):
         for entry in result.entries:
             _retain(capture, entry)
+    elif isinstance(result, ClassificationReview):
+        ids = set(result.reviewed_claim_ids)
+        if result.selected is not None:
+            ids.add(result.selected.claim_id)
+        if ids:
+            capture.retain(ReportTargets(values=(ClassificationTarget(
+                contribution_ids=tuple(sorted(ids)),
+            ),)))
+    elif isinstance(result, ClassificationHistory):
+        capture.retain(ReportTargets(values=tuple(
+            ClassificationEventTarget(entity_id=e.entity_id, event_id=e.event_id)
+            for e in result.entries
+        )))
 
 
 class KnowledgeService:
@@ -87,7 +111,10 @@ class KnowledgeService:
         self._collector = Collector("knowledge", self.identity)
         self.diagnostics = DiagnosticService(self._collector, KnowledgeReportAuthorizer(database))
 
-    def _read[T](self, scope: Scope, operation: OperationName, run: Callable[[Store], T]) -> T:
+    def _read[T](
+        self, scope: Scope, operation: OperationName, run: Callable[[Store], T],
+        *, identity_id: str | None = None,
+    ) -> T:
         scope = validated(Scope, scope)
         budget = PrivateBudget(Deadline(time.monotonic() + 30))
         selection_budget = budget.limited(max_visits=10_000)
@@ -119,6 +146,10 @@ class KnowledgeService:
                         with context.using_budget(selection_budget):
                             result = run(store)
                         with capture.guard():
+                            if identity_id is not None:
+                                _retain(capture, store.entity(
+                                    identity_id, history=operation == "classification_history",
+                                ))
                             _retain(capture, result)
                             capture.append(
                                 KnowledgeSelection(
@@ -162,12 +193,14 @@ class KnowledgeService:
             if head is None:
                 return KnowledgeCapabilities(
                     schema_status="unconfigured", schema_revision=None, decision_encoding=None,
-                    change_kinds=(), withdrawal=None,
+                    change_kinds=(), withdrawal=None, classification_withdrawal=None,
                     reads=("schema", "schema_history", "schema_change", "validate_schema"),
                 )
             return KnowledgeCapabilities(
                 schema_revision=head, decision_encoding="direct-subject-decision/1"
                 if any(p.record_projection for p in store.schema().predicates) else None,
+                reads=("entity", "entities", "contribution", "contributions",
+                       "classification_review", "classification_history"),
             )
 
         return self._read(
@@ -234,6 +267,46 @@ class KnowledgeService:
     def entity(self, scope: Scope, entity_id: str, *, mode: Mode = "current") -> EntityView:
         history, entity_id = _history(mode), check_token(entity_id)
         return self._read(scope, "entity", lambda store: store.entity(entity_id, history=history))
+
+    def classification_review(
+        self, scope: Scope, entity_id: str, *, claim_ids: tuple[str, ...] | None = None,
+    ) -> ClassificationReview:
+        from kg.knowledge import _classification
+
+        return self._read(
+            scope, "classification_review",
+            lambda store: _classification.review(store, entity_id, claim_ids),
+            identity_id=entity_id,
+        )
+
+    def classification_history(
+        self, scope: Scope, entity_id: str, *,
+        after_event_id: str | None = None, limit: int = 100,
+    ) -> ClassificationHistory:
+        from kg.knowledge import _classification
+
+        return self._read(
+            scope, "classification_history",
+            lambda store: _classification.history(store, entity_id, after_event_id, limit),
+            identity_id=entity_id,
+        )
+
+    def classification_review_explained(
+        self, scope: Scope, entity_id: str, *, claim_ids: tuple[str, ...] | None = None,
+        options: ExplainOptions = SUMMARY_OPTIONS,
+    ) -> Explained[ClassificationReview]:
+        return _reporting.explained(
+            options, self.classification_review, scope, entity_id, claim_ids=claim_ids,
+        )
+
+    def classification_history_explained(
+        self, scope: Scope, entity_id: str, *, after_event_id: str | None = None,
+        limit: int = 100, options: ExplainOptions = SUMMARY_OPTIONS,
+    ) -> Explained[ClassificationHistory]:
+        return _reporting.explained(
+            options, self.classification_history, scope, entity_id,
+            after_event_id=after_event_id, limit=limit,
+        )
 
     def contribution(
         self, scope: Scope, contribution_id: str, *, mode: Mode = "current"
@@ -329,7 +402,9 @@ class KnowledgeService:
         history, entity_id = _history(mode), check_token(entity_id)
         if kind is not None and (
             type(kind) is not str
-            or kind not in {"entity_support", "alias", "identifier", "mention", "assertion"}
+            or kind not in {
+                "entity_support", "alias", "identifier", "mention", "assertion", "classification",
+            }
         ):
             raise EvidenceServiceError("invalid_request")
 
@@ -347,11 +422,13 @@ class KnowledgeService:
                 "AND s.contribution_id=c.contribution_id AND s.entity_id=?) OR "
                 "EXISTS(SELECT 1 FROM mention s WHERE s.corpus_id=c.corpus_id "
                 "AND s.contribution_id=c.contribution_id AND s.entity_id=?) OR "
+                "EXISTS(SELECT 1 FROM classification s WHERE s.corpus_id=c.corpus_id "
+                "AND s.contribution_id=c.contribution_id AND s.entity_id=?) OR "
                 "EXISTS(SELECT 1 FROM assertion s WHERE s.corpus_id=c.corpus_id "
                 "AND s.contribution_id=c.contribution_id "
                 "AND (s.subject_id=? OR s.object_entity_id=?))) "
                 "ORDER BY c.sequence",
-                (store.scope.corpus_id, after_sequence, kind, kind, *(entity_id,) * 6),
+                (store.scope.corpus_id, after_sequence, kind, kind, *(entity_id,) * 7),
             ):
                 try:
                     entries.append(store.contribution(row[0], history=history))

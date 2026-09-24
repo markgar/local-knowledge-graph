@@ -155,7 +155,7 @@ def test_seed_support_requires_explicit_grant_and_no_dependencies() -> None:
     request = enrichment()
     request["payload"]["dependencies"] = []
     request["payload"]["changes"] = [{
-        "kind": "entity", "local_id": "seed", "name": "Sam", "entity_type": "person",
+        "kind": "entity", "local_id": "seed", "name": "Sam",
         "support": {
             "kind": "seed", "source_namespace": "email",
             "seed_set_id": "manifest", "seed_key": "manifest:1",
@@ -174,6 +174,7 @@ def test_seed_support_requires_explicit_grant_and_no_dependencies() -> None:
 def test_assertion_values_round_trip(kind, value) -> None:
     request = enrichment()
     request["payload"]["changes"][3]["object"] = {"kind": kind, "value": value}
+    request["payload"]["changes"][3]["object_classification"] = None
     parse_request(request)
 
 
@@ -184,6 +185,7 @@ def test_assertion_values_round_trip(kind, value) -> None:
 def test_assertion_values_do_not_coerce(kind, value) -> None:
     request = enrichment()
     request["payload"]["changes"][3]["object"] = {"kind": kind, "value": value}
+    request["payload"]["changes"][3]["object_classification"] = None
     with pytest.raises(ValidationError):
         parse_request(request)
 

@@ -4,7 +4,13 @@ from typing import Literal, Self
 
 from pydantic import Field, model_validator
 
-from kg.knowledge._selection import CapturedEvidence, EntityWitness
+from kg.knowledge._selection import (
+    CapturedEvidence,
+    ClassificationWitness,
+    EntityWitness,
+    SeedWitness,
+    SourceWitness,
+)
 from kg.models.foundation import Attribution, Change, Label, Name, SchemaRevisionRef, Token, Value
 
 
@@ -73,6 +79,7 @@ class KnowledgeCapabilities(KnowledgeValue):
     withdrawal: Literal["owned_assertion"] | None = "owned_assertion"
     change_kinds: tuple[str, ...] = (
         "entity", "entity_support", "alias", "identifier", "mention", "assertion",
+        "classification", "classification_selection",
     )
     support: Literal["anchors_passages_and_seed_add"] = "anchors_passages_and_seed_add"
     reads: tuple[str, ...] = ("entity", "entities", "contribution", "contributions")
@@ -82,22 +89,38 @@ class KnowledgeCapabilities(KnowledgeValue):
         "traversal",
     )
     decision_encoding: Literal["direct-subject-decision/1"] | None
+    classification_withdrawal: Literal["owned_classification"] | None = "owned_classification"
+    classification_semantics: Literal["explicit_selected_claim"] = "explicit_selected_claim"
+
+
+class ClassificationSummary(Value):
+    selection_id: Token
+    status: Literal["selected", "unresolved"]
+    selected: ClassificationWitness | None
+    alternatives_scope: Literal["authorized_only"] = "authorized_only"
 
 
 class EntityView(KnowledgeValue):
     entity_id: Token
     name: Label
-    entity_type: Name
+    entity_type: Name | None
     sequence: int = Field(ge=1)
     is_current: bool
     witness: EntityWitness
     has_more_support: bool
+    classification: ClassificationSummary
 
 
 class AssertionWithdrawal(KnowledgeValue):
     withdrawal_id: Token
     committed_at: str
     attribution: Attribution
+
+
+Eligibility = Literal[
+    "current", "assertion_withdrawn", "source_stale", "identity_unsupported",
+    "classification_changed", "classification_withdrawn", "classification_stale",
+]
 
 
 class ContributionView(KnowledgeValue):
@@ -111,6 +134,47 @@ class ContributionView(KnowledgeValue):
     is_current: bool
     witnesses: tuple[EntityWitness, ...] = Field(max_length=2)
     withdrawal: AssertionWithdrawal | None = None
+    classification_witnesses: tuple[ClassificationWitness, ...] = Field(default=(), max_length=2)
+    eligibility: Eligibility = "current"
+
+
+class ClassificationClaim(Value):
+    claim_id: Token
+    entity_id: Token
+    entity_type: Name
+    schema_version: Token
+    interpretation: Literal["explicit", "inferred"]
+    basis: SourceWitness | SeedWitness
+    is_current: bool
+    withdrawn: bool
+
+
+class ClassificationReview(KnowledgeValue):
+    entity_id: Token
+    selection_id: Token
+    selected: ClassificationClaim | None
+    claims: tuple[ClassificationClaim, ...] = Field(max_length=200)
+    reviewed_claim_ids: tuple[Token, ...] = Field(max_length=200)
+    review_coverage: Literal["complete", "selected_subset"]
+    conflicting_types: bool
+    reviewed_candidates_digest: str
+
+
+class ClassificationEvent(KnowledgeValue):
+    event_id: Token
+    entity_id: Token
+    selected: ClassificationClaim | None
+    rationale: Label
+    attribution: Attribution
+    schema_version: Token
+    committed_at: str
+    is_head: bool
+
+
+class ClassificationHistory(KnowledgeValue):
+    entries: tuple[ClassificationEvent, ...] = Field(max_length=200)
+    has_more: bool
+    next_after_event_id: Token | None
 
 
 class KnowledgePage[T](KnowledgeValue):

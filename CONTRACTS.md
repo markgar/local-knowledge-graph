@@ -1,6 +1,6 @@
 # Service and value contract reference
 
-The canonical Python services operate on SQLite `evidence-store/4`. SQLite owns
+The canonical Python services operate on SQLite `evidence-store/5`. SQLite owns
 supplied text/revisions, identities, knowledge schema, entities/assertions, exact
 support and history. Optional Ladybug is a rebuildable exact-scope graph
 projection, not a second authored store or a replacement for canonical search.
@@ -59,7 +59,7 @@ enrichment values include independent entity support and explicitly namespaced s
 
 | API | Result / behavior |
 | --- | --- |
-| `database.initialize()` | Initialize empty or verify the complete `evidence-store/4` schema and manifest; incompatible targets raise `unsupported` with recreate/reload guidance. Use a fresh file and resupply sources, policy/schema and explicit knowledge; no migration or automatic reset. |
+| `database.initialize()` | Initialize empty or verify the complete `evidence-store/5` schema and manifest; incompatible targets raise `unsupported` with recreate/reload guidance. Use a fresh file and resupply sources, policy/schema and explicit knowledge; no migration or automatic reset. |
 | `admin.register(CorpusRegistration)` | Register namespaces, writer bindings and explicit `LocalPolicy`; identical original registration is unchanged and returns the **current** policy version, without restoring old grants. Conflicting registration fails. |
 | `admin.replace_policy(LocalPolicy, expected_policy_version)` | Atomic policy/state rotation; returns version, affected namespaces and changed-document count. |
 | `service.write(WriteRequest)` | `put_document` / `remove_document` / bounded `enrich` / `withdraw_assertion` -> `WriteOutcome`. Enrichment supports the change kinds described below, including explicitly passage-backed mentions. |
@@ -174,7 +174,7 @@ Rebuilds and cleanup do not rotate source states, passage identities or knowledg
 dependencies. Canonical passages committed before provider failure remain readable.
 
 Every invocation shares one private 30-second deadline and the existing 100,000
-visit, 10-million SQL instruction and 64-MiB logical scratch allowances. No stage
+visit, 10-million SQL instruction and 128-MiB logical scratch allowances. No stage
 gets a fresh pool. Provider batches use at most eight sequences (below the
 32-passage process ceiling), at most 8,192 conservatively preflighted padded
 UTF-8-byte positions including special-token allowance, and 16 MiB provider scratch.
@@ -217,7 +217,7 @@ deadline exhaustion yields `budget_exceeded`, with no private meter disclosure.
 Valid existing projections and historical citations are never mutated by search.
 
 Standalone allowances are 10,000 semantic units and one shared private 30-second
-deadline, 100,000 visits, 10-million SQL instructions and 64-MiB logical scratch.
+deadline, 100,000 visits, 10-million SQL instructions and 128-MiB logical scratch.
 The existing verified FILE TEMP cap is 128 MiB. Provider inputs are preflighted
 before inference; each reranker call is one sequence, at most 8,192 conservative
 padded token positions and 8 MiB scratch, with no input cropping or omission.
@@ -307,8 +307,9 @@ See [schema bootstrap](examples/knowledge_schema.py) and `kg schema validate --e
 ## Knowledge enrichment and reads
 
 `EvidenceService.write` accepts a bounded `ChangeSet` atomically: `CreateEntity`,
-`AddEntitySupport`, `AddAlias`, `AddIdentifier`, `AddMention`, and `AddAssertion`.
-Fresh `/4` enrichment requires `expected_schema_revision` equal to the exact active
+`AddEntitySupport`, `AddClassification`, `SelectClassification`, `AddAlias`,
+`AddIdentifier`, `AddMention`, and `AddAssertion`.
+Fresh `/5` enrichment requires `expected_schema_revision` equal to the exact active
 revision/hash. Missing binding is `invalid_request`; stale binding is `state_conflict`.
 Committed authorized retries replay before this fresh-write check. Historical facts
 retain their original `schema_version` (the server revision ID) and validate against
@@ -318,7 +319,9 @@ current document dependencies. E3's common resolver validates the full immutable
 source/state/set/passage/anchor chain on the owner's authorized write transaction.
 `AddMention` requires passage evidence for every reference; it creates no factual
 edge or identity merge. Every input change has one input-ordered mapping. CreateEntity
-maps an entity ID; all other changes map contribution IDs. There is no inference,
+maps an entity ID; selection maps an event ID; other changes map contribution IDs.
+Receipts also report final selection state for identities actually created or selected
+in the unit. There is no inference,
 identity merging, automatic deduplication or document-readiness update.
 
 An immutable string predicate registered with `direct-subject-decision/1` accepts
@@ -327,7 +330,9 @@ Fresh retry keys produce distinct records even for identical text/support;
 same-key retries return the original complete receipt. Ordinary predicates cannot
 be relabeled as decisions at read time.
 
-Entity support, aliases and identifiers may instead use namespaced `SeedSupport`.
+Entity support, classification claims, aliases and identifiers may instead use namespaced
+`SeedSupport`. Seed identity and classification require separate explicit slots;
+neither is evidence-backed merely because the other is source-grounded.
 An exact active slot/definition/attribution repeat is unchanged; changed definitions
 conflict. A membership-changing unit advances each affected set's generation once.
 Each owner/writer/set permits at most 100 active slots. Omitting a slot never
@@ -342,6 +347,51 @@ withdraws it. Whole-set replacement is not installed.
 | `entities(scope, *, name=None, scheme=None, identifier=None, after_sequence=0, limit=100)` | Current exact identity/name/eligible-alias or scheme+identifier selection. At most one selector; no normalization or fuzzy matching. |
 | `contribution(scope, contribution_id, *, mode="current")` | `ContributionView`: typed resolved payload, full attribution, schema version, captured evidence and endpoint witnesses. |
 | `contributions(scope, entity_id, *, kind=None, mode="current", after_sequence=0, limit=100)` | Attached contributions and incoming/outgoing entity-object assertions, once each in sequence order. |
+| `classification_review(scope, entity_id, *, claim_ids=None)` | Complete eligible authorized claim review (at most 200) or error. An explicit tuple, including `()`, is an acknowledged subset, never implicitly complete. Returns head, review digest, exact IDs, current selected claim and visible conflict disclosure. |
+| `classification_history(scope, entity_id, *, after_event_id=None, limit=100)` | Authorized immutable events/rationales, current-head flag, visible-only continuation. Cursor IDs are reauthorized; no predecessor, sequence gaps or hidden totals are exposed. |
+
+Identity creation/support has no permanent `entity_type`. It is eligible using independent
+identity evidence, even without a classification or any domain edges. `EntityView.entity_type`
+is nullable derived output; `classification` exposes the current opaque selection ID and
+only an eligible visible selected witness. Each `AddClassification` has its own exact
+support, interpretation and authored schema revision; it cannot activate identity.
+Competing claims remain independent. There is no automatic merge, selection, newest-wins
+rule, or hidden global veto.
+
+`SelectClassification` names an entity and local/stored claim (or null to clear), exact
+`expected_selection_id`, `reviewed_candidates_digest`, `reviewed_claim_ids`, coverage and
+rationale. `selected_subset` requires `accept_incomplete_review=true`. Only the original
+identity owner AND writer with current original-namespace authority may select/clear.
+Actual newly allocated identities permit null preconditions and empty complete review;
+seed aliases resolving an existing entity require ordinary stored-entity review/CAS.
+One transaction resolves identity, claims, selections and typed assertions atomically.
+
+`AddAssertion.subject_classification` and entity-object `object_classification` name
+the selected event, either stored or local to the same unit. SQLite captures the exact
+event, claim, type, authored revision, interpretation and full source/seed witness.
+Endpoint types must satisfy the assertion's schema. A changed event permanently makes
+old assertions ineligible, including same-type supporting-claim replacement, clear and
+A-to-B-to-A. Stale/withdrawn claim support also excludes them; refreshing graph/source
+or retrying never re-pins. History retains captures and explicit `eligibility`.
+
+`WithdrawClassification` uses the ordinary owned-write/retry ledger and an immutable
+`ClassificationWithdrawalReceipt`. It is terminal and preserves independent identity,
+exact evidence and selection history. Seed claims additionally require seed authority.
+Fresh-key repeats return unchanged; same-key retries return the original result.
+Selection-bearing private coordinated operations are explicitly unsupported.
+
+Rationale, history, diagnostics and retry receipts reauthorize an immutable manifest
+of identity origin, previous selected claim and all reviewed/new candidate claims,
+at most 302 targets. Selected-type/query proofs deliberately exclude rejected alternatives.
+All paths retain original authorization/final fences, row/VM/scratch/output budgets and
+100-change/200-evidence/8,000,000-byte request limits; no partial-review success fallback.
+Claim and assertion authored revisions remain compatible with additive schema evolution.
+Graph mapping `canonical-relationships-decisions/2` binds original classification captures
+to canonical assertions, counts full distinct submitted IDs before display truncation,
+and cannot manufacture freshness from surviving graph files.
+Full relationship-decision assembly retains complete-copy scratch charges through
+final admission. Transient decoding and complete serialized output count every
+classification proof occurrence, after canonical assertion and passage-set binding.
 
 Modes are `current` and `history`. Pages use limits 1..200, nonnegative keyset
 cursors, visible-only `has_more`/`next_after_sequence`, and no hidden totals.
@@ -385,6 +435,8 @@ variants are explicit rather than inferred from validation-only foundation value
 | Change | Anchor support | Passage support | Seed ADD support |
 | --- | --- | --- | --- |
 | `entity`, `entity_support`, `alias`, `identifier` | Yes | Yes | Yes |
+| `classification` | Yes | Yes | Yes (separate explicit slot) |
+| `classification_selection` | No new support; reviewed claim manifest | Same | Same |
 | `assertion` | Yes | Yes | No |
 | `mention` | No | Yes (all references) | No |
 
@@ -423,7 +475,7 @@ does not change those public defaults. It carries one original finite deadline
 `StepMeter.reserve_public(stage, n)` ABI. Its `graph-build/1` root and automatic
 selection children count visits/VM cumulatively without interactive total-work
 ceilings; explicit finite child caps still apply. Pages remain at most 200,
-scratch remains 64 MiB with existing per-unit limits, and SQLite TEMP remains
+scratch is 128 MiB with existing per-unit limits, and SQLite TEMP remains
 128 MiB. Owners must reach actual EOF; a stop cannot authorize a complete prefix.
 Terminal cancellation/deadline/resource state and cumulative accounting remain
 inspectable through the original operation's private snapshot. Existing Q1
@@ -544,7 +596,7 @@ relationship decoding reuse traversal's helpers/custody; verified G3 owns non-ro
 type and current eligibility. Ordered full enumeration must equal the native count.
 Every hidden member and proof is retained once in a private immutable selection
 before display projection; the full selection must fit the conservative 8 MiB
-output and shared 64 MiB scratch limits. The final public envelope is independently
+output and shared 128 MiB scratch limits. The final public envelope is independently
 sized under the same pool. `display_truncated` is not incomplete execution and is
 not a continuation token; reducing display cannot rescue an oversized selection.
 
@@ -1011,10 +1063,10 @@ entity-creation change in the same set; forward references are valid.
   `seed_set_id` and `seed_key`). The seed namespace must be declared in the request.
   Mentions and assertions require source
   support. Every mention evidence reference must have a non-null passage ID.
-- `AddEntitySupport` requires a stored entity reference, name, entity type, local ID
+- `AddEntitySupport` requires a stored entity reference, name, local ID
   and support. It represents an independent creation-support attestation, not an
   alias or merge; only an `entity` creation may be a local-reference target.
-  Validation does not check the stored entity's existence or name/type equality.
+  Validation does not check the stored entity's existence or name equality.
 - Assertions have a subject, syntactically validated predicate, `explicit` or
   `inferred` interpretation and a typed object. Object kinds are `entity`,
   `string`, `integer`, `boolean`, `timestamp`; strings use `Label` and timestamps

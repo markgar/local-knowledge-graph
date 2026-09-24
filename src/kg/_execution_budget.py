@@ -16,6 +16,7 @@ SemanticStage = Literal[
 ]
 StopKind = Literal["eligible_eof", "public_budget_stop", "private_resource_stop", "deadline_stop"]
 ScratchUnit = Literal["general", "text", "context", "vector", "reranker"]
+GENERAL_SCRATCH_BYTES = 128 << 20
 
 
 class PublicBudgetStop(Exception):
@@ -231,13 +232,14 @@ class PrivateBudget:
     def reserve_scratch(self, size_bytes: int, unit: ScratchUnit) -> ScratchReservation:
         _quantity(size_bytes)
         limits = {
-            "general": 64 << 20, "text": 8 << 20, "context": 8 << 20,
+            "general": GENERAL_SCRATCH_BYTES, "text": 8 << 20, "context": 8 << 20,
             "vector": 16 << 20, "reranker": 8 << 20,
         }
         if unit not in limits:
             raise ValueError("Unknown scratch unit")
         with self._locked():
-            if size_bytes > limits[unit] or self._root._scratch + size_bytes > 64 << 20:
+            if (size_bytes > limits[unit]
+                    or self._root._scratch + size_bytes > GENERAL_SCRATCH_BYTES):
                 self._resource_stop()
             self._root._scratch += size_bytes
             self._root._scratch_peak = max(self._root._scratch_peak, self._root._scratch)

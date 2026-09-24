@@ -160,7 +160,7 @@ def test_warm_cache_cannot_bypass_remaining_root_budget(tmp_path, resource):
             elif resource == "vm":
                 budget.reserve_vm(10_000_000 - budget._vm)
             else:
-                held = budget.reserve_scratch((64 << 20) - budget._scratch, "general")
+                held = budget.reserve_scratch((128 << 20) - budget._scratch, "general")
             with pytest.raises(PrivateResourceStop):
                 reader.revalidate_member(second)
         finally:
@@ -183,7 +183,6 @@ def test_snapshot_cache_capacity_and_transient_scratch_are_bounded(tmp_path):
                         kind="entity",
                         local_id=f"e{i}",
                         name=f"Project {i}",
-                        entity_type="project",
                         support=env.support,
                     )
                     for i in range(start, min(start + 100, 201))

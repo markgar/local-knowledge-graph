@@ -255,7 +255,8 @@ class NativeGraphReadHandle:
 
 
 NODES = {
-    "Entity": ("entity_id", "name STRING, entity_type STRING, creation_sequence INT64"),
+    "Entity": ("entity_id", "name STRING, entity_type STRING, creation_sequence INT64, "
+               "classification_json STRING"),
     "Assertion": ("assertion_id",
                   "contribution_sequence INT64, schema_version STRING, predicate STRING, "
                   "interpretation STRING, object_kind STRING, decision_text STRING, "
@@ -394,6 +395,7 @@ class NativeGraphWriter(NativeGraphReadHandle):
             self._node("Entity", {
                 "entity_id": item.entity_id, "name": item.name, "entity_type": item.entity_type,
                 "creation_sequence": item.creation_sequence,
+                "classification_json": item.model_dump_json(),
             }, budget, cancel)
             witness = item.witness
             pid = proof_id(witness)

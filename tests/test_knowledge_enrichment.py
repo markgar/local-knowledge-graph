@@ -5,6 +5,7 @@ from threading import Event
 from uuid import uuid4
 
 import pytest
+from support.classification import fixture_changes, typed_entity
 from support.evidence import environment, put, receipt
 from support.knowledge import preset, revision, schema
 
@@ -108,7 +109,7 @@ def request(env, changes, deps=(), retry=None):
         ),
         payload=ChangeSet(
             expected_schema_revision=revision(env), operation="enrich",
-            changes=tuple(changes), dependencies=tuple(deps),
+            changes=fixture_changes(env, changes), dependencies=tuple(deps),
         ),
     )
 
@@ -120,7 +121,7 @@ def mappings(result):
 
 
 def entity(support, local="project", name="Project"):
-    return CreateEntity(
+    return typed_entity(
         kind="entity", local_id=local, name=name, entity_type="project", support=support
     )
 
@@ -183,13 +184,15 @@ def test_real_atomic_producer_reads_replay_and_cursor(env):
         "alias",
         "id",
         "project",
+        "project:classification",
+        "project:selection",
     )
     service = KnowledgeService(env.database, env.service.identity)
     assert service.entity(env.scope, ids["project"]).name == "Project"
     assert service.contribution(env.scope, ids["decision"]).payload.object.value == "Ship"
     assert len(service.entities(env.scope, name="P").entries) == 1
     assert len(service.entities(env.scope, scheme="ticket", identifier="P-1").entries) == 1
-    assert len(service.contributions(env.scope, ids["project"]).entries) == 4
+    assert len(service.contributions(env.scope, ids["project"]).entries) == 5
     assert env.service.write(req).receipt == result.receipt
     with reader(env) as (adapter, meter, context):
         resolved = adapter.resolve_entity(EntitySelector(name="P")).read()
@@ -213,7 +216,8 @@ def test_seed_add_unchanged_is_owned_and_omission_does_not_withdraw(env):
         seed_set_id="catalog",
         seed_key="p",
     )
-    first = request(env, (entity(support),))
+    create = CreateEntity(kind="entity", local_id="project", name="Project", support=support)
+    first = request(env, (create,))
     ids = mappings(env.service.write(first))
     repeated = env.service.write(first.model_copy(update={"retry_key": "other"}))
     assert repeated.status == "unchanged"
@@ -223,7 +227,7 @@ def test_seed_add_unchanged_is_owned_and_omission_does_not_withdraw(env):
     with env.database.connection() as connection:
         assert connection.execute("SELECT count(*) FROM contribution").fetchone()[0] == 1
         assert connection.execute("SELECT generation FROM seed_set").fetchone()[0] == 1
-    conflict = request(env, (entity(support, name="Changed"),))
+    conflict = request(env, (create.model_copy(update={"name": "Changed"}),))
     assert env.service.write(conflict).error.code == "state_conflict"
 
 
@@ -242,10 +246,10 @@ def test_failed_last_change_rolls_back_entities_seeds_and_key(env):
         update={
             "payload": req.payload.model_copy(
                 update={
-                    "changes": (
+                    "changes": fixture_changes(env, (
                         entity(support),
                         bad.model_copy(update={"interpretation": "explicit"}),
-                    ),
+                    )),
                 }
             )
         }
@@ -316,7 +320,7 @@ def test_expiry_precedes_changed_digest_and_clock_rollback(env):
         update={
             "payload": req.payload.model_copy(
                 update={
-                    "changes": (entity(support, name="changed"),),
+                    "changes": fixture_changes(env, (entity(support, name="changed"),)),
                 }
             )
         }
@@ -499,15 +503,18 @@ def test_bulk_seed_witness_and_exact_revalidation_do_not_charge_nested_evidence(
 @pytest.mark.service
 def test_forward_independent_support_reactivates_but_old_assertion_stays_stale(env):
     support, dep = source(env)
+    classification_support, classification_dep = source(env, "stable-classification")
+    typed = entity(support)
+    typed = (typed[0], typed[1].model_copy(update={"support": classification_support}), typed[2])
     ids = mappings(
         env.service.write(
             request(
                 env,
                 (
-                    entity(support),
+                    typed,
                     decision(support, LocalEntity(kind="local", local_id="project")),
                 ),
-                (dep,),
+                (dep, classification_dep),
             )
         )
     )
@@ -523,7 +530,6 @@ def test_forward_independent_support_reactivates_but_old_assertion_stays_stale(e
                 local_id="attestation",
                 entity=stored,
                 name="Project",
-                entity_type="project",
                 support=fresh,
             ),
         ),
@@ -591,7 +597,7 @@ def test_full_conjunction_and_hidden_endpoint_prevent_alias_activation(env):
 @pytest.mark.service
 def test_entity_object_typed_endpoints_and_complete_owned_manifest(env):
     support, dep = source(env)
-    person = CreateEntity(
+    person = typed_entity(
         kind="entity",
         local_id="person",
         name="Someone",
@@ -692,7 +698,6 @@ def test_sequence_not_lexicographic_witness_and_no_reselect_on_revalidation(env,
                         local_id="extra",
                         entity=StoredEntity(kind="stored", entity_id=ids["project"]),
                         name="Project",
-                        entity_type="project",
                         support=support,
                     ),
                 ),
@@ -844,9 +849,13 @@ def test_seed_maximum_active_slots_and_generation_per_unit(env):
             seed_key=f"key-{n}",
         )
 
-    first = request(env, tuple(entity(seed(n), local=f"p{n}") for n in range(100)))
+    first = request(env, tuple(CreateEntity(
+        kind="entity", local_id=f"p{n}", name="Project", support=seed(n),
+    ) for n in range(100)))
     assert len(mappings(env.service.write(first))) == 100
-    rejected = env.service.write(request(env, (entity(seed(100)),)))
+    rejected = env.service.write(request(env, (CreateEntity(
+        kind="entity", local_id="extra", name="Project", support=seed(100),
+    ),)))
     assert rejected.error.code == "invalid_request"
     with env.database.connection() as connection:
         assert connection.execute("SELECT count(*) FROM entity").fetchone()[0] == 100

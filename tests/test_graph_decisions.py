@@ -197,7 +197,7 @@ def test_realistic_1001_capacity(tmp_path, monkeypatch, mixed_revisions):
                 visits=budget._visits, vm=budget._vm,
             )
             assert budget._scratch == 0
-            assert budget._scratch_peak <= 64 << 20
+            assert budget._scratch_peak <= 128 << 20
             assert measurement["conservative_bytes"] <= 8 << 20
         assert len(measurements) == 2
         print(json.dumps({

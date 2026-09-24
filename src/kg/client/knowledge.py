@@ -30,12 +30,14 @@ from kg.models.foundation import (
     RecordsStep,
     ResolveStep,
     SchemaRevisionRef,
+    SelectClassification,
     SourceSupport,
     StoredEntity,
     StringObject,
     Token,
     Value,
     WithdrawAssertion,
+    WithdrawClassification,
 )
 from kg.models.knowledge import ContributionView, EntityView, KnowledgePage
 from kg.models.query import SupportInspection, SupportInspectionRequest
@@ -51,7 +53,7 @@ class RecordInput(Value):
     """Native changes plus the unmodified support objects returned by read."""
 
     expected_schema_revision: SchemaRevisionRef
-    support: tuple[CapturedSupport, ...] = Field(min_length=1, max_length=MAX_SUPPORTS)
+    support: tuple[CapturedSupport, ...] = Field(max_length=MAX_SUPPORTS)
     changes: tuple[Change, ...] = Field(min_length=1, max_length=MAX_CHANGES)
 
     def payload(self) -> ChangeSet:
@@ -61,6 +63,8 @@ class RecordInput(Value):
             raise ClientError("invalid_support", "Duplicate captured evidence.")
         used: set[EvidenceRef] = set()
         for change in self.changes:
+            if isinstance(change, SelectClassification):
+                continue
             if not isinstance(change.support, SourceSupport):
                 raise ClientError(
                     "invalid_support", "Record requires exact source support, not seeds."
@@ -130,6 +134,9 @@ def normalize_record(value: JsonValue) -> JsonValue:
     for change in changes:
         if not isinstance(change, dict):
             raise ClientError("invalid_input", "Each change must be an object.")
+        if change.get("kind") == "classification_selection":
+            expanded.append(change)
+            continue
         support = change.get("support")
         if not isinstance(support, dict) or support.get("kind") != "source":
             raise ClientError("invalid_support", "Named support requires source evidence names.")
@@ -362,8 +369,40 @@ class Knowledge:
             },
         )
 
-    def record(self, file: Path) -> Response:
-        return self._write(record_input(file).payload())
+    def record(self, file: Path, *, retry_key: str) -> Response:
+        TypeAdapter(Token).validate_python(retry_key, strict=True)
+        return self._write(record_input(file).payload(), retry_key=retry_key)
+
+    def classifications(
+        self, target: str, *, history: bool, after_event_id: str | None,
+        limit: int, claim_ids: tuple[str, ...] | None,
+    ) -> Response:
+        if not target.startswith("entity:"):
+            raise ClientError("invalid_target", "Use the exact entity:ID from a receipt or read.")
+        entity_id = target.removeprefix("entity:")
+        value = (
+            self.service.classification_history(
+                self.profile.scope, entity_id, after_event_id=after_event_id, limit=limit,
+            ) if history else self.service.classification_review(
+                self.profile.scope, entity_id, claim_ids=claim_ids,
+            )
+        )
+        return Response(
+            status="complete",
+            message="Authorized classification history." if history else (
+                "Explicit subset review; selecting requires accept_incomplete_review=true."
+                if claim_ids is not None else "Complete review of authorized current claims."
+            ),
+            result=value.model_dump(mode="json"),
+        )
+
+    def withdraw_classification(self, target: str, *, retry_key: str) -> Response:
+        if not target.startswith("fact:"):
+            raise ClientError("invalid_target", "Use the exact fact:ID of a classification claim.")
+        TypeAdapter(Token).validate_python(retry_key, strict=True)
+        return self._write(WithdrawClassification(
+            operation="withdraw_classification", contribution_id=target.removeprefix("fact:"),
+        ), retry_key=retry_key)
 
     def remove(self, target: str) -> Response:
         return self._write(
@@ -372,8 +411,11 @@ class Knowledge:
             )
         )
 
-    def _write(self, payload: ChangeSet | WithdrawAssertion) -> Response:
-        outcome = submit(self.profile, payload)
+    def _write(
+        self, payload: ChangeSet | WithdrawAssertion | WithdrawClassification,
+        *, retry_key: str | None = None,
+    ) -> Response:
+        outcome = submit(self.profile, payload, retry_key=retry_key)
         if isinstance(outcome, Response):
             return outcome
         success = outcome.receipt is not None

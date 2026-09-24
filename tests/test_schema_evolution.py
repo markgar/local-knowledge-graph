@@ -7,6 +7,7 @@ from threading import Barrier
 
 import pytest
 from pydantic import ValidationError
+from support.classification import typed_entity
 from support.evidence import environment, put, receipt
 from support.knowledge import preset, revision
 from support.query_knowledge import setup, write
@@ -21,7 +22,6 @@ from kg.models.foundation import (
     Attribution,
     BooleanObject,
     ChangeSet,
-    CreateEntity,
     EntityObject,
     LocalEntity,
     SourceSupport,
@@ -145,7 +145,7 @@ def test_validate_apply_preserve_old_facts_and_record_new_property_and_relation(
     ids = write(
         env,
         (
-            CreateEntity(
+            typed_entity(
                 kind="entity",
                 local_id="project",
                 name="Atlas",
@@ -200,7 +200,7 @@ def test_validate_apply_preserve_old_facts_and_record_new_property_and_relation(
     ids = write(
         env,
         (
-            CreateEntity(
+            typed_entity(
                 kind="entity",
                 local_id="cert",
                 name="archive signing certificate",
@@ -246,7 +246,7 @@ def test_endpoint_union_and_authored_revision_survive_withdrawal_and_query(env):
     project = write(
         env,
         (
-            CreateEntity(
+            typed_entity(
                 kind="entity",
                 local_id="p",
                 name="Atlas",
@@ -315,14 +315,12 @@ def test_exact_head_fresh_write_and_successful_receipt_replay(env):
             operation="enrich",
             expected_schema_revision=authored,
             dependencies=(env.dependency,),
-            changes=(
-                CreateEntity(
-                    kind="entity",
-                    local_id="p",
-                    name="Atlas",
-                    entity_type="project",
-                    support=env.support,
-                ),
+            changes=typed_entity(
+                kind="entity",
+                local_id="p",
+                name="Atlas",
+                entity_type="project",
+                support=env.support,
             ),
         ),
     )
@@ -891,10 +889,10 @@ def test_missing_or_rewound_head_is_corrupt_not_unconfigured_or_writable(env, co
         payload=ChangeSet(
             operation="enrich", expected_schema_revision=old,
             dependencies=(env.dependency,),
-            changes=(CreateEntity(
+            changes=typed_entity(
                 kind="entity", local_id="p", name="Atlas", entity_type="project",
                 support=env.support,
-            ),),
+            ),
         ),
     ))
     assert fresh.error.code == "internal_error"

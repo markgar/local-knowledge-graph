@@ -261,7 +261,6 @@ class CreateEntity(Value):
     kind: Literal["entity"]
     local_id: Token
     name: Label
-    entity_type: Name
     support: Support
 
 
@@ -270,7 +269,6 @@ class AddEntitySupport(Value):
     local_id: Token
     entity: StoredEntity
     name: Label
-    entity_type: Name
     support: Support
 
 
@@ -301,6 +299,66 @@ class AddMention(Value):
     def passage_required(self) -> Self:
         if any(ref.passage_id is None for ref in self.support.evidence):
             raise ValueError("mentions require passage evidence")
+        return self
+
+
+class LocalClassificationRef(Value):
+    kind: Literal["local"]
+    local_id: Token
+
+
+class StoredClassificationRef(Value):
+    kind: Literal["stored"]
+    contribution_id: Token
+
+
+class LocalSelectionRef(Value):
+    kind: Literal["local"]
+    local_id: Token
+
+
+class StoredSelectionRef(Value):
+    kind: Literal["stored"]
+    event_id: Token
+
+
+ClassificationRef = Annotated[
+    LocalClassificationRef | StoredClassificationRef, Field(discriminator="kind"),
+]
+SelectionRef = Annotated[
+    LocalSelectionRef | StoredSelectionRef, Field(discriminator="kind"),
+]
+
+
+class AddClassification(Value):
+    kind: Literal["classification"]
+    local_id: Token
+    entity: EntityRef
+    entity_type: Name
+    interpretation: Literal["explicit", "inferred"]
+    support: Support
+
+
+class SelectClassification(Value):
+    kind: Literal["classification_selection"]
+    local_id: Token
+    entity: EntityRef
+    claim: ClassificationRef | None
+    expected_selection_id: Token | None
+    reviewed_candidates_digest: str | None = Field(pattern=r"^[0-9a-f]{64}$")
+    reviewed_claim_ids: tuple[Token, ...] = Field(max_length=200)
+    review_coverage: Literal["complete", "selected_subset"]
+    accept_incomplete_review: bool
+    rationale: Label
+
+    @model_validator(mode="after")
+    def bounded_review(self) -> Self:
+        if len(self.rationale.encode("utf-8")) > 4096:
+            raise ValueError("Selection rationale exceeds 4096 UTF-8 bytes")
+        if len(set(self.reviewed_claim_ids)) != len(self.reviewed_claim_ids):
+            raise ValueError("Duplicate reviewed claim")
+        if self.accept_incomplete_review != (self.review_coverage == "selected_subset"):
+            raise ValueError("Subset review requires explicit incomplete-review acknowledgement")
         return self
 
 
@@ -343,10 +401,13 @@ class AddAssertion(Value):
     object: AssertionObject
     interpretation: Literal["explicit", "inferred"]
     support: SourceSupport
+    subject_classification: SelectionRef | None = None
+    object_classification: SelectionRef | None = None
 
 
 Change = Annotated[
-    CreateEntity | AddEntitySupport | AddAlias | AddIdentifier | AddMention | AddAssertion,
+    CreateEntity | AddEntitySupport | AddAlias | AddIdentifier | AddMention | AddAssertion
+    | AddClassification | SelectClassification,
     Field(discriminator="kind"),
 ]
 
@@ -363,10 +424,14 @@ class ChangeSet(Value):
         if len(set(local_ids)) != len(local_ids):
             raise ValueError("change local IDs must be unique")
         entities = {change.local_id for change in self.changes if isinstance(change, CreateEntity)}
+        claims = {c.local_id for c in self.changes if isinstance(c, AddClassification)}
+        selections = {c.local_id for c in self.changes if isinstance(c, SelectClassification)}
         evidence: list[EvidenceRef] = []
         for change in self.changes:
             refs: list[EntityRef] = []
-            if isinstance(change, (AddAlias, AddIdentifier, AddMention)):
+            if isinstance(change, (
+                AddAlias, AddIdentifier, AddMention, AddClassification, SelectClassification,
+            )):
                 refs.append(change.entity)
             elif isinstance(change, AddAssertion):
                 refs.append(change.subject)
@@ -374,6 +439,26 @@ class ChangeSet(Value):
                     refs.append(change.object.entity)
             if any(isinstance(ref, LocalEntity) and ref.local_id not in entities for ref in refs):
                 raise ValueError("unresolved request-local entity")
+            if isinstance(change, SelectClassification):
+                if (
+                    isinstance(change.claim, LocalClassificationRef)
+                    and change.claim.local_id not in claims
+                ):
+                    raise ValueError("Unresolved local classification")
+                continue
+            if isinstance(change, AddAssertion):
+                if change.subject_classification is None:
+                    raise ValueError("Assertion requires subject classification selection")
+                if isinstance(change.object, EntityObject) != (
+                    change.object_classification is not None
+                ):
+                    raise ValueError("Entity objects require an object classification selection")
+                for selection in (change.subject_classification, change.object_classification):
+                    if (
+                        isinstance(selection, LocalSelectionRef)
+                        and selection.local_id not in selections
+                    ):
+                        raise ValueError("Unresolved local classification selection")
             if isinstance(change.support, SourceSupport):
                 evidence.extend(change.support.evidence)
         if len(evidence) > MAX_SUPPORTS:
@@ -400,8 +485,14 @@ class WithdrawAssertion(Value):
     contribution_id: Token
 
 
+class WithdrawClassification(Value):
+    operation: Literal["withdraw_classification"]
+    contribution_id: Token
+
+
 WritePayload = Annotated[
-    PutDocument | RemoveDocument | ChangeSet | WithdrawAssertion, Field(discriminator="operation")
+    PutDocument | RemoveDocument | ChangeSet | WithdrawAssertion | WithdrawClassification,
+    Field(discriminator="operation"),
 ]
 
 
@@ -415,13 +506,15 @@ class WriteRequest(Versioned):
     @model_validator(mode="after")
     def declared_scope_and_size(self) -> Self:
         access = self.scope.access
-        if isinstance(self.payload, WithdrawAssertion):
+        if isinstance(self.payload, (WithdrawAssertion, WithdrawClassification)):
             if not {"read", "write_knowledge"} <= set(access.grants):
                 raise ValueError("read and knowledge grants required")
         elif isinstance(self.payload, ChangeSet):
             if "write_knowledge" not in access.grants:
                 raise ValueError("knowledge grant required")
             for change in self.payload.changes:
+                if isinstance(change, SelectClassification):
+                    continue
                 if isinstance(change.support, SeedSupport):
                     if "seed" not in access.grants:
                         raise ValueError("seed grant required")
@@ -476,9 +569,18 @@ class IDMapping(Value):
     stored_id: Token
 
 
+class EntityClassificationReceipt(Value):
+    entity_id: Token
+    selection_id: Token
+    selected_claim_id: Token | None
+
+
 class ChangeSetReceipt(Value):
     kind: Literal["enrichment"]
     mappings: tuple[IDMapping, ...] = Field(min_length=1, max_length=MAX_CHANGES)
+    entity_classifications: tuple[EntityClassificationReceipt, ...] = Field(
+        default=(), max_length=MAX_CHANGES,
+    )
 
     @model_validator(mode="after")
     def unique_local_ids(self) -> Self:
@@ -493,8 +595,16 @@ class AssertionWithdrawalReceipt(Value):
     withdrawal_id: Token
 
 
+class ClassificationWithdrawalReceipt(Value):
+    kind: Literal["classification_withdrawal"]
+    contribution_id: Token
+    withdrawal_id: Token
+
+
 Receipt = Annotated[
-    DocumentReceipt | ChangeSetReceipt | AssertionWithdrawalReceipt, Field(discriminator="kind")
+    DocumentReceipt | ChangeSetReceipt | AssertionWithdrawalReceipt
+    | ClassificationWithdrawalReceipt,
+    Field(discriminator="kind"),
 ]
 ErrorCode = Literal[
     "invalid_request", "forbidden", "not_found", "state_conflict", "retry_conflict",

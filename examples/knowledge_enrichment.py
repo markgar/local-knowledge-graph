@@ -4,6 +4,8 @@ import argparse
 from pathlib import Path
 from uuid import uuid4
 
+from classification_inputs import classified_entity
+
 from kg.evidence import EvidenceAdministration, EvidenceDatabase, EvidenceService
 from kg.indexing._passages import produce
 from kg.knowledge import KnowledgeAdministration, KnowledgeService
@@ -23,12 +25,12 @@ from kg.models.foundation import (
     Attribution,
     ChangeSet,
     ChangeSetReceipt,
-    CreateEntity,
     CreateOnly,
     DocumentDependency,
     DocumentReceipt,
     ExternalDocument,
     LocalEntity,
+    LocalSelectionRef,
     PutDocument,
     Scope,
     SourceMetadata,
@@ -192,8 +194,7 @@ def supply(path: Path, *, passages: bool = False) -> tuple[
                     ),
                 ),
                 changes=(
-                    CreateEntity(
-                        kind="entity",
+                    *classified_entity(
                         local_id="project",
                         name="Atlas",
                         entity_type="project",
@@ -203,6 +204,9 @@ def supply(path: Path, *, passages: bool = False) -> tuple[
                         kind="assertion",
                         local_id="decision",
                         subject=LocalEntity(kind="local", local_id="project"),
+                        subject_classification=LocalSelectionRef(
+                            kind="local", local_id="project:selection",
+                        ),
                         predicate="work:decision",
                         object=StringObject(
                             kind="string",

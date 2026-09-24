@@ -844,7 +844,6 @@ def test_vector_rebuild_preserves_committed_k1_anchor_support(tmp_path, monkeypa
                         kind="entity",
                         local_id="project",
                         name="Supported project",
-                        entity_type="project",
                         support=SourceSupport(kind="source", evidence=(anchor.reference,)),
                     ),
                 ),
@@ -1067,7 +1066,7 @@ def test_context_metadata_reserves_before_fetch_and_holds_through_use(tmp_path):
     with env.database.connection() as connection:
         connection.set_trace_callback(statements.append)
         with (
-            budget.reserve_scratch(64 << 20, "general"),
+            budget.reserve_scratch(128 << 20, "general"),
             pytest.raises(PrivateResourceStop),
             title(connection, saved.document_id, saved.processing.state_version, budget),
         ):

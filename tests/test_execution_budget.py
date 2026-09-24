@@ -71,7 +71,7 @@ def test_steps_inherit_one_private_pool_no_hidden_public_charges() -> None:
 @pytest.mark.unit
 def test_scratch_aggregate_unit_copy_and_idempotent_release() -> None:
     budget = pool()
-    held = budget.reserve_scratch(64 << 20, "general")
+    held = budget.reserve_scratch(128 << 20, "general")
     with pytest.raises(PrivateResourceStop):
         budget.reserve_scratch(1, "general")
     with pytest.raises(TypeError):
@@ -80,7 +80,7 @@ def test_scratch_aggregate_unit_copy_and_idempotent_release() -> None:
         copy.deepcopy(held)
     held.release()
     held.release()
-    with budget.reserve_scratch(64 << 20, "general"), pytest.raises(PrivateResourceStop):
+    with budget.reserve_scratch(128 << 20, "general"), pytest.raises(PrivateResourceStop):
         budget.reserve_scratch(1, "general")
     for unit, limit in (("text", 8), ("context", 8), ("vector", 16), ("reranker", 8)):
         with pytest.raises(PrivateResourceStop):
@@ -262,9 +262,9 @@ def test_local_siblings_share_vm_scratch_and_deadline(monkeypatch):
     first.reserve_visits(2)
     second.reserve_visits(2)
     assert budget._visits == 4
-    with first.reserve_scratch(64 << 20, "general"), pytest.raises(PrivateResourceStop):
+    with first.reserve_scratch(128 << 20, "general"), pytest.raises(PrivateResourceStop):
         second.reserve_scratch(1, "text")
-    with second.reserve_scratch(64 << 20, "general"):
+    with second.reserve_scratch(128 << 20, "general"):
         pass
     first.reserve_vm(9_999_999)
     assert second.reserve_sql_quantum() == 1
@@ -446,7 +446,7 @@ def test_bulk_terminal_snapshots_and_cleanup_preserve_work_and_peak(stop, monkey
     operation.meter.reserve_public("resolve_entity")
     budget.reserve_visits(17)
     budget.reserve_vm(10_000_001)
-    held = budget.reserve_scratch(64 << 20, "general")
+    held = budget.reserve_scratch(128 << 20, "general")
     if stop == "cancelled":
         operation.cancel.set()
         with pytest.raises(CancelledStop):
@@ -471,7 +471,7 @@ def test_bulk_terminal_snapshots_and_cleanup_preserve_work_and_peak(stop, monkey
     held.release()
     after = operation.snapshot()
     assert after.scratch_live_bytes == 0
-    assert before.scratch_live_bytes == after.scratch_peak_bytes == 64 << 20
+    assert before.scratch_live_bytes == after.scratch_peak_bytes == 128 << 20
     assert after.visits_reserved == before.visits_reserved == 17
     assert after.vm_instructions_reserved == before.vm_instructions_reserved == 10_000_001
     assert after.semantic_items_reserved == 1

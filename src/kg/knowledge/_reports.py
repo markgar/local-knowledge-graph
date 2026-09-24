@@ -11,6 +11,8 @@ from kg._execution_budget import Deadline, PrivateBudget
 from kg.diagnostics._collector import Capture, CaptureUnavailable
 from kg.diagnostics._targets import (
     AuthorizationBinding,
+    ClassificationEventTarget,
+    ClassificationTarget,
     KnowledgeTarget,
     KnowledgeWriterTarget,
     ReportTarget,
@@ -30,6 +32,16 @@ if TYPE_CHECKING:
 
 
 def authorize_target(store: Store, identity: LocalIdentity, target: ReportTarget) -> None:
+    if isinstance(target, ClassificationEventTarget):
+        from kg.knowledge._classification import event
+
+        event(store, target.entity_id, target.event_id)
+        return
+    if isinstance(target, ClassificationTarget):
+        from kg.knowledge._classification import authorize_manifest
+
+        authorize_manifest(store, target)
+        return
     if isinstance(target, (KnowledgeWriterTarget, SeedSetTarget)):
         writer(
             store.connection,
@@ -103,7 +115,11 @@ class KnowledgeReportAuthorizer(EvidenceReportAuthorizer):
                     try:
                         for target in binding.targets:
                             if isinstance(
-                                target, (KnowledgeTarget, KnowledgeWriterTarget, SeedSetTarget)
+                                target, (
+                                    KnowledgeTarget, KnowledgeWriterTarget, SeedSetTarget,
+                                    ClassificationTarget,
+                                    ClassificationEventTarget,
+                                )
                             ):
                                 authorize_target(store, binding.identity, target)
                             else:

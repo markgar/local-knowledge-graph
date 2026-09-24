@@ -42,6 +42,9 @@ NEW_TOOLING = {
     "tests/support/gates.py", "tests/test_test_gates.py", "tests/unit/test_gate_values.py",
 }
 SOURCE_AREAS = {
+    "_execution_budget.py": {
+        "evidence", "schema", "knowledge", "indexing", "query", "processing", "graph", "cli",
+    },
     "evidence": {"evidence"},
     "knowledge": {"knowledge", "schema"},
     "indexing": {"indexing"},

@@ -27,13 +27,13 @@
     ],
     "changes": [
       {
-        "kind": "entity", "local_id": "sam", "name": "Sam", "entity_type": "person",
+        "kind": "entity", "local_id": "sam", "name": "Sam",
         "support": {"kind": "source", "evidence": [
           {"corpus_id": "work", "source_namespace": "email", "document_id": "email-1", "revision_id": "email-r1", "anchor_id": "email-a1", "passage_id": "email-p1"}
         ]}
       },
       {
-        "kind": "entity", "local_id": "atlas", "name": "Atlas", "entity_type": "project",
+        "kind": "entity", "local_id": "atlas", "name": "Atlas",
         "support": {"kind": "source", "evidence": [
           {"corpus_id": "work", "source_namespace": "meetings", "document_id": "meeting-1", "revision_id": "meeting-r1", "anchor_id": "meeting-a1", "passage_id": "meeting-p1"}
         ]}
@@ -48,6 +48,8 @@
         "kind": "assertion", "local_id": "owns", "subject": {"kind": "local", "local_id": "sam"},
         "predicate": "work:owns", "object": {"kind": "entity", "entity": {"kind": "local", "local_id": "atlas"}},
         "interpretation": "explicit",
+        "subject_classification": {"kind": "stored", "event_id": "sam-classification-selection"},
+        "object_classification": {"kind": "stored", "event_id": "atlas-classification-selection"},
         "support": {"kind": "source", "evidence": [
           {"corpus_id": "work", "source_namespace": "email", "document_id": "email-1", "revision_id": "email-r1", "anchor_id": "email-a1", "passage_id": "email-p1"},
           {"corpus_id": "work", "source_namespace": "meetings", "document_id": "meeting-1", "revision_id": "meeting-r1", "anchor_id": "meeting-a1", "passage_id": "meeting-p1"}

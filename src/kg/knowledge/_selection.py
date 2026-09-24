@@ -11,6 +11,7 @@ from kg.models.foundation import (
     EvidenceRef,
     Failure,
     Label,
+    Name,
     Record,
     Token,
     Value,
@@ -89,9 +90,20 @@ class EntitySelectionItem(Value):
         return self
 
 
+class ClassificationWitness(Value):
+    entity_id: Token
+    selection_id: Token
+    claim_id: Token
+    entity_type: Name
+    schema_version: Token
+    interpretation: Literal["explicit", "inferred"]
+    basis: Annotated[SourceWitness | SeedWitness, Field(discriminator="kind")]
+
+
 class DecisionDependencies(Value):
     assertion_support: tuple[CapturedEvidence, ...] = Field(min_length=1, max_length=200)
     subject_witness: EntityWitness
+    subject_classification: ClassificationWitness
 
 
 class DecisionSelectionItem(Value):

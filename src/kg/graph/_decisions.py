@@ -87,6 +87,15 @@ def _decode_pair(
     ):
         raise NativeError("invalid_projection")
     ctx.require_authored_revision(decision.assertion_id, decision.schema_version)
+    ctx.require_classification_captures(
+        decision.assertion_id, decision.classification_witnesses,
+        decision.classification_evidence,
+    )
+    related_capture = proof.assertion.classification_witnesses[
+        1 if request.direction == "outgoing" else 0
+    ]
+    if decision.classification_witnesses[0] != related_capture:
+        raise NativeError("invalid_projection")
     return decision, proof
 
 

@@ -10,6 +10,7 @@ from threading import Event
 from uuid import uuid4
 
 import pytest
+from support.classification import fixture_changes, typed_entity
 from support.evidence import environment, receipt
 from support.indexing import process
 from support.indexing import request as document_request
@@ -48,7 +49,6 @@ from kg.models.foundation import (
     Attribution,
     ChangeSet,
     ChangeSetReceipt,
-    CreateEntity,
     DocumentDependency,
     EntityObject,
     ExpectedState,
@@ -163,7 +163,8 @@ def request(env, changes, dependencies, retry=None):
             producer_version="1",
         ),
         payload=ChangeSet(expected_schema_revision=revision(env),
-            operation="enrich", changes=tuple(changes), dependencies=tuple(dependencies)
+            operation="enrich", changes=fixture_changes(env, changes),
+            dependencies=tuple(dependencies),
         ),
     )
 
@@ -175,7 +176,7 @@ def mappings(outcome):
 
 
 def entity(evidence, local="project", name="Atlas", kind="project"):
-    return CreateEntity(
+    return typed_entity(
         kind="entity",
         local_id=local,
         name=name,
@@ -251,7 +252,6 @@ def variants(evidence, target):
             local_id="support",
             entity=target,
             name="Atlas",
-            entity_type="project",
             support=evidence,
         ),
         AddAlias(kind="alias", local_id="alias", entity=target, alias="Launch", support=evidence),
@@ -379,7 +379,6 @@ def test_a09_a17_same_names_conjunction_alternatives_and_no_inferred_edges(env):
                 local_id="independent",
                 entity=target,
                 name="Sam",
-                entity_type="person",
                 support=sb,
             ),
             *(
@@ -572,7 +571,6 @@ def test_roundtrip_never_resurrects_support_and_fresh_support_is_explicit(
                 local_id="support",
                 entity=stored,
                 name="Atlas",
-                entity_type="project",
                 support=new_support,
             ),
         ),
@@ -1244,7 +1242,7 @@ def test_passage_selection_inherits_local_page_and_global_scratch_limits(env):
         cursor.close()
         before = meter.public_accounting().items_consumed
         with (
-            context.meter.private_budget.reserve_scratch(64 << 20, "general"),
+            context.meter.private_budget.reserve_scratch(128 << 20, "general"),
             pytest.raises(PrivateResourceStop),
         ):
             adapter.revalidate_member(member)

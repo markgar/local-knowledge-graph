@@ -544,7 +544,7 @@ def test_shared_resolver_scratch_uses_original_supervisor_pool(query, monkeypatc
     original = service._run_worker
 
     def occupied(observer, step, ledger):
-        with ledger.budget.reserve_scratch(64 << 20, "general"):
+        with ledger.budget.reserve_scratch(128 << 20, "general"):
             return original(observer, step, ledger)
 
     monkeypatch.setattr(service, "_run_worker", occupied)

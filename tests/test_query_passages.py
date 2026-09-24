@@ -319,7 +319,7 @@ def test_exact_shared_scratch_boundary_and_vm_exhaustion(passages, monkeypatch):
     for extra in (0, 1):
 
         def occupied(observer, step, ledger, extra=extra):
-            with ledger.budget.reserve_scratch((64 << 20) - peak + extra, "general"):
+            with ledger.budget.reserve_scratch((128 << 20) - peak + extra, "general"):
                 return run(observer, step, ledger)
 
         with monkeypatch.context() as patch:

@@ -9,7 +9,6 @@ from kg.models.foundation import (
     Attribution,
     ChangeSet,
     CountStep,
-    CreateEntity,
     DocumentDependency,
     QueryBudget,
     QueryRequest,
@@ -20,6 +19,7 @@ from kg.models.foundation import (
     StringObject,
     WriteRequest,
 )
+from support.classification import fixture_changes, typed_entity
 from support.evidence import environment, put, receipt
 from support.knowledge import preset, revision, schema
 
@@ -94,7 +94,7 @@ def write(env, changes, *, retry=None, dependencies=None):
             ),
             payload=ChangeSet(expected_schema_revision=revision(env),
                 operation="enrich",
-                changes=tuple(changes),
+                changes=fixture_changes(env, changes),
                 dependencies=(env.dependency,) if dependencies is None else tuple(dependencies),
             ),
         )
@@ -107,7 +107,7 @@ def produce(env, count, *, name="Project"):
     entity_id = write(
         env,
         (
-            CreateEntity(
+            typed_entity(
                 kind="entity",
                 local_id="subject",
                 name=name,

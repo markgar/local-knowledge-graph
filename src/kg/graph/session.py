@@ -56,7 +56,8 @@ from kg.graph._session_types import (
     SessionStatus,
     _WarmReadMeter,
 )
-from kg.knowledge._graph_export import GraphCoverage
+from kg.knowledge._graph_export import GraphCoverage, GraphEvidence
+from kg.knowledge._selection import ClassificationWitness
 from kg.models.evidence import LocalIdentity
 from kg.models.foundation import (
     BatchResult,
@@ -242,6 +243,66 @@ class GraphReadContext:
     _output: list[ScratchReservation]
     _sizes: list[int]
     _authored_revisions: dict[str, str] = field(default_factory=dict)
+    _classification_digests: dict[str, str] = field(default_factory=dict)
+    _classification_passages: dict[str, str] = field(default_factory=dict)
+
+    def require_classification_captures(
+        self, assertion_id: str, captures: tuple[ClassificationWitness, ...],
+        evidence: tuple[GraphEvidence, ...],
+    ) -> None:
+        from kg.evidence._values import sha
+
+        self.native.check()
+        self.canonical.check_active()
+        if assertion_id not in self._classification_digests:
+            sizes = self.canonical.connection.execute(
+                "SELECT role,length(CAST(witness_json AS BLOB)) FROM assertion_classification "
+                "WHERE corpus_id=? AND contribution_id=? ORDER BY role DESC LIMIT 3",
+                (self.canonical.scope.corpus_id, assertion_id),
+            ).fetchall()
+            if not 1 <= len(sizes) <= 2 or sizes[0][0] != "subject":
+                raise NativeError("invalid_projection")
+            with self.meter.reserve_scratch(
+                4096 + 8 * sum(row[1] for row in sizes), "general",
+            ):
+                rows = self.canonical.connection.execute(
+                    "SELECT witness_json FROM assertion_classification "
+                    "WHERE corpus_id=? AND contribution_id=? ORDER BY role DESC LIMIT 3",
+                    (self.canonical.scope.corpus_id, assertion_id),
+                ).fetchall()
+                digest = sha("\n".join(row[0] for row in rows).encode())
+            self._output.append(self.meter.reserve_scratch(
+                256 + 8 * len(assertion_id) + len(digest), "general",
+            ))
+            self._classification_digests[assertion_id] = digest
+        with self.meter.reserve_scratch(
+            4096 + 8 * bounded_size(captures, 8 << 20), "general",
+        ):
+            actual = sha("\n".join(c.model_dump_json() for c in captures).encode())
+        if actual != self._classification_digests[assertion_id]:
+            raise NativeError("invalid_projection")
+        for proof in evidence:
+            passage_id = proof.captured.reference.passage_id
+            if passage_id is None:
+                if proof.passage_set_id is not None:
+                    raise NativeError("invalid_projection")
+                continue
+            expected = self._classification_passages.get(passage_id)
+            if expected is None:
+                row = self.canonical.connection.execute(
+                    "SELECT passage_set_id FROM passage WHERE corpus_id=? AND passage_id=?",
+                    (self.canonical.scope.corpus_id, passage_id),
+                ).fetchone()
+                if row is None:
+                    raise NativeError("invalid_projection")
+                expected = row[0]
+                if len(self._classification_passages) < 200:
+                    self._output.append(self.meter.reserve_scratch(
+                        256 + 8 * (len(passage_id) + len(expected)), "general",
+                    ))
+                    self._classification_passages[passage_id] = expected
+            if proof.passage_set_id != expected:
+                raise NativeError("invalid_projection")
 
     def require_authored_revision(self, assertion_id: str, revision_id: str) -> None:
         self.native.check()

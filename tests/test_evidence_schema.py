@@ -37,6 +37,13 @@ TABLES = set(
         "knowledge_schema_receipt",
         "knowledge_writer_binding",
         "entity",
+        "entity_origin",
+        "classification",
+        "classification_head",
+        "classification_selection",
+        "classification_selection_targets",
+        "classification_withdrawal",
+        "assertion_classification",
         "contribution",
         "entity_support",
         "alias",
@@ -101,6 +108,7 @@ INDEXES = set(
         "assertion_subject_idx",
         "assertion_predicate_idx",
         "assertion_object_idx",
+        "classification_entity",
         "contribution_evidence_state_idx",
         "contribution_seed_slot_idx",
         "seed_event_slot_idx",
@@ -133,7 +141,7 @@ def _image(path: Path) -> tuple[bytes, tuple[object, ...]]:
 @pytest.mark.service
 def test_complete_inventory_and_relational_programs(tmp_path: Path) -> None:
     assert expected_manifest().signature == (
-        "dee7771af2360edfcb8665e507775c11acc277b241b3349cfa368315fd3743b1"
+        "abba0723ec31fb9ce3c32c9c1bdb62d8f5a98de1ec72693a6d67ce1073efe5a9"
     )
     database = EvidenceDatabase(tmp_path / "complete.db")
     database.initialize()
@@ -143,19 +151,20 @@ def test_complete_inventory_and_relational_programs(tmp_path: Path) -> None:
         ).fetchall()
         assert {row[1] for row in catalog if row[0] == "table"} == TABLES
         assert {row[1] for row in catalog if row[0] == "index"} == INDEXES
-        assert len(TABLES) == 69 and len(INDEXES) == 29
+        assert len(TABLES) == 76 and len(INDEXES) == 30
         assert {row[0] for row in catalog} == {"table", "index"}
         assert connection.execute("PRAGMA foreign_key_check").fetchall() == []
         assert connection.execute("PRAGMA integrity_check").fetchone()[0] == "ok"
         assert connection.execute("PRAGMA foreign_keys").fetchone()[0] == 1
-        assert connection.execute("PRAGMA user_version").fetchone()[0] == 4
+        assert connection.execute("PRAGMA user_version").fetchone()[0] == 5
         assert tuple(connection.execute("SELECT * FROM store_format").fetchone()) == (
             1,
-            "evidence-store/4",
+            "evidence-store/5",
             "canonical-sqlite-manifest/1",
             expected_manifest().signature,
         )
-        assert connection.execute("SELECT count(*) FROM schema_object_manifest").fetchone()[0] == 98
+        count = connection.execute("SELECT count(*) FROM schema_object_manifest").fetchone()[0]
+        assert count == 106
         for table in sorted(TABLES):
             # Compilation catches missing parent keys even when every future-service table is empty.
             connection.execute(f'EXPLAIN DELETE FROM "{table}"').fetchall()
@@ -224,7 +233,7 @@ def test_copied_manifest_cannot_hide_constraint_changes(tmp_path: Path, replacem
 
 
 @pytest.mark.service
-@pytest.mark.parametrize("version", [1, 2])
+@pytest.mark.parametrize("version", [1, 2, 3, 4])
 def test_old_or_spoofed_nonempty_format_is_not_repaired(tmp_path: Path, version: int) -> None:
     path = tmp_path / "old.db"
     with sqlite3.connect(path) as connection:
@@ -302,7 +311,6 @@ def relational_store(tmp_path: Path):
             entity_id="e",
             corpus_id="work",
             name="Entity",
-            entity_type="person",
             creation_sequence=1,
         )
         _insert(
@@ -311,7 +319,6 @@ def relational_store(tmp_path: Path):
             entity_id="foreign-e",
             corpus_id="other",
             name="Entity",
-            entity_type="person",
             creation_sequence=1,
         )
         key = connection.execute("SELECT key_id FROM write_key WHERE corpus_id='work'").fetchone()[
