@@ -801,14 +801,18 @@ are low-level composition and evaluation APIs, not alternate product interfaces.
 They do not enforce the product facade's stricter readiness behavior.
 
 [`examples/cited_status.py`](examples/cited_status.py) is a model-independent
-subprocess client for structured status, error handling, and cited output:
+subprocess client for historical demo status, error handling, and cited output.
+It invokes `python -m kg.legacy_cli` using its current Python interpreter, not
+the installed canonical `kg` command:
 
 ```bash
 uv run python examples/cited_status.py corpora/example.yml Atlas
 ```
 
 The example defaults to `--since 30d`; use its `--since` option to change that
-window. The underlying `kg status` command has no default time filter.
+window. The underlying demo module's `status` command has no default time filter.
+Python callers may override `load_status(..., executable=...)` with a single
+executable that implements the demo commands; canonical `kg` does not.
 
 ## Foundation value validation
 

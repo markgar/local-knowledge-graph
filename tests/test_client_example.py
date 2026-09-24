@@ -1,9 +1,12 @@
 from __future__ import annotations
 
 import importlib.util
+import subprocess
 import sys
 from pathlib import Path
 from types import ModuleType
+
+import pytest
 
 
 def _load_example() -> ModuleType:
@@ -60,9 +63,8 @@ def test_external_client_invokes_cli_and_loads_status(tmp_path: Path) -> None:
         "include: ['*.md']\n",
         encoding="utf-8",
     )
-    kg_executable = str(Path(sys.executable).with_name("kg"))
     module.subprocess.run(
-        [kg_executable, "ingest", "--manifest", str(manifest)],
+        [sys.executable, "-m", "kg.legacy_cli", "ingest", "--manifest", str(manifest)],
         check=True,
         capture_output=True,
         text=True,
@@ -72,10 +74,32 @@ def test_external_client_invokes_cli_and_loads_status(tmp_path: Path) -> None:
         manifest,
         "Example",
         "30d",
-        executable=kg_executable,
     )
 
     assert status["decisions"][0]["summary"] == "Use SQLite."
+
+
+def test_external_client_preserves_executable_override_argv(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    module = _load_example()
+    calls: list[list[str]] = []
+
+    def run(
+        argv: list[str], *, check: bool, capture_output: bool, text: bool,
+    ) -> subprocess.CompletedProcess[str]:
+        assert not check and capture_output and text
+        calls.append(argv)
+        return subprocess.CompletedProcess(argv, 0, stdout="{}", stderr="")
+
+    monkeypatch.setattr(module.subprocess, "run", run)
+    assert module.load_status(
+        Path("corpus.yml"), "Example", "30d", executable="/custom/demo-cli",
+    ) == {}
+    assert calls == [[
+        "/custom/demo-cli", "status", "Example", "--manifest", "corpus.yml",
+        "--since", "30d", "--format", "json",
+    ]]
 
 
 def test_evidence_example_executes_and_replays(tmp_path: Path) -> None:
