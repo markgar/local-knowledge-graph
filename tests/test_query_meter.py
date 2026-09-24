@@ -1,6 +1,7 @@
 import time
 
 import pytest
+from pydantic import ValidationError
 
 from kg._execution_budget import Deadline, PrivateBudget, PrivateResourceStop
 from kg.query._meter import Frame, Ledger
@@ -34,7 +35,7 @@ def test_remote_scratch_and_vm_come_from_same_root_and_cleanup_is_idempotent():
     pool = PrivateBudget(Deadline(time.monotonic() + 10))
     ledger = Ledger(pool, 1, 1)
     local = ledger.reserve(Frame(action="limited", n=100)).value
-    scratch = ledger.reserve(Frame(action="scratch", view=local, n=64 << 20)).value
+    scratch = ledger.reserve(Frame(action="scratch", view=local, n=128 << 20)).value
     assert ledger.reserve(Frame(action="scratch")).state == "private"
     assert ledger.reserve(Frame(action="release", view=scratch)).state == "ok"
     pool.reserve_vm(9_999_999)
@@ -42,6 +43,26 @@ def test_remote_scratch_and_vm_come_from_same_root_and_cleanup_is_idempotent():
     assert ledger.reserve(Frame(action="quantum")).state == "private"
     ledger.close()
     ledger.close()
+
+
+def test_larger_scratch_transport_preserves_tighter_units_and_other_frame_limits():
+    pool = PrivateBudget(Deadline(time.monotonic() + 10))
+    ledger = Ledger(pool, 1, 1)
+    with pytest.raises(ValidationError):
+        Frame(action="scratch", n=(128 << 20) + 1)
+    with pytest.raises(ValidationError):
+        Frame(action="vm", n=(64 << 20) + 1)
+    for unit, limit in (("text", 8), ("context", 8), ("vector", 16), ("reranker", 8)):
+        result = ledger.reserve(Frame(action="scratch", unit=unit, n=(limit << 20) + 1))
+        assert result.state == "private"
+        assert pool._scratch == 0
+    first = ledger.reserve(Frame(action="scratch", n=64 << 20))
+    second = ledger.reserve(Frame(action="scratch", n=64 << 20))
+    assert first.state == second.state == "ok"
+    assert pool._scratch == 128 << 20
+    assert ledger.reserve(Frame(action="scratch")).state == "private"
+    ledger.close()
+    assert pool._scratch == 0
 
 
 def test_expired_deadline_cannot_be_reset_by_view_or_frame():

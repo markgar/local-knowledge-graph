@@ -290,11 +290,10 @@ captures, preserve authored schema compatibility and full proof budgets, and ret
 original observer/final authorization fences. Saved writes survive graph failure.
 History/receipt/rationale disclosure reauthorizes every original reviewed dependency,
 while ordinary selected-type proofs need no rejected private alternatives.
-Full graph decision assembly physically shares bounded immutable classification
-bundles only after canonical assertion binding and exact passage-membership checks.
-Shared payloads, per-record containers and references retain overlapping custody
+Full graph decision assembly checks canonical assertion binding and exact
+classification passage membership, retaining straightforward complete-copy charges
 through complete-result admission. All serialized occurrences and transient decoded
-copies still count; public/native proof shapes and original budgets are unchanged.
+copies count; public/native proof shapes are unchanged.
 
 Public service, `kg record --retry-key`, `kg classifications` and
 `kg withdraw-classification` expose this lifecycle. See [CONTRACTS.md](CONTRACTS.md#knowledge-enrichment-and-reads)
@@ -538,7 +537,7 @@ apply. This is not a guarantee of physical disk writes or a process RSS bound.
 `kg._execution_budget` separates semantic reservations from inherited private
 visits, SQL VM, scratch/provider and absolute-deadline allowances. Interactive local step
 views share one private pool: 100,000 visits, 10,000,000 prepaid VM instructions
-(quanta at most 1,000), and 64 MiB aggregate scratch. Individual text/context and
+(quanta at most 1,000), and 128 MiB aggregate/general scratch. Individual text/context and
 reranker reservations are at most 8 MiB; vector batches at most 16 MiB, with
 provider batches at most eight sequences/8,192 padded token positions. Reservations
 precede consumption; scratch ownership cannot be copied and release is idempotent.
@@ -569,7 +568,7 @@ Explicit `limited(max_visits=N)` still enforces N through every ancestor. No
 page, child, connection or phase resets work totals. The 200-item page maximum
 is a batch bound, not total coverage or evidence of eligible EOF.
 
-Bulk reads retain the same 64 MiB logical scratch, per-unit/provider limits and
+Bulk reads retain the same 128 MiB logical scratch, per-unit/provider limits and
 128 MiB SQLite TEMP cap. Deadline/cancellation checks occur at reservations,
 fetches, SQL progress and short root-lock waits; SQLite busy waits are at most
 100 ms per statement rather than the unchanged interactive 5,000 ms. Stops latch

@@ -325,7 +325,7 @@ def test_inherited_private_limits_release_buffers_and_redact(tmp_path, monkeypat
         elif resource == "vm":
             budget._vm = 10_000_000
         elif resource == "scratch":
-            held.append(budget.reserve_scratch((64 << 20) - budget._scratch, "general"))
+            held.append(budget.reserve_scratch((128 << 20) - budget._scratch, "general"))
         elif resource == "deadline":
             budget.deadline = Deadline(0)
 

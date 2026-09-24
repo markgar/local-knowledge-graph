@@ -1034,7 +1034,7 @@ def test_context_metadata_reserves_before_fetch_and_holds_through_use(tmp_path):
     with env.database.connection() as connection:
         connection.set_trace_callback(statements.append)
         with (
-            budget.reserve_scratch(64 << 20, "general"),
+            budget.reserve_scratch(128 << 20, "general"),
             pytest.raises(PrivateResourceStop),
             title(connection, saved.document_id, saved.processing.state_version, budget),
         ):

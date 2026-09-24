@@ -1224,7 +1224,7 @@ def test_passage_selection_inherits_local_page_and_global_scratch_limits(env):
         cursor.close()
         before = meter.public_accounting().items_consumed
         with (
-            context.meter.private_budget.reserve_scratch(64 << 20, "general"),
+            context.meter.private_budget.reserve_scratch(128 << 20, "general"),
             pytest.raises(PrivateResourceStop),
         ):
             adapter.revalidate_member(member)

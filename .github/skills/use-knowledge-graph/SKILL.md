@@ -51,6 +51,8 @@ An ambiguous name requires explicit candidate selection, not the first result.
 An incomplete or failed selection is not unique. Stop or narrow the request when
 budgets prevent complete selection. Current reads exclude ineligible support;
 an empty authorized result does not prove absence elsewhere or in the past.
+The shared general scratch ceiling is 128 MiB; tighter per-unit and complete-output
+limits still apply. It is a logical allowance, not a host memory guarantee.
 Empty/incomplete matches never prove an entity is new; list/page eligible entities
 or inspect source evidence before deliberately creating one.
 

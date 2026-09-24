@@ -16,8 +16,8 @@ from kg.graph._relationships import (
 )
 from kg.graph._session_types import GraphGeneration
 from kg.graph.session import GraphReadContext
-from kg.knowledge._graph_export import GraphAssertion, GraphEvidence
-from kg.knowledge._selection import ClassificationWitness, EntitySelectionItem, SourceWitness
+from kg.knowledge._graph_export import GraphAssertion
+from kg.knowledge._selection import EntitySelectionItem
 from kg.models.foundation import Token, Value
 from kg.models.graph import (
     GraphDecisionMember,
@@ -53,59 +53,6 @@ class _GraphDecisionSelection(Value):
     count: int | None
     members: tuple[GraphDecisionMember, ...] = ()
     relationships: tuple[GraphRelationshipProof, ...] = ()
-
-
-class _ClassificationPool:
-    """Own shared immutable payloads until complete-selection admission overlaps custody."""
-
-    def __init__(self, ctx: GraphReadContext, custody: ExitStack) -> None:
-        self.ctx, self.custody = ctx, custody
-        self.bundles: dict[str, tuple[ClassificationWitness, tuple[GraphEvidence, ...]]] = {}
-
-    def share_validated(self, assertion: GraphAssertion) -> tuple[GraphAssertion, str | None, int]:
-        captures = assertion.classification_witnesses
-        needed = {c.selection_id for c in captures if c.selection_id not in self.bundles}
-        if len(self.bundles) + len(needed) > 200:
-            return assertion, None, 0
-        selected: list[ClassificationWitness] = []
-        evidence: list[GraphEvidence] = []
-        offset = 0
-        for capture in captures:
-            length = len(capture.basis.evidence) if isinstance(capture.basis, SourceWitness) else 0
-            proofs = assertion.classification_evidence[offset:offset + length]
-            offset += length
-            prior = self.bundles.get(capture.selection_id)
-            if prior is None:
-                size = 4096 + 8 * (
-                    bounded_size(capture.selection_id, 8 << 20)
-                    + bounded_size(capture.model_dump_json(), 8 << 20)
-                    + 2 + sum(1 + bounded_size(p.model_dump_json(), 8 << 20) for p in proofs)
-                )
-                self.custody.enter_context(self.ctx.meter.reserve_scratch(size, "general"))
-                prior = capture, proofs
-                self.bundles[capture.selection_id] = prior
-            elif prior != (capture, proofs):
-                raise NativeError("invalid_projection")
-            selected.append(prior[0])
-            evidence.extend(prior[1])
-        member = assertion.decision_member
-        if member is not None:
-            member = member.model_copy(update={
-                "dependencies": member.dependencies.model_copy(update={
-                    "subject_classification": selected[0],
-                }),
-            })
-        shared = assertion.model_copy(update={
-            "classification_witnesses": tuple(selected),
-            "classification_evidence": tuple(evidence),
-            "decision_member": member,
-        })
-        owned = shared.model_dump_json(exclude={
-            "classification_witnesses": True, "classification_evidence": True,
-            "decision_member": {"dependencies": {"subject_classification": True}},
-        })
-        references = 64 * (len(selected) + len(evidence) + (member is not None))
-        return shared, owned, references
 
 
 def _decode_pair(
@@ -156,7 +103,6 @@ def _select_relationship_decisions(
     ctx: GraphReadContext, request: GraphRelationshipDecisionsRequest,
 ) -> _GraphDecisionSelection:
     with ExitStack() as custody:
-        classifications = _ClassificationPool(ctx, custody)
         schema = preflight_relationship(
             ctx, custody=custody, predicate=request.predicate,
             direction=request.direction, max_hops=request.max_hops,
@@ -216,14 +162,6 @@ ORDER BY d.assertion_id, r.assertion_id
                             ctx, row, request=request, root=root,
                             schema=schema, predicates=predicates,
                         )
-                        decision, owned_decision, decision_refs = classifications.share_validated(
-                            decision,
-                        )
-                        assertion, owned_relation, relation_refs = classifications.share_validated(
-                            proof.assertion,
-                        )
-                        proof = proof.model_copy(update={"assertion": assertion})
-                        del assertion
                         key = (decision.assertion_id, proof.assertion.assertion_id)
                         if key <= previous:
                             raise NativeError("invalid_projection")
@@ -234,9 +172,7 @@ ORDER BY d.assertion_id, r.assertion_id
                                     decision=current, relationship_ids=tuple(relationships),
                                 ))
                             custody.enter_context(ctx.meter.reserve_scratch(
-                                4096 + decision_refs + 8 * bounded_size(
-                                    row[1] if owned_decision is None else owned_decision, 8 << 20,
-                                ), "general",
+                                4096 + 8 * bounded_size(row[1], 8 << 20), "general",
                             ))
                             current, relationships = decision, []
                         elif current != decision:
@@ -244,11 +180,7 @@ ORDER BY d.assertion_id, r.assertion_id
                         identifier = proof.assertion.assertion_id
                         if identifier not in proofs:
                             custody.enter_context(ctx.meter.reserve_scratch(
-                                4096 + relation_refs + 8 * bounded_size(
-                                    row[3:] if owned_relation is None else (
-                                        *row[3:6], owned_relation, *row[7:],
-                                    ), 8 << 20,
-                                ), "general",
+                                4096 + 8 * bounded_size(row[3:], 8 << 20), "general",
                             ))
                             proofs[identifier] = proof
                         elif proofs[identifier] != proof:
@@ -257,7 +189,7 @@ ORDER BY d.assertion_id, r.assertion_id
                             256 + 8 * bounded_size(identifier, 4096), "general",
                         ))
                         relationships.append(identifier)
-                        del decision, proof, owned_decision, owned_relation
+                        del decision, proof
                 # NativeRows releases the preceding page's reservation on its next read.
                 del row, page
         if current is not None:

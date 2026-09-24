@@ -174,7 +174,7 @@ Rebuilds and cleanup do not rotate source states, passage identities or knowledg
 dependencies. Canonical passages committed before provider failure remain readable.
 
 Every invocation shares one private 30-second deadline and the existing 100,000
-visit, 10-million SQL instruction and 64-MiB logical scratch allowances. No stage
+visit, 10-million SQL instruction and 128-MiB logical scratch allowances. No stage
 gets a fresh pool. Provider batches use at most eight sequences (below the
 32-passage process ceiling), at most 8,192 conservatively preflighted padded
 UTF-8-byte positions including special-token allowance, and 16 MiB provider scratch.
@@ -217,7 +217,7 @@ deadline exhaustion yields `budget_exceeded`, with no private meter disclosure.
 Valid existing projections and historical citations are never mutated by search.
 
 Standalone allowances are 10,000 semantic units and one shared private 30-second
-deadline, 100,000 visits, 10-million SQL instructions and 64-MiB logical scratch.
+deadline, 100,000 visits, 10-million SQL instructions and 128-MiB logical scratch.
 The existing verified FILE TEMP cap is 128 MiB. Provider inputs are preflighted
 before inference; each reranker call is one sequence, at most 8,192 conservative
 padded token positions and 8 MiB scratch, with no input cropping or omission.
@@ -389,11 +389,9 @@ Claim and assertion authored revisions remain compatible with additive schema ev
 Graph mapping `canonical-relationships-decisions/2` binds original classification captures
 to canonical assertions, counts full distinct submitted IDs before display truncation,
 and cannot manufacture freshness from surviving graph files.
-During full relationship-decision assembly, at most 200 validated immutable
-classification bundles are physically shared within that operation. Shared payloads
-retain charged custody; every per-assertion container/reference remains charged.
-Overflow keeps original objects/full charges. Transient decode and complete serialized
-output still count all proof occurrences under the original limits.
+Full relationship-decision assembly retains complete-copy scratch charges through
+final admission. Transient decoding and complete serialized output count every
+classification proof occurrence, after canonical assertion and passage-set binding.
 
 Modes are `current` and `history`. Pages use limits 1..200, nonnegative keyset
 cursors, visible-only `has_more`/`next_after_sequence`, and no hidden totals.
@@ -477,7 +475,7 @@ does not change those public defaults. It carries one original finite deadline
 `StepMeter.reserve_public(stage, n)` ABI. Its `graph-build/1` root and automatic
 selection children count visits/VM cumulatively without interactive total-work
 ceilings; explicit finite child caps still apply. Pages remain at most 200,
-scratch remains 64 MiB with existing per-unit limits, and SQLite TEMP remains
+scratch is 128 MiB with existing per-unit limits, and SQLite TEMP remains
 128 MiB. Owners must reach actual EOF; a stop cannot authorize a complete prefix.
 Terminal cancellation/deadline/resource state and cumulative accounting remain
 inspectable through the original operation's private snapshot. Existing Q1
@@ -598,7 +596,7 @@ relationship decoding reuse traversal's helpers/custody; verified G3 owns non-ro
 type and current eligibility. Ordered full enumeration must equal the native count.
 Every hidden member and proof is retained once in a private immutable selection
 before display projection; the full selection must fit the conservative 8 MiB
-output and shared 64 MiB scratch limits. The final public envelope is independently
+output and shared 128 MiB scratch limits. The final public envelope is independently
 sized under the same pool. `display_truncated` is not incomplete execution and is
 not a continuation token; reducing display cannot rescue an oversized selection.
 

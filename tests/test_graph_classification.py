@@ -142,7 +142,7 @@ def test_native_classification_substitution_cannot_release_a_count(tmp_path, mon
         assert result.count is None and not result.members and not result.relationships
 
 
-def test_native_pool_still_binds_every_distinct_assertion(tmp_path, monkeypatch):
+def test_native_binds_every_distinct_assertion(tmp_path, monkeypatch):
     from kg.graph.session import GraphReadContext
 
     require_native()

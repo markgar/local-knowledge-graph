@@ -5,11 +5,12 @@ from __future__ import annotations
 from collections.abc import Callable
 from contextlib import suppress
 from multiprocessing.connection import Connection
-from typing import Literal
+from typing import Literal, Self
 
-from pydantic import Field
+from pydantic import Field, model_validator
 
 from kg._execution_budget import (
+    GENERAL_SCRATCH_BYTES,
     Deadline,
     DeadlineStop,
     PrivateBudget,
@@ -45,7 +46,7 @@ class Frame(Value):
         "capture_reclaimed",
     ]
     view: int = Field(default=0, ge=0, le=100_000)
-    n: int = Field(default=1, ge=1, le=64 << 20)
+    n: int = Field(default=1, ge=1, le=GENERAL_SCRATCH_BYTES)
     stage: SemanticStage = "evidence_reference"
     unit: ScratchUnit = "general"
     code: ErrorCode | None = None
@@ -53,6 +54,12 @@ class Frame(Value):
     text: str = Field(default="", max_length=4096)
     kind: Literal["entity", "decision", "summary", "ranked", "capture"] = "summary"
     reason: StopReason | None = None
+
+    @model_validator(mode="after")
+    def action_quantity(self) -> Self:
+        if self.action != "scratch" and self.n > 64 << 20:
+            raise ValueError("Non-scratch frame quantity exceeds transport limit")
+        return self
 
 
 class Reply(Value):
