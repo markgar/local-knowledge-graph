@@ -8,7 +8,7 @@ from threading import Event
 import pytest
 from support.evidence import environment, receipt
 from support.indexing import ControlledProvider, process, request, service
-from support.knowledge import schema
+from support.knowledge import preset, revision, schema
 
 from kg._execution_budget import Deadline, PrivateBudget, PrivateResourceStop
 from kg.evidence._sql import AccountedConnection
@@ -778,7 +778,7 @@ def test_vector_rebuild_preserves_committed_k1_anchor_support(tmp_path, monkeypa
     )
     KnowledgeAdministration(
         env.database, LocalAdminAuthority(principal_id="admin")
-    ).register_knowledge_schema(schema())
+    ).register_knowledge_schema(preset(schema()))
     value = request(
         env,
         text="supported source",
@@ -805,7 +805,7 @@ def test_vector_rebuild_preserves_committed_k1_anchor_support(tmp_path, monkeypa
         update={
             "request_id": "enrich",
             "retry_key": "enrich",
-            "payload": ChangeSet(
+            "payload": ChangeSet(expected_schema_revision=revision(env),
                 operation="enrich",
                 dependencies=(
                     DocumentDependency(

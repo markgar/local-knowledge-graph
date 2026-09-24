@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import time
 from collections.abc import Callable
+from contextlib import ExitStack, closing
 from typing import Literal
 
 from kg._execution_budget import (
@@ -26,7 +27,7 @@ from kg.knowledge._reports import KnowledgeReportAuthorizer
 from kg.knowledge._store import Store
 from kg.models.evidence import LocalIdentity
 from kg.models.execution import SUMMARY_OPTIONS, Explained, ExplainOptions, OperationName
-from kg.models.foundation import Scope
+from kg.models.foundation import Scope, Value
 from kg.models.knowledge import (
     ContributionView,
     EntityView,
@@ -34,6 +35,13 @@ from kg.models.knowledge import (
     KnowledgePage,
 )
 from kg.models.knowledge_events import KnowledgeSelection
+from kg.models.schema import (
+    SchemaChangeView,
+    SchemaProposal,
+    SchemaRevisionPage,
+    SchemaValidation,
+    SchemaView,
+)
 
 Mode = Literal["current", "history"]
 Kind = Literal["entity_support", "alias", "identifier", "mention", "assertion"]
@@ -149,15 +157,79 @@ class KnowledgeService:
         return result
 
     def capabilities(self, scope: Scope) -> KnowledgeCapabilities:
+        def result(store: Store) -> KnowledgeCapabilities:
+            head = store.registry.head()
+            if head is None:
+                return KnowledgeCapabilities(
+                    schema_status="unconfigured", schema_revision=None, decision_encoding=None,
+                    change_kinds=(), withdrawal=None,
+                    reads=("schema", "schema_history", "schema_change", "validate_schema"),
+                )
+            return KnowledgeCapabilities(
+                schema_revision=head, decision_encoding="direct-subject-decision/1"
+                if any(p.record_projection for p in store.schema().predicates) else None,
+            )
+
         return self._read(
-            scope,
-            "capabilities",
-            lambda store: KnowledgeCapabilities(
-                decision_encoding="direct-subject-decision/1"
-                if any(p.record_projection for p in store.schema().predicates)
-                else None,
-            ),
+            scope, "capabilities", result,
         )
+
+    def _schema_read[T: Value](self, scope: Scope, run: Callable[[Store], T]) -> T:
+        scope = validated(Scope, scope)
+        budget = PrivateBudget(Deadline(time.monotonic() + 30))
+        selection = budget.limited(max_visits=10_000)
+        meter = LocalExecutionMeter(budget, max_operations=1, max_items=100_000).begin_step("read")
+        try:
+            with ExitStack() as output, observe(
+                self.database, self.identity, scope, budget.deadline, budget,
+            ) as observer:
+                with read_context(
+                    self.database, self.identity, scope,
+                    observer.session_id, budget.deadline, meter,
+                ) as context, context.using_budget(selection), closing(
+                    Store(context.connection, scope, selection, context=context),
+                ) as store:
+                    result = run(store)
+                    output.enter_context(
+                        budget.reserve_scratch(
+                            len(result.model_dump_json().encode()) * 8, "general",
+                        ),
+                    )
+                with release_fence(observer, self.identity, scope, budget.deadline, budget=budget):
+                    pass
+                return result
+        except (DeadlineStop, PrivateResourceStop):
+            raise EvidenceServiceError("budget_exceeded") from None
+
+    def schema(self, scope: Scope, *, revision_id: str | None = None) -> SchemaView:
+        from kg.knowledge import _schema_operations
+
+        if revision_id is not None:
+            revision_id = check_token(revision_id)
+        return self._schema_read(scope, lambda store: _schema_operations.view(store, revision_id))
+
+    def schema_history(
+        self, scope: Scope, *, after_sequence: int = 0, limit: int = 20,
+    ) -> SchemaRevisionPage:
+        from kg.knowledge import _schema_operations
+
+        return self._schema_read(
+            scope, lambda store: _schema_operations.history(store, after_sequence, limit),
+        )
+
+    def schema_change(self, scope: Scope, revision_id: str) -> SchemaChangeView:
+        from kg.knowledge import _schema_operations
+
+        revision_id = check_token(revision_id)
+        return self._schema_read(
+            scope, lambda store: _schema_operations.change(store, self.identity, revision_id),
+        )
+
+    def validate_schema(self, scope: Scope, proposal: SchemaProposal) -> SchemaValidation:
+        from kg.knowledge import _schema_operations
+
+        proposal = validated(SchemaProposal, proposal)
+        return self._schema_read(scope, lambda store: _schema_operations.validate(store, proposal))
 
     def entity(self, scope: Scope, entity_id: str, *, mode: Mode = "current") -> EntityView:
         history, entity_id = _history(mode), check_token(entity_id)

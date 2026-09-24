@@ -73,6 +73,7 @@ def lifecycle(output: Path) -> dict:
             contract_version="foundation/1", request_id=str(uuid4()), retry_key=str(uuid4()),
             scope=env.scope, attribution=env.attribution,
             payload=ChangeSet(
+                expected_schema_revision=env.schema_revision,
                 operation="enrich", dependencies=(env.dependencies[reference.document_id],),
                 changes=(AddAssertion(
                     kind="assertion", local_id="new-decision", predicate="work:decision",

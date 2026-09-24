@@ -13,9 +13,8 @@ from kg._execution_budget import PrivateBudget, ScratchReservation
 from kg.diagnostics._bounds import bounded_size
 from kg.evidence._reads import evidence_location, evidence_view
 from kg.evidence._sql import AccountedConnection
-from kg.evidence._values import sha
 from kg.evidence.errors import EvidenceServiceError
-from kg.knowledge._registry import definition_json
+from kg.knowledge._registry import Registry, runtime_schema
 from kg.knowledge._selection import CapturedEvidence, EntityWitness, SeedWitness, SourceWitness
 from kg.models.foundation import (
     Attribution,
@@ -43,6 +42,10 @@ class RevalidationCache:
         self.bases: dict[tuple[str, bool], EntityWitness | None] = {}
         self.witnesses: set[EntityWitness] = set()
         self.schema: KnowledgeSchema | None = None
+        self.registry = Registry(
+            context.connection, context.scope.corpus_id, context.meter.private_budget,
+            custody=context._scratch,
+        )
         self.reservations: list[ScratchReservation] = []
         self.closed = False
 
@@ -66,6 +69,7 @@ class RevalidationCache:
         self.bases.clear()
         self.witnesses.clear()
         self.schema = None
+        self.registry.close()
         for reservation in self.reservations:
             reservation.release()
         self.reservations.clear()
@@ -95,12 +99,20 @@ class Store:
         )
         self._context = context
         self._cache = cache
+        self.registry = (
+            Registry(
+                connection, scope.corpus_id, budget,
+                custody=context._scratch if context is not None else None,
+            ) if cache is None else cache.registry
+        )
 
     def close(self) -> None:
         if self._cache is None:
             self._proofs.clear()
             self._bases.clear()
         self._scratch.close()
+        if self._cache is None:
+            self.registry.close()
 
     def refresh_entities(self) -> None:
         """Re-evaluate activation after the owner's staged knowledge mutations."""
@@ -117,30 +129,16 @@ class Store:
             self._cache.check()
             if self._cache.schema is not None:
                 return self._cache.schema
-        size = self.connection.execute(
-            "SELECT length(CAST(definition_json AS BLOB)) FROM knowledge_schema WHERE corpus_id=?",
-            (self.scope.corpus_id,),
-        ).fetchone()
-        if size is None:
+        head = self.registry.head()
+        if head is None:
             raise EvidenceServiceError("unsupported")
-        self.hold(size[0] * 8)
-        row = self.connection.execute(
-            "SELECT * FROM knowledge_schema WHERE corpus_id=?",
-            (self.scope.corpus_id,),
-        ).fetchone()
-        if row is None:
-            raise EvidenceServiceError("unsupported")
-        schema = KnowledgeSchema.model_validate_json(row["definition_json"])
-        if (
-            schema.corpus_id != self.scope.corpus_id
-            or schema.schema_version != row["schema_version"]
-            or definition_json(schema) != row["definition_json"]
-            or sha(row["definition_json"].encode()) != row["definition_hash"]
-        ):
-            raise EvidenceServiceError("internal_error")
+        _, definition = self.registry.load(head.revision_id)
+        schema = runtime_schema(self.scope.corpus_id, head, definition)
         if self._cache is not None:
-            self._cache.hold(size[0] * 8)
+            self._cache.hold(len(schema.model_dump_json().encode()) * 8)
             self._cache.schema = schema
+        else:
+            self.hold(len(schema.model_dump_json().encode()) * 8)
         return schema
 
     def row(self, table: str, identifier: str) -> sqlite3.Row:
@@ -329,6 +327,9 @@ class Store:
         result = None
         with closing(rows):
             for row in rows:
+                authored = self.registry.authored(row["schema_version"])
+                if row["attested_type"] not in authored.entity_types:
+                    raise EvidenceServiceError("internal_error")
                 try:
                     with self._activation_support(row) as (support, current):
                         if (
@@ -482,6 +483,26 @@ class Store:
         current = current and all(self.basis(e) is not None for e in endpoints)
         if not current and not history:
             raise EvidenceServiceError("not_found")
+        authored = self.registry.authored(row["schema_version"])
+        if kind == "assertion":
+            predicate = next(
+                (p for p in authored.predicates if p.name == detail["predicate"]), None,
+            )
+            subject = self.row("entity", detail["subject_id"])
+            if (
+                predicate is None or predicate.object_kind != detail["object_kind"]
+                or subject["entity_type"] not in predicate.subject_types
+                or (predicate.record_projection and detail["interpretation"] != "explicit")
+            ):
+                raise EvidenceServiceError("internal_error")
+            if predicate.object_kind == "entity":
+                obj_entity = self.row("entity", detail["object_entity_id"])
+                if obj_entity["entity_type"] not in predicate.object_types:
+                    raise EvidenceServiceError("internal_error")
+        elif (
+            kind == "entity_support" and detail["attested_type"] not in authored.entity_types
+        ) or (kind == "identifier" and detail["scheme"] not in authored.identifier_schemes):
+            raise EvidenceServiceError("internal_error")
         withdrawal = None
         if history and kind == "assertion":
             event = self.connection.execute(

@@ -11,6 +11,12 @@ and list all needed names: `["meeting", "appendix"]` means both are required.
 Dependencies are derived from those exact
 captured states, never looked up from the latest document. Stale support is rejected.
 
+Inspect `kg schema show --json` first. Copy its exact `result.revision` object
+into `expected_schema_revision`. Fresh submissions require that exact head;
+if it changes, review the vocabulary and prepare a new submission rather than
+silently replacing the precondition. Historical contributions retain their
+original authoring revision.
+
 Use `kg find entities --json` or an exact name/alias search first. For deliberate
 reuse, copy a returned entry's `reference` object directly into `subject`, `entity`,
 or an entity object's `entity`. For deliberate creation, declare an `entity`
@@ -23,6 +29,7 @@ The following creates both entities explicitly:
 
 ```json
 {
+  "expected_schema_revision": "SCHEMA_REVISION",
   "support": {"meeting": "SUPPORT"},
   "changes": [
     {
@@ -51,7 +58,7 @@ The following creates both entities explicitly:
 }
 ```
 
-SUPPORT is an object placeholder, not a literal string to submit.
+SUPPORT and SCHEMA_REVISION are object placeholders, not literal strings to submit.
 To reuse Atlas in a later submission, omit its creation change and replace its
 local reference with the exact `reference` object returned by
 `kg find entities Atlas --json`. Keep the actual evidence that supports the new

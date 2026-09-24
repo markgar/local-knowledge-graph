@@ -10,7 +10,7 @@ from threading import Event
 
 import pytest
 from support.evidence import environment, put, receipt
-from support.knowledge import schema
+from support.knowledge import preset, schema
 from support.query_workers import (
     die_after_ack,
     false_completion,
@@ -538,7 +538,7 @@ def test_actual_knowledge_registry_commit_invalidates_query_release(query, monke
 
     def register(*args):
         elapsed = original(*args)
-        assert admin.register_knowledge_schema(schema()).status == "applied"
+        assert admin.register_knowledge_schema(preset(schema())).status == "applied"
         return elapsed
 
     monkeypatch.setattr(service, "_run_worker", register)

@@ -140,14 +140,16 @@ def test_valid_alternative_root_basis_is_not_selected_basis(tmp_path, monkeypatc
 
 def test_custom_predicate_self_loop_and_scope_isolation(tmp_path, monkeypatch):
     from kg.knowledge import KnowledgeAdministration
-    from kg.models.knowledge import PredicateDefinition
+    from kg.models.schema import SchemaPredicateDefinition
     require_native()
     register = KnowledgeAdministration.register_knowledge_schema
     def custom(admin, schema):
-        schema = schema.model_copy(update={"predicates": (*schema.predicates, PredicateDefinition(
-            name="team:related", subject_types=("person",), object_kind="entity",
-            object_types=("person",),
-        ))})
+        schema = schema.model_copy(update={"definition": schema.definition.model_copy(update={
+            "predicates": (*schema.definition.predicates, SchemaPredicateDefinition(
+                name="team:related", description="An explicitly related person.",
+                subject_types=("person",), object_kind="entity", object_types=("person",),
+            )),
+        })})
         return register(admin, schema)
     with monkeypatch.context() as patch:
         patch.setattr(KnowledgeAdministration, "register_knowledge_schema", custom)

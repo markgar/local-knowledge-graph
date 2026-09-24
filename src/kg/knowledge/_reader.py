@@ -33,19 +33,18 @@ from kg.knowledge._selection import (
 from kg.knowledge._store import RevalidationCache, Store
 from kg.models.evidence import LocalIdentity
 from kg.models.foundation import Record, SourceSupport
-from kg.models.knowledge import KnowledgeSchema
 
 
 def _decision_item(
     store: Store, row: sqlite3.Row, subject_id: str,
-    witness: EntityWitness, schema: KnowledgeSchema,
+    witness: EntityWitness,
 ) -> DecisionSelectionItem | None:
     if (
         row["interpretation"] != "explicit"
         or row["object_kind"] != "string"
-        or row["schema_version"] != schema.schema_version
     ):
         raise EvidenceServiceError("internal_error")
+    _decision_schema(store, row)
     try:
         support, current = store.support(row)
     except EvidenceServiceError as error:
@@ -64,11 +63,21 @@ def _decision_item(
                 kind="source", evidence=tuple(p.reference for p in support.evidence),
             ),
         ),
-        subject_id=subject_id, schema_version=schema.schema_version,
+        subject_id=subject_id, schema_version=row["schema_version"],
         dependencies=DecisionDependencies(
             assertion_support=support.evidence, subject_witness=witness,
         ),
     )
+
+
+def _decision_schema(store: Store, row: sqlite3.Row) -> None:
+    authored = store.registry.authored(row["schema_version"])
+    if not any(
+        p.name == row["predicate"] and p.record_projection is not None
+        and p.object_kind == "string" and row["subject_type"] in p.subject_types
+        for p in authored.predicates
+    ):
+        raise EvidenceServiceError("internal_error")
 
 
 class Cursor[T]:
@@ -197,14 +206,18 @@ class KnowledgeReader:
                 raise EvidenceServiceError("unsupported")
             witness = store.require_entity(subject_id)
             rows = store.connection.execute(
-                "SELECT c.*,a.interpretation,a.object_kind FROM assertion a JOIN contribution c "
-                "USING(corpus_id,contribution_id) WHERE a.corpus_id=? AND a.subject_id=? "
+                "SELECT c.*,a.predicate,a.interpretation,a.object_kind,"
+                "e.entity_type AS subject_type "
+                "FROM assertion a JOIN contribution c "
+                "USING(corpus_id,contribution_id) JOIN entity e "
+                "ON e.corpus_id=a.corpus_id AND e.entity_id=a.subject_id "
+                "WHERE a.corpus_id=? AND a.subject_id=? "
                 f"AND a.predicate IN ({','.join('?' for _ in predicates)}) "
                 "ORDER BY a.contribution_id COLLATE BINARY",
                 (store.scope.corpus_id, subject_id, *predicates),
             )
             for row in rows:
-                item = _decision_item(store, row, subject_id, witness, schema)
+                item = _decision_item(store, row, subject_id, witness)
                 if item is not None:
                     yield item
 
@@ -230,8 +243,10 @@ class KnowledgeReader:
                 schema = store.schema()
                 store.require_entity(member.subject_id)
                 row = store.connection.execute(
-                    "SELECT c.*,a.subject_id,a.predicate,a.object_kind,a.interpretation "
+                    "SELECT c.*,a.subject_id,a.predicate,a.object_kind,a.interpretation,"
+                    "e.entity_type AS subject_type "
                     "FROM assertion a JOIN contribution c USING(corpus_id,contribution_id) "
+                    "JOIN entity e ON e.corpus_id=a.corpus_id AND e.entity_id=a.subject_id "
                     "WHERE a.corpus_id=? AND a.contribution_id=?",
                     (store.scope.corpus_id, member.record.record_id),
                 ).fetchone()
@@ -242,7 +257,6 @@ class KnowledgeReader:
                     row["subject_id"] != member.subject_id
                     or row["object_kind"] != "string"
                     or row["interpretation"] != "explicit"
-                    or row["schema_version"] != schema.schema_version
                     or row["schema_version"] != member.schema_version
                     or not current
                     or not isinstance(support, SourceWitness)
@@ -253,6 +267,7 @@ class KnowledgeReader:
                     )
                 ):
                     raise EvidenceServiceError("state_changed")
+                _decision_schema(store, row)
                 witness = member.dependencies.subject_witness
                 if witness in cache.witnesses:
                     return
