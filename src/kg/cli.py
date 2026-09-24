@@ -22,7 +22,7 @@ from kg.client.config import (
     profile_path,
 )
 from kg.client.documents import Documents, Response
-from kg.client.knowledge import Knowledge, RecordInput
+from kg.client.knowledge import Knowledge, record_schema
 from kg.evidence.errors import EvidenceServiceError
 
 # Typer 0.26+ vendors Click; earlier supported versions use the standalone package.
@@ -89,6 +89,28 @@ After = Annotated[int, typer.Option(min=0, help="Continue from the returned page
 
 
 def render_knowledge(result: dict[str, Any]) -> None:
+    if "decisions" in result:
+        qualifier = "exact" if result["exact"] else "lower bound"
+        typer.echo(f"Decisions: {result['count']} ({qualifier}; distinct submitted assertion IDs)")
+        typer.echo(
+            f"Selection complete: {result['selection_complete']}. "
+            f"Display complete: {result['display_complete']}."
+        )
+        for decision in result["decisions"]:
+            typer.echo(safe_text(f"{decision['target']}: {decision['text']}"))
+            typer.echo(safe_text("Captured support: " + json.dumps(decision["support"])))
+            for target in decision["evidence_targets"]:
+                typer.echo(safe_text(f"Evidence: {target}"))
+            for relationship_id in decision.get("relationship_ids", []):
+                typer.echo(safe_text(f"Via relationship: fact:{relationship_id}"))
+        for proof in result.get("graph", {}).get("relationships", []):
+            assertion = proof["assertion"]
+            typer.echo(safe_text(
+                f"Relationship fact:{assertion['assertion_id']}: "
+                f"entity:{assertion['subject_id']} --{assertion['predicate']}--> "
+                f"entity:{assertion['object_entity_id']}"
+            ))
+            typer.echo(safe_text("Relationship support: " + json.dumps(assertion["support"])))
     entity = result.get("entity")
     if isinstance(entity, dict):
         typer.echo(safe_text(f"{result.get('target')}: {entity['name']} ({entity['entity_type']})"))
@@ -110,10 +132,10 @@ def render_knowledge(result: dict[str, Any]) -> None:
     for target in result.get("evidence_targets", []):
         typer.echo(safe_text(f"Evidence: {target}"))
     for key in ("query", "inspection", "graph", "write"):
-        if key in result:
+        if key in result and "decisions" not in result:
             typer.echo(safe_text(f"{key.capitalize()}:\n" + json.dumps(result[key], indent=2)))
     if result.get("display_truncated"):
-        typer.echo("Display is incomplete; not all counted members are shown.")
+        typer.echo("Display is incomplete; not all retained counted members are shown.")
     for entry in result.get("entries", []):
         if isinstance(entry, dict) and ("entity" in entry or "contribution" in entry):
             render_knowledge(entry)
@@ -433,6 +455,9 @@ def find_entities(
 ) -> None:
     """List eligible entities with IDs, types and identifying support.
 
+    Matching is exact case-sensitive names/aliases, not semantic search.
+    Empty/incomplete results do not prove an entity is new. List/page entities
+    or inspect source evidence before deciding to create one.
     A page is not a uniqueness claim. Follow --after until complete, or select entity:ID.
     """
     execute(lambda: Knowledge(load_profile()).entities(name, after=after, limit=limit), json_output)
@@ -475,6 +500,10 @@ def find_decisions(
     crash the host; its 256 MiB buffer is not an RSS cap. Each call builds a fresh
     disposable graph. No models, planner, arbitrary Cypher or cross-command handles.
     Counts are distinct submitted IDs; partial/budget outcomes are not exact totals.
+    Output includes decision text, fact targets, captured support and count/display
+    completeness. Direct text uses separate authorized reads and a final retained
+    membership check, not an atomic snapshot. Each read has its existing budget;
+    large displays may outlive the five-minute retained set and fail explicitly.
     """
     execute(
         lambda: Knowledge(load_profile()).decisions(entity, through=through, limit=limit),
@@ -494,7 +523,9 @@ def record(
     """Record supported knowledge, explicitly creating local entities or reusing stored IDs.
 
     Run kg record --example for copy-ready evidence/entity reference instructions;
-    kg record --schema for exact native change shapes. Starter vocabulary: person,
+    kg record --schema for native changes or named captured-support shorthand.
+    Copy entity reference objects into record; use target strings as command arguments.
+    Starter vocabulary: person,
     project, owns (person -> project), decision (string). Support must be copied
     from reads without replacing old states. No endpoints are implicitly created.
     Every submission is a new write; manual resubmission may duplicate knowledge.
@@ -506,7 +537,7 @@ def record(
                 "invalid_arguments", "Supply FILE, --schema or --example, exactly one."
             )
         if schema:
-            value = RecordInput.model_json_schema()
+            value = record_schema()
             return Response(
                 status="complete", message=json.dumps(value, indent=2), result={"schema": value}
             )

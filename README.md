@@ -451,8 +451,10 @@ kg read fact:RETURNED_ID --history --json
 The default personal vocabulary is `person`, `project`, `owns` (person to project),
 and `decision` (an explicit string statement about either type). Attached custom
 stores retain their registered vocabulary; obtain it from their operator.
-Entity discovery uses eligible listing and exact name/alias matches, never fuzzy
-matching or first-match selection. Read output supplies identifying support and
+Entity discovery uses eligible listing and exact case-sensitive name/alias matches,
+not semantic search or first-match selection. Empty/incomplete matches do not prove
+an entity is new; list/page entities or inspect source evidence first.
+Read output supplies identifying support and
 an explicit stored `reference` suitable for reuse in record input.
 
 Entity and contribution pages have `has_more` and `next_after`; continue with
@@ -463,20 +465,40 @@ bounded, fenced service scan establishes uniqueness; ambiguity returns candidate
 and budget failure never becomes a false uniqueness claim. Paging is not a
 cross-command snapshot.
 
-Record input contains native `changes` and a `support` array copied from exact
-reads. Each change uses those evidence references; the client derives dependencies
+Record input accepts a named `support` map copied from exact reads, for example
+`"support": {"meeting": <returned support object>}`; changes refer to it with
+`"support": {"kind": "source", "evidence": ["meeting"]}`. Multiple names are
+conjunctive evidence. The original support-array/native-reference form remains
+accepted. Modes cannot be mixed; unknown/unused names, duplicate keys/evidence
+and conflicting captured states are rejected before writing. Canonical limits
+apply after expansion. See `kg record --example` and `--schema`.
+The client derives dependencies
 from the captured states, never current/latest replacements. Every endpoint is an
 explicit local creation or stored-ID reuse. The complete canonical write receipt
 and every local-ID mapping are returned. Fact/entity reads include copy-ready
-`evidence_targets` for exact source inspection. Withdrawal is owned assertion
+`evidence_targets` for exact source inspection. Copy a returned entity `reference`
+object directly into record's `subject`/`entity`; `target` strings are command
+arguments, not record objects. Withdrawal is owned assertion
 withdrawal only, requires noninteractive confirmation and preserves history.
 Entity/knowledge history remains subject to current authorization.
 
-Direct decisions use QueryService and return the distinct submitted-ID count plus
-a bounded support display. `exact: false` and partial outcomes remain lower bounds;
-displayed rows are not the total. Retained handles expire at command exit.
+Decision output includes `decisions` entries with `assertion_id`, `target`, `text`,
+captured `support` and exact `evidence_targets`, alongside `count`, `exact`,
+`selection_complete` and `display_complete`. Native `query`/`inspection`/`graph`
+proof fields remain in JSON; human output shows decisions rather than engine dumps.
+Direct decisions use QueryService's unchanged count and bounded retained inspection,
+then public contribution reads only for those IDs and final retained reinspection.
+These are separate authorized observations, not one atomic snapshot; detected
+stale/denied/mismatched results withhold the composite. Reads retain their individual
+budgets; large hydration may outlive the five-minute retention and fail explicitly.
+`exact: false` remains a lower bound and makes selection/display completeness false,
+even if every retained member is shown. `display_truncated` means omitted retained
+members, not unknown membership. Displayed rows are not the total.
+Retained handles expire at command exit.
 Relationship decisions use one fixed native query with complete relationship and
-decision proofs and exact counts, even when the display is truncated. `--through`
+decision proofs and exact counts, even when the display is truncated. Each displayed
+decision's `relationship_ids` link to the unchanged proofs in `graph.relationships`.
+No additional graph reads or changed hidden-selection budgets are introduced. `--through`
 requires optional Ladybug 0.20.4 on macOS 15+ ARM64/CPython 3.12; each invocation
 builds a disposable exact-scope graph and closes it. In-process native failures
 can terminate the host; its 256 MiB buffer is not an RSS cap or isolation boundary.
