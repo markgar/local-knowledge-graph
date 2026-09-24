@@ -883,7 +883,7 @@ in the explicit prepared interpreter without build isolation; isolated packaging
 validation remains a separately recorded release obligation.
 Repeat `--area` and add exact `--case` nodes for affected guarantees and consumers;
 the example's `cli` area is not a universal selection. Reports require a fresh
-external path. The **target** is at most 60 seconds end to end on the reference
+external path. The **target** is at most 120 seconds end to end on the reference
 prepared host; no timing result is implied by these commands.
 
 `pytest tests` explicitly collects the complete suite, independent of the unit

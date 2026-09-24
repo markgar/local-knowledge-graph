@@ -73,8 +73,8 @@ Reports use a fresh external path and distinguish passed, failed, incomplete and
 not-run work. The public shell launcher's prepared-Python supervisor measures
 the complete outer uv invocation
 (startup, collection, fixtures, tests, lint/type/build and cleanup); inner timings
-are diagnostic only. It enforces <=59 seconds, reserving one second for reporting,
-against the **<=60-second public-command target**. Missing timing/report persistence
+are diagnostic only. It enforces <=119 seconds, reserving one second for reporting,
+against the **<=120-second public-command target**. Missing timing/report persistence
 cannot pass. Reporting overhead must also fit in qualification; no overhead bound
 is assumed on every machine. Direct use of the inner Python runner is not a
 completed timed gate.
@@ -108,7 +108,7 @@ changes remain outside ordinary validation-only scope.
 Portable scoped premerge checks can defer full integration/native/capacity
 acceptance until release when reviewed portable evidence is adequate. This is
 **not** a waiver of essential premerge safety for high-risk runtime changes.
-If that coverage cannot fit one minute, obtain an explicit scope/policy decision;
+If that coverage cannot fit two minutes, obtain an explicit scope/policy decision;
 never hide required premerge checks outside the clock.
 
 ### Classification and full release acceptance

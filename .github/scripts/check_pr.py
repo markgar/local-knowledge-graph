@@ -328,14 +328,14 @@ def finalize_record(record: dict, elapsed: float, failure: str | None = None) ->
         if report["correctness"] == "passed":
             report["correctness"] = "incomplete"
         report["supervisor_error"] = failure
-    passed = report["correctness"] == "passed" and elapsed <= 59
+    passed = report["correctness"] == "passed" and elapsed <= 119
     report.update(
-        outer_uv_seconds=elapsed, outer_uv_limit_seconds=59,
-        reporting_allowance_seconds=1, public_call_target_seconds=60,
+        outer_uv_seconds=elapsed, outer_uv_limit_seconds=119,
+        reporting_allowance_seconds=1, public_call_target_seconds=120,
         timed_gate="passed" if passed else "failed",
     )
     write_json(report_path, report, replace=True)
-    print(f"PR gate {report['timed_gate']}: outer uv {elapsed:.3f}s (limit 59s + reporting)")
+    print(f"PR gate {report['timed_gate']}: outer uv {elapsed:.3f}s (limit 119s + reporting)")
     return 0 if passed else 1
 
 

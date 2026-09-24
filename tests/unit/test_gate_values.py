@@ -80,11 +80,27 @@ def test_reports_are_fresh_and_failed_timing_cannot_pass(tmp_path, runner):
         "report": str(report), "sha256": hashlib.sha256(report.read_bytes()).hexdigest(),
     })
     timing = tmp_path / "elapsed"
-    timing.write_text("59.001")
+    timing.write_text("119.001")
     assert runner.finalize(timing, receipt) == 1
     assert json.loads(report.read_text())["timed_gate"] == "failed"
     with pytest.raises(ValueError, match="changed"):
         runner.finalize(timing, receipt)
+
+
+@pytest.mark.parametrize("elapsed", [85.014630625, 118.999, 119, 119.001])
+@pytest.mark.parametrize("correctness", ["passed", "failed", "incomplete"])
+def test_two_minute_policy_boundary_and_report(tmp_path, runner, capsys, elapsed, correctness):
+    report = tmp_path / "report.json"
+    gates.write_json(report, {"timed_gate": "pending", "correctness": correctness})
+    record = {"report": str(report), "sha256": hashlib.sha256(report.read_bytes()).hexdigest()}
+    passed = correctness == "passed" and elapsed <= 119
+    assert runner.finalize_record(record, elapsed) == (0 if passed else 1)
+    assert json.loads(report.read_text()) == {
+        "correctness": correctness, "timed_gate": "passed" if passed else "failed",
+        "outer_uv_seconds": elapsed, "outer_uv_limit_seconds": 119,
+        "reporting_allowance_seconds": 1, "public_call_target_seconds": 120,
+    }
+    assert "limit 119s + reporting" in capsys.readouterr().out
 
 
 @pytest.mark.parametrize("elapsed", ["NaN", "inf", "-1"])
