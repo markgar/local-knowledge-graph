@@ -29,6 +29,7 @@ from kg.models.foundation import (
     QueryRequest,
     RecordsStep,
     ResolveStep,
+    SchemaRevisionRef,
     SourceSupport,
     StoredEntity,
     StringObject,
@@ -49,6 +50,7 @@ class CapturedSupport(Value):
 class RecordInput(Value):
     """Native changes plus the unmodified support objects returned by read."""
 
+    expected_schema_revision: SchemaRevisionRef
     support: tuple[CapturedSupport, ...] = Field(min_length=1, max_length=MAX_SUPPORTS)
     changes: tuple[Change, ...] = Field(min_length=1, max_length=MAX_CHANGES)
 
@@ -79,7 +81,8 @@ class RecordInput(Value):
                 raise ClientError("invalid_support", "Conflicting captured document states.")
             dependencies[key] = dependency
         return ChangeSet(
-            operation="enrich", dependencies=tuple(dependencies.values()), changes=self.changes
+            operation="enrich", expected_schema_revision=self.expected_schema_revision,
+            dependencies=tuple(dependencies.values()), changes=self.changes,
         )
 
 

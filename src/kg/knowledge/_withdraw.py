@@ -49,8 +49,7 @@ def authorize_target(
             targets.append(KnowledgeWriterTarget(
                 namespace=namespace, owner_id=attribution.owner_id, writer_id=attribution.writer_id,
             ))
-        if store.schema().schema_version != target.schema_version:
-            raise EvidenceServiceError("internal_error")
+        store.registry.authored(target.schema_version)
         yield target, Manifest(
             owner_id=attribution.owner_id, writer_id=attribution.writer_id, targets=tuple(targets),
         )

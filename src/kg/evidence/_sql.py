@@ -162,7 +162,12 @@ class AccountedConnection(sqlite3.Connection):
 
     def _prepay_statement(self) -> None:
         assert self._budget is not None
-        quantum = self._budget.reserve_sql_quantum()
+        try:
+            quantum = self._budget.reserve_sql_quantum()
+        except (DeadlineStop, PrivateResourceStop) as error:
+            self._remaining = 0
+            self._stop = error
+            raise
         if self._precise:
             self._remaining = quantum
             self.set_progress_handler(self._precise_step, 1)

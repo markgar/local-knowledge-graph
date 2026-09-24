@@ -150,6 +150,12 @@ def apply(
         authorize_new(context, request)
         _observed(capture, KnowledgeValidation(phase="binding", status="passed"))
         schema = store.schema()
+        if request.payload.expected_schema_revision is None:
+            raise EvidenceServiceError(
+                "invalid_request", explanation="Enrichment requires expected_schema_revision.",
+            )
+        if request.payload.expected_schema_revision != store.registry.head():
+            raise EvidenceServiceError("state_conflict")
         _observed(capture, KnowledgeValidation(phase="schema", status="passed"))
         changes = request.payload.changes
         references = tuple(

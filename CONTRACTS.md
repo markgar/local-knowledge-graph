@@ -1,6 +1,6 @@
 # Service and value contract reference
 
-The canonical Python services operate on SQLite `evidence-store/3`. SQLite owns
+The canonical Python services operate on SQLite `evidence-store/4`. SQLite owns
 supplied text/revisions, identities, knowledge schema, entities/assertions, exact
 support and history. Optional Ladybug is a rebuildable exact-scope graph
 projection, not a second authored store or a replacement for canonical search.
@@ -59,7 +59,7 @@ enrichment values include independent entity support and explicitly namespaced s
 
 | API | Result / behavior |
 | --- | --- |
-| `database.initialize()` | Initialize empty or verify the complete `evidence-store/3` schema and manifest; incompatible targets raise `unsupported` with recreate/reload guidance. Use a fresh file and resupply sources, policy/schema and explicit knowledge; no migration or automatic reset. |
+| `database.initialize()` | Initialize empty or verify the complete `evidence-store/4` schema and manifest; incompatible targets raise `unsupported` with recreate/reload guidance. Use a fresh file and resupply sources, policy/schema and explicit knowledge; no migration or automatic reset. |
 | `admin.register(CorpusRegistration)` | Register namespaces, writer bindings and explicit `LocalPolicy`; identical original registration is unchanged and returns the **current** policy version, without restoring old grants. Conflicting registration fails. |
 | `admin.replace_policy(LocalPolicy, expected_policy_version)` | Atomic policy/state rotation; returns version, affected namespaces and changed-document count. |
 | `service.write(WriteRequest)` | `put_document` / `remove_document` / bounded `enrich` / `withdraw_assertion` -> `WriteOutcome`. Enrichment supports the change kinds described below, including explicitly passage-backed mentions. |
@@ -246,41 +246,73 @@ indexing and search; its controlled-provider test is not real-model acceptance.
 
 ## Knowledge registry API
 
-`kg.knowledge.KnowledgeAdministration(database, LocalAdminAuthority)` exposes
-`register_knowledge_schema(KnowledgeSchema) -> KnowledgeSchemaRegistration`.
-The corpus must already exist in `EvidenceDatabase`; an unknown corpus raises
-`not_found`. Authority is provisioned by the trusted embedding application, as
-for evidence administration, not inferred from an ordinary caller's identity or
-namespace grants. This is a local trusted boundary, not hosted authentication or
-a per-corpus administrator policy. Bootstrap/schema provisioning is explicitly
-outside the scoped execution-report API.
-
-Strict frozen values live in `kg.models.knowledge`:
+`kg.knowledge.KnowledgeAdministration(database, LocalAdminAuthority)` owns
+bootstrap and explicit approved apply. `KnowledgeService(database, LocalIdentity)`
+owns scoped vocabulary discovery, validation and protected audit reads. These
+operations are model-free and never extract or create facts. Strict frozen
+values live in `kg.models.schema` (`knowledge-schema/1`, `schema-proposal/1`):
 
 | Value | Fields / constraints |
 | --- | --- |
-| `KnowledgeSchema` | `interface_version="knowledge/1"`, `corpus_id`, `schema_version`, 1..1,000 unique `entity_types`, 0..1,000 unique `identifier_schemes`, 0..1,000 uniquely named `predicates`. |
-| `PredicateDefinition` | `name`, 1..100 unique declared `subject_types`, one `object_kind` (`entity`, `string`, `integer`, `boolean`, `timestamp`), `object_types`, optional `record_projection`. Entity objects require 1..100 unique declared object types; other kinds require an empty tuple. Names use foundation `Name` syntax. |
-| `RecordProjection` | Required `encoding="direct-subject-decision/1"` only, on string predicates only. Ordinary predicates have no projection. |
-| `KnowledgeSchemaRegistration` | `interface_version="knowledge/1"`, `corpus_id`, `schema_version`, `status="applied"` or `"unchanged"`. |
+| `SchemaDefinition` | 1..1,000 uniquely named, described entity types; 0..1,000 described identifier schemes and predicates each. Complete definition at most 1 MiB. Names use foundation `Name`; descriptions/rationale are nonblank, at most 4,096 UTF-8 bytes. |
+| `SchemaPredicateDefinition` | Immutable name, description, direction, `object_kind` (`entity`, `string`, `integer`, `boolean`, `timestamp`) and optional `record_projection`. Each endpoint set has 1..100 declared types; literal predicates have no object types. Only string predicates may declare `RecordProjection(encoding="direct-subject-decision/1")`. |
+| `SchemaRevisionRef` | Server-minted `revision_id` plus 64-hex `definition_hash`. Defined in `kg.models.foundation`. |
+| `SchemaProposal` | Corpus, exact `base_revision` (null only for unconfigured bootstrap), attribution, rationale, 1..100 total additions/widenings, 1..200 exact source examples, 0..100 unresolved concepts; at most 1 MiB. |
+| `TermReview` | Existing candidate references/assessments or explicit no-candidate reason; reuse, extension and defer assessments; 1..10 exact example IDs. All examples must be used, with no conflicting captures. This records the agent's interpretation, not proof that its semantic judgment is true. |
+| `SchemaApproval` | Explicit boolean `human_reviewed=true` and approval rationale. This is an attestation, not secure human authentication. |
+| `SchemaApplyRequest` | Request ID, stable retry key, scope, proposal, exact approved proposal digest and approval. |
 
-Registration revalidates constructed/copied values, uses one canonical write
-transaction and never replaces a corpus's installed definition. Reordered
-registry/type collections represent the same allowed sets and return unchanged;
-changed schema version, types, predicates or descriptor return `state_conflict`.
-Invalid inputs raise `invalid_request` before mutation; corrupt stored definitions
-raise `internal_error`, not an empty registry or permission to overwrite it.
-There is no schema replacement/migration or separate retry ledger for provisioning.
+| Operation | Contract |
+| --- | --- |
+| `service.schema(scope, revision_id=None)` | Full described vocabulary and exact head/ref; configured or explicitly unconfigured. Historical revision lookup stays corpus-scoped. |
+| `service.schema_history(scope, after_sequence=0, limit=100)` | Bounded ascending revision summaries, head, continuation; no private actors/examples/rationale. |
+| `service.schema_change(scope, revision_id)` | Accepted proposal and approval, or preset provenance, only after current authorization to all original evidence. A preset has no evidence manifest: additionally requires the recorded bootstrap administrator's identity. |
+| `service.validate_schema(scope, proposal)` | Read-only exact-head and source validation; complete candidate definition/hash, proposal digest, added terms and endpoint-product effects. Always requires subsequent semantic/publication review. |
+| `admin.register_knowledge_schema(SchemaPresetRequest)` | Bootstrap-only described operator preset with name/rationale; returns server revision, sequence 1 and applied/unchanged. Exact canonical repeat by same admin is unchanged only while genesis remains head; altered or evolved preset conflicts. |
+| `admin.apply_schema(SchemaApplyRequest)` | Atomic approved revision, head, protected change and permanent receipt; returns explicit status, commit certainty and either receipt or canonical failure. |
 
-Registration itself creates no entities/assertions or decisions. The separate
-enrichment and read operations below consume this immutable definition.
-See the executable
-[schema example](examples/knowledge_schema.py).
+Additions cannot redefine existing terms. Widening takes only new endpoint members:
+strict monotonic unions, no narrowing, duplicate/no-op members or scalar object types.
+Entity relationships admit the Cartesian product of the expanded subject/object sets,
+not paired additions. Validation discloses original/new sets and the number of newly
+valid combinations. Existing meanings, object kinds and decision encodings never change.
+Proposal/definition hashes are domain-separated and corpus-bound, using canonical
+collection ordering. New schema does not change existing entity IDs, assertions,
+support, receipts or authoring revisions.
+
+Authority is provisioned out of band, never inferred from ordinary `Scope`,
+`LocalIdentity` or `write_knowledge`. Apply also requires current scoped read access
+to the corpus and every exact example. This is an honest trusted-local boundary:
+another same-OS administrator can invoke it. Metadata publication is intentional:
+all authorized corpus readers can discover definitions; examples, rationale and actors
+remain protected. Source revocation/staleness does not retract an accepted vocabulary.
+
+`BEGIN IMMEDIATE` serializes apply and competing schema/knowledge/source writes.
+A new key against an old head fails `state_conflict`. Receipt keys are permanently
+namespaced by corpus/admin/retry-key hash. Same-key successful replay reauthorizes
+original historical evidence and returns the original receipt before fresh-head checks;
+different semantic proposal/digest/approval input fails `retry_conflict`. Correlation
+IDs and scope renewal do not change semantic identity. Unknown commit remains unknown;
+preserve the exact request/key for retry, never replace the key. Rejection/rollback
+leaves no revision or schema receipt. Facts are a separate transaction.
+
+Schema reads retain bounded canonical snapshots, private budgets and final
+observer/authorization fences. There are no schema `_explained` report wrappers.
+Invalid input is `invalid_request`; corrupt canonical storage is `internal_error`,
+never repaired or treated as unconfigured. Existing errors/limits remain explicit.
+The former bare `KnowledgeSchema` registration is rejected; that value remains an
+internal/validation-only shape, not a compatibility path.
+See [schema bootstrap](examples/knowledge_schema.py) and `kg schema validate --example`.
 
 ## Knowledge enrichment and reads
 
 `EvidenceService.write` accepts a bounded `ChangeSet` atomically: `CreateEntity`,
 `AddEntitySupport`, `AddAlias`, `AddIdentifier`, `AddMention`, and `AddAssertion`.
+Fresh `/4` enrichment requires `expected_schema_revision` equal to the exact active
+revision/hash. Missing binding is `invalid_request`; stale binding is `state_conflict`.
+Committed authorized retries replay before this fresh-write check. Historical facts
+retain their original `schema_version` (the server revision ID) and validate against
+that authored vocabulary and its additive successor; they are never relabelled to head.
 References must be actual canonical anchors or E3-produced passages with exact
 current document dependencies. E3's common resolver validates the full immutable
 source/state/set/passage/anchor chain on the owner's authorized write transaction.

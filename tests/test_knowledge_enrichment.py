@@ -6,7 +6,7 @@ from uuid import uuid4
 
 import pytest
 from support.evidence import environment, put, receipt
-from support.knowledge import schema
+from support.knowledge import preset, revision, schema
 
 from kg._execution_budget import (
     Deadline,
@@ -77,7 +77,7 @@ def env(tmp_path):
     KnowledgeAdministration(
         env.database,
         LocalAdminAuthority(principal_id="admin"),
-    ).register_knowledge_schema(schema())
+    ).register_knowledge_schema(preset(schema()))
     return env
 
 
@@ -106,7 +106,10 @@ def request(env, changes, deps=(), retry=None):
             producer="tests",
             producer_version="1",
         ),
-        payload=ChangeSet(operation="enrich", changes=tuple(changes), dependencies=tuple(deps)),
+        payload=ChangeSet(
+            expected_schema_revision=revision(env), operation="enrich",
+            changes=tuple(changes), dependencies=tuple(deps),
+        ),
     )
 
 
@@ -731,7 +734,7 @@ def test_empty_unregistered_decision_capability_is_not_empty_selection(env):
     KnowledgeAdministration(
         other.database,
         LocalAdminAuthority(principal_id="admin"),
-    ).register_knowledge_schema(schema().model_copy(update={"predicates": ()}))
+    ).register_knowledge_schema(preset(schema().model_copy(update={"predicates": ()})))
     with reader(other) as (adapter, meter, _):
         page = adapter.select_decisions("missing").read()
         assert page.terminal.failure.code == "unsupported"
@@ -963,7 +966,7 @@ def test_every_typed_scalar_round_trips_without_bool_integer_coercion(env):
     KnowledgeAdministration(
         env.database, LocalAdminAuthority(principal_id="admin")
     ).register_knowledge_schema(
-        schema(corpus).model_copy(
+        preset(schema(corpus).model_copy(
             update={
                 "predicates": tuple(
                     PredicateDefinition(
@@ -974,7 +977,7 @@ def test_every_typed_scalar_round_trips_without_bool_integer_coercion(env):
                     for v in values
                 )
             }
-        ),
+        )),
     )
     support, dep = source(env)
     changes = (

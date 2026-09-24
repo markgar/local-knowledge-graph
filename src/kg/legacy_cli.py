@@ -1,4 +1,4 @@
-"""Historical Markdown demonstration CLI, retained for internal regression tests."""
+"""Historical Markdown demo CLI for internal tests, benchmarks and the cited-status example."""
 
 from __future__ import annotations
 
@@ -517,3 +517,7 @@ def _parse_since(value: str) -> datetime:
         "w": timedelta(weeks=quantity),
     }[unit]
     return datetime.now(UTC) - duration
+
+
+if __name__ == "__main__":
+    app()

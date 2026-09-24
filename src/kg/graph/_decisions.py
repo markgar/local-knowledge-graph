@@ -79,7 +79,6 @@ def _decode_pair(
     if (
         decision.assertion_id != identifier or decision.subject_id != related
         or proof.path.entity_ids[1] != related or decision.subject_witness != witness
-        or decision.schema_version != schema.schema_version
         or decision.predicate not in predicates or decision.decision_member is None
         or decision.object_entity_id is not None or decision.interpretation != "explicit"
         or any(e.captured.reference.corpus_id != request.scope.corpus_id
@@ -87,6 +86,7 @@ def _decode_pair(
                for e in decision.support)
     ):
         raise NativeError("invalid_projection")
+    ctx.require_authored_revision(decision.assertion_id, decision.schema_version)
     return decision, proof
 
 

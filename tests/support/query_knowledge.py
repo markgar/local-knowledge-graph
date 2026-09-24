@@ -21,7 +21,7 @@ from kg.models.foundation import (
     WriteRequest,
 )
 from support.evidence import environment, put, receipt
-from support.knowledge import schema
+from support.knowledge import preset, revision, schema
 
 
 def setup(path, *, registered=True):
@@ -57,7 +57,7 @@ def setup(path, *, registered=True):
     )
     if registered:
         KnowledgeAdministration(env.database, env.admin.authority).register_knowledge_schema(
-            schema()
+            preset(schema())
         )
     saved = receipt(env.service.write(put(env.scope)))
     ref = (
@@ -92,7 +92,7 @@ def write(env, changes, *, retry=None, dependencies=None):
                 producer="query-tests",
                 producer_version="1",
             ),
-            payload=ChangeSet(
+            payload=ChangeSet(expected_schema_revision=revision(env),
                 operation="enrich",
                 changes=tuple(changes),
                 dependencies=(env.dependency,) if dependencies is None else tuple(dependencies),

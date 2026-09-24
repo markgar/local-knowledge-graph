@@ -41,6 +41,15 @@ new skill has not been discovered in the current session.
 
 ## How the pieces fit
 
+Inspect vocabulary with `kg schema show --json`; setup's people/project vocabulary
+is an example, not a fixed domain model. `kg schema validate --example` documents
+evidence-backed proposals and explicit human-reviewed admin apply. Proposals compare
+reuse, extension and deferral. Additions and monotonic endpoint widening preserve
+existing IDs, support and authored revisions; schema application never extracts facts.
+Record files bind the exact returned revision. See
+[schema contracts](CONTRACTS.md#knowledge-registry-api) for authority, privacy, retries
+and the explicit fresh-store `/4` compatibility break.
+
 1. **Supply evidence.** The embedding application registers trusted local identity
    and policy, then submits exact text/metadata/anchors through `EvidenceService`.
    Source connectors and automatic file intake are not part of that service.
@@ -71,7 +80,7 @@ the canonical evidence store.
 | Standalone indexing | `kg.indexing.IndexService`: immutable passages, fenced attempts, actual pinned-provider vector projections, incremental reuse/rebuild, model-free readiness and bounded cleanup. No coordinated job execution. |
 | Canonical search | `kg.indexing.EvidenceSearchService`: scoped lexical/dense candidates, fusion/deduplication, reranking and exact supplied-source citations in one guarded snapshot. Both providers and complete matching projections are mandatory. |
 | Processing control | `kg.processing`: trusted plan/worker registration, scheduling/deduplication, fenced claims/heartbeats/failure, bounded recovery, and idempotent retry episodes. Controls do not execute or acknowledge work. |
-| Owned knowledge | Atomic anchor/passage-backed entities, independent entity support, aliases, identifiers, explicit passage mentions and typed assertions through `EvidenceService.write`; `KnowledgeService` current/history reads and immutable schema registration. Explicit decision assertions produce distinct submitted records. |
+| Owned knowledge | Atomic anchor/passage-backed entities, independent entity support, aliases, identifiers, explicit passage mentions and typed assertions through `EvidenceService.write`; current/history reads and evidence-backed, explicitly approved additive vocabulary revisions. Explicit decision assertions produce distinct submitted records. |
 | Markdown demonstration | Manifest-selected local Markdown, explicit records, seed entities, structured reads, source context and revision comparison in its separate database. |
 | Demonstration search | Full local keyword + semantic retrieval, fusion/deduplication and reranking; matching vector preparation is required. No keyword-only fallback. |
 | Foundation values | Strict `foundation/1` request/result validation. Document and bounded enrichment operations execute through `EvidenceService`; canonical anchor/passage-evidence plans execute through `QueryService`. Whole-set seed replacement is not implemented. |
@@ -170,7 +179,7 @@ See [canonical search contracts](CONTRACTS.md#canonical-full-search).
 Neither API implements processing coordination or establishes real-model
 quality/workload acceptance.
 
-The canonical store uses the complete `evidence-store/3` schema and the `evidence/2`
+The canonical store uses the complete `evidence-store/4` schema and the `evidence/2`
 service interface. Initialization verifies the actual schema and its recorded
 manifest, not just a version marker. Incompatible stores are refused without
 repair: use a fresh path and resupply sources, policy/schema and explicit knowledge.
@@ -792,14 +801,18 @@ are low-level composition and evaluation APIs, not alternate product interfaces.
 They do not enforce the product facade's stricter readiness behavior.
 
 [`examples/cited_status.py`](examples/cited_status.py) is a model-independent
-subprocess client for structured status, error handling, and cited output:
+subprocess client for historical demo status, error handling, and cited output.
+It invokes `python -m kg.legacy_cli` using its current Python interpreter, not
+the installed canonical `kg` command:
 
 ```bash
 uv run python examples/cited_status.py corpora/example.yml Atlas
 ```
 
 The example defaults to `--since 30d`; use its `--since` option to change that
-window. The underlying `kg status` command has no default time filter.
+window. The underlying demo module's `status` command has no default time filter.
+Python callers may override `load_status(..., executable=...)` with a single
+executable that implements the demo commands; canonical `kg` does not.
 
 ## Foundation value validation
 

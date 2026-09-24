@@ -17,7 +17,7 @@ The canonical engine is **SQLite plus an optional Ladybug graph projection**:
 
 | Layer | Ownership and execution |
 | --- | --- |
-| Canonical SQLite (`evidence-store/3`) | Exact supplied text/revisions, identities, immutable knowledge schema, entities/assertions, support, history and service control state. `src/kg/evidence/schema.sql` owns this format. |
+| Canonical SQLite (`evidence-store/4`) | Exact supplied text/revisions, identities, immutable knowledge schema revisions, entities/assertions, support, history and service control state. `src/kg/evidence/schema.sql` owns this format. |
 | Canonical indexing/search | `kg.indexing` publishes passages/vectors and executes scoped keyword/dense retrieval, fusion and reranking. Search does not depend on Ladybug. |
 | Canonical query composition | `kg.query.QueryService` executes supported evidence, search, exact entity resolution and explicit-decision records/counts with fresh release authorization. |
 | Optional Ladybug projection | `kg.graph` builds complete eligible entity/relationship/explicit-decision coverage for one exact authorized scope. `LocalGraphSession` manages reusable lifecycle, typed cited one-hop relationships and fixed relationship-to-decision queries. It contains no unique authored truth; arbitrary joins and public retained inspection remain unimplemented. |
@@ -42,9 +42,9 @@ under [private disposable graph staging](#private-disposable-graph-staging).
 
 `kg.evidence.EvidenceDatabase`, `EvidenceAdministration` and `EvidenceService`
 implement the Python-only canonical evidence engine. Its packaged
-`kg/evidence/schema.sql` uses SQLite application ID `0x4b474531`, user version 3
-and `evidence-store/3`. Initialization atomically creates an empty target or
-verifies that exact format. Old/unknown nonempty files (including versions 1 and 2) are rejected without
+`kg/evidence/schema.sql` uses SQLite application ID `0x4b474531`, user version 4
+and `evidence-store/4`. Initialization atomically creates an empty target or
+verifies that exact format. Old/unknown nonempty files (including versions 1–3) are rejected without
 changing headers, journal mode, schema or rows. There is no migration/reset API:
 use a fresh path and explicitly resupply content, policy/schema and explicit knowledge.
 The exception and correlated log explain this action; structured failure stays
@@ -267,42 +267,59 @@ redact candidates/configurations; report capacity failure cannot alter ranking.
 Controlled-provider tests demonstrate mechanics and exact provenance only, not
 real-model quality, representative workload performance or complete E3 acceptance.
 
-### Immutable knowledge registry
+### Evidence-backed vocabulary evolution
 
-`kg.knowledge.KnowledgeAdministration` provisions one immutable typed registry per
-existing corpus. Its `knowledge/1` values define allowed entity types, identifier
-schemes and subject/object-typed predicates. The optional string-only
-`direct-subject-decision/1` descriptor is part of immutable configuration identity;
-registration is not record production or a knowledge-write service.
+`KnowledgeService` discovers the current described vocabulary/history and validates
+external-agent proposals without mutation or inference. Each proposed term/widening
+records evidence and explicit reuse-versus-extension-versus-deferral reasoning.
+`KnowledgeAdministration` separately applies a human-reviewed digest at a trusted
+local operator boundary, or bootstraps an explicitly described preset. It cannot
+infer approval from an ordinary reader/writer identity. Same-OS administrators are
+not isolated by this trust marker.
 
-The K1-owned facade uses the existing provisioned `LocalAdminAuthority` and
-canonical `writing` owner. The private kernel requires an active owner context
-whose identity matches that authority and addresses only the supplied corpus.
-Regular `Scope`/`LocalIdentity` values and policy grants are not administrative
-credentials. Trusted bootstrap/provisioning deliberately has no scoped diagnostic
-capture; no administrator namespace grant or audit subsystem is introduced.
+SQLite owns immutable full definitions in `knowledge_schema_revision`, one corpus
+`knowledge_schema_head`, protected `knowledge_schema_change` provenance, and a
+permanent `knowledge_schema_receipt` retry ledger. IDs are server-minted; canonical
+domain-separated hashes bind corpus and complete definitions/proposals. Additions
+and monotonic endpoint unions preserve existing names, meanings, direction, kinds
+and decision encodings. Expanded endpoint sets admit their complete Cartesian
+product; validation discloses newly valid combinations. Literal predicates cannot
+gain object types. No replacement, removal, narrowing or in-place retyping exists.
 
-Only the existing `knowledge_schema` table is written. Definitions use compact
-canonical JSON with sorted object keys and sorted registry/type collections;
-corpus, schema/interface versions and optional descriptor/nulls are included.
-The stored hash is SHA-256 over those UTF-8 bytes. Repeats validate the persisted
-definition/hash/version and compare full canonical content, not only a digest.
-Equivalent reordered definitions return unchanged without modifying stored bytes;
-any changed definition/version conflicts. Invalid stored state is an explicit
-internal error, never silently repaired.
+Vocabulary names/descriptions/rules and revision summaries are deliberately
+corpus-readable. Accepted examples, actors and rationales require current access
+to all original source evidence; preset details additionally require the bootstrap
+administrator. Proposal validation requires current exact captures. Later source
+staleness does not invalidate an accepted vocabulary, but individual facts still
+require their own support.
 
-The owner serializes concurrent registrations with `BEGIN IMMEDIATE`; rollback
-removes an uncommitted registration and reopening retains a committed one.
-Different corpora remain independent. Provisioning adds no contribution, retry
-receipt, seed, state-intent, report or processing-readiness record and performs no
-DDL or migration. See [CONTRACTS.md](CONTRACTS.md#knowledge-registry-api) for exact
-value limits and the delivered API.
+`BEGIN IMMEDIATE` serializes revision/head/change/receipt publication. Fresh apply
+requires the exact current base and reviewed digest; stale competing work conflicts.
+Same-key committed replay reauthorizes historical original evidence before returning
+its receipt even after later revisions; changed semantics conflict. Unknown outcomes
+preserve the original key for retry. No facts are created by schema application.
+Reads preserve bounded snapshots, original private budgets and final authorization
+fences. Corruption fails explicitly without repair.
+
+Fresh enrichment binds the exact head reference. Historical contributions keep
+their authoring revision, IDs, support and history under additive successors.
+Canonical queries/withdrawal and graph export validate authored vocabulary rather
+than equating authoring revision with head. Schema mutation invalidates active graph
+generations; rebuilt coverage pins current head/hash, while every assertion proof
+retains its own authoring revision. Native readers verify revision against that
+exact canonical assertion ID, rejecting substitution of another compatible revision.
+
+The physical `/4` format and described preset request replace the former immutable
+registration API. Incompatible stores are rejected unchanged; explicitly create a
+fresh path and reload exact sources and reviewed knowledge. No migration, reset,
+dual-read or automatic classification/extraction is implemented.
+See [contracts](CONTRACTS.md#knowledge-registry-api) for bounds and APIs.
 
 ### Atomic owned knowledge
 
 Anchor/passage-backed enrichment uses the existing canonical schema and the evidence
 dispatcher's single write owner. It revalidates exact namespace/owner/writer
-bindings, the immutable registry, all direct support, stored endpoints and the
+bindings, the exact active schema revision, all direct support, stored endpoints and the
 whole planned post-state before committing mappings, provenance and a complete
 receipt together. Independent creation-support contributions activate identity;
 aliases, identifiers, mentions and assertions do not. Forward AddEntitySupport can supply
@@ -709,7 +726,7 @@ scoped immutable identities and are usable only in their live read session.
 Neither DTOs nor handles install runnable knowledge/indexing adapters.
 
 K1 retained-member revalidation uses a reader-local cache tied to one live
-canonical context: immutable schema, at most 200 source proofs, 200 activation
+canonical context: immutable authored schema revisions, at most 200 source proofs, 200 activation
 bases and 200 exact full witness proofs. Each member still reads its actual
 assertion and complete support, under the original root budget and its local
 10,000-visit view. Exact supplied sequence/basis/dependency bundles are compared;
@@ -1167,7 +1184,7 @@ exercise validation and supply evaluation inputs, not service integration result
 for source documents/revisions/anchors/activations, entities/aliases/mentions,
 relationships, structured records/bindings, passages, lexical projections, and
 ingest summaries. Dense projections are independently disposable. This is not the
-canonical [`evidence-store/3` schema](src/kg/evidence/schema.sql), and these tables
+canonical [`evidence-store/4` schema](src/kg/evidence/schema.sql), and these tables
 are not the source of the optional Ladybug projection.
 
 After upgrades, reingest each corpus and rebuild matching dense projections.

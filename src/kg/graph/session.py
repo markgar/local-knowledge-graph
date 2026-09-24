@@ -7,7 +7,7 @@ import math
 import tempfile
 import time
 from collections.abc import Callable, Mapping
-from dataclasses import dataclass, replace
+from dataclasses import dataclass, field, replace
 from datetime import datetime
 from pathlib import Path
 from threading import Event, Lock
@@ -241,6 +241,25 @@ class GraphReadContext:
     cancel: Event
     _output: list[ScratchReservation]
     _sizes: list[int]
+    _authored_revisions: dict[str, str] = field(default_factory=dict)
+
+    def require_authored_revision(self, assertion_id: str, revision_id: str) -> None:
+        self.native.check()
+        self.canonical.check_active()
+        if assertion_id not in self._authored_revisions:
+            row = self.canonical.connection.execute(
+                "SELECT schema_version FROM contribution "
+                "WHERE corpus_id=? AND contribution_id=? AND kind='assertion'",
+                (self.canonical.scope.corpus_id, assertion_id),
+            ).fetchone()
+            if row is None:
+                raise NativeError("invalid_projection")
+            self._output.append(self.meter.reserve_scratch(
+                256 + 8 * (len(assertion_id) + len(row["schema_version"])), "general",
+            ))
+            self._authored_revisions[assertion_id] = row["schema_version"]
+        if self._authored_revisions[assertion_id] != revision_id:
+            raise NativeError("invalid_projection")
 
     def retain[T](self, value: T) -> T:
         """Charge immutable output before appending it to a consumer's result."""

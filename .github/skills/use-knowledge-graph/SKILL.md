@@ -31,6 +31,10 @@ an attached custom store may have different operator-provided vocabulary.
 
 ## Discover before writing or answering
 
+Run `kg schema show --json` to inspect the complete vocabulary, descriptions,
+endpoint rules and exact revision. Use `kg schema history` for revision summaries.
+Do not assume the setup example vocabulary is a universal people/project ontology.
+
 List entities when the set is manageable, following bounded pages. Otherwise use
 exact names or aliases to narrow discovery, or search document evidence for the
 question's language. Exact entity matching is not fuzzy/semantic matching.
@@ -49,7 +53,42 @@ an empty authorized result does not prove absence elsewhere or in the past.
 Empty/incomplete matches never prove an entity is new; list/page eligible entities
 or inspect source evidence before deliberately creating one.
 
+## Propose vocabulary deliberately
+
+When evidence does not fit, explicitly compare reusing an existing term, extending
+the vocabulary and deferring classification. Do not force a certificate, export,
+artifact or document-local concept into a project/person type. Distinguish a
+vocabulary gap from ambiguous identity or an unsupported query. Standalone entities
+already work with evidence and no domain relationships; never invent edges to admit one.
+
+Use `kg schema validate --example` and `--schema` to prepare a bounded
+`schema-proposal/1` file, with the exact base revision, descriptions, reuse/defer
+reasoning and unmodified evidence captures. Validate using `kg schema validate FILE
+--json`. Validation does not apply, approve, extract facts or resolve semantic ambiguity.
+Report representation coverage and deferred concepts separately from successful exits.
+
+Additions preserve existing meanings. Endpoint widening is a monotonic union and
+admits the whole new Cartesian product, not just paired examples; review the
+disclosed effects. Definitions are visible to every authorized corpus reader,
+so review metadata disclosure too. Accepted proposal detail requires access to all
+original evidence (`kg schema change REVISION`).
+
+Stop for explicit human review of the exact validated digest. Only an authorized
+operator may use `kg schema apply FILE --approve-digest DIGEST --retry-key KEY
+--approval-rationale TEXT`. Preserve that file, digest, rationale, key and receipt.
+This trusted-local command attests review; it is not authentication against another
+same-OS administrator. Never manufacture approval or call it automatically.
+After uncertainty, only the identical schema request/key is safe to retry.
+A new key with a stale base conflicts; reassess rather than silently rebasing.
+Schema application creates no facts. Automatic initial-schema generation and
+later entity reclassification are not implemented.
+
 ## Record deliberate, grounded knowledge
+
+Copy `kg schema show --json`'s exact `result.revision` into the record file's
+`expected_schema_revision`. A stale head requires reassessment and a fresh deliberate
+submission, not automatic token substitution. Existing facts retain their authored
+revision and support across additive successors.
 
 Read the actual source and copy its exact support object. Consult `kg record
 --example` and `kg record --schema` for input construction. Reuse a returned

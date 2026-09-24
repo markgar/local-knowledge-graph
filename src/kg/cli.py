@@ -23,6 +23,7 @@ from kg.client.config import (
 )
 from kg.client.documents import Documents, Response
 from kg.client.knowledge import Knowledge, record_schema
+from kg.client.schema import Schema
 from kg.evidence.errors import EvidenceServiceError
 
 # Typer 0.26+ vendors Click; earlier supported versions use the standalone package.
@@ -83,9 +84,93 @@ find_app = typer.Typer(
     no_args_is_help=True, help="Find documents, eligible entities, relationships and decisions."
 )
 app.add_typer(find_app, name="find")
+schema_app = typer.Typer(
+    no_args_is_help=True,
+    help="Inspect vocabulary and validate proposals. Apply is an explicit operator-admin action.",
+)
+app.add_typer(schema_app, name="schema")
 Json = Annotated[bool, typer.Option("--json", help="Return a machine-readable client/1 result.")]
 Limit = Annotated[int, typer.Option(min=1, max=200, help="Maximum page entries.")]
 After = Annotated[int, typer.Option(min=0, help="Continue from the returned page position.")]
+
+
+@schema_app.command("show")
+def schema_show(
+    revision: Annotated[str | None, typer.Option(help="Exact historical schema revision.")] = None,
+    json_output: Json = False,
+) -> None:
+    """Read corpus vocabulary and copy its exact head into record/proposal input."""
+    execute(lambda: Schema(load_profile()).show(revision), json_output)
+
+
+@schema_app.command("history")
+def schema_history(
+    after_sequence: Annotated[int, typer.Option(min=0)] = 0,
+    limit: Annotated[int, typer.Option(min=1, max=100)] = 20,
+    json_output: Json = False,
+) -> None:
+    """Read bounded revision summaries, not protected examples or actor details."""
+    execute(lambda: Schema(load_profile()).history(after_sequence, limit), json_output)
+
+
+@schema_app.command("change")
+def schema_change(revision: str, json_output: Json = False) -> None:
+    """Read an authorized change and its recorded approval."""
+    execute(lambda: Schema(load_profile()).change(revision), json_output)
+
+
+@schema_app.command("validate")
+def schema_validate(
+    file: Annotated[Path | None, typer.Argument()] = None,
+    schema: Annotated[bool, typer.Option("--schema")] = False,
+    example: Annotated[bool, typer.Option("--example")] = False,
+    json_output: Json = False,
+) -> None:
+    """Validate without mutation or inference. No approval or fact extraction occurs."""
+    from kg.models.schema import SchemaProposal
+
+    def run() -> Response:
+        if sum((file is not None, schema, example)) != 1:
+            raise ClientError(
+                "invalid_arguments", "Supply FILE, --schema or --example, exactly one.",
+            )
+        if schema:
+            value = SchemaProposal.model_json_schema()
+            return Response(
+                status="complete", message=json.dumps(value, indent=2), result={"schema": value},
+            )
+        if example:
+            text = files("kg.client").joinpath("schema-example.md").read_text(encoding="utf-8")
+            return Response(status="complete", message=text, result={"example": text})
+        assert file is not None
+        return Schema(load_profile()).validate(file)
+
+    execute(run, json_output)
+
+
+@schema_app.command("apply")
+def schema_apply(
+    file: Path,
+    approve_digest: Annotated[
+        str, typer.Option(help="Explicitly attest human review of this exact validated digest."),
+    ],
+    retry_key: Annotated[
+        str, typer.Option(help="Stable prepared key; preserve for unknown outcomes."),
+    ],
+    approval_rationale: Annotated[str, typer.Option(help="Human review/publication rationale.")],
+    json_output: Json = False,
+) -> None:
+    """Trusted local admin apply, not ordinary write permission or secure human authentication.
+
+    Review definitions, examples, reuse/defer and widening Cartesian products first.
+    Never auto-approve. Same-OS administrators can invoke this boundary. No models or facts run.
+    """
+    execute(
+        lambda: Schema(load_profile()).apply(
+            file, digest=approve_digest, retry_key=retry_key, approval_rationale=approval_rationale,
+        ),
+        json_output,
+    )
 
 
 def render_knowledge(result: dict[str, Any]) -> None:
@@ -159,6 +244,12 @@ def render(response: Response, machine: bool) -> None:
     else:
         typer.echo(safe_text(response.message))
         result = response.result
+        if (
+            result.get("interface_version") == "knowledge-schema/1"
+            or "apply" in result
+            or {"request_id", "retry_key", "proposal_digest"} <= result.keys()
+        ):
+            typer.echo(safe_text(json.dumps(result, indent=2)))
         render_knowledge(result)
         for key in ("profile_path", "target", "state"):
             if isinstance(result.get(key), str):
@@ -195,7 +286,10 @@ def render(response: Response, machine: bool) -> None:
             if page.get("has_more"):
                 typer.echo(f"More history: --after {page.get('next_after_sequence')}")
         if result.get("has_more"):
-            typer.echo(f"More entries: --after {result.get('next_after')}")
+            if result.get("interface_version") == "knowledge-schema/1":
+                typer.echo(f"More revisions: --after-sequence {result.get('next_after_sequence')}")
+            else:
+                typer.echo(f"More entries: --after {result.get('next_after')}")
         search = result.get("search")
         if isinstance(search, dict) and any(
             search.get(key) for key in ("lexical_truncated", "dense_truncated", "fusion_truncated")
