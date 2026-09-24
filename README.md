@@ -22,19 +22,20 @@ retrieval-quality gates remain unmet.
 
 ## Using the KG with an agent
 
-The installed `kg` command now serves the **canonical document workflow**.
+The installed `kg` command serves **canonical document and knowledge workflows**.
 Run `kg --help` and command-specific help; only shipped commands are advertised.
-Knowledge/graph operations currently remain Python SDK capabilities, not CLI
-commands. The repository skill below describes those SDK capabilities.
+Use `kg skill` for the installed strategy skill and `kg record --example` /
+`kg record --schema` for grounded input instructions, without repository access.
 
 The [use-knowledge-graph skill](.github/skills/use-knowledge-graph/SKILL.md) teaches
-an agent the evidence/knowledge model, public interfaces, query and ingestion
-recipes, capability checks and stopping rules. Use it to operate an existing
+an agent evidence/knowledge strategies, deliberate identity reuse, exact support,
+query boundaries and stopping rules. Use it to operate an existing
 authorized KG instead of rediscovering the interfaces from source code.
 
 For example: `Use /use-knowledge-graph to find the decisions directly recorded for
-this project and show their supporting evidence.` The host must provide the store
-connection and authorized scope; the skill does not install a tool server.
+this project and show their supporting evidence.` Use the configured local profile;
+the skill does not install a tool server. Save `kg skill` output as `SKILL.md` in
+your agent's `use-knowledge-graph` skill folder to use the wheel's identical copy.
 In Copilot CLI, use `/skills reload` and `/skills info use-knowledge-graph` if the
 new skill has not been discovered in the current session.
 
@@ -407,8 +408,9 @@ whose preparation failed remains readable; an explicit update of its observed
 state can attempt preparation again.
 
 Text output is readable; `--json` emits one `client/1` object with status, message,
-result, error code and exit code. Exit 0 means complete/empty, 2 invalid input/
-configuration/confirmation, 3 service read/setup failure, 4 unsuccessful canonical
+result, error code and exit code. Exit 0 means success/empty, 2 invalid input/
+configuration/confirmation or unresolved relationship selection, 3 service read/setup
+failure or non-complete query, 4 unsuccessful canonical
 write, 5 saved with failed preparation, 6 local/unexpected failure, 7 unknown
 write outcome. Receipt and preparation details remain separately represented.
 
@@ -427,6 +429,60 @@ Setup has separate registration/file operations: a failure can leave a partial
 new store; it reports failure and never deletes or silently resets that store.
 Attaching arbitrary SDK stores requires a compatible supplied profile; the CLI
 does not discover or grant their policy. This is trusted personal-local use.
+
+### Knowledge workflow
+
+```sh
+kg find entities --json
+kg find entities Atlas --json
+kg read entity:RETURNED_ID --json
+kg find relationships Atlas --limit 20 --json
+kg record --example
+kg record --schema --json
+kg record facts.json --json
+kg find decisions Atlas --json
+kg find decisions Mira --through owns --json
+kg find decisions Atlas --through '^owns' --json
+kg read fact:RETURNED_ID --json
+kg remove fact:RETURNED_ID --confirm --json
+kg read fact:RETURNED_ID --history --json
+```
+
+The default personal vocabulary is `person`, `project`, `owns` (person to project),
+and `decision` (an explicit string statement about either type). Attached custom
+stores retain their registered vocabulary; obtain it from their operator.
+Entity discovery uses eligible listing and exact name/alias matches, never fuzzy
+matching or first-match selection. Read output supplies identifying support and
+an explicit stored `reference` suitable for reuse in record input.
+
+Entity and contribution pages have `has_more` and `next_after`; continue with
+`--after`. Relationship inspection filters entity-valued assertions involving
+either endpoint. Its limit applies **before filtering**: an empty page with
+continuation does not mean no relationships. Names are selected only when one
+bounded, fenced service scan establishes uniqueness; ambiguity returns candidates,
+and budget failure never becomes a false uniqueness claim. Paging is not a
+cross-command snapshot.
+
+Record input contains native `changes` and a `support` array copied from exact
+reads. Each change uses those evidence references; the client derives dependencies
+from the captured states, never current/latest replacements. Every endpoint is an
+explicit local creation or stored-ID reuse. The complete canonical write receipt
+and every local-ID mapping are returned. Fact/entity reads include copy-ready
+`evidence_targets` for exact source inspection. Withdrawal is owned assertion
+withdrawal only, requires noninteractive confirmation and preserves history.
+Entity/knowledge history remains subject to current authorization.
+
+Direct decisions use QueryService and return the distinct submitted-ID count plus
+a bounded support display. `exact: false` and partial outcomes remain lower bounds;
+displayed rows are not the total. Retained handles expire at command exit.
+Relationship decisions use one fixed native query with complete relationship and
+decision proofs and exact counts, even when the display is truncated. `--through`
+requires optional Ladybug 0.20.4 on macOS 15+ ARM64/CPython 3.12; each invocation
+builds a disposable exact-scope graph and closes it. In-process native failures
+can terminate the host; its 256 MiB buffer is not an RSS cap or isolation boundary.
+No query planner, arbitrary Cypher, cross-process graph reuse or general retained
+graph membership inspection is provided. Model/native readiness requires separate
+actual-run evidence; controlled-provider CLI tests do not establish it.
 
 ### First-use models and resources
 

@@ -4,8 +4,15 @@ The canonical Python services operate on SQLite `evidence-store/3`. SQLite owns
 supplied text/revisions, identities, knowledge schema, entities/assertions, exact
 support and history. Optional Ladybug is a rebuildable exact-scope graph
 projection, not a second authored store or a replacement for canonical search.
-The installed CLI exposes canonical document workflows; see
+The installed CLI exposes canonical document and knowledge workflows; see
 [usage and client/1 outcomes](README.md#canonical-document-cli).
+`kg record --schema` exposes strict grounded JSON changes plus captured
+`{reference, state_version}` support. Entity read/list entries include a native
+stored `reference` for direct reuse; support states are never upgraded implicitly.
+`kg record --example` documents creation versus reuse and exact evidence copying.
+Knowledge pages preserve continuation; query envelopes preserve native proof,
+count, partial and failure semantics. Retained handles are not usable after CLI exit.
+`kg.graph.GraphSessionError` is the public graph lifecycle failure type.
 The historical Markdown demonstration uses its own internal database and APIs; see
 [the architecture](SPEC.md#architecture-and-data-ownership).
 

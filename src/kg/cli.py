@@ -1,10 +1,12 @@
-"""Human and machine interface to the canonical document workflow."""
+"""Human and machine interface to canonical evidence and knowledge workflows."""
 
 from __future__ import annotations
 
+import json
 import logging
 import sys
 from collections.abc import Callable, Sequence
+from importlib.resources import files
 from pathlib import Path
 from typing import Annotated, Any
 
@@ -20,6 +22,7 @@ from kg.client.config import (
     profile_path,
 )
 from kg.client.documents import Documents, Response
+from kg.client.knowledge import Knowledge, RecordInput
 from kg.evidence.errors import EvidenceServiceError
 
 # Typer 0.26+ vendors Click; earlier supported versions use the standalone package.
@@ -73,14 +76,49 @@ class ClientGroup(TyperGroup):
 app = typer.Typer(
     cls=ClientGroup,
     no_args_is_help=True,
-    help="Canonical local evidence: setup, add, find documents, read, update and remove. "
-    "Use COMMAND --help for examples. Text is not automatically extracted into facts.",
+    help="Canonical evidence and knowledge: setup, add, find, read, record, update and remove. "
+    "Use COMMAND --help and kg skill for strategies. Text is not automatically made into facts.",
 )
-find_app = typer.Typer(no_args_is_help=True, help="Find supplied document evidence.")
+find_app = typer.Typer(
+    no_args_is_help=True, help="Find documents, eligible entities, relationships and decisions."
+)
 app.add_typer(find_app, name="find")
 Json = Annotated[bool, typer.Option("--json", help="Return a machine-readable client/1 result.")]
 Limit = Annotated[int, typer.Option(min=1, max=200, help="Maximum page entries.")]
 After = Annotated[int, typer.Option(min=0, help="Continue from the returned page position.")]
+
+
+def render_knowledge(result: dict[str, Any]) -> None:
+    entity = result.get("entity")
+    if isinstance(entity, dict):
+        typer.echo(safe_text(f"{result.get('target')}: {entity['name']} ({entity['entity_type']})"))
+        if not entity["is_current"]:
+            typer.echo("Historical/inactive entity; not a current fact basis.")
+        typer.echo(safe_text("Identifying support: " + json.dumps(entity["witness"])))
+        if entity["has_more_support"]:
+            typer.echo("More identifying support exists; read the entity's contribution pages.")
+    contribution = result.get("contribution")
+    if isinstance(contribution, dict):
+        typer.echo(safe_text(f"{result.get('target')}: " + json.dumps(contribution["payload"])))
+        if not contribution["is_current"]:
+            typer.echo("Historical/inactive contribution; not a current fact basis.")
+        if contribution.get("withdrawal"):
+            typer.echo(safe_text("Withdrawal: " + json.dumps(contribution["withdrawal"])))
+        typer.echo(safe_text("Captured support: " + json.dumps(result.get("support"))))
+    if result.get("directions"):
+        typer.echo(safe_text("Direction: " + ", ".join(result["directions"])))
+    for target in result.get("evidence_targets", []):
+        typer.echo(safe_text(f"Evidence: {target}"))
+    for key in ("query", "inspection", "graph", "write"):
+        if key in result:
+            typer.echo(safe_text(f"{key.capitalize()}:\n" + json.dumps(result[key], indent=2)))
+    if result.get("display_truncated"):
+        typer.echo("Display is incomplete; not all counted members are shown.")
+    for entry in result.get("entries", []):
+        if isinstance(entry, dict) and ("entity" in entry or "contribution" in entry):
+            render_knowledge(entry)
+    if "selected" in result:
+        render_knowledge(result["selected"])
 
 
 def safe_text(text: str) -> str:
@@ -99,6 +137,7 @@ def render(response: Response, machine: bool) -> None:
     else:
         typer.echo(safe_text(response.message))
         result = response.result
+        render_knowledge(result)
         for key in ("profile_path", "target", "state"):
             if isinstance(result.get(key), str):
                 typer.echo(f"{key.replace('_', ' ').capitalize()}: {safe_text(str(result[key]))}")
@@ -123,7 +162,7 @@ def render(response: Response, machine: bool) -> None:
                         )
                     if not evidence.get("is_current_support"):
                         typer.echo("Historical/inactive support; not a current fact basis.")
-                if entry is not result:
+                if entry is not result and isinstance(evidence, dict):
                     typer.echo(safe_text(f"Evidence: {entry.get('target')}"))
         page = result.get("page")
         if isinstance(page, dict):
@@ -134,7 +173,7 @@ def render(response: Response, machine: bool) -> None:
             if page.get("has_more"):
                 typer.echo(f"More history: --after {page.get('next_after_sequence')}")
         if result.get("has_more"):
-            typer.echo(f"More evidence: --after {result.get('next_after')}")
+            typer.echo(f"More entries: --after {result.get('next_after')}")
         search = result.get("search")
         if isinstance(search, dict) and any(
             search.get(key) for key in ("lexical_truncated", "dense_truncated", "fusion_truncated")
@@ -294,20 +333,25 @@ def find_documents(
 def read(
     target: str,
     history: Annotated[
-        bool, typer.Option("--history", help="Page through document state history.")
+        bool, typer.Option("--history", help="Document history or historical knowledge inspection.")
     ] = False,
     after: After = 0,
     limit: Limit = 100,
     json_output: Json = False,
 ) -> None:
-    """Read document:ID or a returned evidence:REFERENCE.
+    """Read document:ID, evidence:REFERENCE, entity:ID or fact:ID.
 
     Document reads return exact anchor pages and copy-ready support objects.
-    Continue with --after NEXT_AFTER. History returns document:ID@STATE targets
+    Knowledge reads include authorized support/contributions, not inferred facts.
+    Continue with --after NEXT_AFTER. Document history returns document:ID@STATE targets
     for reading old evidence; historical evidence still requires current access.
     """
     execute(
-        lambda: Documents(load_profile()).read(target, history=history, after=after, limit=limit),
+        lambda: (
+            Knowledge(load_profile())
+            if target.startswith(("entity:", "fact:"))
+            else Documents(load_profile())
+        ).read(target, history=history, after=after, limit=limit),
         json_output,
     )
 
@@ -348,13 +392,26 @@ def remove(
         str | None, typer.Option(help="Exact expected state from read output.")
     ] = None,
     confirm: Annotated[
-        bool, typer.Option("--confirm", help="Confirm logical source deactivation.")
+        bool,
+        typer.Option("--confirm", help="Confirm source deactivation or owned fact withdrawal."),
     ] = False,
     json_output: Json = False,
 ) -> None:
-    """Deactivate document:ID; retain exact source/history."""
+    """Deactivate document:ID or withdraw exact owned assertion fact:ID; retain history.
+
+    Fact withdrawal requires --confirm in noninteractive use, not --expect.
+    No physical purge, entity deletion or merging is performed.
+    """
 
     def run() -> Response:
+        if document.startswith("fact:"):
+            if expect is not None:
+                raise ClientError("invalid_arguments", "--expect applies only to documents.")
+            if not confirm:
+                if json_output or not interactive():
+                    raise ClientError("confirmation_required", "Withdrawal requires --confirm.")
+                typer.confirm(f"Withdraw {safe_text(document)}? History is retained.", abort=True)
+            return Knowledge(load_profile()).remove(document)
         documents = Documents(load_profile())
         previous = documents.document(document)
         expected = expected_state(previous.state_version, expect, document, json_output)
@@ -363,5 +420,114 @@ def remove(
                 raise ClientError("confirmation_required", "Removal requires --confirm.")
             typer.confirm(f"Deactivate {safe_text(document)}? History is retained.", abort=True)
         return documents.remove(previous, expected)
+
+    execute(run, json_output)
+
+
+@find_app.command("entities")
+def find_entities(
+    name: Annotated[str | None, typer.Argument(help="Exact name or alias; omit to list.")] = None,
+    after: After = 0,
+    limit: Limit = 100,
+    json_output: Json = False,
+) -> None:
+    """List eligible entities with IDs, types and identifying support.
+
+    A page is not a uniqueness claim. Follow --after until complete, or select entity:ID.
+    """
+    execute(lambda: Knowledge(load_profile()).entities(name, after=after, limit=limit), json_output)
+
+
+@find_app.command("relationships")
+def find_relationships(
+    entity: str,
+    after: After = 0,
+    limit: Limit = 100,
+    json_output: Json = False,
+) -> None:
+    """Read entity-valued assertions incident to an exact entity:ID or unique exact name/alias.
+
+    Includes outgoing and incoming relationships and their evidence. --limit bounds
+    the underlying assertion page: follow --after even when a filtered page is empty.
+    """
+    execute(
+        lambda: Knowledge(load_profile()).relationships(entity, after=after, limit=limit),
+        json_output,
+    )
+
+
+@find_app.command("decisions")
+def find_decisions(
+    entity: str,
+    through: Annotated[
+        str | None, typer.Option(help="Registered predicate: owns outgoing; ^owns incoming.")
+    ] = None,
+    limit: Annotated[
+        int, typer.Option(min=1, max=1000, help="Maximum displayed decisions.")
+    ] = 1000,
+    json_output: Json = False,
+) -> None:
+    """Find explicit decisions about an exact entity:ID or unique exact name/alias.
+
+    Starter vocabulary: person, project; owns (person -> project), decision (string).
+    Direct queries use canonical SQLite. --through uses optional Ladybug 0.20.4,
+    supported on macOS 15+ ARM64 / Python 3.12. Native code runs in-process and can
+    crash the host; its 256 MiB buffer is not an RSS cap. Each call builds a fresh
+    disposable graph. No models, planner, arbitrary Cypher or cross-command handles.
+    Counts are distinct submitted IDs; partial/budget outcomes are not exact totals.
+    """
+    execute(
+        lambda: Knowledge(load_profile()).decisions(entity, through=through, limit=limit),
+        json_output,
+    )
+
+
+@app.command()
+def record(
+    file: Annotated[Path | None, typer.Argument(help="Grounded UTF-8 JSON submission.")] = None,
+    schema: Annotated[bool, typer.Option("--schema", help="Print the record JSON Schema.")] = False,
+    example: Annotated[
+        bool, typer.Option("--example", help="Print the annotated input recipe.")
+    ] = False,
+    json_output: Json = False,
+) -> None:
+    """Record supported knowledge, explicitly creating local entities or reusing stored IDs.
+
+    Run kg record --example for copy-ready evidence/entity reference instructions;
+    kg record --schema for exact native change shapes. Starter vocabulary: person,
+    project, owns (person -> project), decision (string). Support must be copied
+    from reads without replacing old states. No endpoints are implicitly created.
+    Every submission is a new write; manual resubmission may duplicate knowledge.
+    """
+
+    def run() -> Response:
+        if sum((file is not None, schema, example)) != 1:
+            raise ClientError(
+                "invalid_arguments", "Supply FILE, --schema or --example, exactly one."
+            )
+        if schema:
+            value = RecordInput.model_json_schema()
+            return Response(
+                status="complete", message=json.dumps(value, indent=2), result={"schema": value}
+            )
+        if example:
+            text = files("kg.client").joinpath("record-example.md").read_text(encoding="utf-8")
+            return Response(status="complete", message=text, result={"example": text})
+        assert file is not None
+        return Knowledge(load_profile()).record(file)
+
+    execute(run, json_output)
+
+
+@app.command()
+def skill(json_output: Json = False) -> None:
+    """Print the installed agent strategy skill (no profile required).
+
+    Save the text output as SKILL.md in your agent's use-knowledge-graph skill folder.
+    """
+
+    def run() -> Response:
+        text = files("kg.client").joinpath("SKILL.md").read_text(encoding="utf-8")
+        return Response(status="complete", message=text, result={"skill": text})
 
     execute(run, json_output)

@@ -66,6 +66,7 @@ where = ["src"]
 [tool.setuptools.package-data]
 kg = ["schema.sql", "py.typed"]
 "kg.evidence" = ["schema.sql"]
+"kg.client" = ["SKILL.md", "record-example.md"]
 
 [tool.setuptools.exclude-package-data]
 "*" = ["__pycache__/*", "*.pyc"]
