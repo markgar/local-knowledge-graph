@@ -9,9 +9,19 @@ The installed CLI exposes canonical document and knowledge workflows; see
 `kg record --schema` exposes strict grounded JSON changes plus captured
 `{reference, state_version}` support. Entity read/list entries include a native
 stored `reference` for direct reuse; support states are never upgraded implicitly.
+The CLI also accepts a request-local named support map with source evidence names;
+it expands into existing service values, not a new service write format. Native
+support arrays remain accepted. Mixed forms, unresolved/unused declarations,
+duplicate evidence and conflicting states fail; canonical limits apply after expansion.
 `kg record --example` documents creation versus reuse and exact evidence copying.
 Knowledge pages preserve continuation; query envelopes preserve native proof,
 count, partial and failure semantics. Retained handles are not usable after CLI exit.
+CLI decision presentation adds text, assertion targets, exact captured support and
+count/selection/display completeness without changing service contracts. Direct
+text comes from bounded authorized contribution reads checked against retained
+inspection before and after hydration, not an atomic snapshot. Graph presentation
+uses already-returned members/proofs only. See the usage link for completeness and
+per-service budget/retention limitations.
 `kg.graph.GraphSessionError` is the public graph lifecycle failure type.
 The historical Markdown demonstration uses its own internal database and APIs; see
 [the architecture](SPEC.md#architecture-and-data-ownership).

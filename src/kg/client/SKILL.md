@@ -46,11 +46,15 @@ An ambiguous name requires explicit candidate selection, not the first result.
 An incomplete or failed selection is not unique. Stop or narrow the request when
 budgets prevent complete selection. Current reads exclude ineligible support;
 an empty authorized result does not prove absence elsewhere or in the past.
+Empty/incomplete matches never prove an entity is new; list/page eligible entities
+or inspect source evidence before deliberately creating one.
 
 ## Record deliberate, grounded knowledge
 
 Read the actual source and copy its exact support object. Consult `kg record
 --example` and `kg record --schema` for input construction. Reuse a returned
+support object by request-local name when several changes share it; the example
+shows the shorthand and the original native form. Reuse a returned
 entity `reference` only when the identity is established; otherwise explicitly
 create a local entity in the submission. Never create endpoints implicitly,
 merge same-named entities, or substitute names for IDs.
@@ -75,7 +79,10 @@ matches the question. It is not arbitrary traversal, Cypher or a natural-languag
 planner. Preserve the exact submitted-ID count, any lower-bound/partial outcome,
 display truncation and both relationship and decision proofs.
 
-Read returned fact/evidence references to support the answer. Distinguish what
+Decision entries include text, fact targets and captured support. Direct text is
+separately read and checked against retained membership, not an atomic snapshot;
+retention expiry or a detected write/revocation withholds the composite.
+Read returned fact/evidence targets to support the answer. Distinguish what
 the source says from your interpretation, and cite the exact returned references.
 Do not use the number of displayed rows as a total. Query support handles and
 graph generations are invocation-local; they cannot be continued after exit.
