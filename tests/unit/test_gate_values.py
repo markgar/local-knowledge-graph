@@ -118,6 +118,25 @@ def test_new_runtime_and_model_ownership_fail_closed(runner):
     assert {"schema", "query", "graph"} <= runner.source_areas("src/kg/evidence/schema.sql")
 
 
+def test_shared_execution_budget_requires_all_canonical_downstream_areas(runner, monkeypatch):
+    expected = {
+        "evidence", "schema", "knowledge", "indexing", "query", "processing", "graph", "cli",
+    }
+    assert runner.source_areas("src/kg/_execution_budget.py") == expected
+    monkeypatch.setattr(
+        runner, "git",
+        lambda *args: b"src/kg/_execution_budget.py\0" if args[0] == "diff"
+        else b"base" if args[0] == "merge-base" else b"",
+    )
+    for missing in expected:
+        with pytest.raises(ValueError, match="requires areas"):
+            runner.changed_scope("origin/main", expected - {missing})
+    changed = runner.changed_scope("origin/main", expected)["changed_paths"]
+    assert changed[0]["minimum_areas"] == sorted(expected)
+    with pytest.raises(ValueError, match="policy"):
+        runner.source_areas("src/kg/_unreviewed_helper.py")
+
+
 def test_collection_rejects_conflicting_missing_and_illegal_layers():
     hooks = module("tests/conftest.py")
 
