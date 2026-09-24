@@ -16,7 +16,10 @@ from kg.knowledge import KnowledgeService
 
 def record_file(directory, support, changes):
     file = directory / "facts.json"
-    file.write_text(json.dumps({"support": [support], "changes": changes}))
+    head = call("schema", "show")["result"]["head"]
+    file.write_text(json.dumps({
+        "expected_schema_revision": head, "support": [support], "changes": changes,
+    }))
     return file
 
 
@@ -423,7 +426,10 @@ def test_named_support_and_returned_entities_roundtrip(recorded):
     for change in changes:
         change["support"]["evidence"] = ["meeting"]
     path = directory / "named.json"
-    path.write_text(json.dumps({"support": {"meeting": support}, "changes": changes}))
+    path.write_text(json.dumps({
+        "expected_schema_revision": call("schema", "show")["result"]["revision"],
+        "support": {"meeting": support}, "changes": changes,
+    }))
     response = call("record", path)["result"]["write"]
     assert len(response["receipt"]["mappings"]) == 2
     identifier = response["receipt"]["mappings"][1]["stored_id"]
@@ -452,7 +458,10 @@ def test_named_input_rejection_precedes_any_write(recorded, monkeypatch, mutatio
     directory, _, _, support, _ = recorded
     changes = [entity("new", "New", "project", support)]
     changes[0]["support"]["evidence"] = ["meeting"]
-    value = {"support": {"meeting": deepcopy(support)}, "changes": changes}
+    value = {
+        "expected_schema_revision": call("schema", "show")["result"]["revision"],
+        "support": {"meeting": deepcopy(support)}, "changes": changes,
+    }
     if mutation == "unknown":
         changes[0]["support"]["evidence"] = ["missing"]
     elif mutation == "unused":
@@ -506,7 +515,10 @@ def test_named_conjunction_and_expanded_occurrence_limit(recorded, monkeypatch):
     change = entity("new", "New", "project", support)
     change["support"]["evidence"] = ["meeting", "other"]
     path = directory / "conjunction.json"
-    value = {"support": {"meeting": support, "other": other_support}, "changes": [change]}
+    value = {
+        "expected_schema_revision": call("schema", "show")["result"]["revision"],
+        "support": {"meeting": support, "other": other_support}, "changes": [change],
+    }
     path.write_text(json.dumps(value))
     receipt = call("record", path)["result"]["write"]["receipt"]
     stored = receipt["mappings"][0]["stored_id"]
@@ -539,7 +551,10 @@ def test_record_file_and_expanded_request_byte_limits(recorded, monkeypatch):
     change = entity("new", "New", "project", support)
     change["support"]["evidence"] = ["meeting"]
     path = directory / "size.json"
-    text = json.dumps({"support": {"meeting": support}, "changes": [change]})
+    text = json.dumps({
+        "expected_schema_revision": call("schema", "show")["result"]["revision"],
+        "support": {"meeting": support}, "changes": [change],
+    })
     path.write_text(text + " " * (MAX_REQUEST_BYTES - len(text.encode())))
     assert record_input(path).payload().changes
     with path.open("a") as stream:
@@ -685,6 +700,7 @@ def test_named_example_executes_and_schema_describes_both_modes(configured):
     example = call("record", "--example")["result"]["example"]
     value = json.loads(example.split("```json\n")[1].split("```")[0])
     value["support"]["meeting"] = support
+    value["expected_schema_revision"] = call("schema", "show")["result"]["revision"]
     path = configured / "example.json"
     path.write_text(json.dumps(value))
     assert len(call("record", path)["result"]["write"]["receipt"]["mappings"]) == 4

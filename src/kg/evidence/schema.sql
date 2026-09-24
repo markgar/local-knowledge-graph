@@ -1,6 +1,6 @@
 CREATE TABLE store_format (
     singleton INTEGER PRIMARY KEY CHECK (singleton = 1),
-    format TEXT NOT NULL CHECK (format = 'evidence-store/3'),
+    format TEXT NOT NULL CHECK (format = 'evidence-store/4'),
     manifest_version TEXT NOT NULL CHECK (manifest_version = 'canonical-sqlite-manifest/1'),
     schema_signature TEXT NOT NULL
 );
@@ -207,12 +207,48 @@ CREATE TABLE receipt_clock (
 CREATE INDEX anchor_revision_idx ON anchor(revision_id, ordinal);
 CREATE INDEX state_document_idx ON document_state(document_id, sequence);
 
-CREATE TABLE knowledge_schema (
-    corpus_id TEXT NOT NULL PRIMARY KEY REFERENCES corpus,
-    schema_version TEXT NOT NULL,
+CREATE TABLE knowledge_schema_revision (
+    corpus_id TEXT NOT NULL REFERENCES corpus,
+    revision_id TEXT NOT NULL,
+    sequence INTEGER NOT NULL CHECK (typeof(sequence) = 'integer' AND sequence > 0),
+    parent_revision_id TEXT,
     definition_json TEXT NOT NULL,
     definition_hash TEXT NOT NULL,
-    UNIQUE (corpus_id, schema_version)
+    origin TEXT NOT NULL CHECK (origin IN ('trusted_preset', 'approved_proposal')),
+    committed_at TEXT NOT NULL,
+    PRIMARY KEY (corpus_id, revision_id),
+    UNIQUE (corpus_id, sequence),
+    FOREIGN KEY (corpus_id, parent_revision_id)
+        REFERENCES knowledge_schema_revision(corpus_id, revision_id),
+    CHECK ((sequence = 1) = (parent_revision_id IS NULL))
+);
+CREATE TABLE knowledge_schema_head (
+    corpus_id TEXT NOT NULL PRIMARY KEY REFERENCES corpus,
+    revision_id TEXT NOT NULL,
+    FOREIGN KEY (corpus_id, revision_id)
+        REFERENCES knowledge_schema_revision(corpus_id, revision_id)
+);
+CREATE TABLE knowledge_schema_change (
+    corpus_id TEXT NOT NULL,
+    revision_id TEXT NOT NULL,
+    principal_id TEXT NOT NULL,
+    change_json TEXT NOT NULL,
+    change_hash TEXT NOT NULL,
+    PRIMARY KEY (corpus_id, revision_id),
+    FOREIGN KEY (corpus_id, revision_id)
+        REFERENCES knowledge_schema_revision(corpus_id, revision_id)
+);
+CREATE TABLE knowledge_schema_receipt (
+    corpus_id TEXT NOT NULL,
+    principal_id TEXT NOT NULL,
+    key_hash TEXT NOT NULL,
+    request_json TEXT NOT NULL,
+    request_hash TEXT NOT NULL,
+    revision_id TEXT NOT NULL,
+    receipt_json TEXT NOT NULL,
+    PRIMARY KEY (corpus_id, principal_id, key_hash),
+    FOREIGN KEY (corpus_id, revision_id)
+        REFERENCES knowledge_schema_revision(corpus_id, revision_id)
 );
 CREATE TABLE knowledge_writer_binding (
     corpus_id TEXT NOT NULL, namespace TEXT NOT NULL, principal_id TEXT NOT NULL,
@@ -243,7 +279,8 @@ CREATE TABLE contribution (
     UNIQUE (corpus_id, contribution_id, support_kind),
     FOREIGN KEY (corpus_id, key_id) REFERENCES write_key(corpus_id, key_id)
         DEFERRABLE INITIALLY DEFERRED,
-    FOREIGN KEY (corpus_id, schema_version) REFERENCES knowledge_schema(corpus_id, schema_version)
+    FOREIGN KEY (corpus_id, schema_version)
+        REFERENCES knowledge_schema_revision(corpus_id, revision_id)
 );
 CREATE TABLE entity_support (
     corpus_id TEXT NOT NULL, contribution_id TEXT NOT NULL,
@@ -386,7 +423,8 @@ CREATE TABLE knowledge_write_provenance (
     key_id TEXT NOT NULL PRIMARY KEY, corpus_id TEXT NOT NULL,
     schema_version TEXT NOT NULL, attribution_json TEXT NOT NULL,
     FOREIGN KEY (corpus_id, key_id) REFERENCES write_key(corpus_id, key_id),
-    FOREIGN KEY (corpus_id, schema_version) REFERENCES knowledge_schema(corpus_id, schema_version)
+    FOREIGN KEY (corpus_id, schema_version)
+        REFERENCES knowledge_schema_revision(corpus_id, revision_id)
 );
 
 CREATE TABLE passage_policy_definition (

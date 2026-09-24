@@ -38,7 +38,13 @@ from kg.models.foundation import (
     SuppliedContent,
     WriteRequest,
 )
-from kg.models.knowledge import KnowledgeSchema, PredicateDefinition, RecordProjection
+from kg.models.knowledge import RecordProjection
+from kg.models.schema import (
+    EntityTypeDefinition,
+    SchemaDefinition,
+    SchemaPredicateDefinition,
+    SchemaPresetRequest,
+)
 
 
 def supply(path: Path, *, passages: bool = False) -> tuple[
@@ -81,17 +87,23 @@ def supply(path: Path, *, passages: bool = False) -> tuple[
     registration = EvidenceAdministration(database, authority).register(
         CorpusRegistration(corpus_id="knowledge-demo", namespaces=("notes",), policy=policy),
     )
-    KnowledgeAdministration(database, authority).register_knowledge_schema(
-        KnowledgeSchema(
+    schema_registration = KnowledgeAdministration(database, authority).register_knowledge_schema(
+        SchemaPresetRequest(
             corpus_id="knowledge-demo",
-            schema_version="example/1",
-            entity_types=("project",),
-            predicates=(
-                PredicateDefinition(
-                    name="work:decision",
-                    subject_types=("project",),
-                    object_kind="string",
-                    record_projection=RecordProjection(encoding="direct-subject-decision/1"),
+            preset_name="example/1",
+            preset_rationale="Explicit example vocabulary; no inferred facts.",
+            definition=SchemaDefinition(
+                entity_types=(EntityTypeDefinition(
+                    name="project", description="An explicitly identified project.",
+                ),),
+                predicates=(
+                    SchemaPredicateDefinition(
+                        name="work:decision",
+                        description="An explicitly submitted decision about the subject.",
+                        subject_types=("project",),
+                        object_kind="string",
+                        record_projection=RecordProjection(encoding="direct-subject-decision/1"),
+                    ),
                 ),
             ),
         )
@@ -169,6 +181,7 @@ def supply(path: Path, *, passages: bool = False) -> tuple[
             scope=scope,
             attribution=attribution,
             payload=ChangeSet(
+                expected_schema_revision=schema_registration.revision,
                 operation="enrich",
                 dependencies=(
                     DocumentDependency(

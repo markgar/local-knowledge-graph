@@ -4,6 +4,7 @@ from uuid import uuid4
 
 import pytest
 from support.evidence import put
+from support.knowledge import preset
 from support.query_knowledge import plan, produce, setup, write
 from support.withdrawal import withdrawal
 
@@ -169,13 +170,13 @@ def test_all_assertion_object_kinds_and_incoming_outgoing_pages(tmp_path):
     env = setup(tmp_path / "kinds.db", registered=False)
     definition = schema()
     KnowledgeAdministration(env.database, env.admin.authority).register_knowledge_schema(
-        definition.model_copy(update={
+        preset(definition.model_copy(update={
             "predicates": definition.predicates + tuple(
                 PredicateDefinition(
                     name=f"work:{kind}", subject_types=("project",), object_kind=kind,
                 ) for kind in ("integer", "boolean", "timestamp")
             ),
-        }),
+        })),
     )
     project, _ = produce(env, 0)
     person = write(env, (CreateEntity(

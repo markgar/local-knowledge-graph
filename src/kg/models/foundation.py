@@ -50,6 +50,11 @@ class Value(BaseModel):
     model_config = ConfigDict(extra="forbid", strict=True, frozen=True)
 
 
+class SchemaRevisionRef(Value):
+    revision_id: Token
+    definition_hash: str = Field(pattern=r"^[0-9a-f]{64}$")
+
+
 class Versioned(Value):
     contract_version: Literal["foundation/1"]
 
@@ -348,6 +353,7 @@ Change = Annotated[
 
 class ChangeSet(Value):
     operation: Literal["enrich"]
+    expected_schema_revision: SchemaRevisionRef | None = None
     dependencies: tuple[DocumentDependency, ...] = Field(default=(), max_length=MAX_SUPPORTS)
     changes: tuple[Change, ...] = Field(min_length=1, max_length=MAX_CHANGES)
 

@@ -43,6 +43,7 @@ def run(path: Path, *, graph: bool = False) -> dict:
     def assertion(text):
         return ChangeSet(
             operation="enrich",
+            expected_schema_revision=knowledge.schema(scope).head,
             changes=(original.payload.model_copy(update={
                 "object": StringObject(kind="string", value=text),
             }),),

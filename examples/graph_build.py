@@ -44,6 +44,7 @@ from kg.models.foundation import (
     EntityObject,
     ExternalDocument,
     PutDocument,
+    SchemaRevisionRef,
     Scope,
     SeedSupport,
     SourceMetadata,
@@ -54,7 +55,13 @@ from kg.models.foundation import (
     SuppliedContent,
     WriteRequest,
 )
-from kg.models.knowledge import KnowledgeSchema, PredicateDefinition, RecordProjection
+from kg.models.knowledge import RecordProjection
+from kg.models.schema import (
+    EntityTypeDefinition,
+    SchemaDefinition,
+    SchemaPredicateDefinition,
+    SchemaPresetRequest,
+)
 
 
 @dataclass
@@ -70,6 +77,7 @@ class Fixture:
     witnesses: dict
     projects: list
     person: str
+    schema_revision: SchemaRevisionRef
 
     def write(self, changes):
         refs = [
@@ -81,6 +89,7 @@ class Fixture:
             contract_version="foundation/1", request_id=str(uuid4()), retry_key=str(uuid4()),
             scope=self.scope, attribution=self.attribution,
             payload=ChangeSet(
+                expected_schema_revision=self.schema_revision,
                 operation="enrich", changes=tuple(changes), dependencies=tuple(deps.values()),
             ),
         ))
@@ -127,18 +136,29 @@ def fixture(path: Path, *, decisions: int = 12, varied: bool = False) -> Fixture
             ) for ns in namespaces),
         ),
     ))
-    KnowledgeAdministration(database, authority).register_knowledge_schema(KnowledgeSchema(
-        corpus_id="graph-example", schema_version="graph-example/1",
-        entity_types=("person", "project"),
-        predicates=(
-            PredicateDefinition(name="work:owns", subject_types=("person",),
-                                object_kind="entity", object_types=("project",)),
-            PredicateDefinition(name="work:decision", subject_types=("project",),
-                                object_kind="string",
-                                record_projection=RecordProjection(
-                                    encoding="direct-subject-decision/1")),
+    schema_registration = KnowledgeAdministration(database, authority).register_knowledge_schema(
+        SchemaPresetRequest(
+            corpus_id="graph-example", preset_name="graph-example/1",
+            preset_rationale="Explicit synthetic graph acceptance vocabulary.",
+            definition=SchemaDefinition(
+                entity_types=(
+                    EntityTypeDefinition(name="person", description="An individual person."),
+                    EntityTypeDefinition(name="project", description="An identified project."),
+                ),
+                predicates=(
+                    SchemaPredicateDefinition(
+                        name="work:owns", description="The subject is accountable for the object.",
+                        subject_types=("person",), object_kind="entity", object_types=("project",),
+                    ),
+                    SchemaPredicateDefinition(
+                        name="work:decision", description="An explicit decision about the subject.",
+                        subject_types=("project",), object_kind="string",
+                        record_projection=RecordProjection(encoding="direct-subject-decision/1"),
+                    ),
+                ),
+            ),
         ),
-    ))
+    )
     scope = Scope(corpus_id="graph-example", access=AccessContext(
         principal_id="local", policy_version=registered.policy_version,
         namespaces=namespaces, grants=("read", "write_documents", "write_knowledge", "seed"),
@@ -146,7 +166,10 @@ def fixture(path: Path, *, decisions: int = 12, varied: bool = False) -> Fixture
     evidence = EvidenceService(database, identity)
     attribution = Attribution(owner_id="owner", writer_id="example",
                               producer="synthetic-graph-example", producer_version="1")
-    env = Fixture(database, identity, scope, evidence, attribution, [], {}, {}, {}, [], "")
+    env = Fixture(
+        database, identity, scope, evidence, attribution, [], {}, {}, {}, [], "",
+        schema_registration.revision,
+    )
     for i in range(1000 if varied else 12):
         ns = namespaces[i % 2]
         text = f"Synthetic note {i}: A\r\nCafe\u0301 \U0001f680. Record the reviewed decision."

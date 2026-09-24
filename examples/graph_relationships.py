@@ -44,7 +44,12 @@ from kg.models.foundation import (
     WriteRequest,
 )
 from kg.models.graph import GraphEntitySelector, GraphTraversalRequest
-from kg.models.knowledge import KnowledgeSchema, PredicateDefinition
+from kg.models.schema import (
+    EntityTypeDefinition,
+    SchemaDefinition,
+    SchemaPredicateDefinition,
+    SchemaPresetRequest,
+)
 
 
 def run(output: Path) -> dict:
@@ -76,13 +81,22 @@ def run(output: Path) -> dict:
     registration = EvidenceAdministration(database, admin).register(CorpusRegistration(
         corpus_id="ownership", namespaces=("notes",), policy=policy,
     ))
-    KnowledgeAdministration(database, admin).register_knowledge_schema(KnowledgeSchema(
-        corpus_id="ownership", schema_version="ownership/1", entity_types=("person", "project"),
-        predicates=(PredicateDefinition(
-            name="work:owns", subject_types=("person",),
-            object_kind="entity", object_types=("project",),
-        ),),
-    ))
+    schema_registration = KnowledgeAdministration(database, admin).register_knowledge_schema(
+        SchemaPresetRequest(
+            corpus_id="ownership", preset_name="ownership/1",
+            preset_rationale="Explicit example ownership vocabulary.",
+            definition=SchemaDefinition(
+                entity_types=(
+                    EntityTypeDefinition(name="person", description="An individual person."),
+                    EntityTypeDefinition(name="project", description="An identified project."),
+                ),
+                predicates=(SchemaPredicateDefinition(
+                    name="work:owns", description="The subject is accountable for the object.",
+                    subject_types=("person",), object_kind="entity", object_types=("project",),
+                ),),
+            ),
+        ),
+    )
     scope = Scope(corpus_id="ownership", access=AccessContext(
         principal_id="me", policy_version=registration.policy_version, namespaces=("notes",),
         grants=("read", "write_documents", "write_knowledge"),
@@ -115,6 +129,7 @@ def run(output: Path) -> dict:
         contract_version="foundation/1", request_id=str(uuid4()), retry_key="facts",
         scope=scope, attribution=attribution,
         payload=ChangeSet(
+            expected_schema_revision=schema_registration.revision,
             operation="enrich", dependencies=(DocumentDependency(
                 source_namespace="notes", document_id=saved.document_id,
                 revision_id=saved.revision_id, state_version=saved.processing.state_version,

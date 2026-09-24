@@ -180,7 +180,10 @@ def test_public_creation_replay_source_restore_and_new_assertion_do_not_resurrec
     creation = WriteRequest(
         contract_version="foundation/1", request_id="extra", retry_key="extra",
         scope=env.scope, attribution=env.attribution,
-        payload=ChangeSet(operation="enrich", dependencies=(dependency,), changes=(change,)),
+        payload=ChangeSet(
+            expected_schema_revision=env.schema_revision, operation="enrich",
+            dependencies=(dependency,), changes=(change,),
+        ),
     )
     created = env.evidence.write(creation)
     assert created.status == "applied"
@@ -248,7 +251,7 @@ def test_public_creation_replay_source_restore_and_new_assertion_do_not_resurrec
         ).entries[0].reference
         corrected = creation.model_copy(update={
             "request_id": "new-assertion", "retry_key": "new-assertion",
-            "payload": ChangeSet(
+            "payload": ChangeSet(expected_schema_revision=env.schema_revision,
                 operation="enrich",
                 dependencies=(dependency.model_copy(update={
                     "state_version": state, "revision_id": current_ref.revision_id,

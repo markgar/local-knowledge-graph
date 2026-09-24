@@ -11,10 +11,8 @@ from pydantic import Field, model_validator
 from kg._execution_budget import PrivateResourceStop, ScratchReservation
 from kg.diagnostics._bounds import bounded_size
 from kg.evidence._read_context import CanonicalReadContext
-from kg.evidence._values import sha
 from kg.evidence.errors import EvidenceServiceError
 from kg.knowledge._reader import _decision_item
-from kg.knowledge._registry import definition_json
 from kg.knowledge._selection import (
     CapturedEvidence,
     DecisionSelectionItem,
@@ -175,9 +173,12 @@ class GraphExportCursor:
         self._eof = False
         try:
             self.schema = self._registry.schema()
+            head = self._registry.registry.head()
+            if head is None:
+                raise GraphExportError("invalid_projection")
             self.coverage = GraphCoverage(
                 schema_version=self.schema.schema_version,
-                schema_definition_hash=sha(definition_json(self.schema).encode()),
+                schema_definition_hash=head.definition_hash,
                 relationship_predicates=tuple(sorted(
                     p.name for p in self.schema.predicates if p.object_kind == "entity"
                 )),
@@ -220,8 +221,10 @@ class GraphExportCursor:
 
     def _assertion(self, store: Store, identifier: str) -> GraphAssertion | None:
         with closing(store.connection.execute(
-            "SELECT c.*,a.subject_id,a.predicate,a.interpretation,a.object_kind "
+            "SELECT c.*,a.subject_id,a.predicate,a.interpretation,a.object_kind,"
+            "e.entity_type AS subject_type "
             "FROM contribution c JOIN assertion a USING(corpus_id,contribution_id) "
+            "JOIN entity e ON e.corpus_id=a.corpus_id AND e.entity_id=a.subject_id "
             "WHERE c.corpus_id=? AND c.contribution_id=?",
             (self.context.scope.corpus_id, identifier),
         )) as cursor:
@@ -236,14 +239,14 @@ class GraphExportCursor:
         payload = view.payload
         if (
             not isinstance(payload, AddAssertion)
-            or view.schema_version != self.schema.schema_version
         ):
             raise GraphExportError("invalid_projection")
+        store.registry.authored(view.schema_version)
         member = None
         obj, text = None, None
         if decision:
             member = _decision_item(
-                store, row, row["subject_id"], view.witnesses[0], self.schema,
+                store, row, row["subject_id"], view.witnesses[0],
             )
             if member is None:
                 return None

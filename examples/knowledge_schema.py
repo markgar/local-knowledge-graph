@@ -10,15 +10,18 @@ from pathlib import Path
 from kg.evidence import EvidenceAdministration, EvidenceDatabase
 from kg.knowledge import KnowledgeAdministration
 from kg.models.evidence import CorpusRegistration, LocalAdminAuthority, LocalPolicy
-from kg.models.knowledge import (
-    KnowledgeSchema,
-    KnowledgeSchemaRegistration,
-    PredicateDefinition,
-    RecordProjection,
+from kg.models.knowledge import RecordProjection
+from kg.models.schema import (
+    EntityTypeDefinition,
+    IdentifierSchemeDefinition,
+    SchemaDefinition,
+    SchemaPredicateDefinition,
+    SchemaPresetRegistration,
+    SchemaPresetRequest,
 )
 
 
-def run(path: Path) -> KnowledgeSchemaRegistration:
+def run(path: Path) -> SchemaPresetRegistration:
     database = EvidenceDatabase(path)
     database.initialize()
     authority = LocalAdminAuthority(principal_id="trusted-local-app")
@@ -30,19 +33,28 @@ def run(path: Path) -> KnowledgeSchemaRegistration:
         ),
     )
     return KnowledgeAdministration(database, authority).register_knowledge_schema(
-        KnowledgeSchema(
+        SchemaPresetRequest(
             corpus_id="registry-demo",
-            schema_version="example/1",
-            entity_types=("person", "project"),
-            identifier_schemes=("email",),
-            predicates=(
-                PredicateDefinition(
-                    name="work:owns", subject_types=("person",),
-                    object_kind="entity", object_types=("project",),
+            preset_name="example/1",
+            preset_rationale="Explicit example vocabulary, not sampled-document inference.",
+            definition=SchemaDefinition(
+                entity_types=(
+                    EntityTypeDefinition(name="person", description="An individual person."),
+                    EntityTypeDefinition(name="project", description="An identified project."),
                 ),
-                PredicateDefinition(
-                    name="work:decision", subject_types=("project",), object_kind="string",
-                    record_projection=RecordProjection(encoding="direct-subject-decision/1"),
+                identifier_schemes=(
+                    IdentifierSchemeDefinition(name="email", description="An email address."),
+                ),
+                predicates=(
+                    SchemaPredicateDefinition(
+                        name="work:owns", description="The subject is accountable for the object.",
+                        subject_types=("person",), object_kind="entity", object_types=("project",),
+                    ),
+                    SchemaPredicateDefinition(
+                        name="work:decision", description="An explicit decision about the subject.",
+                        subject_types=("project",), object_kind="string",
+                        record_projection=RecordProjection(encoding="direct-subject-decision/1"),
+                    ),
                 ),
             ),
         ),

@@ -31,7 +31,10 @@ TABLES = set(
         "write_response",
         "write_provenance",
         "receipt_clock",
-        "knowledge_schema",
+        "knowledge_schema_revision",
+        "knowledge_schema_head",
+        "knowledge_schema_change",
+        "knowledge_schema_receipt",
         "knowledge_writer_binding",
         "entity",
         "contribution",
@@ -129,7 +132,7 @@ def _image(path: Path) -> tuple[bytes, tuple[object, ...]]:
 
 def test_complete_inventory_and_relational_programs(tmp_path: Path) -> None:
     assert expected_manifest().signature == (
-        "c489cb664fb4a45d7c2b7d0a1edd32903f3352df627036421c527e21104ec4c8"
+        "dee7771af2360edfcb8665e507775c11acc277b241b3349cfa368315fd3743b1"
     )
     database = EvidenceDatabase(tmp_path / "complete.db")
     database.initialize()
@@ -139,19 +142,19 @@ def test_complete_inventory_and_relational_programs(tmp_path: Path) -> None:
         ).fetchall()
         assert {row[1] for row in catalog if row[0] == "table"} == TABLES
         assert {row[1] for row in catalog if row[0] == "index"} == INDEXES
-        assert len(TABLES) == 66 and len(INDEXES) == 29
+        assert len(TABLES) == 69 and len(INDEXES) == 29
         assert {row[0] for row in catalog} == {"table", "index"}
         assert connection.execute("PRAGMA foreign_key_check").fetchall() == []
         assert connection.execute("PRAGMA integrity_check").fetchone()[0] == "ok"
         assert connection.execute("PRAGMA foreign_keys").fetchone()[0] == 1
-        assert connection.execute("PRAGMA user_version").fetchone()[0] == 3
+        assert connection.execute("PRAGMA user_version").fetchone()[0] == 4
         assert tuple(connection.execute("SELECT * FROM store_format").fetchone()) == (
             1,
-            "evidence-store/3",
+            "evidence-store/4",
             "canonical-sqlite-manifest/1",
             expected_manifest().signature,
         )
-        assert connection.execute("SELECT count(*) FROM schema_object_manifest").fetchone()[0] == 95
+        assert connection.execute("SELECT count(*) FROM schema_object_manifest").fetchone()[0] == 98
         for table in sorted(TABLES):
             # Compilation catches missing parent keys even when every future-service table is empty.
             connection.execute(f'EXPLAIN DELETE FROM "{table}"').fetchall()
@@ -174,6 +177,7 @@ def test_complete_inventory_and_relational_programs(tmp_path: Path) -> None:
         "DELETE FROM schema_object_manifest WHERE name='projection_member'",
         "UPDATE schema_object_manifest SET definition_hash='forged' WHERE name='entity'",
         "PRAGMA user_version=1",
+        "PRAGMA user_version=3",
         "PRAGMA application_id=0",
     ],
 )
@@ -278,11 +282,14 @@ def relational_store(tmp_path: Path):
     with env.database.transaction() as connection:
         _insert(
             connection,
-            "knowledge_schema",
+            "knowledge_schema_revision",
             corpus_id="work",
-            schema_version="s",
+            revision_id="s",
+            sequence=1,
             definition_json="{}",
             definition_hash="h",
+            origin="trusted_preset",
+            committed_at="now",
         )
         _insert(
             connection,

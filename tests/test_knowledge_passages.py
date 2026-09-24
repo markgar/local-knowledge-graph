@@ -14,7 +14,7 @@ from support.evidence import environment, receipt
 from support.indexing import process
 from support.indexing import request as document_request
 from support.indexing import service as index_service
-from support.knowledge import schema
+from support.knowledge import preset, revision, schema
 from support.withdrawal import withdrawal
 
 from kg._execution_budget import (
@@ -98,7 +98,9 @@ def env(tmp_path):
             ),
         }
     )
-    KnowledgeAdministration(env.database, env.admin.authority).register_knowledge_schema(schema())
+    KnowledgeAdministration(env.database, env.admin.authority).register_knowledge_schema(
+        preset(schema()),
+    )
     return env
 
 
@@ -160,7 +162,7 @@ def request(env, changes, dependencies, retry=None):
             producer="passage-tests",
             producer_version="1",
         ),
-        payload=ChangeSet(
+        payload=ChangeSet(expected_schema_revision=revision(env),
             operation="enrich", changes=tuple(changes), dependencies=tuple(dependencies)
         ),
     )

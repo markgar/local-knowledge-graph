@@ -8,6 +8,7 @@ from uuid import uuid4
 import pytest
 from pydantic import ValidationError
 from support.graph import fixture, require_native
+from support.knowledge import preset
 from support.query_knowledge import produce, setup, write
 from support.withdrawal import withdrawal
 
@@ -110,8 +111,29 @@ def test_actual_native_join_and_full_proofs(tmp_path):
                 assert view.quote and "Synthetic note" in view.quote
 
 
-def test_realistic_1001_capacity(tmp_path, monkeypatch):
+@pytest.mark.parametrize("mixed_revisions", [False, True])
+def test_realistic_1001_capacity(tmp_path, monkeypatch, mixed_revisions):
     require_native()
+    if mixed_revisions:
+        from support.graph import example
+        from test_graph_relationships_schema import evolve
+
+        original_write = example.Fixture.write
+        applied = set()
+
+        def write_across_revisions(env, changes):
+            relationships = sum(value["object"] is not None for value in env.expected.values())
+            decisions = len(env.expected) - relationships
+            predicate = (
+                "work:owns" if decisions >= 500
+                else "work:decision" if relationships >= 100 else None
+            )
+            if predicate is not None and predicate not in applied:
+                evolve(env, predicate)
+                applied.add(predicate)
+            return original_write(env, changes)
+
+        monkeypatch.setattr(example.Fixture, "write", write_across_revisions)
     env = fixture(tmp_path / "source.sqlite", decisions=1001, varied=True)
     measurements = []
     original = GraphReadContext.retain
@@ -158,6 +180,9 @@ def test_realistic_1001_capacity(tmp_path, monkeypatch):
             key for key, value in env.expected.items() if value["object"] is None
         }
         assert all(len(member.relationship_ids) == 2 for member in full.members)
+        if mixed_revisions:
+            assert len({m.decision.schema_version for m in full.members}) == 2
+            assert len({p.assertion.schema_version for p in full.relationships}) == 2
         assert full.members[:1000] == cold.members
         assert_parity(env, full)
         assert max(page_limits) == 32  # 200 large nine-column rows exceed G3's page-byte bound.
@@ -227,7 +252,7 @@ def test_incoming_reached_endpoint_and_unrelated_decisions(tmp_path):
     require_native()
     env = setup(tmp_path / "source.sqlite", registered=False)
     KnowledgeAdministration(env.database, env.admin.authority).register_knowledge_schema(
-        KnowledgeSchema(
+        preset(KnowledgeSchema(
             corpus_id="work", schema_version="reverse/1", entity_types=("project",),
             predicates=(
                 PredicateDefinition(name="related", subject_types=("project",),
@@ -236,7 +261,7 @@ def test_incoming_reached_endpoint_and_unrelated_decisions(tmp_path):
                                     object_kind="string", record_projection=RecordProjection(
                                         encoding="direct-subject-decision/1")),
             ),
-        ),
+        )),
     )
     root, root_decisions = produce(env, 1, name="Root")
     reached, decisions = produce(env, 3, name="Reached")
@@ -464,7 +489,10 @@ def test_source_restore_and_creation_replay_never_resurrect_withdrawn_decision(n
     creation = WriteRequest(
         contract_version="foundation/1", request_id="extra", retry_key="extra",
         scope=env.scope, attribution=env.attribution,
-        payload=ChangeSet(operation="enrich", dependencies=(dependency,), changes=(change,)),
+        payload=ChangeSet(
+            expected_schema_revision=env.schema_revision, operation="enrich",
+            dependencies=(dependency,), changes=(change,),
+        ),
     )
     created = graph.write(creation)
     target = created.receipt.mappings[0].stored_id
@@ -505,7 +533,9 @@ def test_source_restore_and_creation_replay_never_resurrect_withdrawn_decision(n
     ref = env.evidence.anchors(env.scope, reference.document_id, state).entries[0].reference
     replacement = graph.write(creation.model_copy(update={
         "retry_key": "replacement", "request_id": "replacement",
-        "payload": ChangeSet(operation="enrich", dependencies=(dependency.model_copy(update={
+        "payload": ChangeSet(
+            expected_schema_revision=env.schema_revision,
+            operation="enrich", dependencies=(dependency.model_copy(update={
             "state_version": state, "revision_id": ref.revision_id,
         }),), changes=(change.model_copy(update={
             "support": SourceSupport(kind="source", evidence=(ref,)),

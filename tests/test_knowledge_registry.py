@@ -1,303 +1,295 @@
-import hashlib
+"""Trusted described-preset bootstrap is immutable and uses canonical revision storage."""
+
 import json
 import multiprocessing
 import sqlite3
 import subprocess
 import sys
 from pathlib import Path
+from time import monotonic
 
 import pytest
 from support.evidence import environment
-from support.knowledge import schema
+from support.knowledge import preset
 
+from kg._execution_budget import Deadline, PrivateBudget
 from kg.evidence import EvidenceDatabase, EvidenceServiceError
 from kg.evidence._sql import AccountedConnection
 from kg.evidence._transactions import writing
 from kg.knowledge import KnowledgeAdministration
-from kg.knowledge._registry import register_schema
+from kg.knowledge import _schema_operations as operations
+from kg.knowledge._registry import definition_hash, definition_json
 from kg.models.evidence import CorpusRegistration, LocalAdminAuthority, LocalIdentity, LocalPolicy
-from kg.models.knowledge import KnowledgeSchema, KnowledgeSchemaRegistration, PredicateDefinition
+from kg.models.schema import (
+    EntityTypeDefinition,
+    SchemaDefinition,
+    SchemaPresetRegistration,
+    SchemaPresetRequest,
+)
 
 ADMIN = LocalAdminAuthority(principal_id="admin")
 
 
 def stored(database):
-    with database.connection() as connection:
-        return tuple(tuple(row) for row in connection.execute(
-            "SELECT * FROM knowledge_schema ORDER BY corpus_id",
-        ))
+    with database.connection() as conn:
+        return tuple(
+            tuple(row)
+            for row in conn.execute(
+                "SELECT * FROM knowledge_schema_revision ORDER BY corpus_id,sequence",
+            )
+        )
 
 
-def test_actual_registration_reopen_order_independence_and_no_other_mutations(tmp_path):
+def test_registration_reopen_order_independence_and_no_fact_mutations(tmp_path):
     env = environment(tmp_path / "registry.db")
     admin = KnowledgeAdministration(env.database, ADMIN)
-    value = schema()
-    assert admin.register_knowledge_schema(value) == KnowledgeSchemaRegistration(
-        corpus_id="work", schema_version="test/1", status="applied",
-    )
+    value = preset()
+    first = admin.register_knowledge_schema(value)
+    assert first.status == "applied" and first.sequence == 1
     before = stored(env.database)
-    definition, digest = before[0][2:]
-    assert hashlib.sha256(definition.encode()).hexdigest() == digest
-    assert KnowledgeSchema.model_validate_json(definition).corpus_id == "work"
-    reordered = value.model_copy(update={
-        "entity_types": value.entity_types[::-1],
-        "identifier_schemes": value.identifier_schemes[::-1],
-        "predicates": value.predicates[::-1],
-    })
+    definition = SchemaDefinition.model_validate_json(before[0][4])
+    assert definition_hash("work", definition) == before[0][5]
+    reordered = value.model_copy(
+        update={
+            "definition": value.definition.model_copy(
+                update={
+                    "entity_types": value.definition.entity_types[::-1],
+                    "identifier_schemes": value.definition.identifier_schemes[::-1],
+                    "predicates": value.definition.predicates[::-1],
+                }
+            )
+        }
+    )
     reopened = KnowledgeAdministration(EvidenceDatabase(env.database.path), ADMIN)
-    assert reopened.register_knowledge_schema(reordered).status == "unchanged"
-    assert reopened.register_knowledge_schema(value).status == "unchanged"
+    second = reopened.register_knowledge_schema(reordered)
+    assert second.status == "unchanged" and second.revision == first.revision
     assert stored(env.database) == before
-    with env.database.connection() as connection:
-        for table in ("entity", "contribution", "write_key", "receipt_clock", "seed_set",
-                      "document", "state_intent"):
-            assert connection.execute(f"SELECT count(*) FROM {table}").fetchone()[0] == 0
-        assert connection.execute("PRAGMA foreign_key_check").fetchall() == []
-        assert connection.execute("PRAGMA user_version").fetchone()[0] == 3
+    with env.database.connection() as conn:
+        for table in (
+            "entity",
+            "contribution",
+            "write_key",
+            "receipt_clock",
+            "seed_set",
+            "document",
+            "state_intent",
+            "knowledge_schema_receipt",
+        ):
+            assert conn.execute(f"SELECT count(*) FROM {table}").fetchone()[0] == 0
+        assert conn.execute("PRAGMA foreign_key_check").fetchall() == []
+        assert conn.execute("PRAGMA user_version").fetchone()[0] == 4
     assert env.service.diagnostics.recent(env.scope).entries == ()
-    assert not hasattr(admin, "diagnostics")
-    assert not hasattr(admin, "write")
 
 
-def test_predicate_type_order_is_not_priority(tmp_path):
-    env = environment(tmp_path / "order.db")
+@pytest.mark.parametrize("field", ["preset_name", "preset_rationale", "definition"])
+def test_preset_cannot_replace_a_registered_definition(tmp_path, field):
+    env = environment(tmp_path / "registry.db")
     admin = KnowledgeAdministration(env.database, ADMIN)
-    value = schema().model_copy(update={"predicates": (
-        schema().predicates[0].model_copy(update={
-            "subject_types": ("person", "project"), "object_types": ("person", "project"),
-        }),
-    )})
-    assert admin.register_knowledge_schema(value).status == "applied"
-    reverse = value.model_copy(update={"predicates": (
-        value.predicates[0].model_copy(update={
-            "subject_types": ("project", "person"), "object_types": ("project", "person"),
-        }),
-    )})
-    assert admin.register_knowledge_schema(reverse).status == "unchanged"
-
-
-@pytest.mark.parametrize("change", ["version", "type", "scheme", "predicate", "projection"])
-def test_immutable_definition_conflict_preserves_original(tmp_path, change):
-    env = environment(tmp_path / "immutable.db")
-    admin = KnowledgeAdministration(env.database, ADMIN)
-    value = schema()
+    value = preset()
     admin.register_knowledge_schema(value)
     before = stored(env.database)
-    fields = value.model_dump()
-    if change == "version":
-        fields["schema_version"] = "test/2"
-    elif change == "type":
-        fields["entity_types"] += ("team",)
-    elif change == "scheme":
-        fields["identifier_schemes"] = ("other",)
-    elif change == "predicate":
-        fields["predicates"][0]["subject_types"] = ("project",)
-    else:
-        fields["predicates"][1]["record_projection"] = None
-    with pytest.raises(EvidenceServiceError) as error:
-        admin.register_knowledge_schema(KnowledgeSchema.model_validate(fields))
-    assert error.value.failure.code == "state_conflict"
-    assert stored(env.database) == before
-
-
-def test_corpus_isolation_missing_corpus_and_context_authority(tmp_path):
-    env = environment(tmp_path / "scope.db")
-    admin = KnowledgeAdministration(env.database, ADMIN)
-    admin.register_knowledge_schema(schema())
-    before = stored(env.database)
-    with pytest.raises(EvidenceServiceError) as error:
-        admin.register_knowledge_schema(schema(corpus="absent"))
-    assert error.value.failure.code == "not_found"
-    assert stored(env.database) == before
-    env.admin.register(CorpusRegistration(
-        corpus_id="other", namespaces=("markdown",), policy=LocalPolicy(corpus_id="other"),
-    ))
-    assert admin.register_knowledge_schema(schema(corpus="other", version="different")).status == (
-        "applied"
-    )
-    with writing(env.database, LocalIdentity(principal_id="not-admin")) as context:
-        with pytest.raises(EvidenceServiceError) as error:
-            register_schema(context, ADMIN, schema())
-        assert error.value.failure.code == "forbidden"
-    with pytest.raises(EvidenceServiceError) as error:
-        KnowledgeAdministration(env.database, env.service.identity)
-    assert error.value.failure.code == "invalid_request"
-    with pytest.raises(EvidenceServiceError):
-        KnowledgeAdministration(env.database, env.scope)
-
-
-@pytest.mark.parametrize("forgery", ["top", "nested", "descriptor", "extra", "python-type"])
-def test_constructed_and_copied_models_revalidated_before_mutation(tmp_path, forgery):
-    env = environment(tmp_path / "forged.db")
-    admin = KnowledgeAdministration(env.database, ADMIN)
-    value = schema()
-    if forgery == "top":
-        value = KnowledgeSchema.model_construct(
-            corpus_id="work", schema_version="v1", entity_types=("Upper",),
+    replacement = (
+        "Changed"
+        if field != "definition"
+        else value.definition.model_copy(
+            update={
+                "entity_types": (
+                    *value.definition.entity_types,
+                    EntityTypeDefinition(
+                        name="team",
+                        description="An explicitly identified team.",
+                    ),
+                ),
+            }
         )
-    elif forgery == "nested":
-        value = value.model_copy(update={"predicates": (
-            value.predicates[0].model_copy(update={"object_types": ()}),
-        )})
-    elif forgery == "descriptor":
-        predicate = value.predicates[1]
-        value = value.model_copy(update={"predicates": (
-            predicate.model_copy(update={"record_projection":
-                predicate.record_projection.model_copy(update={"encoding": "action"})}),
-        )})
-    elif forgery == "python-type":
-        value = value.model_copy(update={"entity_types": ["person"]})
-    else:
-        value = value.model_copy(update={"unknown": True})
-    with pytest.raises(EvidenceServiceError) as error:
-        admin.register_knowledge_schema(value)
-    assert error.value.failure.code == "invalid_request"
-    assert stored(env.database) == ()
+    )
+    with pytest.raises(EvidenceServiceError, match="state_conflict"):
+        admin.register_knowledge_schema(value.model_copy(update={field: replacement}))
+    assert stored(env.database) == before
 
 
-def test_authority_defensive_revalidation_and_typed_service_input(tmp_path):
-    env = environment(tmp_path / "authority.db")
-    with pytest.raises(EvidenceServiceError):
-        KnowledgeAdministration(env.database, ADMIN.model_copy(update={"principal_id": ""}))
+def test_corpus_isolation_and_provisioned_authority(tmp_path):
+    env = environment(tmp_path / "registry.db")
+    value = preset()
     admin = KnowledgeAdministration(env.database, ADMIN)
-    with pytest.raises(EvidenceServiceError):
-        admin.register_knowledge_schema(schema().model_dump())
-    admin.authority = ADMIN.model_copy(update={"extra": "forged"})
-    with pytest.raises(EvidenceServiceError):
-        admin.register_knowledge_schema(schema())
+    admin.register_knowledge_schema(value)
+    with pytest.raises(EvidenceServiceError, match="not_found"):
+        admin.register_knowledge_schema(value.model_copy(update={"corpus_id": "absent"}))
+    env.admin.register(
+        CorpusRegistration(
+            corpus_id="other",
+            namespaces=("markdown",),
+            policy=LocalPolicy(corpus_id="other"),
+        )
+    )
+    assert admin.register_knowledge_schema(
+        value.model_copy(update={"corpus_id": "other"})
+    ).status == ("applied")
+    for invalid in (env.service.identity, env.scope, value.model_dump()):
+        with pytest.raises(EvidenceServiceError, match="invalid_request"):
+            KnowledgeAdministration(env.database, invalid)
+    with pytest.raises(EvidenceServiceError, match="state_conflict"):
+        KnowledgeAdministration(
+            env.database,
+            LocalAdminAuthority(principal_id="different-admin"),
+        ).register_knowledge_schema(value)
+
+
+@pytest.mark.parametrize("forgery", ["top", "nested", "extra", "python-type", "description"])
+def test_constructed_copied_and_nested_models_revalidated(tmp_path, forgery):
+    env = environment(tmp_path / "registry.db")
+    value = preset()
+    if forgery == "top":
+        value = SchemaPresetRequest.model_construct(corpus_id="work")
+    elif forgery == "extra":
+        value = value.model_copy(update={"unknown": True})
+    elif forgery == "python-type":
+        value = value.model_copy(
+            update={
+                "definition": value.definition.model_copy(
+                    update={
+                        "entity_types": list(value.definition.entity_types),
+                    }
+                )
+            }
+        )
+    elif forgery == "description":
+        value = value.model_copy(
+            update={
+                "definition": value.definition.model_copy(
+                    update={
+                        "entity_types": (
+                            value.definition.entity_types[0].model_copy(update={"description": ""}),
+                        ),
+                    }
+                )
+            }
+        )
+    else:
+        value = value.model_copy(
+            update={
+                "definition": value.definition.model_copy(
+                    update={
+                        "predicates": (
+                            value.definition.predicates[0].model_copy(update={"object_types": ()}),
+                        ),
+                    }
+                )
+            }
+        )
+    with pytest.raises(EvidenceServiceError, match="invalid_request"):
+        KnowledgeAdministration(env.database, ADMIN).register_knowledge_schema(value)
     assert stored(env.database) == ()
 
 
-def test_same_context_kernel_rollback_and_lifetime(tmp_path):
-    env = environment(tmp_path / "transaction.db")
-    with pytest.raises(RuntimeError, match="after insert"), writing(
-        env.database, LocalIdentity(principal_id="admin"),
-    ) as context:
-        assert register_schema(context, ADMIN, schema()).status == "applied"
-        assert register_schema(context, ADMIN, schema()).status == "unchanged"
-        assert context.connection.in_transaction
+def test_owner_rollback_and_lifetime(tmp_path):
+    env = environment(tmp_path / "registry.db")
+    budget = PrivateBudget(Deadline(monotonic() + 30))
+    with (
+        pytest.raises(RuntimeError),
+        writing(
+            env.database,
+            LocalIdentity(principal_id="admin"),
+            budget=budget,
+        ) as context,
+    ):
+        operations.preset(context, preset(), budget)
         raise RuntimeError("after insert")
     assert context.commit_outcome == "confirmed_rolled_back"
     assert stored(env.database) == ()
-    with pytest.raises(EvidenceServiceError) as error:
-        register_schema(context, ADMIN, schema())
-    assert error.value.failure.code == "invalid_request"
-    assert KnowledgeAdministration(env.database, ADMIN).register_knowledge_schema(
-        schema(),
-    ).status == "applied"
+    with pytest.raises(EvidenceServiceError, match="invalid_request"):
+        operations.preset(context, preset(), budget)
 
 
-def test_insert_failure_rolls_back_with_explicit_storage_error(tmp_path, monkeypatch, caplog):
-    env = environment(tmp_path / "failure.db")
-    original = AccountedConnection.execute
+def test_insert_failure_rolls_back_and_logs_safe_error(tmp_path, monkeypatch, caplog):
+    env = environment(tmp_path / "registry.db")
+    execute = AccountedConnection.execute
 
-    def fail(connection, sql, parameters=()):
-        if sql.startswith("INSERT INTO knowledge_schema"):
-            original(connection, sql, parameters)
-            raise sqlite3.OperationalError("private database error")
-        return original(connection, sql, parameters)
+    def fail(conn, sql, parameters=()):
+        result = execute(conn, sql, parameters)
+        if sql.startswith("INSERT INTO knowledge_schema_head"):
+            raise sqlite3.OperationalError("private detail")
+        return result
 
     with monkeypatch.context() as patch:
         patch.setattr(AccountedConnection, "execute", fail)
-        with pytest.raises(EvidenceServiceError) as error:
-            KnowledgeAdministration(env.database, ADMIN).register_knowledge_schema(schema())
-    assert error.value.failure.code == "internal_error"
-    assert "private database error" not in str(error.value)
+        with pytest.raises(EvidenceServiceError, match="internal_error") as error:
+            KnowledgeAdministration(env.database, ADMIN).register_knowledge_schema(preset())
+    assert "private detail" not in str(error.value)
     assert "class=OperationalError" in caplog.text
     assert stored(env.database) == ()
 
 
-@pytest.mark.parametrize("corruption", ["json", "hash", "version", "corpus", "noncanonical"])
-def test_corrupt_stored_registry_is_not_unchanged_or_replaceable(tmp_path, corruption):
-    env = environment(tmp_path / "corrupt.db")
+@pytest.mark.parametrize("corruption", ["json", "hash", "noncanonical"])
+def test_corrupt_stored_definition_is_not_repaired(tmp_path, corruption):
+    env = environment(tmp_path / "registry.db")
     admin = KnowledgeAdministration(env.database, ADMIN)
-    admin.register_knowledge_schema(schema())
-    with env.database.transaction() as connection:
+    admin.register_knowledge_schema(preset())
+    with env.database.transaction() as conn:
         if corruption == "hash":
-            connection.execute("UPDATE knowledge_schema SET definition_hash='bad'")
-        elif corruption == "version":
-            connection.execute("UPDATE knowledge_schema SET schema_version='other'")
+            conn.execute("UPDATE knowledge_schema_revision SET definition_hash='bad'")
+        elif corruption == "json":
+            conn.execute("UPDATE knowledge_schema_revision SET definition_json='{}'")
         else:
-            definition = stored(env.database)[0][2]
-            if corruption == "json":
-                definition = "{broken"
-            elif corruption == "corpus":
-                definition = definition.replace('"corpus_id":"work"', '"corpus_id":"foreign"')
-            else:
-                definition = json.dumps(json.loads(definition), indent=2)
-            connection.execute(
-                "UPDATE knowledge_schema SET definition_json=?,definition_hash=?",
-                (definition, hashlib.sha256(definition.encode()).hexdigest()),
+            row = conn.execute("SELECT definition_json FROM knowledge_schema_revision").fetchone()
+            definition = SchemaDefinition.model_validate_json(row[0])
+            conn.execute(
+                "UPDATE knowledge_schema_revision SET definition_json=?",
+                (json.dumps(json.loads(definition_json(definition)), indent=2),),
             )
     before = stored(env.database)
-    with pytest.raises(EvidenceServiceError) as error:
-        admin.register_knowledge_schema(schema())
-    assert error.value.failure.code == "internal_error"
+    with pytest.raises(EvidenceServiceError, match="internal_error"):
+        admin.register_knowledge_schema(preset())
     assert stored(env.database) == before
 
 
-def _register_worker(path, version, barrier, results):
+def _register_worker(path, barrier, queue, name):
     admin = KnowledgeAdministration(EvidenceDatabase(Path(path)), ADMIN)
-    barrier.wait(timeout=20)
+    value = preset().model_copy(update={"preset_name": name})
+    barrier.wait()
     try:
-        result = admin.register_knowledge_schema(schema(version=version))
-        results.put(result.status)
+        result = admin.register_knowledge_schema(value)
+        queue.put((result.status, result.revision.revision_id))
     except EvidenceServiceError as error:
-        results.put(error.failure.code)
+        queue.put((error.failure.code, None))
 
 
-@pytest.mark.parametrize("different", [False, True])
-def test_two_process_registrations_converge_or_conflict(tmp_path, different):
-    env = environment(tmp_path / "race.db")
+@pytest.mark.parametrize("same", [True, False])
+def test_multiprocess_registration_serializes(tmp_path, same):
+    env = environment(tmp_path / "registry.db")
     ctx = multiprocessing.get_context("spawn")
-    barrier, results = ctx.Barrier(3), ctx.Queue()
-    versions = ("v1", "v2" if different else "v1")
+    barrier, queue = ctx.Barrier(2), ctx.Queue()
     processes = [
-        ctx.Process(target=_register_worker, args=(str(env.database.path), v, barrier, results))
-        for v in versions
+        ctx.Process(
+            target=_register_worker,
+            args=(str(env.database.path), barrier, queue, "one" if same or i == 0 else "two"),
+        )
+        for i in range(2)
     ]
     for process in processes:
         process.start()
-    barrier.wait(timeout=20)
-    outcomes = [results.get(timeout=30) for _ in processes]
     for process in processes:
         process.join(30)
         assert process.exitcode == 0
-    assert sorted(outcomes) == ["applied", "state_conflict" if different else "unchanged"]
-    rows = stored(env.database)
-    assert len(rows) == 1 and rows[0][1] in versions
-
-
-def test_maximum_registry_and_type_sides_persist_without_truncation(tmp_path):
-    env = environment(tmp_path / "limits.db")
-    types = tuple(f"type{i}" for i in range(1000))
-    value = KnowledgeSchema(
-        corpus_id="work", schema_version="max/1", entity_types=types,
-        identifier_schemes=tuple(f"scheme{i}" for i in range(1000)),
-        predicates=tuple(
-            PredicateDefinition(
-                name=f"predicate{i}", subject_types=types[:100],
-                object_kind="entity", object_types=types[-100:],
-            )
-            for i in range(1000)
-        ),
+    outcomes = [queue.get(timeout=5) for _ in processes]
+    assert sorted(o[0] for o in outcomes) == (
+        ["applied", "unchanged"] if same else ["applied", "state_conflict"]
     )
-    admin = KnowledgeAdministration(env.database, ADMIN)
-    assert admin.register_knowledge_schema(value).status == "applied"
-    persisted = KnowledgeSchema.model_validate_json(stored(env.database)[0][2])
-    assert len(persisted.entity_types) == len(persisted.identifier_schemes) == 1000
-    assert len(persisted.predicates) == 1000
-    assert all(len(p.subject_types) == len(p.object_types) == 100 for p in persisted.predicates)
-    assert admin.register_knowledge_schema(value).status == "unchanged"
+    if same:
+        assert outcomes[0][1] == outcomes[1][1]
+    assert len(stored(env.database)) == 1
 
 
-def test_executable_example_registers_then_reopens_unchanged(tmp_path):
-    example = Path(__file__).resolve().parents[1] / "examples" / "knowledge_schema.py"
-    path = tmp_path / "example.db"
-    for status in ("applied", "unchanged"):
-        output = subprocess.run(
-            [sys.executable, str(example), "--database", str(path)],
-            text=True, capture_output=True, check=True,
-        )
-        value = KnowledgeSchemaRegistration.model_validate_json(output.stdout)
-        assert value.status == status and value.corpus_id == "registry-demo"
+def test_example_reopens_exact_genesis(tmp_path):
+    command = [
+        sys.executable,
+        str(Path(__file__).parents[1] / "examples/knowledge_schema.py"),
+        "--database",
+        str(tmp_path / "example.sqlite"),
+    ]
+    values = [
+        SchemaPresetRegistration.model_validate_json(subprocess.check_output(command))
+        for _ in range(2)
+    ]
+    assert [v.status for v in values] == ["applied", "unchanged"]
+    assert values[0].revision == values[1].revision

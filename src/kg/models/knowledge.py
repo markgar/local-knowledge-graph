@@ -5,7 +5,7 @@ from typing import Literal, Self
 from pydantic import Field, model_validator
 
 from kg.knowledge._selection import CapturedEvidence, EntityWitness
-from kg.models.foundation import Attribution, Change, Label, Name, Token, Value
+from kg.models.foundation import Attribution, Change, Label, Name, SchemaRevisionRef, Token, Value
 
 
 class KnowledgeValue(Value):
@@ -67,7 +67,10 @@ class KnowledgeSchemaRegistration(KnowledgeValue):
 
 
 class KnowledgeCapabilities(KnowledgeValue):
-    withdrawal: Literal["owned_assertion"] = "owned_assertion"
+    schema_status: Literal["configured", "unconfigured"] = "configured"
+    schema_revision: SchemaRevisionRef | None = None
+    enrichment_revision: Literal["exact_head"] = "exact_head"
+    withdrawal: Literal["owned_assertion"] | None = "owned_assertion"
     change_kinds: tuple[str, ...] = (
         "entity", "entity_support", "alias", "identifier", "mention", "assertion",
     )

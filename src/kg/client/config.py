@@ -20,7 +20,13 @@ from kg.models.evidence import (
 )
 from kg.models.foundation import AccessContext, Attribution, Scope, Value
 from kg.models.indexing import DEFAULT_CONFIGURATION, IndexConfiguration
-from kg.models.knowledge import KnowledgeSchema, PredicateDefinition, RecordProjection
+from kg.models.knowledge import RecordProjection
+from kg.models.schema import (
+    EntityTypeDefinition,
+    SchemaDefinition,
+    SchemaPredicateDefinition,
+    SchemaPresetRequest,
+)
 
 
 class ClientError(Exception):
@@ -70,23 +76,30 @@ def load_profile(path: Path | None = None) -> Profile:
     return Profile.model_validate_json(path.read_bytes())
 
 
-def starter_schema() -> KnowledgeSchema:
-    return KnowledgeSchema(
+def starter_schema() -> SchemaPresetRequest:
+    return SchemaPresetRequest(
         corpus_id="personal",
-        schema_version="personal/1",
-        entity_types=("person", "project"),
-        predicates=(
-            PredicateDefinition(
-                name="owns",
-                subject_types=("person",),
-                object_kind="entity",
-                object_types=("project",),
+        preset_name="personal/1",
+        preset_rationale="Explicit local setup example vocabulary, not extracted knowledge.",
+        definition=SchemaDefinition(
+            entity_types=(
+                EntityTypeDefinition(name="person", description="An individual person."),
+                EntityTypeDefinition(
+                    name="project", description="An explicitly identified project.",
+                ),
             ),
-            PredicateDefinition(
-                name="decision",
-                subject_types=("person", "project"),
-                object_kind="string",
-                record_projection=RecordProjection(encoding="direct-subject-decision/1"),
+            predicates=(
+                SchemaPredicateDefinition(
+                    name="owns",
+                    description="The subject is explicitly accountable for the object.",
+                    subject_types=("person",), object_kind="entity", object_types=("project",),
+                ),
+                SchemaPredicateDefinition(
+                    name="decision",
+                    description="An explicitly recorded decision about the subject.",
+                    subject_types=("person", "project"), object_kind="string",
+                    record_projection=RecordProjection(encoding="direct-subject-decision/1"),
+                ),
             ),
         ),
     )

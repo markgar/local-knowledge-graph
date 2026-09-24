@@ -152,7 +152,6 @@ def decode_relationship(
         if (
             assertion.subject_id != subject or assertion.object_entity_id != obj
             or assertion.assertion_id != identifier or assertion.predicate != predicate
-            or assertion.schema_version != schema.schema_version
             or schema.corpus_id != scope.corpus_id
             or assertion.interpretation != "explicit" or assertion.object_entity_id is None
             or assertion.subject_witness != subject_witness
@@ -164,6 +163,7 @@ def decode_relationship(
                    for e in assertion.support)
         ):
             raise NativeError("invalid_projection")
+        ctx.require_authored_revision(identifier, assertion.schema_version)
         # G3 verified non-root entity types; they are not present in this proof row.
         return GraphRelationshipProof(
             path=Path(
