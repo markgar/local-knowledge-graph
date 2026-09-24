@@ -9,9 +9,10 @@ quality. For an agent-answer comparison, use [work-memory](../work_memory/README
 
 Search explicitly uses natural BM25 through the private
 [`_lexical_search.py`](../_lexical_search.py) worker. Other operations invoke
-`kg` in subprocesses. Neither requires semantic models or a vector index.
+`python -m kg.legacy_cli` in subprocesses using the current Python interpreter.
+Neither requires semantic models or a vector index.
 These are component/contract checks, not an alternative product search
-interface: public `kg search` uses the full lexical/dense/fusion/reranking
+interface: the retained demo's `search` uses the full lexical/dense/fusion/reranking
 pipeline. See [productization validation](../productization/README.md) for parity.
 
 ## Run
@@ -40,9 +41,9 @@ status, explicit conflicts, ambiguous cross-source matches, unsupported subjects
 citation round-trips, and revision comparison. Keep its reviewed expectations
 and the `agent-cli-e5` report label unchanged when comparing runs.
 
-Citation checks use `kg evidence` and `kg source-range`; revision checks reingest
-an edited source and use `kg compare-revisions`. Capability discovery,
-`kg revisions`, and `kg source-context` have separate CLI tests; they are not workflows
+Citation checks use the demo module's `evidence` and `source-range`; revision checks reingest
+an edited source and use `compare-revisions`. Capability discovery,
+`revisions`, and `source-context` have separate CLI tests; they are not workflows
 in this task file. Source context reads bounded passages from the selected
 revision and reports truncation. Contextual embedding/reranking is a separate
 [QASPER experiment](../qasper/README.md), not part of this lexical evaluation.
