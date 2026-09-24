@@ -45,6 +45,7 @@ def _manifest(tmp_path: Path) -> Path:
     return path
 
 
+@pytest.mark.service
 def test_hybrid_search_fuses_unchanged_rankings_and_forwards_filters(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -102,6 +103,7 @@ def test_hybrid_search_fuses_unchanged_rankings_and_forwards_filters(
     )
 
 
+@pytest.mark.service
 def test_hybrid_search_breaks_equal_scores_by_record_id(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -136,6 +138,7 @@ def test_hybrid_search_breaks_equal_scores_by_record_id(
     ]
 
 
+@pytest.mark.service
 def test_hybrid_search_rejects_a_corpus_change_during_fusion(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,

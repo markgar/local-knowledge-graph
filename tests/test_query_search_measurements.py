@@ -7,6 +7,7 @@ from pathlib import Path
 import pytest
 
 
+@pytest.mark.unit
 @pytest.mark.parametrize("filename", [
     "q1-controlled-composition.json", "q1-controlled-composition-reviewed.json",
 ])

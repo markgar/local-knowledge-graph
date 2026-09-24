@@ -47,6 +47,7 @@ def prepared(configured, filename="04-audit-trail.md"):
     return file, value, support
 
 
+@pytest.mark.functional
 def test_discover_validate_approve_apply_record_read_and_retry(configured):
     file, value, support = prepared(configured)
     before = call("schema", "show")["result"]
@@ -87,20 +88,36 @@ def test_discover_validate_approve_apply_record_read_and_retry(configured):
                     {
                         "kind": "entity",
                         "local_id": "certificate",
-                        "entity_type": "certificate",
                         "name": "Archive signing certificate",
                         "support": {"kind": "source", "evidence": ["audit"]},
-                    }
+                    },
+                    {
+                        "kind": "classification", "local_id": "type",
+                        "entity": {"kind": "local", "local_id": "certificate"},
+                        "entity_type": "certificate", "interpretation": "explicit",
+                        "support": {"kind": "source", "evidence": ["audit"]},
+                    },
+                    {
+                        "kind": "classification_selection", "local_id": "selection",
+                        "entity": {"kind": "local", "local_id": "certificate"},
+                        "claim": {"kind": "local", "local_id": "type"},
+                        "expected_selection_id": None, "reviewed_candidates_digest": None,
+                        "reviewed_claim_ids": [], "review_coverage": "complete",
+                        "accept_incomplete_review": False, "rationale": "Reviewed certificate.",
+                    },
                 ],
             }
         )
     )
-    mapping = call("record", facts)["result"]["write"]["receipt"]["mappings"][0]
+    mapping = call("record", facts, "--retry-key", "facts")["result"]["write"]["receipt"][
+        "mappings"
+    ][0]
     entity = call("read", "entity:" + mapping["stored_id"])["result"]["entity"]
     assert entity["entity_type"] == "certificate"
     assert call("find", "relationships", "entity:" + mapping["stored_id"])["status"] == "empty"
 
 
+@pytest.mark.functional
 @pytest.mark.parametrize("failure", [KeyboardInterrupt, RuntimeError])
 def test_schema_apply_unknown_preserves_operator_retry_material(configured, monkeypatch, failure):
     from kg.knowledge import KnowledgeAdministration
@@ -138,6 +155,7 @@ def test_schema_apply_unknown_preserves_operator_retry_material(configured, monk
     assert "prepared-correlation" in text.stdout and "Outcome unknown" in text.stdout
 
 
+@pytest.mark.functional
 def test_schema_history_text_continuation_uses_sequence_flag(configured):
     file, _, _ = prepared(configured)
     digest = call("schema", "validate", file)["result"]["proposal_digest"]
@@ -153,6 +171,7 @@ def test_schema_history_text_continuation_uses_sequence_flag(configured):
     assert len(second["entries"]) == 1 and not second["has_more"]
 
 
+@pytest.mark.functional
 @pytest.mark.parametrize("invalid", ["duplicate", "oversize", "missing-approval"])
 def test_schema_client_rejects_bad_input_without_apply(configured, monkeypatch, invalid):
     from kg.knowledge import KnowledgeAdministration

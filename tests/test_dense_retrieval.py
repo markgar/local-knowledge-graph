@@ -53,6 +53,7 @@ class FakeEmbeddingProvider:
         return [0.0, 1.0]
 
 
+@pytest.mark.service
 def test_public_dense_build_rejects_evidence_projection_target(tmp_path: Path) -> None:
     manifest = load_manifest(_manifest(tmp_path))
     database = Database(manifest.database)
@@ -98,6 +99,7 @@ def _manifest(tmp_path: Path) -> Path:
     return path
 
 
+@pytest.mark.service
 @pytest.mark.parametrize("profile", list(EmbeddingProfile))
 def test_contextual_index_is_separate_and_preserves_evidence(
     tmp_path: Path, profile: EmbeddingProfile,
@@ -159,6 +161,7 @@ def test_contextual_index_is_separate_and_preserves_evidence(
         contextual.search("database")
 
 
+@pytest.mark.unit
 def test_embedding_profile_parsing_is_exact() -> None:
     assert EmbeddingProfile("gte-modernbert") is EmbeddingProfile.gte_modernbert
     assert (
@@ -169,6 +172,7 @@ def test_embedding_profile_parsing_is_exact() -> None:
         EmbeddingProfile("qwen")
 
 
+@pytest.mark.unit
 @pytest.mark.parametrize("failure", [OSError("disk"), RuntimeError("model"), ValueError("input")])
 @pytest.mark.parametrize("method", ["encode_documents", "encode_query"])
 def test_sentence_transformer_encode_failures_are_dense_index_errors(
@@ -191,6 +195,7 @@ def test_sentence_transformer_encode_failures_are_dense_index_errors(
             provider.encode_query("query")
 
 
+@pytest.mark.unit
 @pytest.mark.parametrize("method", ["encode_documents", "encode_query"])
 def test_sentence_transformer_conversion_failures_are_dense_index_errors(
     method: str,
@@ -211,6 +216,7 @@ def test_sentence_transformer_conversion_failures_are_dense_index_errors(
             provider.encode_query("query")
 
 
+@pytest.mark.unit
 def test_sentence_transformer_uses_profile_specific_query_and_document_encoding() -> None:
     class RecordingModel:
         def __init__(self) -> None:
@@ -235,6 +241,7 @@ def test_sentence_transformer_uses_profile_specific_query_and_document_encoding(
     assert query_call[1]["prompt_name"] == "query"
 
 
+@pytest.mark.service
 def test_dense_projection_is_versioned_and_returns_canonical_evidence(
     tmp_path: Path,
 ) -> None:
@@ -277,6 +284,7 @@ def test_dense_projection_is_versioned_and_returns_canonical_evidence(
     )
 
 
+@pytest.mark.service
 def test_dense_search_rejects_a_stale_projection(tmp_path: Path) -> None:
     manifest_path = _manifest(tmp_path)
     manifest = load_manifest(manifest_path)
@@ -300,6 +308,7 @@ def test_dense_search_rejects_a_stale_projection(tmp_path: Path) -> None:
         service.search("database")
 
 
+@pytest.mark.service
 def test_dense_search_honors_source_filter(tmp_path: Path) -> None:
     manifest_path = _manifest(tmp_path)
     manifest = load_manifest(manifest_path)
@@ -319,6 +328,7 @@ def test_dense_search_honors_source_filter(tmp_path: Path) -> None:
     assert {result.source_path for result in results} == {"garden.md"}
 
 
+@pytest.mark.service
 def test_dense_search_rejects_a_different_embedding_pipeline(tmp_path: Path) -> None:
     manifest_path = _manifest(tmp_path)
     manifest = load_manifest(manifest_path)
@@ -338,6 +348,7 @@ def test_dense_search_rejects_a_different_embedding_pipeline(tmp_path: Path) -> 
         service.search("database", provider=changed_provider)
 
 
+@pytest.mark.service
 @pytest.mark.parametrize(
     ("property_name", "changed_value"),
     [
@@ -382,6 +393,7 @@ def test_dense_projection_identity_includes_encoding_behavior(
     assert original_service.search("database", limit=1)[0].source_path == "storage.md"
 
 
+@pytest.mark.service
 def test_dense_profiles_coexist_with_dynamic_dimensions(tmp_path: Path) -> None:
     manifest = load_manifest(_manifest(tmp_path))
     database = Database(manifest.database)
@@ -425,6 +437,7 @@ def test_dense_profiles_coexist_with_dynamic_dimensions(tmp_path: Path) -> None:
     assert qwen.search("database", limit=1)[0].source_path == "storage.md"
 
 
+@pytest.mark.service
 def test_dense_search_rejects_projection_built_for_another_profile(
     tmp_path: Path,
 ) -> None:
@@ -454,6 +467,7 @@ def test_dense_search_rejects_projection_built_for_another_profile(
         service.search("database")
 
 
+@pytest.mark.service
 def test_dense_subject_filter_treats_sql_wildcards_literally(tmp_path: Path) -> None:
     manifest_path = _manifest(tmp_path)
     manifest = load_manifest(manifest_path)
@@ -470,6 +484,7 @@ def test_dense_subject_filter_treats_sql_wildcards_literally(tmp_path: Path) -> 
     assert service.search("database", subject="%") == []
 
 
+@pytest.mark.service
 def test_dense_build_rolls_back_when_corpus_changes_during_activation(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -510,6 +525,7 @@ def test_dense_build_rolls_back_when_corpus_changes_during_activation(
     assert vector_tables == 0
 
 
+@pytest.mark.service
 def test_dense_projection_rejects_an_older_schema(tmp_path: Path) -> None:
     manifest_path = _manifest(tmp_path)
     manifest = load_manifest(manifest_path)
@@ -534,6 +550,7 @@ def test_dense_projection_rejects_an_older_schema(tmp_path: Path) -> None:
         service.build_index()
 
 
+@pytest.mark.service
 def test_existing_gte_projection_schema_is_migrated_compatibly(tmp_path: Path) -> None:
     manifest = load_manifest(_manifest(tmp_path))
     database = Database(manifest.database)
@@ -577,6 +594,7 @@ def test_existing_gte_projection_schema_is_migrated_compatibly(tmp_path: Path) -
     assert service.search("database", limit=1)[0].source_path == "storage.md"
 
 
+@pytest.mark.service
 def test_completed_v2_gte_projection_is_reused_without_reembedding(
     tmp_path: Path,
 ) -> None:
@@ -637,6 +655,7 @@ def test_completed_v2_gte_projection_is_reused_without_reembedding(
     assert reused.projection_id == original.projection_id
 
 
+@pytest.mark.service
 def test_search_migrates_v2_schema_before_projection_validation(tmp_path: Path) -> None:
     manifest = load_manifest(_manifest(tmp_path))
     database = Database(manifest.database)
@@ -682,6 +701,7 @@ def test_search_migrates_v2_schema_before_projection_validation(tmp_path: Path) 
         ).fetchone()[0] == 3
 
 
+@pytest.mark.service
 def test_dense_build_reuses_projection_created_by_a_concurrent_builder(
     tmp_path: Path,
 ) -> None:
@@ -720,6 +740,7 @@ def test_dense_build_reuses_projection_created_by_a_concurrent_builder(
     assert service.search("database", limit=1)[0].source_path == "storage.md"
 
 
+@pytest.mark.service
 def test_dense_search_validates_fingerprint_after_materializing_results(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -766,6 +787,7 @@ def test_dense_search_validates_fingerprint_after_materializing_results(
     assert fingerprint_calls == 2
 
 
+@pytest.mark.service
 def test_empty_dense_search_still_validates_the_final_fingerprint(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,

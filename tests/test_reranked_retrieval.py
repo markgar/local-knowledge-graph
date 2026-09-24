@@ -45,6 +45,7 @@ def _database(tmp_path: Path) -> Database:
     return database
 
 
+@pytest.mark.service
 @pytest.mark.parametrize("contextual", [False, True])
 def test_reranked_search_scores_unchanged_hybrid_candidates_and_forwards_filters(
     tmp_path: Path,
@@ -109,6 +110,7 @@ def test_reranked_search_scores_unchanged_hybrid_candidates_and_forwards_filters
     assert [result.quote for result in results] == ["b evidence", "c evidence"]
 
 
+@pytest.mark.service
 def test_reranked_search_breaks_equal_scores_by_record_id(tmp_path: Path) -> None:
     class StubHybridRetrieval:
         def search(self, query: str, **kwargs: object) -> list[SearchResult]:
@@ -143,6 +145,7 @@ def test_reranked_search_breaks_equal_scores_by_record_id(tmp_path: Path) -> Non
     assert [result.record_id for result in service.search("question")] == ["a", "b"]
 
 
+@pytest.mark.service
 def test_reranked_search_expands_candidates_to_the_requested_limit(
     tmp_path: Path,
 ) -> None:
@@ -183,6 +186,7 @@ def test_reranked_search_expands_candidates_to_the_requested_limit(
     assert [result.record_id for result in results[:3]] == ["000", "001", "002"]
 
 
+@pytest.mark.service
 def test_reranked_search_rejects_invalid_scores(tmp_path: Path) -> None:
     class StubHybridRetrieval:
         def search(self, query: str, **kwargs: object) -> list[SearchResult]:
@@ -217,6 +221,7 @@ def test_reranked_search_rejects_invalid_scores(tmp_path: Path) -> None:
         service.search("question")
 
 
+@pytest.mark.service
 def test_reranked_search_rejects_a_corpus_change(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,

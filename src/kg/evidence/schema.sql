@@ -1,6 +1,6 @@
 CREATE TABLE store_format (
     singleton INTEGER PRIMARY KEY CHECK (singleton = 1),
-    format TEXT NOT NULL CHECK (format = 'evidence-store/4'),
+    format TEXT NOT NULL CHECK (format = 'evidence-store/5'),
     manifest_version TEXT NOT NULL CHECK (manifest_version = 'canonical-sqlite-manifest/1'),
     schema_signature TEXT NOT NULL
 );
@@ -165,13 +165,13 @@ CREATE TABLE write_key (
     corpus_id TEXT NOT NULL REFERENCES corpus,
     writer_id TEXT NOT NULL,
     operation TEXT NOT NULL CHECK (operation IN (
-        'put_document', 'remove_document', 'enrich', 'replace_seed_set', 'withdraw_assertion'
+        'put_document', 'remove_document', 'enrich', 'replace_seed_set', 'withdraw_assertion', 'withdraw_classification'
     )),
     key_hash TEXT NOT NULL,
     digest TEXT NOT NULL,
     digest_version TEXT NOT NULL CHECK (
         (operation IN ('put_document', 'remove_document') AND digest_version = 'e1-request-digest/1')
-        OR (operation IN ('enrich', 'replace_seed_set', 'withdraw_assertion')
+        OR (operation IN ('enrich', 'replace_seed_set', 'withdraw_assertion', 'withdraw_classification')
             AND digest_version = 'k1-request-digest/1')
     ),
     status TEXT NOT NULL CHECK (status IN ('applied', 'unchanged')),
@@ -258,7 +258,7 @@ CREATE TABLE knowledge_writer_binding (
 );
 CREATE TABLE entity (
     entity_id TEXT NOT NULL PRIMARY KEY, corpus_id TEXT NOT NULL REFERENCES corpus,
-    name TEXT NOT NULL, entity_type TEXT NOT NULL,
+    name TEXT NOT NULL,
     creation_sequence INTEGER NOT NULL
         CHECK (typeof(creation_sequence) = 'integer' AND creation_sequence > 0),
     retired INTEGER NOT NULL DEFAULT 0 CHECK (retired IN (0, 1)),
@@ -267,7 +267,7 @@ CREATE TABLE entity (
 CREATE TABLE contribution (
     contribution_id TEXT NOT NULL PRIMARY KEY, corpus_id TEXT NOT NULL,
     sequence INTEGER NOT NULL CHECK (typeof(sequence) = 'integer' AND sequence > 0),
-    kind TEXT NOT NULL CHECK (kind IN ('entity_support', 'alias', 'identifier', 'mention', 'assertion')),
+    kind TEXT NOT NULL CHECK (kind IN ('entity_support', 'alias', 'identifier', 'mention', 'assertion', 'classification')),
     key_id TEXT NOT NULL, local_id TEXT NOT NULL,
     owner_id TEXT NOT NULL, writer_id TEXT NOT NULL,
     producer TEXT NOT NULL, producer_version TEXT NOT NULL,
@@ -285,11 +285,72 @@ CREATE TABLE contribution (
 CREATE TABLE entity_support (
     corpus_id TEXT NOT NULL, contribution_id TEXT NOT NULL,
     kind TEXT NOT NULL CHECK (kind = 'entity_support'),
-    entity_id TEXT NOT NULL, attested_name TEXT NOT NULL, attested_type TEXT NOT NULL,
+    entity_id TEXT NOT NULL, attested_name TEXT NOT NULL,
     PRIMARY KEY (corpus_id, contribution_id),
     FOREIGN KEY (corpus_id, contribution_id, kind)
         REFERENCES contribution(corpus_id, contribution_id, kind),
     FOREIGN KEY (corpus_id, entity_id) REFERENCES entity(corpus_id, entity_id)
+);
+CREATE TABLE entity_origin (
+    corpus_id TEXT NOT NULL, entity_id TEXT NOT NULL, contribution_id TEXT NOT NULL,
+    PRIMARY KEY (corpus_id, entity_id),
+    FOREIGN KEY (corpus_id, entity_id) REFERENCES entity(corpus_id, entity_id),
+    FOREIGN KEY (corpus_id, contribution_id) REFERENCES entity_support(corpus_id, contribution_id)
+);
+CREATE TABLE classification (
+    corpus_id TEXT NOT NULL, contribution_id TEXT NOT NULL,
+    kind TEXT NOT NULL CHECK (kind = 'classification'),
+    entity_id TEXT NOT NULL, entity_type TEXT NOT NULL,
+    interpretation TEXT NOT NULL CHECK (interpretation IN ('explicit', 'inferred')),
+    PRIMARY KEY (corpus_id, contribution_id),
+    FOREIGN KEY (corpus_id, contribution_id, kind)
+        REFERENCES contribution(corpus_id, contribution_id, kind),
+    FOREIGN KEY (corpus_id, entity_id) REFERENCES entity(corpus_id, entity_id)
+);
+CREATE INDEX classification_entity ON classification(corpus_id, entity_id, contribution_id);
+CREATE TABLE classification_selection (
+    corpus_id TEXT NOT NULL, event_id TEXT NOT NULL, entity_id TEXT NOT NULL,
+    sequence INTEGER NOT NULL CHECK (typeof(sequence) = 'integer' AND sequence > 0),
+    predecessor_id TEXT, claim_id TEXT, key_id TEXT NOT NULL, rationale TEXT NOT NULL,
+    PRIMARY KEY (corpus_id, event_id),
+    UNIQUE (corpus_id, entity_id, sequence),
+    UNIQUE (corpus_id, entity_id, event_id),
+    FOREIGN KEY (corpus_id, entity_id) REFERENCES entity(corpus_id, entity_id),
+    FOREIGN KEY (corpus_id, predecessor_id) REFERENCES classification_selection(corpus_id, event_id),
+    FOREIGN KEY (corpus_id, claim_id) REFERENCES classification(corpus_id, contribution_id),
+    FOREIGN KEY (corpus_id, key_id) REFERENCES write_key(corpus_id, key_id)
+        DEFERRABLE INITIALLY DEFERRED
+);
+CREATE TABLE classification_head (
+    corpus_id TEXT NOT NULL, entity_id TEXT NOT NULL, event_id TEXT NOT NULL,
+    PRIMARY KEY (corpus_id, entity_id),
+    FOREIGN KEY (corpus_id, entity_id, event_id)
+        REFERENCES classification_selection(corpus_id, entity_id, event_id)
+);
+CREATE TABLE classification_selection_targets (
+    corpus_id TEXT NOT NULL, event_id TEXT NOT NULL, contribution_id TEXT NOT NULL,
+    PRIMARY KEY (corpus_id, event_id, contribution_id),
+    FOREIGN KEY (corpus_id, event_id) REFERENCES classification_selection(corpus_id, event_id),
+    FOREIGN KEY (corpus_id, contribution_id) REFERENCES contribution(corpus_id, contribution_id)
+);
+CREATE TABLE classification_withdrawal (
+    withdrawal_id TEXT NOT NULL PRIMARY KEY, corpus_id TEXT NOT NULL,
+    contribution_id TEXT NOT NULL, key_id TEXT NOT NULL,
+    UNIQUE (corpus_id, contribution_id),
+    FOREIGN KEY (corpus_id, contribution_id) REFERENCES classification(corpus_id, contribution_id),
+    FOREIGN KEY (corpus_id, key_id) REFERENCES write_key(corpus_id, key_id)
+        DEFERRABLE INITIALLY DEFERRED
+);
+CREATE TABLE assertion_classification (
+    corpus_id TEXT NOT NULL, contribution_id TEXT NOT NULL,
+    role TEXT NOT NULL CHECK (role IN ('subject', 'object')),
+    entity_id TEXT NOT NULL, event_id TEXT NOT NULL, claim_id TEXT NOT NULL,
+    witness_json TEXT NOT NULL,
+    PRIMARY KEY (corpus_id, contribution_id, role),
+    FOREIGN KEY (corpus_id, contribution_id) REFERENCES assertion(corpus_id, contribution_id),
+    FOREIGN KEY (corpus_id, entity_id, event_id)
+        REFERENCES classification_selection(corpus_id, entity_id, event_id),
+    FOREIGN KEY (corpus_id, claim_id) REFERENCES classification(corpus_id, contribution_id)
 );
 CREATE TABLE alias (
     corpus_id TEXT NOT NULL, contribution_id TEXT NOT NULL,
@@ -414,7 +475,7 @@ CREATE TABLE assertion_withdrawal (
 CREATE TABLE knowledge_write_response (
     key_id TEXT NOT NULL PRIMARY KEY, corpus_id TEXT NOT NULL,
     receipt_kind TEXT NOT NULL CHECK (
-        receipt_kind IN ('enrichment', 'seed_set', 'assertion_withdrawal')
+        receipt_kind IN ('enrichment', 'seed_set', 'assertion_withdrawal', 'classification_withdrawal')
     ),
     receipt_json TEXT NOT NULL, authorization_json TEXT NOT NULL,
     FOREIGN KEY (corpus_id, key_id) REFERENCES write_key(corpus_id, key_id)

@@ -75,6 +75,7 @@ def _explain(
     return result
 
 
+@pytest.mark.service
 def test_report_matches_stored_records_and_exact_evidence(manifest_path: Path) -> None:
     manifest = load_manifest(manifest_path)
     report = _explain(manifest, quotes=True)
@@ -116,6 +117,7 @@ def test_report_matches_stored_records_and_exact_evidence(manifest_path: Path) -
         assert set(entity.anchor_ids) <= {anchor.anchor_id for anchor in document.anchors}
 
 
+@pytest.mark.service
 def test_unchanged_and_bounded_reports_do_not_claim_new_records(manifest_path: Path) -> None:
     manifest = load_manifest(manifest_path)
     first = _explain(manifest)
@@ -138,6 +140,7 @@ def test_unchanged_and_bounded_reports_do_not_claim_new_records(manifest_path: P
     assert limited.details_total == 5
 
 
+@pytest.mark.service
 def test_report_tracks_changes_restores_moves_and_reactivation(manifest_path: Path) -> None:
     manifest = load_manifest(manifest_path)
     original = _explain(manifest).documents[0]
@@ -173,6 +176,7 @@ def test_report_tracks_changes_restores_moves_and_reactivation(manifest_path: Pa
     assert reactivated.active and not reactivated.records_rebuilt
 
 
+@pytest.mark.service
 def test_configuration_and_parser_rebuild_are_not_new_revisions(manifest_path: Path) -> None:
     manifest = load_manifest(manifest_path)
     original = _explain(manifest).documents[0]
@@ -192,6 +196,7 @@ def test_configuration_and_parser_rebuild_are_not_new_revisions(manifest_path: P
     assert reparsed.records_rebuilt and reparsed.revision_state == "unchanged"
 
 
+@pytest.mark.service
 def test_failed_sources_are_inactive_and_other_sources_still_ingest(
     manifest_path: Path, caplog: pytest.LogCaptureFixture,
 ) -> None:
@@ -219,6 +224,7 @@ def test_failed_sources_are_inactive_and_other_sources_still_ingest(
         ).fetchone()[0] == 0
 
 
+@pytest.mark.service
 def test_failed_new_file_has_no_invented_identity(manifest_path: Path) -> None:
     manifest = load_manifest(manifest_path)
     (manifest.vault_root / "meeting.md").write_bytes(b"\xff")
@@ -228,6 +234,7 @@ def test_failed_new_file_has_no_invented_identity(manifest_path: Path) -> None:
     assert result.documents[0].source_revision_id is None
 
 
+@pytest.mark.service
 def test_reports_are_corpus_isolated(manifest_path: Path) -> None:
     manifest = load_manifest(manifest_path)
     first = _explain(manifest).documents[0]
@@ -247,6 +254,7 @@ def test_reports_are_corpus_isolated(manifest_path: Path) -> None:
         ).fetchone()[0] == 1
 
 
+@pytest.mark.service
 def test_report_failure_rolls_back_run_instead_of_deactivating_source(
     manifest_path: Path, monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -263,6 +271,7 @@ def test_report_failure_rolls_back_run_instead_of_deactivating_source(
         assert connection.execute("SELECT count(*) FROM ingest_run").fetchone()[0] == 0
 
 
+@pytest.mark.functional
 def test_default_contract_and_persisted_summary_stay_small(manifest_path: Path) -> None:
     manifest = load_manifest(manifest_path)
     default = RUNNER.invoke(app, ["ingest", "--manifest", str(manifest_path), "--format", "json"])
@@ -278,6 +287,7 @@ def test_default_contract_and_persisted_summary_stay_small(manifest_path: Path) 
             }
 
 
+@pytest.mark.functional
 @pytest.mark.parametrize("quotes", [False, True])
 def test_cli_explain_json_and_text(manifest_path: Path, quotes: bool) -> None:
     arguments = ["ingest", "--manifest", str(manifest_path), "--explain"]
@@ -299,6 +309,7 @@ def test_cli_explain_json_and_text(manifest_path: Path, quotes: bool) -> None:
     assert ("Keep Atlas in pilot" in text.stdout) is quotes
 
 
+@pytest.mark.functional
 def test_cli_limits_errors_and_invalid_flag_combinations(manifest_path: Path) -> None:
     arguments = ["ingest", "--manifest", str(manifest_path), "--format", "json"]
     invalid = RUNNER.invoke(app, [*arguments, "--include-quotes"])
@@ -319,6 +330,7 @@ def test_cli_limits_errors_and_invalid_flag_combinations(manifest_path: Path) ->
     assert json.loads(failed.stdout)["documents"][0]["outcome"] == "failed"
 
 
+@pytest.mark.service
 def test_api_rejects_invalid_options_before_writing(manifest_path: Path) -> None:
     manifest = load_manifest(manifest_path)
     service = IngestService(Database(manifest.database))

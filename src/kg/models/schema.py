@@ -1,9 +1,17 @@
 """Bounded schema proposals and explicit trusted-administrator outcomes."""
 
-from typing import Annotated, Literal, Self
+from typing import Annotated, Any, Literal, Self
 
-from pydantic import AfterValidator, Field, field_validator, model_validator
+from pydantic import (
+    AfterValidator,
+    Field,
+    SerializerFunctionWrapHandler,
+    field_validator,
+    model_serializer,
+    model_validator,
+)
 
+from kg.models.evidence import EvidenceView
 from kg.models.foundation import (
     Attribution,
     DocumentDependency,
@@ -141,6 +149,65 @@ class UnresolvedConcept(Value):
     example_ids: tuple[Token, ...] = Field(min_length=1, max_length=10)
 
 
+class SchemaSampleCapture(Value):
+    reference: EvidenceRef
+    state_version: Token
+
+
+class SchemaSample(Value):
+    interface_version: Literal["schema-sample/1"] = "schema-sample/1"
+    support: tuple[SchemaSampleCapture, ...] = Field(min_length=1, max_length=200)
+    intended_use: SchemaText
+    selection_rationale: SchemaText
+
+    @model_validator(mode="after")
+    def integrity(self) -> Self:
+        _unique(tuple(c.reference for c in self.support), "Duplicate sample reference")
+        states: dict[str, tuple[str, str, str]] = {}
+        corpora = {c.reference.corpus_id for c in self.support}
+        if len(corpora) != 1:
+            raise ValueError("Cross-corpus sample")
+        for capture in self.support:
+            ref = capture.reference
+            state = ref.source_namespace, ref.revision_id, capture.state_version
+            if ref.document_id in states and states[ref.document_id] != state:
+                raise ValueError("Conflicting sample document states")
+            states[ref.document_id] = state
+        if len(self.model_dump_json().encode()) > MAX_SCHEMA_BYTES:
+            raise ValueError("Sample exceeds byte limit")
+        return self
+
+
+class SynonymDecision(Value):
+    surface_forms: tuple[SchemaText, ...] = Field(min_length=1, max_length=20)
+    term: TermRef
+    rationale: SchemaText
+
+    @model_validator(mode="after")
+    def integrity(self) -> Self:
+        _unique(self.surface_forms, "Duplicate synonym surface form")
+        return self
+
+
+class InitialSchemaGeneration(Value):
+    sample: SchemaSample
+    coverage_status: Literal["limited", "insufficient"]
+    coverage_limitations: tuple[SchemaText, ...] = Field(min_length=1, max_length=100)
+    synonym_decisions: tuple[SynonymDecision, ...] = Field(max_length=100)
+
+
+class SchemaGenerationBrief(Value):
+    interface_version: Literal["schema-generation/1"] = "schema-generation/1"
+    status: Literal["awaiting_agent"] = "awaiting_agent"
+    corpus_id: Token
+    base_revision: None = None
+    sample: SchemaSample
+    evidence: tuple[EvidenceView, ...]
+    interpretation: Literal["external_agent"] = "external_agent"
+    coverage: Literal["selected_excerpts_only"] = "selected_excerpts_only"
+    human_review_required: Literal[True] = True
+
+
 class SchemaProposal(Value):
     interface_version: Literal["schema-proposal/1"] = "schema-proposal/1"
     corpus_id: Token
@@ -153,6 +220,17 @@ class SchemaProposal(Value):
     widen_predicates: tuple[WidenPredicate, ...] = Field(default=(), max_length=100)
     examples: tuple[SchemaExample, ...] = Field(min_length=1, max_length=200)
     unresolved_concepts: tuple[UnresolvedConcept, ...] = Field(default=(), max_length=100)
+    initial_generation: InitialSchemaGeneration | None = None
+
+    @model_serializer(mode="wrap")
+    def preserve_existing_serialization(
+        self, handler: SerializerFunctionWrapHandler,
+    ) -> dict[str, Any]:
+        value: dict[str, Any] = handler(self)
+        # Historical request bytes/digests include other nulls, but not this new field.
+        if self.initial_generation is None:
+            value.pop("initial_generation", None)
+        return value
 
     @model_validator(mode="after")
     def integrity(self) -> Self:
@@ -189,9 +267,28 @@ class SchemaProposal(Value):
             if ref.document_id in states and states[ref.document_id] != state:
                 raise ValueError("Conflicting example document states")
             states[ref.document_id] = state
+        if self.initial_generation is not None:
+            if self.base_revision is not None:
+                raise ValueError("Initial generation requires an unconfigured schema")
+            selected = set(self.initial_generation.sample.support)
+            if any(c.reference.corpus_id != self.corpus_id for c in selected):
+                raise ValueError("Cross-corpus initial sample")
+            if any(
+                SchemaSampleCapture(reference=e.reference, state_version=e.state_version)
+                not in selected for e in self.examples
+            ):
+                raise ValueError("Every initial example must match selected sample evidence")
         if len(self.model_dump_json().encode()) > MAX_SCHEMA_BYTES:
             raise ValueError("Proposal exceeds byte limit")
         return self
+
+    def captures(self) -> tuple[SchemaSampleCapture, ...]:
+        examples = tuple(
+            SchemaSampleCapture(reference=e.reference, state_version=e.state_version)
+            for e in self.examples
+        )
+        sample = self.initial_generation.sample.support if self.initial_generation else ()
+        return tuple(dict.fromkeys((*examples, *sample)))
 
     def dependencies(self) -> tuple[DocumentDependency, ...]:
         return tuple(
@@ -202,7 +299,7 @@ class SchemaProposal(Value):
                     revision_id=e.reference.revision_id,
                     state_version=e.state_version,
                 )
-                for e in self.examples
+                for e in self.captures()
             }.values()
         )
 
@@ -261,6 +358,7 @@ class SchemaValidation(SchemaValue):
     widenings: tuple[WideningEffect, ...]
     unresolved_concepts: tuple[UnresolvedConcept, ...]
     semantic_review_required: Literal[True] = True
+    initial_generation: InitialSchemaGeneration | None = None
 
 
 class SchemaApproval(Value):

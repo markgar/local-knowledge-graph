@@ -39,14 +39,20 @@ def _decision_item(
     store: Store, row: sqlite3.Row, subject_id: str,
     witness: EntityWitness,
 ) -> DecisionSelectionItem | None:
+    from kg.knowledge import _classification
+
     if (
         row["interpretation"] != "explicit"
         or row["object_kind"] != "string"
     ):
         raise EvidenceServiceError("internal_error")
-    _decision_schema(store, row)
     try:
         support, current = store.support(row)
+        captures = _classification.assertion_captures(store, row["contribution_id"])
+        if len(captures) != 1 or captures[0].entity_id != subject_id:
+            raise EvidenceServiceError("internal_error")
+        current = current and _classification.capture_status(store, captures) == "current"
+        _decision_schema(store, row, captures[0].entity_type)
     except EvidenceServiceError as error:
         if error.failure.code == "not_found":
             return None
@@ -66,15 +72,16 @@ def _decision_item(
         subject_id=subject_id, schema_version=row["schema_version"],
         dependencies=DecisionDependencies(
             assertion_support=support.evidence, subject_witness=witness,
+            subject_classification=captures[0],
         ),
     )
 
 
-def _decision_schema(store: Store, row: sqlite3.Row) -> None:
+def _decision_schema(store: Store, row: sqlite3.Row, subject_type: str) -> None:
     authored = store.registry.authored(row["schema_version"])
     if not any(
         p.name == row["predicate"] and p.record_projection is not None
-        and p.object_kind == "string" and row["subject_type"] in p.subject_types
+        and p.object_kind == "string" and subject_type in p.subject_types
         for p in authored.predicates
     ):
         raise EvidenceServiceError("internal_error")
@@ -206,8 +213,7 @@ class KnowledgeReader:
                 raise EvidenceServiceError("unsupported")
             witness = store.require_entity(subject_id)
             rows = store.connection.execute(
-                "SELECT c.*,a.predicate,a.interpretation,a.object_kind,"
-                "e.entity_type AS subject_type "
+                "SELECT c.*,a.predicate,a.interpretation,a.object_kind "
                 "FROM assertion a JOIN contribution c "
                 "USING(corpus_id,contribution_id) JOIN entity e "
                 "ON e.corpus_id=a.corpus_id AND e.entity_id=a.subject_id "
@@ -224,6 +230,8 @@ class KnowledgeReader:
         return Cursor(self.context, produce, "decision")
 
     def revalidate_member(self, member: DecisionSelectionItem) -> None:
+        from kg.knowledge import _classification
+
         member = validated(DecisionSelectionItem, member)
         self.context.check_active()
         if self._revalidation is None:
@@ -243,8 +251,7 @@ class KnowledgeReader:
                 schema = store.schema()
                 store.require_entity(member.subject_id)
                 row = store.connection.execute(
-                    "SELECT c.*,a.subject_id,a.predicate,a.object_kind,a.interpretation,"
-                    "e.entity_type AS subject_type "
+                    "SELECT c.*,a.subject_id,a.predicate,a.object_kind,a.interpretation "
                     "FROM assertion a JOIN contribution c USING(corpus_id,contribution_id) "
                     "JOIN entity e ON e.corpus_id=a.corpus_id AND e.entity_id=a.subject_id "
                     "WHERE a.corpus_id=? AND a.contribution_id=?",
@@ -253,6 +260,12 @@ class KnowledgeReader:
                 if row is None:
                     raise EvidenceServiceError("not_found")
                 support, current = store.support(row)
+                captures = _classification.assertion_captures(store, row["contribution_id"])
+                if (
+                    captures != (member.dependencies.subject_classification,)
+                    or _classification.capture_status(store, captures) != "current"
+                ):
+                    raise EvidenceServiceError("state_changed")
                 if (
                     row["subject_id"] != member.subject_id
                     or row["object_kind"] != "string"
@@ -267,7 +280,7 @@ class KnowledgeReader:
                     )
                 ):
                     raise EvidenceServiceError("state_changed")
-                _decision_schema(store, row)
+                _decision_schema(store, row, captures[0].entity_type)
                 witness = member.dependencies.subject_witness
                 if witness in cache.witnesses:
                     return

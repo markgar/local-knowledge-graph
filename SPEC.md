@@ -17,7 +17,7 @@ The canonical engine is **SQLite plus an optional Ladybug graph projection**:
 
 | Layer | Ownership and execution |
 | --- | --- |
-| Canonical SQLite (`evidence-store/4`) | Exact supplied text/revisions, identities, immutable knowledge schema revisions, entities/assertions, support, history and service control state. `src/kg/evidence/schema.sql` owns this format. |
+| Canonical SQLite (`evidence-store/5`) | Exact supplied text/revisions, identities, immutable knowledge schema revisions, entities/assertions, support, history and service control state. `src/kg/evidence/schema.sql` owns this format. |
 | Canonical indexing/search | `kg.indexing` publishes passages/vectors and executes scoped keyword/dense retrieval, fusion and reranking. Search does not depend on Ladybug. |
 | Canonical query composition | `kg.query.QueryService` executes supported evidence, search, exact entity resolution and explicit-decision records/counts with fresh release authorization. |
 | Optional Ladybug projection | `kg.graph` builds complete eligible entity/relationship/explicit-decision coverage for one exact authorized scope. `LocalGraphSession` manages reusable lifecycle, typed cited one-hop relationships and fixed relationship-to-decision queries. It contains no unique authored truth; arbitrary joins and public retained inspection remain unimplemented. |
@@ -42,9 +42,9 @@ under [private disposable graph staging](#private-disposable-graph-staging).
 
 `kg.evidence.EvidenceDatabase`, `EvidenceAdministration` and `EvidenceService`
 implement the Python-only canonical evidence engine. Its packaged
-`kg/evidence/schema.sql` uses SQLite application ID `0x4b474531`, user version 4
-and `evidence-store/4`. Initialization atomically creates an empty target or
-verifies that exact format. Old/unknown nonempty files (including versions 1–3) are rejected without
+`kg/evidence/schema.sql` uses SQLite application ID `0x4b474531`, user version 5
+and `evidence-store/5`. Initialization atomically creates an empty target or
+verifies that exact format. Old/unknown nonempty files (including versions 1–4) are rejected without
 changing headers, journal mode, schema or rows. There is no migration/reset API:
 use a fresh path and explicitly resupply content, policy/schema and explicit knowledge.
 The exception and correlated log explain this action; structured failure stays
@@ -267,6 +267,40 @@ redact candidates/configurations; report capacity failure cannot alter ranking.
 Controlled-provider tests demonstrate mechanics and exact provenance only, not
 real-model quality, representative workload performance or complete E3 acceptance.
 
+### Independently supported identity and explicit classification
+
+Canonical `/5` separates supported identity from authored classification claims.
+An identifiable entity may remain unresolved and have no domain edges. Identity
+creation and independent support carry no type; claims cannot activate identity.
+Names do not imply global identity: unrelated document-local "the export" mentions
+must not be silently merged or coerced into project/other.
+
+Each classification has exact source/seed support, interpretation, author and immutable
+schema revision. A separate original-owner/writer selection chooses one claim or
+clears the choice with exact head/review preconditions. Competing visible claims are
+disclosed but never auto-resolved; hidden alternatives are not a global veto.
+Complete reviews stop at 200 or the original private budget; explicitly acknowledged
+subset/empty review permits bounded owner recovery without claiming completeness.
+
+SQLite preserves origin, claims, terminal withdrawals, selection events/head and
+typed-assertion captures. An assertion captures its endpoints' exact selected events/
+claims and support at authoring; same-type claim replacement, clear and A-to-B-to-A
+never resurrect its eligibility. Canonical queries and native projection bind those
+captures, preserve authored schema compatibility and full proof budgets, and retain
+original observer/final authorization fences. Saved writes survive graph failure.
+History/receipt/rationale disclosure reauthorizes every original reviewed dependency,
+while ordinary selected-type proofs need no rejected private alternatives.
+Full graph decision assembly checks canonical assertion binding and exact
+classification passage membership, retaining straightforward complete-copy charges
+through complete-result admission. All serialized occurrences and transient decoded
+copies count; public/native proof shapes are unchanged.
+
+Public service, `kg record --retry-key`, `kg classifications` and
+`kg withdraw-classification` expose this lifecycle. See [CONTRACTS.md](CONTRACTS.md#knowledge-enrichment-and-reads)
+and `kg record --example` for exact fields, bounded review and retry recipes.
+Incompatible `/4` stores remain intact; only explicit fresh `/5` initialization/reload
+is supported. No automatic schema generation or broad agent extraction is implied.
+
 ### Evidence-backed vocabulary evolution
 
 `KnowledgeService` discovers the current described vocabulary/history and validates
@@ -314,6 +348,37 @@ registration API. Incompatible stores are rejected unchanged; explicitly create 
 fresh path and reload exact sources and reviewed knowledge. No migration, reset,
 dual-read or automatic classification/extraction is implemented.
 See [contracts](CONTRACTS.md#knowledge-registry-api) for bounds and APIs.
+
+### Initial schema context and model-free intake
+
+New CLI setup registers corpus/policy without a domain schema; only explicit
+`--schema-preset personal/1` installs the example vocabulary. Existing attachment
+does not change vocabulary. `add`/`update --evidence-only` saves exact supplied
+text without model approval or search preparation; default add/update retains
+approved cached-model preparation and separately reported failures.
+
+`schema generate` composes no inference: it returns `awaiting_agent` with exact
+operator-selected document excerpts, citations, offsets, hashes and current
+captures. The external agent interprets this bounded context and writes a proposal.
+Empty, unavailable or stale selections fail explicitly; no selection is silently
+reduced. Original read/observer/final authorization fences and hydration budgets
+apply. Small excerpts still incur whole-source hydration; this is no large-document
+budget bypass. Interpretation permissions belong to the external agent host.
+
+Optional `initial_generation` proposal provenance records the full selected sample,
+coverage limitations and reviewed naming decisions. Initial examples must come from
+that selection. All sample captures, including those unused as term examples, are
+current dependencies for validation/fresh apply and protected historical
+dependencies for audit/replay. Insufficient declared coverage is rejected, not
+repaired by inventing terms. Limited coverage is a human-reviewed judgment, not
+machine proof of representativeness. Synonym decisions do not install aliases.
+
+Existing proposal hashes/receipts are preserved by omitting only the new optional
+field when null. There is no physical format change, pending-workflow state or new
+transaction owner. Generation, validation and approved apply never create facts.
+Human content approval remains required; software approval and model permission
+are not substitutes. Independent identity/classification and exact selection-event
+assertion captures are unchanged.
 
 ### Atomic owned knowledge
 
@@ -503,7 +568,7 @@ apply. This is not a guarantee of physical disk writes or a process RSS bound.
 `kg._execution_budget` separates semantic reservations from inherited private
 visits, SQL VM, scratch/provider and absolute-deadline allowances. Interactive local step
 views share one private pool: 100,000 visits, 10,000,000 prepaid VM instructions
-(quanta at most 1,000), and 64 MiB aggregate scratch. Individual text/context and
+(quanta at most 1,000), and 128 MiB aggregate/general scratch. Individual text/context and
 reranker reservations are at most 8 MiB; vector batches at most 16 MiB, with
 provider batches at most eight sequences/8,192 padded token positions. Reservations
 precede consumption; scratch ownership cannot be copied and release is idempotent.
@@ -534,7 +599,7 @@ Explicit `limited(max_visits=N)` still enforces N through every ancestor. No
 page, child, connection or phase resets work totals. The 200-item page maximum
 is a batch bound, not total coverage or evidence of eligible EOF.
 
-Bulk reads retain the same 64 MiB logical scratch, per-unit/provider limits and
+Bulk reads retain the same 128 MiB logical scratch, per-unit/provider limits and
 128 MiB SQLite TEMP cap. Deadline/cancellation checks occur at reservations,
 fetches, SQL progress and short root-lock waits; SQLite busy waits are at most
 100 ms per statement rather than the unchanged interactive 5,000 ms. Stops latch
@@ -1184,7 +1249,7 @@ exercise validation and supply evaluation inputs, not service integration result
 for source documents/revisions/anchors/activations, entities/aliases/mentions,
 relationships, structured records/bindings, passages, lexical projections, and
 ingest summaries. Dense projections are independently disposable. This is not the
-canonical [`evidence-store/4` schema](src/kg/evidence/schema.sql), and these tables
+canonical [`evidence-store/5` schema](src/kg/evidence/schema.sql), and these tables
 are not the source of the optional Ladybug projection.
 
 After upgrades, reingest each corpus and rebuild matching dense projections.

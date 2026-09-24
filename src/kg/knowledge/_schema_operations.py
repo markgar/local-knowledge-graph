@@ -10,6 +10,7 @@ from pydantic import ValidationError
 
 from kg._execution_budget import PrivateBudget
 from kg.evidence._authorization import authorize
+from kg.evidence._reads import evidence_view
 from kg.evidence._transactions import CanonicalWriteContext
 from kg.evidence._values import canonical, now, sha, timestamp, token
 from kg.evidence.errors import EvidenceServiceError, storage_error
@@ -29,11 +30,13 @@ from kg.models.schema import (
     SchemaApplyRequest,
     SchemaChangeView,
     SchemaDefinition,
+    SchemaGenerationBrief,
     SchemaPresetRegistration,
     SchemaPresetRequest,
     SchemaProposal,
     SchemaReceipt,
     SchemaRevisionPage,
+    SchemaSample,
     SchemaValidation,
     SchemaView,
 )
@@ -86,10 +89,39 @@ def history(store: Store, after: int, limit: int) -> SchemaRevisionPage:
     )
 
 
+def generation_context(store: Store, sample: SchemaSample) -> SchemaGenerationBrief:
+    if any(c.reference.corpus_id != store.scope.corpus_id for c in sample.support):
+        raise EvidenceServiceError("not_found")
+    if store.registry.head() is not None:
+        raise EvidenceServiceError(
+            "state_conflict", explanation="Schema already configured; use an additive proposal.",
+        )
+    context = store._context
+    if context is None:
+        raise EvidenceServiceError("internal_error")
+    context.check_active()
+    evidence = []
+    for capture in sample.support:
+        _, active = store.proof(capture.reference, capture.state_version)
+        if not active:
+            raise EvidenceServiceError("state_conflict")
+        evidence.append(evidence_view(
+            store.connection, store.scope, capture.reference, capture.state_version,
+            context=context,
+        ))
+    if not any(view.quote.strip() for view in evidence):
+        raise EvidenceServiceError(
+            "invalid_request", explanation="No usable source text in the selected sample.",
+        )
+    return SchemaGenerationBrief(
+        corpus_id=store.scope.corpus_id, sample=sample, evidence=tuple(evidence),
+    )
+
+
 def examples(store: Store, proposal: SchemaProposal, *, current: bool) -> None:
     if proposal.corpus_id != store.scope.corpus_id:
         raise EvidenceServiceError("not_found")
-    for example in proposal.examples:
+    for example in proposal.captures():
         _, active = store.proof(example.reference, example.state_version)
         if current and not active:
             raise EvidenceServiceError("state_conflict")

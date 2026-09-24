@@ -9,6 +9,8 @@ import json
 from pathlib import Path
 from uuid import uuid4
 
+from classification_inputs import classified_entity
+
 from kg.evidence import EvidenceAdministration, EvidenceDatabase, EvidenceService
 from kg.graph import LocalGraphSession
 from kg.knowledge import KnowledgeAdministration
@@ -28,13 +30,13 @@ from kg.models.foundation import (
     Attribution,
     ChangeSet,
     ChangeSetReceipt,
-    CreateEntity,
     CreateOnly,
     DocumentDependency,
     DocumentReceipt,
     EntityObject,
     ExternalDocument,
     LocalEntity,
+    LocalSelectionRef,
     PutDocument,
     Scope,
     SourceMetadata,
@@ -135,10 +137,10 @@ def run(output: Path) -> dict:
                 revision_id=saved.revision_id, state_version=saved.processing.state_version,
             ),),
             changes=(
-                CreateEntity(kind="entity", local_id="person", name="Alice",
-                             entity_type="person", support=support),
-                CreateEntity(kind="entity", local_id="project", name="Project Atlas",
-                             entity_type="project", support=support),
+                *classified_entity(local_id="person", name="Alice",
+                                   entity_type="person", support=support),
+                *classified_entity(local_id="project", name="Project Atlas",
+                                   entity_type="project", support=support),
                 AddAssertion(
                     kind="assertion", local_id="ownership", predicate="work:owns",
                     subject=LocalEntity(kind="local", local_id="person"),
@@ -146,6 +148,12 @@ def run(output: Path) -> dict:
                         kind="entity", entity=LocalEntity(kind="local", local_id="project"),
                     ),
                     interpretation="explicit", support=support,
+                    subject_classification=LocalSelectionRef(
+                        kind="local", local_id="person:selection",
+                    ),
+                    object_classification=LocalSelectionRef(
+                        kind="local", local_id="project:selection",
+                    ),
                 ),
             ),
         ),

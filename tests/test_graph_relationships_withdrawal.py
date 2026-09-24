@@ -45,6 +45,8 @@ def withdrawal(env, target):
     )
 
 
+@pytest.mark.native
+@pytest.mark.requires_native
 def test_public_withdrawal_preserves_history_and_exact_remaining_proofs(tmp_path, monkeypatch):
     require_native()
     env = fixture(tmp_path / "canonical.sqlite", decisions=0)
@@ -118,6 +120,8 @@ def test_public_withdrawal_preserves_history_and_exact_remaining_proofs(tmp_path
         assert restarted.traverse(query(env)).paths == final
 
 
+@pytest.mark.native
+@pytest.mark.requires_native
 @pytest.mark.parametrize("phase", ["idle", "decode", "fence"])
 def test_public_external_withdrawal_never_releases_stale_paths(tmp_path, monkeypatch, phase):
     require_native()
@@ -164,6 +168,8 @@ def test_public_external_withdrawal_never_releases_stale_paths(tmp_path, monkeyp
         assert after.generation != before.generation
 
 
+@pytest.mark.native
+@pytest.mark.requires_native
 def test_public_creation_replay_source_restore_and_new_assertion_do_not_resurrect(tmp_path):
     require_native()
     env = fixture(tmp_path / "canonical.sqlite", decisions=0)

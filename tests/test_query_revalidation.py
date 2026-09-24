@@ -43,6 +43,7 @@ def membership(env, count=2):
         return tuple(DecisionSelectionItem.model_validate_json(p) for p in retained.members)
 
 
+@pytest.mark.process
 def test_withdrawal_checked_before_warm_exact_witness_cache(tmp_path):
     env = setup(tmp_path / "withdrawn.db")
     first, second = membership(env)
@@ -59,6 +60,7 @@ def test_withdrawal_checked_before_warm_exact_witness_cache(tmp_path):
             reader.close()
 
 
+@pytest.mark.process
 @pytest.mark.parametrize("altered", ["sequence", "basis", "support", "schema"])
 def test_cached_revalidation_rechecks_complete_supplied_bundle(tmp_path, altered):
     env = setup(tmp_path / "tampered.db")
@@ -111,6 +113,7 @@ def test_cached_revalidation_rechecks_complete_supplied_bundle(tmp_path, altered
         reader.close()
 
 
+@pytest.mark.process
 def test_cache_has_no_cross_context_or_scope_authority(tmp_path):
     env = setup(tmp_path / "contexts.db")
     member = membership(env, 1)[0]
@@ -142,6 +145,7 @@ def test_cache_has_no_cross_context_or_scope_authority(tmp_path):
     reader.close()
 
 
+@pytest.mark.process
 @pytest.mark.parametrize("resource", ["visits", "vm", "scratch"])
 def test_warm_cache_cannot_bypass_remaining_root_budget(tmp_path, resource):
     env = setup(tmp_path / "limits.db")
@@ -156,7 +160,7 @@ def test_warm_cache_cannot_bypass_remaining_root_budget(tmp_path, resource):
             elif resource == "vm":
                 budget.reserve_vm(10_000_000 - budget._vm)
             else:
-                held = budget.reserve_scratch((64 << 20) - budget._scratch, "general")
+                held = budget.reserve_scratch((128 << 20) - budget._scratch, "general")
             with pytest.raises(PrivateResourceStop):
                 reader.revalidate_member(second)
         finally:
@@ -166,6 +170,7 @@ def test_warm_cache_cannot_bypass_remaining_root_budget(tmp_path, resource):
         assert budget._scratch == 0
 
 
+@pytest.mark.service
 def test_snapshot_cache_capacity_and_transient_scratch_are_bounded(tmp_path):
     env = setup(tmp_path / "bounded.db")
     ids = []
@@ -178,7 +183,6 @@ def test_snapshot_cache_capacity_and_transient_scratch_are_bounded(tmp_path):
                         kind="entity",
                         local_id=f"e{i}",
                         name=f"Project {i}",
-                        entity_type="project",
                         support=env.support,
                     )
                     for i in range(start, min(start + 100, 201))

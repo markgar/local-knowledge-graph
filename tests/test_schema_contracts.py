@@ -14,6 +14,7 @@ from kg.models.schema import (
 )
 
 
+@pytest.mark.unit
 def test_term_text_and_registry_size_boundaries():
     assert len(EntityTypeDefinition(name="kind", description="x" * 4096).description) == 4096
     for description in (" ", "x" * 4097, "\u00e9" * 2049):
@@ -32,6 +33,7 @@ def test_term_text_and_registry_size_boundaries():
         ))
 
 
+@pytest.mark.unit
 def test_predicate_endpoint_and_encoding_boundaries():
     names = tuple(f"type{i}" for i in range(101))
     assert len(SchemaPredicateDefinition(
@@ -50,12 +52,14 @@ def test_predicate_endpoint_and_encoding_boundaries():
             })
 
 
+@pytest.mark.service
 @pytest.mark.parametrize("limit", [0, 101, True])
 def test_history_limit_is_explicit_and_has_no_partial_result(env, limit):
     with pytest.raises(EvidenceServiceError, match="invalid_request"):
         env.knowledge.schema_history(env.scope, limit=limit)
 
 
+@pytest.mark.service
 def test_oversize_forged_proposal_rejected_atomically(env):
     value = proposal(env).model_copy(update={"rationale": "x" * 4097})
     before = counts(env)
@@ -64,6 +68,7 @@ def test_oversize_forged_proposal_rejected_atomically(env):
     assert counts(env) == before
 
 
+@pytest.mark.service
 def test_unconfigured_view_cannot_claim_a_configured_schema(env):
     configured = env.knowledge.schema(env.scope)
     assert SchemaView.model_validate_json(configured.model_dump_json()) == configured

@@ -75,7 +75,7 @@ def controlled_worker(*args, mode="normal", ready=None, resume=None, trace=None)
                     elif mode == "private_vm":
                         budget.reserve_vm(10_000_000)
                     else:
-                        budget.reserve_scratch(64 << 20, "general")
+                        budget.reserve_scratch(128 << 20, "general")
 
             result.before_encode = encode
             return result

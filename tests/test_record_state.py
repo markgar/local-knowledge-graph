@@ -28,6 +28,7 @@ def _note(manifest: CorpusManifest, name: str, body: str, title: str = "Follow-u
     (manifest.vault_root / name).write_text(f"# {title}\n\n{body}\n", encoding="utf-8")
 
 
+@pytest.mark.service
 @pytest.mark.parametrize("kind", ["action", "decision"])
 def test_explicit_update_changes_effective_state_but_preserves_evidence(
     tmp_path: Path, kind: str,
@@ -74,6 +75,7 @@ def test_explicit_update_changes_effective_state_but_preserves_evidence(
     assert retrieval.evidence(link.source.record_id).quote == link.source.quote
 
 
+@pytest.mark.service
 def test_forward_reference_resolves_without_reingesting_update(tmp_path: Path) -> None:
     manifest = _manifest(tmp_path)
     database = Database(manifest.database)
@@ -92,6 +94,7 @@ def test_forward_reference_resolves_without_reingesting_update(tmp_path: Path) -
     assert len(retrieval.actions("Project", "completed")) == 1
 
 
+@pytest.mark.service
 @pytest.mark.parametrize(
     ("sources", "reason"),
     [
@@ -129,6 +132,7 @@ def test_ambiguous_or_invalid_links_are_visible_and_never_choose_a_winner(
         assert len(result.record_state.supersessions[0].conflicting_sources) == 1
 
 
+@pytest.mark.service
 def test_supersession_chain_is_independent_of_filename_order(tmp_path: Path) -> None:
     manifest = _manifest(tmp_path)
     _note(manifest, "z-original.md", "- [ ] Original. [key:: v1]", "Project")
@@ -146,6 +150,7 @@ def test_supersession_chain_is_independent_of_filename_order(tmp_path: Path) -> 
     assert retrieval.record_state(limit=1).truncated
 
 
+@pytest.mark.service
 def test_state_is_corpus_scoped_and_follows_current_source_revisions(tmp_path: Path) -> None:
     first = _manifest(tmp_path, "first")
     second = _manifest(tmp_path, "second")
@@ -167,6 +172,7 @@ def test_state_is_corpus_scoped_and_follows_current_source_revisions(tmp_path: P
     assert second_read.record_state().supersessions == []
 
 
+@pytest.mark.service
 @pytest.mark.parametrize(
     "body",
     [
@@ -189,6 +195,7 @@ def test_malformed_annotations_fail_source_explicitly(tmp_path: Path, body: str)
         assert connection.execute("SELECT count(*) FROM record_binding").fetchone()[0] == 0
 
 
+@pytest.mark.service
 def test_literal_and_child_fields_do_not_create_parent_bindings(tmp_path: Path) -> None:
     manifest = _manifest(tmp_path)
     _note(
@@ -203,6 +210,7 @@ def test_literal_and_child_fields_do_not_create_parent_bindings(tmp_path: Path) 
         assert [row["record_key"] for row in rows] == ["child"]
 
 
+@pytest.mark.functional
 def test_record_state_cli_and_ingest_trace_do_not_leak_quotes(tmp_path: Path) -> None:
     manifest = _manifest(tmp_path)
     _note(manifest, "original.md", "- [ ] PRIVATE_ORIGINAL [key:: v1]")
@@ -229,6 +237,7 @@ def test_record_state_cli_and_ingest_trace_do_not_leak_quotes(tmp_path: Path) ->
         assert payload["supersessions"][0]["resolution"] == "applied"
 
 
+@pytest.mark.service
 def test_atlas_explicit_updates_do_not_need_project_name_repetition(tmp_path: Path) -> None:
     manifest = load_manifest(Path("corpora/atlas-state.yml"))
     manifest.database = tmp_path / "index.sqlite3"
@@ -250,6 +259,7 @@ def test_atlas_explicit_updates_do_not_need_project_name_repetition(tmp_path: Pa
     assert not status.evidence_gaps
 
 
+@pytest.mark.service
 def test_long_supersession_chains_resolve_without_recursive_traversal() -> None:
     successors = {str(index): str(index + 1) for index in range(2500)}
     state = RecordState("test", [], [], successors)
@@ -258,6 +268,7 @@ def test_long_supersession_chains_resolve_without_recursive_traversal() -> None:
     assert all(state.current_id(str(index)) == "2500" for index in range(2501))
 
 
+@pytest.mark.service
 def test_failed_update_source_restores_predecessor_and_explains_failure(tmp_path: Path) -> None:
     manifest = _manifest(tmp_path)
     _note(manifest, "original.md", "- [ ] Original. [key:: v1]", "Project")

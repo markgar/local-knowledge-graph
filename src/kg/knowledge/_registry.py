@@ -203,6 +203,13 @@ class Registry:
 
 
 def compare(proposal: SchemaProposal, current: SchemaDefinition | None) -> SchemaValidation:
+    if (
+        proposal.initial_generation is not None
+        and proposal.initial_generation.coverage_status == "insufficient"
+    ):
+        raise EvidenceServiceError(
+            "invalid_request", explanation="Sample coverage is insufficient; revise the selection.",
+        )
     types = {t.name: t for t in current.entity_types} if current else {}
     schemes = {t.name: t for t in current.identifier_schemes} if current else {}
     predicates = {p.name: p for p in current.predicates} if current else {}
@@ -280,6 +287,15 @@ def compare(proposal: SchemaProposal, current: SchemaDefinition | None) -> Schem
         )
     except ValidationError:
         raise EvidenceServiceError("invalid_request") from None
+    if proposal.initial_generation is not None:
+        terms = {
+            "entity_type": set(types),
+            "identifier_scheme": set(schemes),
+            "predicate": set(predicates),
+        }
+        for synonym in proposal.initial_generation.synonym_decisions:
+            if synonym.term.name not in terms[synonym.term.kind]:
+                raise EvidenceServiceError("invalid_request")
     return SchemaValidation(
         proposal_digest=proposal_digest(proposal),
         definition_hash=definition_hash(proposal.corpus_id, definition),
@@ -288,4 +304,5 @@ def compare(proposal: SchemaProposal, current: SchemaDefinition | None) -> Schem
         added_terms=tuple(added),
         widenings=tuple(effects),
         unresolved_concepts=proposal.unresolved_concepts,
+        initial_generation=proposal.initial_generation,
     )

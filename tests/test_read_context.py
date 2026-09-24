@@ -43,6 +43,7 @@ def execution(*, bulk=False):
     return deadline, budget, meter
 
 
+@pytest.mark.service
 @pytest.mark.parametrize("option", ["TEMP_STORE=3", "TEMP_STORE=unknown", None])
 def test_temp_rejects_forced_memory_or_unverifiable_builds(monkeypatch, option):
     original = AccountedConnection.execute
@@ -64,6 +65,7 @@ def test_temp_rejects_forced_memory_or_unverifiable_builds(monkeypatch, option):
         connection.close()
 
 
+@pytest.mark.service
 @pytest.mark.parametrize("mode", [None, 0, 2])
 def test_temp_rejects_missing_or_incorrect_file_mode_readback(monkeypatch, mode):
     original = AccountedConnection.execute
@@ -83,6 +85,7 @@ def test_temp_rejects_missing_or_incorrect_file_mode_readback(monkeypatch, mode)
         connection.close()
 
 
+@pytest.mark.service
 @pytest.mark.parametrize("bulk", [False, True])
 def test_temp_file_mode_is_selected_before_controls_and_page_limit_is_real(tmp_path, bulk):
     env = environment(tmp_path / "temp.db")
@@ -101,6 +104,7 @@ def test_temp_file_mode_is_selected_before_controls_and_page_limit_is_real(tmp_p
             connection.execute("INSERT INTO spill VALUES (zeroblob(128 * 1024 * 1024))")
 
 
+@pytest.mark.service
 def test_read_local_cap_uses_same_snapshot_meter_and_accounted_helpers(tmp_path):
     env = environment(tmp_path / "local.db")
     saved = receipt(env.service.write(put(env.scope)))
@@ -140,6 +144,7 @@ def test_read_local_cap_uses_same_snapshot_meter_and_accounted_helpers(tmp_path)
         pytest.fail("Expired context admitted a cap")
 
 
+@pytest.mark.service
 @pytest.mark.parametrize("bulk", [False, True])
 def test_observer_snapshot_temp_and_fresh_release_have_no_canonical_writes(tmp_path, bulk) -> None:
     env = environment(tmp_path / "read.db")
@@ -194,6 +199,7 @@ def test_observer_snapshot_temp_and_fresh_release_have_no_canonical_writes(tmp_p
     assert budget._visits > 0 and budget._vm > 0
 
 
+@pytest.mark.process
 @pytest.mark.parametrize("bulk", [False, True])
 def test_commit_in_observer_snapshot_gap_is_rejected(tmp_path, bulk) -> None:
     env = environment(tmp_path / "gap.db")
@@ -226,6 +232,7 @@ def test_commit_in_observer_snapshot_gap_is_rejected(tmp_path, bulk) -> None:
         assert future.result().status == "applied"
 
 
+@pytest.mark.service
 def test_snapshot_is_shared_and_fence_blocks_writer(tmp_path) -> None:
     env = environment(tmp_path / "snapshot.db")
     deadline, budget, meter = execution()
@@ -252,6 +259,7 @@ def test_snapshot_is_shared_and_fence_blocks_writer(tmp_path) -> None:
         assert observer.changed()
 
 
+@pytest.mark.service
 @pytest.mark.parametrize("bulk", [False, True])
 def test_revoked_policy_fresh_fence_and_retained_reference_lifetime(tmp_path, bulk) -> None:
     env = environment(tmp_path / "policy.db")
@@ -277,6 +285,7 @@ def test_revoked_policy_fresh_fence_and_retained_reference_lifetime(tmp_path, bu
         _ = retained.observer
 
 
+@pytest.mark.service
 def test_expired_context_and_deadline_cannot_be_reset(tmp_path, monkeypatch) -> None:
     env = environment(tmp_path / "expired.db")
     deadline, budget, meter = execution()
@@ -300,6 +309,7 @@ def test_expired_context_and_deadline_cannot_be_reset(tmp_path, monkeypatch) -> 
         pass
 
 
+@pytest.mark.service
 @pytest.mark.parametrize("exhausted", ["scratch", "public"])
 def test_evidence_preflight_reserves_before_content_or_quote_decode(
     tmp_path, monkeypatch, exhausted,
@@ -322,7 +332,7 @@ def test_evidence_preflight_reserves_before_content_or_quote_decode(
 
         monkeypatch.setattr(_store, "content_bytes", unexpected)
         if exhausted == "scratch":
-            held = budget.reserve_scratch(64 << 20, "general")
+            held = budget.reserve_scratch(128 << 20, "general")
         else:
             step.reserve_public("resolve_entity", 64)
             step.reserve_public("resolve_entity", 36)
@@ -332,6 +342,7 @@ def test_evidence_preflight_reserves_before_content_or_quote_decode(
             held.release()
 
 
+@pytest.mark.service
 def test_evidence_scratch_lives_until_snapshot_exit(tmp_path) -> None:
     env = environment(tmp_path / "scratch-lifetime.db")
     saved = receipt(env.service.write(put(env.scope)))
@@ -351,6 +362,7 @@ def test_evidence_scratch_lives_until_snapshot_exit(tmp_path) -> None:
     assert budget._scratch == 0
 
 
+@pytest.mark.service
 @pytest.mark.parametrize("stop", ["cancelled", "deadline", "resource"])
 def test_bulk_scratch_registration_tracks_only_live_ownership(tmp_path, monkeypatch, stop):
     env = environment(tmp_path / "bulk-scratch.db")
@@ -386,7 +398,7 @@ def test_bulk_scratch_registration_tracks_only_live_ownership(tmp_path, monkeypa
             error = DeadlineStop
         else:
             with pytest.raises(PrivateResourceStop):
-                budget.reserve_scratch(64 << 20, "general")
+                budget.reserve_scratch(128 << 20, "general")
             error = PrivateResourceStop
         with pytest.raises(error):
             context._reserve_scratch(1, "general")
@@ -397,6 +409,7 @@ def test_bulk_scratch_registration_tracks_only_live_ownership(tmp_path, monkeypa
     assert operation.snapshot().scratch_live_bytes == 0
 
 
+@pytest.mark.service
 def test_bulk_scratch_exit_cleans_exception_and_late_release(tmp_path):
     env = environment(tmp_path / "bulk-cleanup.db")
     operation = _graph_build_operation(
@@ -415,6 +428,7 @@ def test_bulk_scratch_exit_cleans_exception_and_late_release(tmp_path):
     context._release_reservation(held)
 
 
+@pytest.mark.service
 def test_bulk_admission_snapshot_and_fence_charge_one_original_operation(tmp_path):
     env = environment(tmp_path / "bulk-fence.db")
     operation = _graph_build_operation(
@@ -445,6 +459,7 @@ def test_bulk_admission_snapshot_and_fence_charge_one_original_operation(tmp_pat
     assert released.scratch_live_bytes == 0
 
 
+@pytest.mark.service
 def test_q1_retained_release_can_borrow_new_budget_without_changing_old_observer(
     tmp_path, monkeypatch,
 ):

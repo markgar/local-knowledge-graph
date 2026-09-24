@@ -15,7 +15,13 @@ from kg.evidence._reads import evidence_location, evidence_view
 from kg.evidence._sql import AccountedConnection
 from kg.evidence.errors import EvidenceServiceError
 from kg.knowledge._registry import Registry, runtime_schema
-from kg.knowledge._selection import CapturedEvidence, EntityWitness, SeedWitness, SourceWitness
+from kg.knowledge._selection import (
+    CapturedEvidence,
+    ClassificationWitness,
+    EntityWitness,
+    SeedWitness,
+    SourceWitness,
+)
 from kg.models.foundation import (
     Attribution,
     Change,
@@ -24,8 +30,16 @@ from kg.models.foundation import (
     Scope,
     SeedSupport,
     SourceSupport,
+    StoredSelectionRef,
 )
-from kg.models.knowledge import AssertionWithdrawal, ContributionView, EntityView, KnowledgeSchema
+from kg.models.knowledge import (
+    AssertionWithdrawal,
+    ClassificationClaim,
+    ContributionView,
+    Eligibility,
+    EntityView,
+    KnowledgeSchema,
+)
 
 _CHANGE: TypeAdapter[Change] = TypeAdapter(Change)
 
@@ -98,6 +112,8 @@ class Store:
             {} if cache is None else cache.bases
         )
         self._context = context
+        self.classification_claims: dict[str, ClassificationClaim] = {}
+        self.classification_heads: dict[str, sqlite3.Row] = {}
         self._cache = cache
         self.registry = (
             Registry(
@@ -117,6 +133,8 @@ class Store:
     def refresh_entities(self) -> None:
         """Re-evaluate activation after the owner's staged knowledge mutations."""
         self._bases.clear()
+        self.classification_claims.clear()
+        self.classification_heads.clear()
 
     def hold(self, size: int) -> None:
         reservation = self.budget.reserve_scratch(max(1, size), "general")
@@ -319,7 +337,7 @@ class Store:
         if entity["retired"] and not history:
             return None
         rows = self.connection.execute(
-            "SELECT c.*,s.attested_name,s.attested_type FROM entity_support s "
+            "SELECT c.*,s.attested_name FROM entity_support s "
             "JOIN contribution c USING(corpus_id,contribution_id) "
             "WHERE s.corpus_id=? AND s.entity_id=? ORDER BY c.sequence",
             (self.scope.corpus_id, entity_id),
@@ -327,14 +345,11 @@ class Store:
         result = None
         with closing(rows):
             for row in rows:
-                authored = self.registry.authored(row["schema_version"])
-                if row["attested_type"] not in authored.entity_types:
-                    raise EvidenceServiceError("internal_error")
+                self.registry.authored(row["schema_version"])
                 try:
                     with self._activation_support(row) as (support, current):
                         if (
                             row["attested_name"] != entity["name"]
-                            or row["attested_type"] != entity["entity_type"]
                         ):
                             raise EvidenceServiceError("internal_error")
                         if history or current:
@@ -368,6 +383,8 @@ class Store:
         return witness
 
     def entity(self, entity_id: str, *, history: bool = False) -> EntityView:
+        from kg.knowledge import _classification
+
         witness = self.require_entity(entity_id, history=history)
         row = self.row("entity", entity_id)
         more = False
@@ -385,25 +402,37 @@ class Store:
             if history or active:
                 more = True
                 break
+        classification = _classification.summary(self, entity_id)
         return EntityView(
             entity_id=entity_id,
             name=row["name"],
-            entity_type=row["entity_type"],
+            entity_type=classification.selected.entity_type if classification.selected else None,
             sequence=row["creation_sequence"],
             is_current=self.basis(entity_id) is not None,
             witness=witness,
             has_more_support=more,
+            classification=classification,
         )
 
     def contribution(self, cid: str, *, history: bool = False) -> ContributionView:
+        from kg.knowledge import _classification
+
         self.hold(4096)
         row = self.row("contribution", cid)
         basis, current = self.support(row)
         kind = row["kind"]
-        if kind not in {"entity_support", "alias", "identifier", "mention", "assertion"}:
+        if kind not in {
+            "entity_support",
+            "alias",
+            "identifier",
+            "mention",
+            "assertion",
+            "classification",
+        }:
             raise EvidenceServiceError("unsupported")
         text_columns = {
-            "entity_support": ("attested_name", "attested_type"),
+            "entity_support": ("attested_name",),
+            "classification": ("entity_type", "interpretation"),
             "alias": ("alias",),
             "identifier": ("scheme", "value"),
             "mention": (),
@@ -469,45 +498,62 @@ class Store:
             payload["entity"] = {"kind": "stored", "entity_id": detail["entity_id"]}
             if kind == "entity_support":
                 entity = self.row("entity", detail["entity_id"])
-                if (detail["attested_name"], detail["attested_type"]) != (
-                    entity["name"],
-                    entity["entity_type"],
-                ):
+                if detail["attested_name"] != entity["name"]:
                     raise EvidenceServiceError("internal_error")
-                payload.update(name=detail["attested_name"], entity_type=detail["attested_type"])
+                payload.update(name=detail["attested_name"])
+            elif kind == "classification":
+                payload.update(
+                    entity_type=detail["entity_type"], interpretation=detail["interpretation"],
+                )
             elif kind == "alias":
                 payload["alias"] = detail["alias"]
             elif kind == "identifier":
                 payload.update(scheme=detail["scheme"], value=detail["value"])
         witnesses = tuple(self.require_entity(e, history=history) for e in endpoints)
-        current = current and all(self.basis(e) is not None for e in endpoints)
-        if not current and not history:
-            raise EvidenceServiceError("not_found")
+        eligibility: Eligibility = "current" if current else "source_stale"
+        identity_current = all(self.basis(e) is not None for e in endpoints)
+        if eligibility == "current" and not identity_current:
+            eligibility = "identity_unsupported"
+        captures: tuple[ClassificationWitness, ...] = ()
         authored = self.registry.authored(row["schema_version"])
         if kind == "assertion":
             predicate = next(
                 (p for p in authored.predicates if p.name == detail["predicate"]), None,
             )
-            subject = self.row("entity", detail["subject_id"])
+            captures = _classification.assertion_captures(self, cid)
+            if len(captures) != (2 if detail["object_kind"] == "entity" else 1):
+                raise EvidenceServiceError("internal_error")
+            payload["subject_classification"] = StoredSelectionRef(
+                kind="stored", event_id=captures[0].selection_id,
+            )
             if (
                 predicate is None or predicate.object_kind != detail["object_kind"]
-                or subject["entity_type"] not in predicate.subject_types
+                or captures[0].entity_id != detail["subject_id"]
+                or captures[0].entity_type not in predicate.subject_types
                 or (predicate.record_projection and detail["interpretation"] != "explicit")
             ):
                 raise EvidenceServiceError("internal_error")
             if predicate.object_kind == "entity":
-                obj_entity = self.row("entity", detail["object_entity_id"])
-                if obj_entity["entity_type"] not in predicate.object_types:
+                payload["object_classification"] = StoredSelectionRef(
+                    kind="stored", event_id=captures[1].selection_id,
+                )
+                if (
+                    captures[1].entity_id != detail["object_entity_id"]
+                    or captures[1].entity_type not in predicate.object_types
+                ):
                     raise EvidenceServiceError("internal_error")
+            if eligibility == "current":
+                eligibility = _classification.capture_status(self, captures)
         elif (
-            kind == "entity_support" and detail["attested_type"] not in authored.entity_types
+            kind == "classification" and detail["entity_type"] not in authored.entity_types
         ) or (kind == "identifier" and detail["scheme"] not in authored.identifier_schemes):
             raise EvidenceServiceError("internal_error")
         withdrawal = None
-        if history and kind == "assertion":
+        if kind in {"assertion", "classification"}:
+            table = "assertion_withdrawal" if kind == "assertion" else "classification_withdrawal"
             event = self.connection.execute(
                 "SELECT w.withdrawal_id,k.committed_at,p.attribution_json "
-                "FROM assertion_withdrawal w "
+                f"FROM {table} w "
                 "LEFT JOIN write_key k ON k.corpus_id=w.corpus_id AND k.key_id=w.key_id "
                 "LEFT JOIN knowledge_write_provenance p "
                 "ON p.corpus_id=w.corpus_id AND p.key_id=w.key_id "
@@ -523,6 +569,12 @@ class Store:
                     committed_at=event["committed_at"],
                     attribution=Attribution.model_validate_json(event["attribution_json"]),
                 )
+                eligibility = (
+                    "assertion_withdrawn" if kind == "assertion" else "classification_withdrawn"
+                )
+        current = eligibility == "current"
+        if not current and not history:
+            raise EvidenceServiceError("not_found")
         return ContributionView(
             contribution_id=cid,
             sequence=row["sequence"],
@@ -541,4 +593,6 @@ class Store:
             is_current=current,
             witnesses=witnesses,
             withdrawal=withdrawal,
+            classification_witnesses=captures,
+            eligibility=eligibility,
         )

@@ -41,8 +41,11 @@ new skill has not been discovered in the current session.
 
 ## How the pieces fit
 
-Inspect vocabulary with `kg schema show --json`; setup's people/project vocabulary
-is an example, not a fixed domain model. `kg schema validate --example` documents
+Inspect vocabulary with `kg schema show --json`; new setup is schema-free.
+People/project vocabulary is only the explicit `--schema-preset personal/1`
+example. `kg schema generate --example` documents selected-excerpt context for
+external-agent initial proposals; the core does not interpret text.
+`kg schema validate --example` documents
 evidence-backed proposals and explicit human-reviewed admin apply. Proposals compare
 reuse, extension and deferral. Additions and monotonic endpoint widening preserve
 existing IDs, support and authored revisions; schema application never extracts facts.
@@ -179,7 +182,7 @@ See [canonical search contracts](CONTRACTS.md#canonical-full-search).
 Neither API implements processing coordination or establishes real-model
 quality/workload acceptance.
 
-The canonical store uses the complete `evidence-store/4` schema and the `evidence/2`
+The canonical store uses the complete `evidence-store/5` schema and the `evidence/2`
 service interface. Initialization verifies the actual schema and its recorded
 manifest, not just a version marker. Incompatible stores are refused without
 repair: use a fresh path and resupply sources, policy/schema and explicit knowledge.
@@ -379,7 +382,7 @@ network controls or change feeds merely to evade a block.
 
 After installation, `kg` and `python -m kg` work outside the source checkout.
 Start with guided `kg setup`. It asks for a new store location and explicit local
-model approval, and supplies the personal corpus/policy/writer defaults itself.
+model approval, and supplies the corpus/policy/writer defaults but no domain schema.
 The default profile is `~/.config/local-knowledge-graph/profile.json`; data is
 `~/.local/share/local-knowledge-graph/evidence.sqlite3`. `XDG_CONFIG_HOME` and
 `XDG_DATA_HOME` override their respective roots.
@@ -423,9 +426,18 @@ failure or non-complete query, 4 unsuccessful canonical
 write, 5 saved with failed preparation, 6 local/unexpected failure, 7 unknown
 write outcome. Receipt and preparation details remain separately represented.
 
-For unattended setup use `kg setup --yes --approve-models --json`, optionally
+For model-free evidence intake, use `kg setup --yes --json`, then
+`kg add FILE --evidence-only --json`. Exact reads and evidence-only updates work
+before any domain schema is approved. `kg capabilities --json` shows the current
+schema state and installed workflow boundaries without checking search readiness.
+An external agent can compose read, `schema generate SAMPLE.json`, validate and
+explicit human-reviewed apply; see `kg schema generate --example` for copy-ready
+input recipes. Generate returns `awaiting_agent`, not inferred vocabulary.
+
+For unattended setup with model preparation use `kg setup --yes --approve-models --json`, optionally
 `--store NEW_PATH --model-cache EXISTING_CACHE`. Approval includes the pinned
-GTE model's trusted cached code. Without approval, exact reads/removal work,
+GTE model's trusted cached code. Without approval, exact reads/removal and
+`--evidence-only` add/update work,
 while add/update/search fail before loading models. Profile settings remain
 explicitly editable local configuration: `models_approved` controls execution,
 `model_cache` selects an existing cache. No credentials or Python policy objects
@@ -448,7 +460,7 @@ kg read entity:RETURNED_ID --json
 kg find relationships Atlas --limit 20 --json
 kg record --example
 kg record --schema --json
-kg record facts.json --json
+kg record facts.json --retry-key reviewed-facts-1 --json
 kg find decisions Atlas --json
 kg find decisions Mira --through owns --json
 kg find decisions Atlas --through '^owns' --json
@@ -481,6 +493,19 @@ conjunctive evidence. The original support-array/native-reference form remains
 accepted. Modes cannot be mixed; unknown/unused names, duplicate keys/evidence
 and conflicting captured states are rejected before writing. Canonical limits
 apply after expansion. See `kg record --example` and `--schema`.
+
+Identity can remain unresolved with exact existence support and no edges. Do not put
+`entity_type` on `entity`/`entity_support` or coerce a local export/certificate into a
+project. Author a supported `classification` claim separately and explicitly select it
+using the exact review from `kg classifications entity:ID --json`. Only the original
+identity owner/writer selects or clears. Typed assertions capture selected events;
+same-type replacements, A-to-B-to-A and refresh never revive old assertions.
+`kg classifications entity:ID --history --json` preserves authorized history;
+`kg withdraw-classification fact:ID --retry-key KEY` terminally withdraws a claim
+without erasing identity/evidence. Persist the input and retry key before recording.
+See [the input recipe](src/kg/client/record-example.md) for compound creation,
+selection-only input, bounded subset recovery and unknown-outcome retry.
+
 The client derives dependencies
 from the captured states, never current/latest replacements. Every endpoint is an
 explicit local creation or stored-ID reuse. The complete canonical write receipt
@@ -842,14 +867,37 @@ and proposed engineering targets. Those targets are not measured performance.
 
 ## Development and documentation
 
-For code-affecting changes:
+From the repository root, with the declared base/dev environment prepared:
 
 ```bash
-uv run pytest
-uv run ruff check .
-uv run mypy
-uv build
+uv run --no-sync pytest  # Small isolated unit selection, NOT the complete suite.
+bash .github/scripts/check_pr.sh --area cli \
+  --reason "Changed public command behavior and its service consumers" \
+  --report /absolute/path/outside/repository/pr-gate.json
 ```
+
+The PR command includes the unit selection, a real SQLite/provenance/CLI core,
+reviewed behavior-area additions, lint, type checking and distribution build.
+The offline build validates declared backend requirements and constructs sdist/wheel
+in the explicit prepared interpreter without build isolation; isolated packaging
+validation remains a separately recorded release obligation.
+Repeat `--area` and add exact `--case` nodes for affected guarantees and consumers;
+the example's `cli` area is not a universal selection. Reports require a fresh
+external path. The **target** is at most 120 seconds end to end on the reference
+prepared host; no timing result is implied by these commands.
+
+`pytest tests` explicitly collects the complete suite, independent of the unit
+default. Complete integration/native/capacity acceptance remains a separately
+authorized release gate. On the prepared supported native host:
+
+```bash
+KG_REQUIRE_NATIVE=1 HF_HUB_OFFLINE=1 uv run --no-sync pytest tests --durations=50 --tb=short
+```
+
+Required graph examples and applicable real-model matrices are separate from
+pytest. Unrun acceptance is **pending**, not passed. **GitHub Actions is off until
+further notice; do not dispatch it.** See CONTRIBUTING for selection review,
+environment preparation, timing boundaries and release obligations.
 
 For docs/instruction-only changes, review the diff and relevant links instead;
 do not run the full Python suite or dispatch CI. See

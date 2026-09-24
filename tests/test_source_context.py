@@ -47,6 +47,7 @@ def _corpus(tmp_path: Path, text: str = SOURCE) -> tuple[Path, RetrievalService]
     return path, RetrievalService(database, manifest.corpus_id)
 
 
+@pytest.mark.service
 def test_context_keeps_section_boundaries_and_exact_evidence(tmp_path: Path) -> None:
     _, retrieval = _corpus(tmp_path)
     hit = retrieval.search("approval")[0]
@@ -77,6 +78,7 @@ def test_context_keeps_section_boundaries_and_exact_evidence(tmp_path: Path) -> 
     assert heading.anchors == result.anchors
 
 
+@pytest.mark.service
 def test_preamble_and_headingless_document(tmp_path: Path) -> None:
     _, retrieval = _corpus(tmp_path)
     result = retrieval.source_context(retrieval.search("Preamble")[0].anchor_id)
@@ -91,6 +93,7 @@ def test_preamble_and_headingless_document(tmp_path: Path) -> None:
     assert len(result.anchors) == 2
 
 
+@pytest.mark.service
 @pytest.mark.parametrize(
     "text",
     [
@@ -115,6 +118,7 @@ def test_context_includes_overlapping_list_and_heading_hits(
             )
 
 
+@pytest.mark.service
 def test_context_is_bounded_around_selected_anchor(tmp_path: Path) -> None:
     text = "# Large\n\n" + "\n\n".join(f"Paragraph {index}." for index in range(100))
     _, retrieval = _corpus(tmp_path, text)
@@ -134,6 +138,7 @@ def test_context_is_bounded_around_selected_anchor(tmp_path: Path) -> None:
             retrieval.source_context(selected.anchor_id, max_anchors=invalid)
 
 
+@pytest.mark.service
 def test_context_uses_stored_revision_and_enforces_corpus_scope(tmp_path: Path) -> None:
     path, retrieval = _corpus(tmp_path)
     hit = retrieval.search("approval")[0]
@@ -156,6 +161,7 @@ def test_context_uses_stored_revision_and_enforces_corpus_scope(tmp_path: Path) 
         retrieval.source_context("missing")
 
 
+@pytest.mark.functional
 def test_context_cli_and_capability(tmp_path: Path) -> None:
     path, retrieval = _corpus(tmp_path)
     runner = CliRunner()
@@ -182,6 +188,7 @@ def test_context_cli_and_capability(tmp_path: Path) -> None:
         assert json.loads(invalid_mode.stderr)["error"] == "invalid_query"
 
 
+@pytest.mark.service
 def test_contextual_text_keeps_quote_verbatim_and_handles_missing_metadata() -> None:
     quote = "  A precise quote.\n"
     assert contextual_passage_text(quote, "Title", ["Parent", "Child"]) == (

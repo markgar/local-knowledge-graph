@@ -1,11 +1,15 @@
+
 import json
 import subprocess
 import sys
 from pathlib import Path
 
+import pytest
 from support.graph import require_native
 
 
+@pytest.mark.functional
+@pytest.mark.requires_native
 def test_joined_example_displays_both_exact_proof_sides(tmp_path):
     require_native()
     output = tmp_path / "example"

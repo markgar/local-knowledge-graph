@@ -9,6 +9,7 @@ from kg.evidence import EvidenceServiceError
 from kg.models.foundation import SuppliedAnchor
 
 
+@pytest.mark.service
 def test_historical_inventory_citations_and_chain_validation(tmp_path: Path) -> None:
     env = environment(tmp_path / "e.db")
     initial = put(env.scope, text="first anchor")
@@ -114,6 +115,7 @@ def test_historical_inventory_citations_and_chain_validation(tmp_path: Path) -> 
     assert error.value.failure.code == "not_found"
 
 
+@pytest.mark.service
 def test_content_corruption_fails_without_success_shaped_fallback(tmp_path: Path) -> None:
     env = environment(tmp_path / "e.db")
     saved = receipt(env.service.write(put(env.scope, text="abc")))
@@ -126,6 +128,7 @@ def test_content_corruption_fails_without_success_shaped_fallback(tmp_path: Path
     assert error.value.failure.code == "internal_error"
 
 
+@pytest.mark.service
 def test_read_revocation_discards_snapshot(tmp_path: Path, monkeypatch) -> None:
     from kg.evidence import _store
     from kg.models.evidence import LocalPolicy
@@ -148,6 +151,7 @@ def test_read_revocation_discards_snapshot(tmp_path: Path, monkeypatch) -> None:
     assert error.value.failure.code == "state_changed"
 
 
+@pytest.mark.service
 @pytest.mark.parametrize("limit,after", [(0, 0), (201, 0), (1, -1), (True, 0), (1, False)])
 def test_page_bounds(tmp_path: Path, limit: int, after: int) -> None:
     env = environment(tmp_path / "e.db")

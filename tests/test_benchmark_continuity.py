@@ -28,6 +28,7 @@ def lexical_manifest(tmp_path: Path) -> Path:
     return path
 
 
+@pytest.mark.service
 @pytest.mark.parametrize("strategy", ["strict", "natural"])
 def test_private_worker_uses_actual_lexical_backend_without_models(
     lexical_manifest: Path, monkeypatch: pytest.MonkeyPatch, strategy: str,
@@ -50,6 +51,7 @@ def test_private_worker_uses_actual_lexical_backend_without_models(
     assert results == [r.model_dump(mode="json") for r in expected]
 
 
+@pytest.mark.functional
 def test_private_worker_preserves_quote_opt_in_and_errors(lexical_manifest: Path) -> None:
     worker = module("benchmarks/_lexical_search.py")
     args = ["certificate", "--manifest", str(lexical_manifest), "--query-mode", "strict"]
@@ -68,6 +70,7 @@ def test_private_worker_preserves_quote_opt_in_and_errors(lexical_manifest: Path
         assert json.loads(process.stderr)["error"] == "invalid_query"
 
 
+@pytest.mark.functional
 @pytest.mark.parametrize("arm", ["index", "kg"])
 @pytest.mark.parametrize("mode_args,has_hits", [
     ([], False), (["--query-mode", "strict"], False), (["--query-mode=natural"], True),
@@ -88,6 +91,7 @@ def test_work_memory_pins_actual_backend_and_retains_journal(
     assert not list(run.glob("*.dense*.sqlite3"))
 
 
+@pytest.mark.service
 def test_agent_search_is_natural_not_public_default(lexical_manifest: Path) -> None:
     evaluator = module("benchmarks/agent/evaluate.py")
     passed, details = evaluator._evaluate_task({
@@ -98,6 +102,7 @@ def test_agent_search_is_natural_not_public_default(lexical_manifest: Path) -> N
     assert details["quotes"] == ["archive signing certificate"]
 
 
+@pytest.mark.service
 @pytest.mark.parametrize("strategy", ["strict", "natural", "dense", "hybrid", "reranked"])
 def test_qasper_keeps_explicit_component_selection(
     lexical_manifest: Path, monkeypatch: pytest.MonkeyPatch, strategy: str,

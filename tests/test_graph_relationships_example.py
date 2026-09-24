@@ -1,11 +1,15 @@
+
 import json
 import subprocess
 import sys
 from pathlib import Path
 
+import pytest
 from support.graph import require_native
 
 
+@pytest.mark.functional
+@pytest.mark.requires_native
 def test_cited_query_example_uses_native_and_preserves_exact_quote(tmp_path):
     require_native()
     output = tmp_path / "example"
@@ -25,6 +29,7 @@ def test_cited_query_example_uses_native_and_preserves_exact_quote(tmp_path):
     assert not tuple((output / "derived").iterdir())
 
 
+@pytest.mark.functional
 def test_graph_value_import_does_not_load_native_runtime():
     process = subprocess.run(
         [sys.executable, "-c",

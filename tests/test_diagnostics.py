@@ -34,6 +34,7 @@ EMPTY_SET = SeedSetTarget(
 )
 
 
+@pytest.mark.service
 @pytest.mark.parametrize("target", [OWNED_WRITER, EMPTY_SET])
 def test_owned_targets_round_trip_without_fabricated_document_or_contribution(target):
     values = ReportTargets(values=(target,))
@@ -49,6 +50,7 @@ def test_owned_targets_round_trip_without_fabricated_document_or_contribution(ta
         ReportTargets.model_validate({"values": (target.model_dump() | {"fake_id": "secret"},)})
 
 
+@pytest.mark.service
 @pytest.mark.parametrize("target", [OWNED_WRITER, EMPTY_SET])
 def test_e1_rejects_unimplemented_owned_target_authorization(tmp_path, target):
     env = environment(tmp_path / "owned.db")
@@ -76,6 +78,7 @@ class OwnedTargetGate(EvidenceReportAuthorizer):
         super().authorize_target(connection, binding, target)
 
 
+@pytest.mark.service
 def test_owned_empty_target_all_binding_gate_redacts_children_after_parent_eviction(tmp_path):
     env = environment(tmp_path / "owned.db")
     owner = Collector("knowledge", env.service.identity)
@@ -104,6 +107,7 @@ def test_owned_empty_target_all_binding_gate_redacts_children_after_parent_evict
     assert child.group.bindings == []
 
 
+@pytest.mark.service
 @pytest.mark.parametrize("updates", [
     {"namespace": "email"}, {"owner_id": "other"}, {"writer_id": "other"},
     {"seed_set_id": "other"},
@@ -119,6 +123,7 @@ def test_exact_owned_set_identity_is_not_origin_scope_alone(tmp_path, updates):
     assert facade.recent(env.scope).entries == ()
 
 
+@pytest.mark.service
 def test_owned_target_capacity_precedes_copy_and_failure_stays_diagnostic(tmp_path):
     env = environment(tmp_path / "owned.db")
     capture = begin(env)
@@ -147,6 +152,7 @@ def complete(env, capture):
     return env.service.diagnostics._publish(capture)
 
 
+@pytest.mark.service
 def test_summary_and_detailed_event_counts(tmp_path):
     env = environment(tmp_path / "reports.db")
     for detail, limit in (("summary", 32), ("detailed", 200)):
@@ -163,6 +169,7 @@ def test_summary_and_detailed_event_counts(tmp_path):
         assert len(report.model_dump_json().encode()) <= REPORT_BYTES
 
 
+@pytest.mark.service
 def test_active_reservations_and_deterministic_completed_eviction(tmp_path):
     env = environment(tmp_path / "reports.db")
     captures = [begin(env) for _ in range(TOTAL_BYTES // REPORT_BYTES)]
@@ -180,6 +187,7 @@ def test_active_reservations_and_deterministic_completed_eviction(tmp_path):
     assert env.service.diagnostics.report(env.scope, first.report_id).state == "unavailable"
 
 
+@pytest.mark.service
 def test_retention_clock_starts_at_completion_and_tie_breaks_by_completion(tmp_path, monkeypatch):
     env = environment(tmp_path / "reports.db")
     clock = SimpleNamespace(value=0)
@@ -201,6 +209,7 @@ def test_retention_clock_starts_at_completion_and_tie_breaks_by_completion(tmp_p
     assert first.group.bindings == []
 
 
+@pytest.mark.service
 def test_size_before_copy_and_quote_construction(tmp_path):
     env = environment(tmp_path / "reports.db")
     capture = begin(env, options=ExplainOptions(detail="detailed", include_quotes=True))
@@ -221,6 +230,7 @@ def test_size_before_copy_and_quote_construction(tmp_path):
     assert bounded_size(huge, REPORT_BYTES) > REPORT_BYTES
 
 
+@pytest.mark.service
 def test_dependency_overflow_withholds_entire_report_not_just_last_event(tmp_path):
     env = environment(tmp_path / "reports.db")
     capture = begin(env)
@@ -259,6 +269,7 @@ def family(env):
     return parent, child, parent_facade, child_facade, gate, saved
 
 
+@pytest.mark.service
 def test_child_provisional_and_one_parent_release(tmp_path):
     env = environment(tmp_path / "reports.db")
     parent, child, parents, children, _, _ = family(env)
@@ -272,6 +283,7 @@ def test_child_provisional_and_one_parent_release(tmp_path):
     assert child.prepared.parent_execution_id == parent.execution_id
 
 
+@pytest.mark.service
 @pytest.mark.parametrize("failure", ["no_data", "close", "ipc_death"])
 def test_terminal_no_data_redaction_after_rights_return_and_parent_eviction(tmp_path, failure):
     env = environment(tmp_path / "reports.db")
@@ -293,6 +305,7 @@ def test_terminal_no_data_redaction_after_rights_return_and_parent_eviction(tmp_
     assert children.recent(env.scope).entries == ()
 
 
+@pytest.mark.service
 def test_later_denial_redacts_headers_body_and_parent_dependencies_survive_eviction(tmp_path):
     env = environment(tmp_path / "reports.db")
     parent, child, parents, children, gate, saved = family(env)
@@ -316,6 +329,7 @@ def test_later_denial_redacts_headers_body_and_parent_dependencies_survive_evict
     assert child.group.members == []
 
 
+@pytest.mark.service
 def test_no_parent_admission_means_no_independent_child_discovery(tmp_path):
     env = environment(tmp_path / "reports.db")
     active = [begin(env) for _ in range(32)]
@@ -327,6 +341,7 @@ def test_no_parent_admission_means_no_independent_child_discovery(tmp_path):
     assert len(active) == 32
 
 
+@pytest.mark.service
 def test_group_bookkeeping_does_not_grow_when_members_evicted(tmp_path):
     env = environment(tmp_path / "reports.db")
     root = begin(env)
@@ -342,6 +357,7 @@ def test_group_bookkeeping_does_not_grow_when_members_evicted(tmp_path):
     assert root.group.state == "unavailable"
 
 
+@pytest.mark.service
 def test_original_observer_invalidates_group_without_report_writes(tmp_path):
     env = environment(tmp_path / "reports.db")
     saved = receipt(env.service.write(put(env.scope)))
@@ -364,6 +380,7 @@ def test_original_observer_invalidates_group_without_report_writes(tmp_path):
     assert saved.document_id
 
 
+@pytest.mark.service
 def test_all_retained_evidence_targets_gate_header_and_body(tmp_path):
     env = environment(tmp_path / "reports.db")
     saved = receipt(env.service.write(put(env.scope)))

@@ -17,6 +17,7 @@ from kg.knowledge import KnowledgeService
 from kg.models.foundation import BatchResult, FoundationCapabilities, WriteBatch, WriteRequest
 
 
+@pytest.mark.service
 def test_exact_old_format_rejected_without_repair_with_actionable_message(tmp_path, caplog):
     path = tmp_path / "old.sqlite"
     # Exact prior schema is negative input, never a supported runtime compatibility branch.
@@ -44,6 +45,7 @@ def test_exact_old_format_rejected_without_repair_with_actionable_message(tmp_pa
     assert "reload" in caplog.text
 
 
+@pytest.mark.service
 def test_withdrawal_capabilities_shape_grants_and_batch_correlation(tmp_path):
     env = setup(tmp_path / "shape.sqlite")
     _, ids = produce(env, 1)
@@ -79,7 +81,8 @@ def test_withdrawal_capabilities_shape_grants_and_batch_correlation(tmp_path):
         result.model_copy(update={"outcomes": (tampered,)}).validate_for(batch)
 
 
-@pytest.mark.parametrize("graph", [False, True])
+@pytest.mark.functional
+@pytest.mark.parametrize("graph", [False, pytest.param(True, marks=pytest.mark.requires_native)])
 def test_actual_example_and_refusal_to_overwrite(tmp_path, graph):
     if graph:
         from support.graph import require_native

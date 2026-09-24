@@ -32,6 +32,8 @@ def add_relationships(env, count):
         ) for i in range(offset, min(count, offset + 20))))
 
 
+@pytest.mark.acceptance
+@pytest.mark.requires_native
 def test_actual_native_1000_complete_warm_and_1001_no_prefix(tmp_path):
     require_native()
     env = fixture(tmp_path / "source.sqlite", decisions=0)
@@ -51,6 +53,8 @@ def test_actual_native_1000_complete_warm_and_1001_no_prefix(tmp_path):
         assert overflow.generation is None and overflow.paths == ()
 
 
+@pytest.mark.native
+@pytest.mark.requires_native
 @pytest.mark.parametrize("failure", ["decode", "assembly", "retain", "fence"])
 def test_canonical_custody_native_lifetime_and_failure_cleanup(tmp_path, monkeypatch, failure):
     require_native()
@@ -122,6 +126,8 @@ def test_canonical_custody_native_lifetime_and_failure_cleanup(tmp_path, monkeyp
         assert session._generation is None
 
 
+@pytest.mark.native
+@pytest.mark.requires_native
 @pytest.mark.parametrize("mutation", [
     "id", "predicate", "schema", "subject", "selected", "root-basis", "support-scope", "duplicate",
 ])

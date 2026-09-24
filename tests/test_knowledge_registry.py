@@ -40,6 +40,7 @@ def stored(database):
         )
 
 
+@pytest.mark.service
 def test_registration_reopen_order_independence_and_no_fact_mutations(tmp_path):
     env = environment(tmp_path / "registry.db")
     admin = KnowledgeAdministration(env.database, ADMIN)
@@ -77,10 +78,11 @@ def test_registration_reopen_order_independence_and_no_fact_mutations(tmp_path):
         ):
             assert conn.execute(f"SELECT count(*) FROM {table}").fetchone()[0] == 0
         assert conn.execute("PRAGMA foreign_key_check").fetchall() == []
-        assert conn.execute("PRAGMA user_version").fetchone()[0] == 4
+        assert conn.execute("PRAGMA user_version").fetchone()[0] == 5
     assert env.service.diagnostics.recent(env.scope).entries == ()
 
 
+@pytest.mark.service
 @pytest.mark.parametrize("field", ["preset_name", "preset_rationale", "definition"])
 def test_preset_cannot_replace_a_registered_definition(tmp_path, field):
     env = environment(tmp_path / "registry.db")
@@ -108,6 +110,7 @@ def test_preset_cannot_replace_a_registered_definition(tmp_path, field):
     assert stored(env.database) == before
 
 
+@pytest.mark.service
 def test_corpus_isolation_and_provisioned_authority(tmp_path):
     env = environment(tmp_path / "registry.db")
     value = preset()
@@ -135,6 +138,7 @@ def test_corpus_isolation_and_provisioned_authority(tmp_path):
         ).register_knowledge_schema(value)
 
 
+@pytest.mark.service
 @pytest.mark.parametrize("forgery", ["top", "nested", "extra", "python-type", "description"])
 def test_constructed_copied_and_nested_models_revalidated(tmp_path, forgery):
     env = environment(tmp_path / "registry.db")
@@ -182,6 +186,7 @@ def test_constructed_copied_and_nested_models_revalidated(tmp_path, forgery):
     assert stored(env.database) == ()
 
 
+@pytest.mark.service
 def test_owner_rollback_and_lifetime(tmp_path):
     env = environment(tmp_path / "registry.db")
     budget = PrivateBudget(Deadline(monotonic() + 30))
@@ -201,6 +206,7 @@ def test_owner_rollback_and_lifetime(tmp_path):
         operations.preset(context, preset(), budget)
 
 
+@pytest.mark.service
 def test_insert_failure_rolls_back_and_logs_safe_error(tmp_path, monkeypatch, caplog):
     env = environment(tmp_path / "registry.db")
     execute = AccountedConnection.execute
@@ -220,6 +226,7 @@ def test_insert_failure_rolls_back_and_logs_safe_error(tmp_path, monkeypatch, ca
     assert stored(env.database) == ()
 
 
+@pytest.mark.service
 @pytest.mark.parametrize("corruption", ["json", "hash", "noncanonical"])
 def test_corrupt_stored_definition_is_not_repaired(tmp_path, corruption):
     env = environment(tmp_path / "registry.db")
@@ -254,6 +261,7 @@ def _register_worker(path, barrier, queue, name):
         queue.put((error.failure.code, None))
 
 
+@pytest.mark.process
 @pytest.mark.parametrize("same", [True, False])
 def test_multiprocess_registration_serializes(tmp_path, same):
     env = environment(tmp_path / "registry.db")
@@ -280,6 +288,7 @@ def test_multiprocess_registration_serializes(tmp_path, same):
     assert len(stored(env.database)) == 1
 
 
+@pytest.mark.functional
 def test_example_reopens_exact_genesis(tmp_path):
     command = [
         sys.executable,

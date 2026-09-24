@@ -20,6 +20,7 @@ from kg.models.foundation import (
     PutDocument,
     RemoveDocument,
     WithdrawAssertion,
+    WithdrawClassification,
     WriteBatch,
     WriteOutcome,
     WriteRequest,
@@ -72,7 +73,7 @@ class EvidenceService(ExplainedReads):
             "write",
             request.scope,
             required="write_knowledge"
-            if isinstance(request.payload, (ChangeSet, WithdrawAssertion))
+            if isinstance(request.payload, (ChangeSet, WithdrawAssertion, WithdrawClassification))
             else "write_documents",
             request_id=request.request_id,
             options=reporting.options(),
@@ -169,7 +170,10 @@ class EvidenceService(ExplainedReads):
                 required=(
                     "write_knowledge"
                     if all(
-                        isinstance(i.payload, (ChangeSet, WithdrawAssertion)) for i in batch.items
+                        isinstance(
+                            i.payload, (ChangeSet, WithdrawAssertion, WithdrawClassification)
+                        )
+                        for i in batch.items
                     )
                     else "write_documents"
                 ),

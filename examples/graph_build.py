@@ -7,11 +7,13 @@ import json
 import platform
 import resource
 from collections import Counter
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from threading import Event
 from time import monotonic
 from uuid import uuid4
+
+from classification_inputs import classified_entity
 
 from kg._execution_budget import Deadline, _graph_build_operation
 from kg.evidence import EvidenceAdministration, EvidenceDatabase, EvidenceService
@@ -37,7 +39,6 @@ from kg.models.foundation import (
     Attribution,
     ChangeSet,
     ChangeSetReceipt,
-    CreateEntity,
     CreateOnly,
     DocumentDependency,
     DocumentReceipt,
@@ -47,9 +48,11 @@ from kg.models.foundation import (
     SchemaRevisionRef,
     Scope,
     SeedSupport,
+    SelectClassification,
     SourceMetadata,
     SourceSupport,
     StoredEntity,
+    StoredSelectionRef,
     StringObject,
     SuppliedAnchor,
     SuppliedContent,
@@ -78,10 +81,30 @@ class Fixture:
     projects: list
     person: str
     schema_revision: SchemaRevisionRef
+    selections: dict[str, str] = field(default_factory=dict)
 
     def write(self, changes):
+        changes = tuple(item for value in changes for item in (
+            value if isinstance(value, tuple) else (value,)
+        ))
+        prepared = []
+        for change in changes:
+            if isinstance(change, AddAssertion):
+                fields = {}
+                if change.subject_classification is None:
+                    fields["subject_classification"] = StoredSelectionRef(
+                        kind="stored", event_id=self.selections[change.subject.entity_id],
+                    )
+                if isinstance(change.object, EntityObject) and change.object_classification is None:
+                    fields["object_classification"] = StoredSelectionRef(
+                        kind="stored", event_id=self.selections[change.object.entity.entity_id],
+                    )
+                change = change.model_copy(update=fields)
+            prepared.append(change)
+        changes = tuple(prepared)
         refs = [
-            ref for change in changes if isinstance(change.support, SourceSupport)
+            ref for change in changes if not isinstance(change, SelectClassification)
+            and isinstance(change.support, SourceSupport)
             for ref in change.support.evidence
         ]
         deps = {ref.document_id: self.dependencies[ref.document_id] for ref in refs}
@@ -96,6 +119,9 @@ class Fixture:
         if not isinstance(result.receipt, ChangeSetReceipt):
             raise RuntimeError(result.model_dump_json())
         mapping = {item.local_id: item.stored_id for item in result.receipt.mappings}
+        self.selections.update({
+            item.entity_id: item.selection_id for item in result.receipt.entity_classifications
+        })
         for change in changes:
             if isinstance(change, AddAssertion):
                 self.expected[mapping[change.local_id]] = {
@@ -202,9 +228,12 @@ def fixture(path: Path, *, decisions: int = 12, varied: bool = False) -> Fixture
             ref = evidence.anchors(scope, doc.document_id, doc.processing.state_version).entries[0]
         env.references.append(ref.reference)
     source = SourceSupport(kind="source", evidence=(env.references[0],))
-    people = env.write(tuple(CreateEntity(
-        kind="entity", local_id=f"person-{i}", name="Alice", entity_type="person", support=source,
-    ) for i in range(2)))
+    created = env.write(tuple(
+        change for i in range(2) for change in classified_entity(
+            local_id=f"person-{i}", name="Alice", entity_type="person", support=source,
+        )
+    ))
+    people = {f"person-{i}": created[f"person-{i}"] for i in range(2)}
     env.person = people["person-0"]
     project_count = 100 if varied else 5
     for i in range(project_count):
@@ -215,10 +244,10 @@ def fixture(path: Path, *, decisions: int = 12, varied: bool = False) -> Fixture
             index = (i * 2 + 1) if i % 5 in (1, 2) else i * 2
             support = SourceSupport(kind="source",
                                     evidence=(env.references[index % len(env.references)],))
-        entity_id = env.write((CreateEntity(
-            kind="entity", local_id="project", name=f"Project {i}",
+        entity_id = env.write(classified_entity(
+            local_id="project", name=f"Project {i}",
             entity_type="project", support=support,
-        ),))["project"]
+        ))["project"]
         env.projects.append(entity_id)
         env.write(tuple(AddAssertion(
             kind="assertion", local_id=f"owns-{j}", predicate="work:owns",

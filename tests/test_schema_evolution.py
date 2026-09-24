@@ -7,6 +7,7 @@ from threading import Barrier
 
 import pytest
 from pydantic import ValidationError
+from support.classification import typed_entity
 from support.evidence import environment, put, receipt
 from support.knowledge import preset, revision
 from support.query_knowledge import setup, write
@@ -21,7 +22,6 @@ from kg.models.foundation import (
     Attribution,
     BooleanObject,
     ChangeSet,
-    CreateEntity,
     EntityObject,
     LocalEntity,
     SourceSupport,
@@ -140,11 +140,12 @@ def counts(env):
         )
 
 
+@pytest.mark.service
 def test_validate_apply_preserve_old_facts_and_record_new_property_and_relation(env):
     ids = write(
         env,
         (
-            CreateEntity(
+            typed_entity(
                 kind="entity",
                 local_id="project",
                 name="Atlas",
@@ -199,7 +200,7 @@ def test_validate_apply_preserve_old_facts_and_record_new_property_and_relation(
     ids = write(
         env,
         (
-            CreateEntity(
+            typed_entity(
                 kind="entity",
                 local_id="cert",
                 name="archive signing certificate",
@@ -240,11 +241,12 @@ def test_validate_apply_preserve_old_facts_and_record_new_property_and_relation(
     assert env.knowledge.schema_history(env.scope, after_sequence=1).entries[0].sequence == 2
 
 
+@pytest.mark.service
 def test_endpoint_union_and_authored_revision_survive_withdrawal_and_query(env):
     project = write(
         env,
         (
-            CreateEntity(
+            typed_entity(
                 kind="entity",
                 local_id="p",
                 name="Atlas",
@@ -300,6 +302,7 @@ def test_endpoint_union_and_authored_revision_survive_withdrawal_and_query(env):
     assert history.schema_version == original.schema_version and not history.is_current
 
 
+@pytest.mark.service
 def test_exact_head_fresh_write_and_successful_receipt_replay(env):
     authored = revision(env)
     fresh = WriteRequest(
@@ -312,14 +315,12 @@ def test_exact_head_fresh_write_and_successful_receipt_replay(env):
             operation="enrich",
             expected_schema_revision=authored,
             dependencies=(env.dependency,),
-            changes=(
-                CreateEntity(
-                    kind="entity",
-                    local_id="p",
-                    name="Atlas",
-                    entity_type="project",
-                    support=env.support,
-                ),
+            changes=typed_entity(
+                kind="entity",
+                local_id="p",
+                name="Atlas",
+                entity_type="project",
+                support=env.support,
             ),
         ),
     )
@@ -338,6 +339,7 @@ def test_exact_head_fresh_write_and_successful_receipt_replay(env):
     assert env.service.write(missing).error.code == "invalid_request"
 
 
+@pytest.mark.service
 def test_apply_replay_changed_key_digest_and_source_history(env):
     value = proposal(env)
     prepared = request(env, value)
@@ -372,6 +374,7 @@ def test_apply_replay_changed_key_digest_and_source_history(env):
     assert env.knowledge.schema_change(env.scope, applied.receipt.revision.revision_id).proposal
 
 
+@pytest.mark.service
 @pytest.mark.parametrize("mutation", ["digest", "candidate", "unknown-type", "duplicate", "state"])
 def test_invalid_units_are_atomic(env, mutation):
     value = proposal(env)
@@ -439,6 +442,7 @@ def test_invalid_units_are_atomic(env, mutation):
     assert counts(env) == before
 
 
+@pytest.mark.process
 def test_concurrent_proposals_and_identical_retry_have_single_commit(env):
     barrier = Barrier(2)
     value = proposal(env)
@@ -464,6 +468,7 @@ def test_concurrent_proposals_and_identical_retry_have_single_commit(env):
     assert counts(env)[:3] == (3, 3, 2)
 
 
+@pytest.mark.service
 @pytest.mark.parametrize(
     "table",
     [
@@ -493,6 +498,7 @@ def test_injected_storage_failure_rolls_back_revision_head_receipt(env, monkeypa
     assert counts(env) == before
 
 
+@pytest.mark.service
 def test_unconfigured_bootstrap_legacy_rejection_and_preset_detail_policy(tmp_path):
     env = environment(tmp_path / "empty.sqlite")
     reader = KnowledgeService(env.database, env.service.identity)
@@ -515,6 +521,7 @@ def test_unconfigured_bootstrap_legacy_rejection_and_preset_detail_policy(tmp_pa
     assert definition_json(reader.schema(env.scope).definition) == definition_json(value.definition)
 
 
+@pytest.mark.service
 def test_wrong_admin_identity_and_forged_approval_cannot_apply(env):
     value = proposal(env)
     wrong = KnowledgeAdministration(env.database, LocalAdminAuthority(principal_id="untrusted"))
@@ -536,6 +543,7 @@ def test_wrong_admin_identity_and_forged_approval_cannot_apply(env):
     assert counts(env) == before
 
 
+@pytest.mark.service
 def test_source_and_policy_changes_block_new_validation_and_apply(env):
     prepared = request(env, proposal(env))
     receipt(
@@ -583,6 +591,7 @@ def _apply_process(path, serialized, barrier, queue):
     queue.put(admin.apply_schema(prepared).model_dump_json())
 
 
+@pytest.mark.process
 @pytest.mark.parametrize("same", [False, True])
 def test_multiprocess_proposal_apply_and_retry(env, same):
     from kg.models.schema import SchemaApplyOutcome
@@ -612,6 +621,7 @@ def test_multiprocess_proposal_apply_and_retry(env, same):
     assert counts(env)[:3] == (2, 2, 1)
 
 
+@pytest.mark.service
 def test_evidence_backed_null_base_bootstrap_without_facts(env, tmp_path):
     fresh = environment(tmp_path / "new.sqlite")
     source = receipt(fresh.service.write(put(fresh.scope, text="The basalt specimen is porous.")))
@@ -662,6 +672,7 @@ def test_evidence_backed_null_base_bootstrap_without_facts(env, tmp_path):
     assert reader.schema_change(fresh.scope, outcome.receipt.revision.revision_id).proposal == value
 
 
+@pytest.mark.service
 @pytest.mark.parametrize(
     "operation", ["schema", "schema_history", "validate_schema", "schema_change"]
 )
@@ -706,12 +717,14 @@ def test_schema_reads_reject_changes_at_release_fence(env, monkeypatch, operatio
     assert error.value.failure.code in {"state_changed", "forbidden"}
 
 
+@pytest.mark.unit
 def test_approval_requires_boolean_not_coercible_literal():
     for value in (False, 1, "true", None):
         with pytest.raises(ValidationError):
             SchemaApproval(human_reviewed=value, rationale="Explicit review.")
 
 
+@pytest.mark.service
 def test_metadata_discovery_is_readable_but_change_and_replay_require_original_scope(env):
     from kg.models.evidence import LocalIdentity, PolicyGrant
 
@@ -746,6 +759,7 @@ def test_metadata_discovery_is_readable_but_change_and_replay_require_original_s
     assert env.schema_admin.apply_schema(prepared).error.code == "forbidden"
 
 
+@pytest.mark.service
 def test_lost_commit_acknowledgement_is_unknown_and_exact_retry_recovers(env, monkeypatch):
     import sqlite3
 
@@ -766,6 +780,7 @@ def test_lost_commit_acknowledgement_is_unknown_and_exact_retry_recovers(env, mo
     assert counts(env)[:3] == (2, 2, 1)
 
 
+@pytest.mark.service
 def test_schema_scratch_exhaustion_rolls_back_without_success_shape(env, monkeypatch):
     from kg._execution_budget import PrivateBudget, PrivateResourceStop
 
@@ -790,6 +805,7 @@ def test_schema_scratch_exhaustion_rolls_back_without_success_shape(env, monkeyp
     assert all(pool._root._scratch == 0 for pool in pools)
 
 
+@pytest.mark.service
 def test_simultaneous_widening_discloses_full_cartesian_product_and_rejects_noops(env):
     value = proposal(env)
     widening = WidenPredicate(
@@ -818,6 +834,7 @@ def test_simultaneous_widening_discloses_full_cartesian_product_and_rejects_noop
         assert counts(env) == before
 
 
+@pytest.mark.process
 def test_schema_commit_invalidates_retained_query_but_fresh_query_keeps_authored_members(env):
     from support.query_knowledge import plan, produce
 
@@ -844,6 +861,7 @@ def test_schema_commit_invalidates_retained_query_but_fresh_query_keeps_authored
         assert page.error is None and {r.record_id for r in page.records} == identifiers
 
 
+@pytest.mark.service
 @pytest.mark.parametrize("corruption", ["missing", "rewound"])
 def test_missing_or_rewound_head_is_corrupt_not_unconfigured_or_writable(env, corruption):
     old = revision(env)
@@ -871,10 +889,10 @@ def test_missing_or_rewound_head_is_corrupt_not_unconfigured_or_writable(env, co
         payload=ChangeSet(
             operation="enrich", expected_schema_revision=old,
             dependencies=(env.dependency,),
-            changes=(CreateEntity(
+            changes=typed_entity(
                 kind="entity", local_id="p", name="Atlas", entity_type="project",
                 support=env.support,
-            ),),
+            ),
         ),
     ))
     assert fresh.error.code == "internal_error"

@@ -110,6 +110,7 @@ def passages(tmp_path, request):
         yield env, service, value, saved, page
 
 
+@pytest.mark.process
 def test_exact_multi_passage_refs_quotes_and_one_semantic_charge(passages, monkeypatch):
     env, service, _, _, page = passages
     frames = []
@@ -161,6 +162,7 @@ def test_exact_multi_passage_refs_quotes_and_one_semantic_charge(passages, monke
     )  # Lookup never re-executes; generated anchors also use the real resolver.
 
 
+@pytest.mark.process
 @pytest.mark.parametrize(
     "field",
     [
@@ -191,6 +193,7 @@ def test_mismatched_real_chain_is_not_found_before_public_charge(passages, monke
     assert service.diagnostics.for_request(env.scope, request.request_id).entries == ()
 
 
+@pytest.mark.process
 def test_scoped_passage_and_whole_value_validation(passages):
     env, service, _, _, page = passages
     ref = page.entries[0].reference
@@ -220,6 +223,7 @@ def test_scoped_passage_and_whole_value_validation(passages):
             service.execute(request)
 
 
+@pytest.mark.process
 def test_history_citations_metadata_policy_sets_and_remove_restore(passages):
     env, service, value, saved, original = passages
     _, newer, same = publish(
@@ -294,6 +298,7 @@ def test_history_citations_metadata_policy_sets_and_remove_restore(passages):
     assert service.execute(plan(env.scope, ref)).result.data.records[0].support.evidence == (ref,)
 
 
+@pytest.mark.process
 def test_exact_shared_scratch_boundary_and_vm_exhaustion(passages, monkeypatch):
     env, service, _, _, page = passages
     request = plan(env.scope, page.entries[0].reference)
@@ -314,7 +319,7 @@ def test_exact_shared_scratch_boundary_and_vm_exhaustion(passages, monkeypatch):
     for extra in (0, 1):
 
         def occupied(observer, step, ledger, extra=extra):
-            with ledger.budget.reserve_scratch((64 << 20) - peak + extra, "general"):
+            with ledger.budget.reserve_scratch((128 << 20) - peak + extra, "general"):
                 return run(observer, step, ledger)
 
         with monkeypatch.context() as patch:
@@ -333,6 +338,7 @@ def test_exact_shared_scratch_boundary_and_vm_exhaustion(passages, monkeypatch):
     no_data(service.execute_explained(request), "resource_budget")
 
 
+@pytest.mark.process
 @pytest.mark.parametrize(
     "worker,reason",
     [
@@ -378,6 +384,7 @@ def test_actual_hydration_worker_loss_and_retained_local_budget(
     assert service.execute(request).result.outcome == "complete"
 
 
+@pytest.mark.process
 def test_actual_processing_heartbeat_invalidates_passage_release(passages, monkeypatch):
     env, service, _, saved, page = passages
     admin = ProcessingAdministration(env.database, env.admin.authority)
@@ -455,6 +462,7 @@ def test_actual_processing_heartbeat_invalidates_passage_release(passages, monke
     assert service.diagnostics.for_request(env.scope, request.request_id).entries == ()
 
 
+@pytest.mark.process
 def test_complete_targets_and_group_redaction_after_eviction_and_restored_rights(
     passages,
     monkeypatch,

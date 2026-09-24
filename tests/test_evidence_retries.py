@@ -3,12 +3,14 @@ from __future__ import annotations
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
+import pytest
 from support.evidence import environment, put, receipt
 
 from kg.evidence import EvidenceService
 from kg.models.foundation import ExpectedState
 
 
+@pytest.mark.service
 def test_replay_conflict_expiry_and_clock_rollback(tmp_path: Path) -> None:
     env = environment(tmp_path / "e.db")
     at = datetime(2026, 9, 21, tzinfo=UTC)
@@ -52,6 +54,7 @@ def test_replay_conflict_expiry_and_clock_rollback(tmp_path: Path) -> None:
         assert connection.execute("SELECT count(*) FROM revision").fetchone()[0] == 2
 
 
+@pytest.mark.service
 def test_revoked_retry_never_returns_receipt(tmp_path: Path) -> None:
     from kg.models.evidence import LocalPolicy
 

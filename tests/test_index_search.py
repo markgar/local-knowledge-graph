@@ -11,6 +11,7 @@ from kg.evidence.errors import EvidenceServiceError
 from kg.models.execution import ExplainOptions
 
 
+@pytest.mark.service
 def test_actual_full_pipeline_exact_citation_and_report(tmp_path):
     import json
     from pathlib import Path
@@ -41,6 +42,7 @@ def test_actual_full_pipeline_exact_citation_and_report(tmp_path):
     assert search.diagnostics.recent(env.scope).entries
 
 
+@pytest.mark.service
 @pytest.mark.parametrize("allowance", [4, 5, 10])
 def test_exact_same_snapshot_schedule_and_repeated_pool(tmp_path, allowance):
     env = environment(tmp_path / "search.sqlite3")
@@ -78,6 +80,7 @@ def test_exact_same_snapshot_schedule_and_repeated_pool(tmp_path, allowance):
     assert budget._scratch == 0
 
 
+@pytest.mark.service
 def test_missing_projection_is_not_empty_success(tmp_path):
     from support.evidence import receipt
     from support.indexing import request
@@ -90,6 +93,7 @@ def test_missing_projection_is_not_empty_success(tmp_path):
     assert failure.value.failure.code == "stale_index"
 
 
+@pytest.mark.service
 @pytest.mark.parametrize("text", [None, ""])
 def test_empty_still_initializes_both_and_encodes_query(tmp_path, text):
     from support.index_search import Reranker, SearchProvider
@@ -114,6 +118,7 @@ def test_empty_still_initializes_both_and_encodes_query(tmp_path, text):
     assert len(result.projection_ids) == (0 if text is None else 1)
 
 
+@pytest.mark.service
 @pytest.mark.parametrize("query", ["", " ", "___", "!!!", "\u0301", "x" * 4097])
 def test_invalid_and_tokenless_queries_fail(tmp_path, query):
     env = environment(tmp_path / "invalid.sqlite3")
@@ -123,6 +128,7 @@ def test_invalid_and_tokenless_queries_fail(tmp_path, query):
     assert failure.value.failure.code == "invalid_request"
 
 
+@pytest.mark.service
 @pytest.mark.parametrize("query", ['"alpha" OR nope*', "ALPHA beta", "alpha alpha", "no-match"])
 def test_natural_tokens_not_raw_syntax_and_dense_only_still_reranks(tmp_path, query):
     env = environment(tmp_path / "tokens.sqlite3")
@@ -138,6 +144,7 @@ def test_natural_tokens_not_raw_syntax_and_dense_only_still_reranks(tmp_path, qu
         assert result.outcome.items_consumed == 4
 
 
+@pytest.mark.service
 @pytest.mark.parametrize("fault", [
     "embedding_missing", "reranker_missing", "runtime", "profile", "reranker_pin",
     "zero_vector", "nan_vector", "dimension", "rerank_length", "rerank_nan", "rerank_bool",
@@ -185,6 +192,7 @@ def test_provider_faults_no_fallback_or_projection_mutation(tmp_path, fault):
         assert not capture.events and not capture.configuration_ids
 
 
+@pytest.mark.service
 def test_hidden_namespace_other_corpus_and_history_cannot_change_scores(tmp_path):
     from support.evidence import receipt
     from support.index_search import SearchProvider
@@ -226,6 +234,7 @@ def test_hidden_namespace_other_corpus_and_history_cannot_change_scores(tmp_path
     assert len(after.outcome.projection_ids) == 1
 
 
+@pytest.mark.service
 @pytest.mark.parametrize("change", ["text", "metadata", "policy", "remove", "rebuild", "unrelated"])
 @pytest.mark.parametrize("stage", ["embedding", "rerank"])
 def test_concurrent_changes_never_release_ranked_data(tmp_path, change, stage):
@@ -287,6 +296,7 @@ def test_concurrent_changes_never_release_ranked_data(tmp_path, change, stage):
         assert env.service.citation(env.scope, old_citation).quote == "alpha"
 
 
+@pytest.mark.service
 def test_observer_gap_commit_search_detects_even_complete_new_snapshot(tmp_path, monkeypatch):
     from support.evidence import receipt
     from support.indexing import request
@@ -311,6 +321,7 @@ def test_observer_gap_commit_search_detects_even_complete_new_snapshot(tmp_path,
         search.search(narrow, "alpha")
 
 
+@pytest.mark.service
 @pytest.mark.parametrize("resource", ["visits", "vm", "scratch", "deadline", "provider"])
 def test_inherited_private_limits_release_buffers_and_redact(tmp_path, monkeypatch, resource):
     env = environment(tmp_path / "limits.sqlite3")
@@ -325,7 +336,7 @@ def test_inherited_private_limits_release_buffers_and_redact(tmp_path, monkeypat
         elif resource == "vm":
             budget._vm = 10_000_000
         elif resource == "scratch":
-            held.append(budget.reserve_scratch((64 << 20) - budget._scratch, "general"))
+            held.append(budget.reserve_scratch((128 << 20) - budget._scratch, "general"))
         elif resource == "deadline":
             budget.deadline = Deadline(0)
 
@@ -352,6 +363,7 @@ def test_inherited_private_limits_release_buffers_and_redact(tmp_path, monkeypat
         assert not capture.events and not capture.configuration_ids
 
 
+@pytest.mark.service
 def test_temp_full_is_resource_failure_and_next_search_is_clean(tmp_path, monkeypatch):
     import kg.evidence._read_context as read_module
 
@@ -374,6 +386,7 @@ def test_temp_full_is_resource_failure_and_next_search_is_clean(tmp_path, monkey
         ).fetchall()
 
 
+@pytest.mark.acceptance
 @pytest.mark.parametrize("offset", [9995, 9996])
 def test_exact_ten_thousand_shared_boundary(tmp_path, offset):
     env = environment(tmp_path / "public.sqlite3")
@@ -397,6 +410,7 @@ def test_exact_ten_thousand_shared_boundary(tmp_path, offset):
     assert execution.public_accounting().items_consumed == 10_000
 
 
+@pytest.mark.service
 def test_dedup_ties_pool_limits_and_actual_report_priority(tmp_path):
     from kg.models.foundation import SuppliedAnchor
 
@@ -425,6 +439,7 @@ def test_dedup_ties_pool_limits_and_actual_report_priority(tmp_path):
     assert candidates[3].rerank_rank == 4
 
 
+@pytest.mark.service
 @pytest.mark.parametrize("profile", ["gte-modernbert", "qwen3-embedding-0.6b"])
 @pytest.mark.parametrize("contextual", [False, True])
 def test_supported_configurations_quote_only_lexical_and_exact_representation(
@@ -463,6 +478,7 @@ def test_supported_configurations_quote_only_lexical_and_exact_representation(
     assert result.outcome.items_consumed == 4
 
 
+@pytest.mark.service
 def test_wrong_logical_configuration_and_stale_metadata_fail(tmp_path):
     from support.evidence import receipt
     from support.indexing import request
@@ -482,6 +498,7 @@ def test_wrong_logical_configuration_and_stale_metadata_fail(tmp_path):
         search.search(env.scope, "alpha")
 
 
+@pytest.mark.service
 @pytest.mark.parametrize(
     "failure", ["append", "phase_constructor", "candidate_constructor", "candidate_display"],
 )
@@ -518,6 +535,7 @@ def test_capture_failure_never_changes_model_inputs_or_business_outcome(
     assert explained.report.state == "unavailable"
 
 
+@pytest.mark.service
 def test_borrowed_child_report_stays_provisional_and_parent_redaction_is_terminal(tmp_path):
     from kg.models.execution import ExplainOptions
 
@@ -555,6 +573,7 @@ def test_borrowed_child_report_stays_provisional_and_parent_redaction_is_termina
     assert search.diagnostics.report(env.scope, child.report_id).state == "redacted"
 
 
+@pytest.mark.service
 def test_initial_authorization_precedes_models_and_denied_scope_not_silently_reduced(tmp_path):
     env = environment(tmp_path / "authorization.sqlite3")
     search, _, _, _, _, _ = prepared(env, text="alpha")
@@ -576,6 +595,7 @@ def test_initial_authorization_precedes_models_and_denied_scope_not_silently_red
         search.search(scope, "alpha")
 
 
+@pytest.mark.service
 def test_supplied_document_example_uses_actual_lifecycle_and_full_search(tmp_path, monkeypatch):
     from support.index_search import Reranker, SearchProvider
     from support.modules import module
@@ -592,6 +612,7 @@ def test_supplied_document_example_uses_actual_lifecycle_and_full_search(tmp_pat
     assert result.items_consumed == 5
 
 
+@pytest.mark.process
 @pytest.mark.parametrize("phase", ["temp", "rerank"])
 def test_terminated_child_leaves_no_lease_or_temp_and_preserves_projection(tmp_path, phase):
     import multiprocessing
@@ -625,6 +646,7 @@ def test_terminated_child_leaves_no_lease_or_temp_and_preserves_projection(tmp_p
         connection.rollback()
 
 
+@pytest.mark.service
 def test_summary_detailed_and_quote_options_use_same_actual_inputs(tmp_path):
     env = environment(tmp_path / "reports.sqlite3")
     search, _, provider, reranker, _, _ = prepared(env, text="alpha PRIVATE_SOURCE_CANARY")
@@ -645,6 +667,7 @@ def test_summary_detailed_and_quote_options_use_same_actual_inputs(tmp_path):
     assert inputs[0] == inputs[1] == inputs[2]
 
 
+@pytest.mark.service
 def test_failed_later_attempt_keeps_valid_projection_searchable(tmp_path):
     from support.indexing import process
 
@@ -662,6 +685,7 @@ def test_failed_later_attempt_keeps_valid_projection_searchable(tmp_path):
     assert search.search(env.scope, "alpha").hits == before
 
 
+@pytest.mark.service
 def test_stored_corruption_is_not_a_partial_search(tmp_path):
     env = environment(tmp_path / "corrupt.sqlite3")
     search, _, _, _, _, saved = prepared(env, text="alpha")

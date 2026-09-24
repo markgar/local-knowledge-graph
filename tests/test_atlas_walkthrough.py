@@ -18,6 +18,7 @@ STAGES = yaml.safe_load(Path("corpora/fixtures/atlas-stages.yml").read_text())["
 RECORD_KINDS = ("relationships", "actions", "decisions", "blockers", "conflicts")
 
 
+@pytest.mark.acceptance
 @pytest.mark.parametrize("stop_after", range(1, len(STAGES) + 1))
 def test_incremental_atlas_evidence(tmp_path: Path, stop_after: int) -> None:
     manifest = load_manifest(Path("corpora/atlas.yml"))
@@ -108,6 +109,7 @@ def test_incremental_atlas_evidence(tmp_path: Path, stop_after: int) -> None:
     assert (repeated.added, repeated.changed, repeated.unchanged) == (0, 0, stop_after)
 
 
+@pytest.mark.acceptance
 def test_atlas_task_edit_preserves_prior_citation_and_revert(tmp_path: Path) -> None:
     manifest = load_manifest(Path("corpora/atlas.yml"))
     source_root = manifest.vault_root
@@ -141,6 +143,7 @@ def test_atlas_task_edit_preserves_prior_citation_and_revert(tmp_path: Path) -> 
     assert retrieval.actions("Atlas", "completed") == []
 
 
+@pytest.mark.acceptance
 def test_similar_project_name_does_not_match_atlas(tmp_path: Path) -> None:
     manifest = load_manifest(Path("corpora/atlas.yml"))
     manifest.database = tmp_path / "index.sqlite3"
@@ -158,6 +161,7 @@ def test_similar_project_name_does_not_match_atlas(tmp_path: Path) -> None:
     )
 
 
+@pytest.mark.acceptance
 def test_numbered_task_upgrade_retains_revision_and_original_anchor(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
 ) -> None:

@@ -126,6 +126,7 @@ def combined(tmp_path: Path):
         yield env, processing, scheduled, service, query, passage
 
 
+@pytest.mark.process
 @pytest.mark.parametrize(
     "operation", ["schedule", "heartbeat", "fail", "retry", "recover", "inspection"]
 )
@@ -266,6 +267,7 @@ def test_processing_commit_between_real_query_read_and_original_release(
         ) == ("pending", "pending")
 
 
+@pytest.mark.process
 @pytest.mark.parametrize("operation", ["claim", "jobs", "recover"])
 def test_empty_processing_reports_and_passage_reports_keep_separate_authority(
     combined,

@@ -25,7 +25,8 @@ Names never implicitly create or select endpoints.
 
 For example, after adding text that actually supports "Mira owns Atlas; Atlas
 will ship Friday", substitute the exact returned support object for SUPPORT below.
-The following creates both entities explicitly:
+The following creates both identities, authors their classifications, explicitly
+selects each claim, and captures those selections in the assertions:
 
 ```json
 {
@@ -33,17 +34,45 @@ The following creates both entities explicitly:
   "support": {"meeting": "SUPPORT"},
   "changes": [
     {
-      "kind": "entity", "local_id": "mira", "name": "Mira", "entity_type": "person",
+      "kind": "entity", "local_id": "mira", "name": "Mira",
       "support": {"kind": "source", "evidence": ["meeting"]}
     },
     {
-      "kind": "entity", "local_id": "atlas", "name": "Atlas", "entity_type": "project",
+      "kind": "entity", "local_id": "atlas", "name": "Atlas",
       "support": {"kind": "source", "evidence": ["meeting"]}
+    },
+    {
+      "kind": "classification", "local_id": "mira-type",
+      "entity": {"kind": "local", "local_id": "mira"}, "entity_type": "person",
+      "interpretation": "explicit", "support": {"kind": "source", "evidence": ["meeting"]}
+    },
+    {
+      "kind": "classification", "local_id": "atlas-type",
+      "entity": {"kind": "local", "local_id": "atlas"}, "entity_type": "project",
+      "interpretation": "explicit", "support": {"kind": "source", "evidence": ["meeting"]}
+    },
+    {
+      "kind": "classification_selection", "local_id": "mira-selection",
+      "entity": {"kind": "local", "local_id": "mira"},
+      "claim": {"kind": "local", "local_id": "mira-type"},
+      "expected_selection_id": null, "reviewed_candidates_digest": null,
+      "reviewed_claim_ids": [], "review_coverage": "complete", "accept_incomplete_review": false,
+      "rationale": "Selected the explicitly supported person claim."
+    },
+    {
+      "kind": "classification_selection", "local_id": "atlas-selection",
+      "entity": {"kind": "local", "local_id": "atlas"},
+      "claim": {"kind": "local", "local_id": "atlas-type"},
+      "expected_selection_id": null, "reviewed_candidates_digest": null,
+      "reviewed_claim_ids": [], "review_coverage": "complete", "accept_incomplete_review": false,
+      "rationale": "Selected the explicitly supported project claim."
     },
     {
       "kind": "assertion", "local_id": "ownership",
       "subject": {"kind": "local", "local_id": "mira"}, "predicate": "owns",
       "object": {"kind": "entity", "entity": {"kind": "local", "local_id": "atlas"}},
+      "subject_classification": {"kind": "local", "local_id": "mira-selection"},
+      "object_classification": {"kind": "local", "local_id": "atlas-selection"},
       "interpretation": "explicit",
       "support": {"kind": "source", "evidence": ["meeting"]}
     },
@@ -51,6 +80,7 @@ The following creates both entities explicitly:
       "kind": "assertion", "local_id": "release",
       "subject": {"kind": "local", "local_id": "atlas"}, "predicate": "decision",
       "object": {"kind": "string", "value": "Ship Friday"},
+      "subject_classification": {"kind": "local", "local_id": "atlas-selection"},
       "interpretation": "explicit",
       "support": {"kind": "source", "evidence": ["meeting"]}
     }
@@ -62,10 +92,45 @@ SUPPORT and SCHEMA_REVISION are object placeholders, not literal strings to subm
 To reuse Atlas in a later submission, omit its creation change and replace its
 local reference with the exact `reference` object returned by
 `kg find entities Atlas --json`. Keep the actual evidence that supports the new
-assertion. `kg record facts.json --json` returns the complete canonical write
+assertion. Read its current `classification.selection_id` and use
+`{"kind":"stored","event_id":"RETURNED_SELECTION_ID"}` for
+`subject_classification` (and `object_classification` for entity objects).
+Do not automatically replace stale preconditions.
+`kg record facts.json --retry-key reviewed-facts-1 --json` returns the complete canonical write
 receipt, including every local-ID mapping; retain it. Inspect mapped assertions
 with `kg read fact:ID`; withdraw only an owned assertion with
 `kg remove fact:ID --confirm`. Neither action purges source history.
+
+An identifiable thing can instead remain unresolved: submit only an `entity`
+change with exact existence support. No type or edge is required. Do not coerce
+"the export" into project/other, and do not equate unrelated document-local mentions
+by name. `entity_type` is not accepted on identity creation or independent support.
+Classification claims never supply identity support.
+
+For refinement of an existing entity, add a supported `classification` claim, then
+run `kg classifications entity:ID --json`. The `result` contains `selection_id`,
+`reviewed_candidates_digest`, `reviewed_claim_ids` and `review_coverage`. Copy these
+unchanged into a `classification_selection` change, with `entity` the stored
+reference, `claim: {"kind":"stored","contribution_id":"CLAIM_ID"}`, and an explicit
+`rationale`. Selection-only input uses `"support":[]`; the change has no support
+field. Only the original identity owner/writer can select or clear (`"claim":null`).
+Claims are authors' supported interpretations, not verified truth; newest never wins.
+
+Default review is complete for authorized current claims or fails at 200 claims/
+the ordinary budget. `--review-claim fact:ID` (repeatable), or `--review-empty` for
+clearing, deliberately requests a bounded subset. It requires
+`review_coverage:"selected_subset"` and `accept_incomplete_review:true` when selecting.
+Hidden alternatives are not evidence of agreement. Selection history is available
+with `--history`, `--limit`, and opaque `--after-event-id`; inaccessible events,
+rationales and cursor gaps are not disclosed.
+
+Persist the exact input and retry key before writing; retry unknown outcomes without
+changing either. Withdrawal uses `kg withdraw-classification fact:ID --retry-key KEY`.
+It preserves identity/history but permanently disables that claim. Any changed
+selection, including same-type new support or A-to-B-to-A, permanently makes old
+typed assertions ineligible. Submit a newly reviewed assertion with fresh captures;
+refresh/replay does not re-pin it. Original `/4` stores are refused intact: explicitly
+initialize a fresh `/5` path and resupply, never silently migrate or delete.
 
 Reference roles are distinct: copy `entry.reference` (the whole JSON object)
 into record's `subject` or `entity`; copy `entry.target` (a string such as

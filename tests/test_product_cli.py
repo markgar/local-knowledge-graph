@@ -43,6 +43,7 @@ def invoke(path: Path, command: str, *arguments: str) -> Any:
     return json.loads(result.stdout)
 
 
+@pytest.mark.functional
 @pytest.mark.parametrize("profile", list(EmbeddingProfile))
 @pytest.mark.parametrize("contextual", [False, True])
 def test_unqualified_pipeline_filters_graph_isolation_and_evidence(
@@ -118,6 +119,7 @@ def test_unqualified_pipeline_filters_graph_isolation_and_evidence(
     assert json.loads(missing.stderr)["error"] == "record_not_found"
 
 
+@pytest.mark.functional
 def test_full_trace_json_nulls_quotes_truncation_and_authoritative_order(
     manifest_path: Path, monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -182,6 +184,7 @@ def test_full_trace_json_nulls_quotes_truncation_and_authoritative_order(
         assert "not confidence" in text.stdout
 
 
+@pytest.mark.functional
 @pytest.mark.parametrize(
     "mode", ["strict", "natural", "dense", "hybrid", "reranked", "unknown", ""]
 )
@@ -204,6 +207,7 @@ def test_every_obsolete_mode_fails_with_migration_guidance(
         assert json.loads(result.stderr)["error"] == "invalid_query"
 
 
+@pytest.mark.functional
 @pytest.mark.parametrize("flags", [
     ["--include-quotes"], ["--explain-limit", "50"],
     ["--explain", "--explain-limit", "0"], ["--explain", "--explain-limit", "201"],
@@ -225,6 +229,7 @@ def test_invalid_arguments_precede_readiness(
     assert not result.stdout
 
 
+@pytest.mark.functional
 @pytest.mark.parametrize("explained", [False, True])
 @pytest.mark.parametrize("empty", ["none", "corpus", "source"])
 @pytest.mark.parametrize("failure", ["embedding", "reranker", "none"])
@@ -275,6 +280,7 @@ def test_readiness_is_mandatory_even_without_candidates(
         assert "approved" in error["message"]
 
 
+@pytest.mark.functional
 @pytest.mark.parametrize("explained", [False, True])
 @pytest.mark.parametrize("provider", ["embedding", "reranker"])
 def test_provider_execution_failures_are_not_successful_search(
@@ -304,6 +310,7 @@ def test_provider_execution_failures_are_not_successful_search(
     assert "inference failed" in error["message"]
 
 
+@pytest.mark.functional
 @pytest.mark.parametrize("mode", ["strict", "natural"])
 def test_legacy_lexical_contextual_rejection_is_preserved(
     manifest_path: Path, mode: str,
@@ -317,6 +324,7 @@ def test_legacy_lexical_contextual_rejection_is_preserved(
             ])
 
 
+@pytest.mark.functional
 @pytest.mark.parametrize("query", ["", " ", "!!!"])
 @pytest.mark.parametrize("explained", [False, True])
 def test_invalid_query_precedes_provider_initialization(
@@ -334,6 +342,7 @@ def test_invalid_query_precedes_provider_initialization(
     assert json.loads(result.stderr)["error"] == "invalid_query"
 
 
+@pytest.mark.functional
 @pytest.mark.parametrize("explained", [False, True])
 @pytest.mark.parametrize("state", ["missing", "stale", "incompatible"])
 def test_index_failures_and_matching_rebuild_recovery(
@@ -363,6 +372,7 @@ def test_index_failures_and_matching_rebuild_recovery(
     assert invoke(manifest_path, "search", "certificate", *flags)
 
 
+@pytest.mark.functional
 @pytest.mark.parametrize("explained", [False, True])
 @pytest.mark.parametrize("during", ["readiness", "scoring"])
 def test_intervening_edit_restore_returns_retry_error(
@@ -399,6 +409,7 @@ def test_intervening_edit_restore_returns_retry_error(
     assert "retry" in error["message"]
 
 
+@pytest.mark.functional
 def test_other_explanation_error_codes_are_preserved(
     manifest_path: Path, monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -414,6 +425,7 @@ def test_other_explanation_error_codes_are_preserved(
     }
 
 
+@pytest.mark.functional
 def test_structured_operations_do_not_initialize_semantic_models(
     manifest_path: Path, monkeypatch: pytest.MonkeyPatch,
 ) -> None:

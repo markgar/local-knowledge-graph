@@ -96,6 +96,7 @@ def assert_redacted(execution, reason):
     assert not result.truncated and result.exhaustion == "none"
 
 
+@pytest.mark.process
 def test_real_anchor_history_and_pruned_unsupported(query):
     env, service, request = query
     original = env.service.current(env.scope, put(env.scope).payload.document)
@@ -118,6 +119,7 @@ def test_real_anchor_history_and_pruned_unsupported(query):
     assert service.capabilities(request.scope).operations == ("evidence", "resolve", "search")
 
 
+@pytest.mark.process
 def test_summary_discovery_detailed_single_execution_and_owner_thread(query, monkeypatch):
     _, service, request = query
     calls = []
@@ -144,6 +146,7 @@ def test_summary_discovery_detailed_single_execution_and_owner_thread(query, mon
     assert any(getattr(e.event, "selected_ids", ()) for e in detailed.report.events)
 
 
+@pytest.mark.process
 def test_required_dependent_closure_explicitly_unsupported(query):
     _, service, request = query
     request = request.model_copy(
@@ -162,6 +165,7 @@ def test_required_dependent_closure_explicitly_unsupported(query):
     assert_redacted(service.execute(request), "unsupported_operation")
 
 
+@pytest.mark.process
 def test_validation_reconstructs_and_checks_unrelated_steps(query):
     _, service, request = query
     invalid = request.model_copy(
@@ -180,6 +184,7 @@ def test_validation_reconstructs_and_checks_unrelated_steps(query):
         service.execute(request.model_copy(update={"output_step": "missing"}))
 
 
+@pytest.mark.process
 def test_missing_anchor_and_passage_are_not_empty(query):
     _, service, request = query
     step = request.steps[0]
@@ -196,6 +201,7 @@ def test_missing_anchor_and_passage_are_not_empty(query):
     )
 
 
+@pytest.mark.process
 def test_global_commit_before_release_irreversibly_redacts_report(query, monkeypatch):
     env, service, request = query
     original = service._run_worker
@@ -212,6 +218,7 @@ def test_global_commit_before_release_irreversibly_redacts_report(query, monkeyp
     assert service.diagnostics.for_request(request.scope, "query").entries == ()
 
 
+@pytest.mark.process
 def test_deadline_does_not_publish_late_worker_result(query, monkeypatch):
     _, service, request = query
     original = service._run_worker
@@ -227,6 +234,7 @@ def test_deadline_does_not_publish_late_worker_result(query, monkeypatch):
     assert service.diagnostics.for_request(request.scope, "query").entries == ()
 
 
+@pytest.mark.process
 def test_close_is_idempotent_and_no_post_close_execution(query):
     _, service, request = query
     service.close()
@@ -234,6 +242,7 @@ def test_close_is_idempotent_and_no_post_close_execution(query):
     assert_redacted(service.execute(request), "service_closed")
 
 
+@pytest.mark.process
 @pytest.mark.parametrize(
     "worker,reason",
     [
@@ -252,6 +261,7 @@ def test_real_process_protocol_and_failures_never_release(query, monkeypatch, wo
     assert service.diagnostics.for_request(request.scope, request.request_id).entries == ()
 
 
+@pytest.mark.process
 @pytest.mark.parametrize("worker", [stall_after_ack, partial_frame])
 def test_native_stall_is_killed_and_following_call_can_run(query, monkeypatch, worker):
     _, service, request = query
@@ -264,6 +274,7 @@ def test_native_stall_is_killed_and_following_call_can_run(query, monkeypatch, w
     assert service.execute(request).result.outcome == "complete"
 
 
+@pytest.mark.process
 def test_initial_policy_denial_vs_post_admission_rotation(query, monkeypatch):
     env, service, request = query
     wrong = request.scope.model_copy(
@@ -286,6 +297,7 @@ def test_initial_policy_denial_vs_post_admission_rotation(query, monkeypatch):
     assert_redacted(service.execute(request), "state_changed")
 
 
+@pytest.mark.process
 def test_retained_report_original_observer_invalidates_on_later_commit(query):
     env, service, request = query
     initial = service.execute_explained(request)
@@ -297,6 +309,7 @@ def test_retained_report_original_observer_invalidates_on_later_commit(query):
     assert service.diagnostics.for_request(request.scope, "query").entries == ()
 
 
+@pytest.mark.process
 def test_same_content_edit_restore_is_still_state_changed(query, monkeypatch):
     env, service, request = query
     original = service._run_worker
@@ -320,6 +333,7 @@ def test_same_content_edit_restore_is_still_state_changed(query, monkeypatch):
     assert_redacted(service.execute(request), "state_changed")
 
 
+@pytest.mark.process
 def test_close_cancels_active_worker_and_staged_report(query, monkeypatch):
     _, service, request = query
     started = Event()
@@ -339,6 +353,7 @@ def test_close_cancels_active_worker_and_staged_report(query, monkeypatch):
     assert service._collector._captures == {}
 
 
+@pytest.mark.process
 def test_nested_staging_remains_redacted_after_parent_eviction(query, monkeypatch):
     env, service, request = query
     original = service._run_worker
@@ -382,6 +397,7 @@ def test_nested_staging_remains_redacted_after_parent_eviction(query, monkeypatc
     service._dispatcher.call(check, Deadline(time.monotonic() + 5))
 
 
+@pytest.mark.process
 def test_report_allocation_failure_finishes_capture_and_does_not_change_business(
     query, monkeypatch
 ):
@@ -403,6 +419,7 @@ def test_report_allocation_failure_finishes_capture_and_does_not_change_business
     assert len(service.diagnostics.for_request(request.scope, "query").entries) == 1
 
 
+@pytest.mark.process
 def test_business_memory_error_is_not_success_shaped_or_swallowed_by_capture(query, monkeypatch):
     _, service, request = query
 
@@ -414,6 +431,7 @@ def test_business_memory_error_is_not_success_shaped_or_swallowed_by_capture(que
     assert all(not c.active and c.prepared is None for c in service._collector._captures.values())
 
 
+@pytest.mark.process
 def test_capabilities_translates_internal_control_exceptions(query, monkeypatch):
     _, service, request = query
     with monkeypatch.context() as patch:
@@ -433,6 +451,7 @@ def test_capabilities_translates_internal_control_exceptions(query, monkeypatch)
     assert error.value.failure.code == "unsupported"
 
 
+@pytest.mark.functional
 def test_python_example_executes_real_canonical_anchor(query, tmp_path):
     env, _, request = query
     path = tmp_path / "query.json"
@@ -455,6 +474,7 @@ def test_python_example_executes_real_canonical_anchor(query, tmp_path):
     assert value["report"]["owning_service"] == "query"
 
 
+@pytest.mark.process
 def test_delivered_passage_and_anchor_capabilities_match_execution(query):
     env, service, request = query
     value = put(env.scope, external="published-passages")
@@ -518,12 +538,13 @@ def test_delivered_passage_and_anchor_capabilities_match_execution(query):
     assert capabilities.adapter_version == "canonical-evidence/1"
 
 
+@pytest.mark.process
 def test_shared_resolver_scratch_uses_original_supervisor_pool(query, monkeypatch):
     _, service, request = query
     original = service._run_worker
 
     def occupied(observer, step, ledger):
-        with ledger.budget.reserve_scratch(64 << 20, "general"):
+        with ledger.budget.reserve_scratch(128 << 20, "general"):
             return original(observer, step, ledger)
 
     monkeypatch.setattr(service, "_run_worker", occupied)
@@ -531,6 +552,7 @@ def test_shared_resolver_scratch_uses_original_supervisor_pool(query, monkeypatc
     assert service.diagnostics.for_request(request.scope, request.request_id).entries == ()
 
 
+@pytest.mark.process
 def test_actual_knowledge_registry_commit_invalidates_query_release(query, monkeypatch):
     env, service, request = query
     admin = KnowledgeAdministration(env.database, env.admin.authority)
