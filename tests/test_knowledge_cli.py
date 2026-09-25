@@ -1,5 +1,6 @@
 """CLI-only synthetic knowledge journey; services are real, model providers controlled."""
 
+import base64
 import json
 from importlib.resources import files
 from pathlib import Path
@@ -18,9 +19,15 @@ from kg.knowledge import KnowledgeService
 def record_file(directory, support, changes):
     file = directory / "facts.json"
     head = call("schema", "show")["result"]["head"]
-    file.write_text(json.dumps({
-        "expected_schema_revision": head, "support": [support], "changes": changes,
-    }))
+    file.write_text(
+        json.dumps(
+            {
+                "expected_schema_revision": head,
+                "support": [support],
+                "changes": changes,
+            }
+        )
+    )
     return file
 
 
@@ -37,16 +44,23 @@ def typed_entity(local_id, name, entity_type, support):
     return (
         entity(local_id, name, entity_type, support),
         dict(
-            kind="classification", local_id=f"{local_id}:classification",
-            entity=local(local_id), entity_type=entity_type, interpretation="explicit",
+            kind="classification",
+            local_id=f"{local_id}:classification",
+            entity=local(local_id),
+            entity_type=entity_type,
+            interpretation="explicit",
             support={"kind": "source", "evidence": [support["reference"]]},
         ),
         dict(
-            kind="classification_selection", local_id=f"{local_id}:selection",
+            kind="classification_selection",
+            local_id=f"{local_id}:selection",
             entity=local(local_id),
             claim={"kind": "local", "local_id": f"{local_id}:classification"},
-            expected_selection_id=None, reviewed_candidates_digest=None, reviewed_claim_ids=[],
-            review_coverage="complete", accept_incomplete_review=False,
+            expected_selection_id=None,
+            reviewed_candidates_digest=None,
+            reviewed_claim_ids=[],
+            review_coverage="complete",
+            accept_incomplete_review=False,
             rationale="Explicit synthetic typed CLI fixture.",
         ),
     )
@@ -81,7 +95,7 @@ def recorded(configured):
     file = configured / "meeting.md"
     file.write_text("Mira owns Atlas. Atlas will ship Friday. Mira decided to approve the launch.")
     added = call("add", file)["result"]
-    support = call("read", added["target"])["result"]["entries"][0]["support"]
+    support = call("read", added["document"]["target"])["result"]["entries"][0]["support"]
     changes = [
         *typed_entity("mira", "Mira", "person", support),
         *typed_entity("atlas", "Atlas", "project", support),
@@ -108,9 +122,10 @@ def recorded(configured):
             support,
         ),
     ]
-    response = call(
-        "record", "--retry-key", str(uuid4()), record_file(configured, support, changes)
-    )["result"]["write"]
+    result = call("record", "--retry-key", str(uuid4()), record_file(configured, support, changes))[
+        "result"
+    ]
+    response = result["knowledge_write"]
     assert response["status"] == "applied"
     mappings = {item["local_id"]: item["stored_id"] for item in response["receipt"]["mappings"]}
     assert len(mappings) == len(changes)
@@ -136,16 +151,28 @@ def test_complete_read_record_query_withdraw_update_journey(recorded):
     recorded_again = call(
         "record", "--retry-key", str(uuid4()), record_file(directory, support, [change])
     )
-    assert recorded_again["result"]["write"]["receipt"]["mappings"][0]["local_id"] == "again"
+    assert (
+        recorded_again["result"]["knowledge_write"]["receipt"]["mappings"][0]["local_id"] == "again"
+    )
     query = call("find", "decisions", "Atlas", "--limit", 1)["result"]
-    assert query["query"]["result"]["data"]["count"] == 2
-    assert query["query"]["result"]["data"]["exact"]
-    assert len(query["inspection"]["records"]) == 1
+    assert query["count"] == 2 and query["exact"]
+    assert set(query) == {
+        "execution",
+        "count",
+        "exact",
+        "selection_complete",
+        "display_complete",
+        "display_truncated",
+        "decisions",
+        "retained_handles_usable",
+    }
+    assert query["execution"]["support_inspection"]["total"] == 2
+    assert "query" not in query and "inspection" not in query and "targets" not in query
     assert query["display_truncated"] and not query["retained_handles_usable"]
     assert query["count"] == 2 and query["exact"] and query["selection_complete"]
     assert not query["display_complete"]
     decision = query["decisions"][0]
-    assert decision["assertion_id"] == query["inspection"]["records"][0]["record_id"]
+    assert decision["target"] == "fact:" + decision["assertion_id"]
     assert decision["text"] == "Ship Friday" and decision["support"] == [support]
     assert call("read", decision["target"])["result"]["support"] == [support]
     assert call("read", decision["evidence_targets"][0])["result"]["support"] == support
@@ -159,18 +186,19 @@ def test_complete_read_record_query_withdraw_update_journey(recorded):
     assert call("read", atlas["evidence_targets"][0])["result"]["support"] == support
     call("remove", fact, code=2)
     removed = call("remove", fact, "--confirm")
-    assert removed["result"]["write"]["receipt"]["contribution_id"] == mappings["release"]
+    assert removed["result"]["knowledge_write"]["receipt"]["contribution_id"] == mappings["release"]
+    assert "mappings" not in removed["result"]
+    assert "copy-ready mappings" not in removed["message"]
     call("read", fact, code=3)
     historical = call("read", fact, "--history")["result"]
     assert historical["contribution"]["withdrawal"]
     assert not historical["contribution"]["is_current"]
     assert "Historical/inactive" in runner.invoke(app, ["read", fact, "--history"]).stdout
-    assert (
-        call("find", "decisions", atlas["target"])["result"]["query"]["result"]["data"]["count"]
-        == 1
-    )
+    assert call("find", "decisions", atlas["target"])["result"]["count"] == 1
     file.write_text("Atlas will ship Monday.")
-    call("update", added["target"], file, "--expect", added["state"])
+    call(
+        "update", added["document"]["target"], file, "--expect", added["document"]["state_version"]
+    )
     assert call("find", "entities", "Atlas")["status"] == "empty"
     history = call("read", atlas["target"], "--history")
     assert not history["result"]["entity"]["is_current"]
@@ -178,8 +206,11 @@ def test_complete_read_record_query_withdraw_update_journey(recorded):
     stale = call(
         "record", "--retry-key", str(uuid4()), record_file(directory, support, [change]), code=4
     )
-    assert stale["result"]["write"]["receipt"] is None
-    assert call("read", added["target"] + "@" + added["state"])["message"].startswith("Mira owns")
+    assert stale["result"]["knowledge_write"]["receipt"] is None
+    assert "mappings" not in stale["result"]
+    assert call("read", added["document"]["target"] + "@" + added["document"]["state_version"])[
+        "message"
+    ].startswith("Mira owns")
 
 
 @pytest.mark.functional
@@ -340,12 +371,17 @@ def test_knowledge_help_needs_no_profile(tmp_path, monkeypatch, args):
 
 @pytest.mark.functional
 def test_installed_schema_example_and_strategy_are_discoverable():
-    schema = call("record", "--retry-key", str(uuid4()), "--schema")["result"]["schema"]
+    schema = call("record", "--schema")["result"]["schema"]
     assert schema["additionalProperties"] is False
     assert "ChangeSet" not in schema["properties"] and "support" in schema["properties"]
-    assert (
-        "SUPPORT" in call("record", "--retry-key", str(uuid4()), "--example")["result"]["example"]
-    )
+    record_example = call("record", "--example")["result"]["example"]
+    sample_example = call("schema", "generate", "--example")["result"]["example"]
+    proposal_example = call("schema", "validate", "--example")["result"]["example"]
+    assert "COPY-SCAFFOLD-SUPPORT" in record_example
+    examples = record_example + sample_example + proposal_example
+    for coupled in ("Atlas", '"person"', '"project"', '"owns"'):
+        assert coupled not in examples
+    assert "specimen" in sample_example and "device" in proposal_example
     skill = call("skill")["result"]["skill"]
     assert "Start with `kg --help`" in skill
     assert skill == files("kg.client").joinpath("SKILL.md").read_text()
@@ -436,9 +472,8 @@ def test_direct_query_partial_count_is_not_promoted_to_exact(recorded, monkeypat
 
     monkeypatch.setattr(QueryService, "execute", limited)
     output = call("find", "decisions", "entity:" + mappings["atlas"], code=3)
-    result = output["result"]["query"]["result"]
+    result = output["result"]["execution"]
     assert result["outcome"] == "partial"
-    assert not result["data"]["exact"]
     assert output["code"] == "record_budget"
     assert output["result"]["count"] == 0
     assert not output["result"]["exact"]
@@ -479,11 +514,16 @@ def test_named_support_and_returned_entities_roundtrip(recorded):
     for change in changes:
         change["support"]["evidence"] = ["meeting"]
     path = directory / "named.json"
-    path.write_text(json.dumps({
-        "expected_schema_revision": call("schema", "show")["result"]["revision"],
-        "support": {"meeting": support}, "changes": changes,
-    }))
-    response = call("record", "--retry-key", str(uuid4()), path)["result"]["write"]
+    path.write_text(
+        json.dumps(
+            {
+                "expected_schema_revision": call("schema", "show")["result"]["revision"],
+                "support": {"meeting": support},
+                "changes": changes,
+            }
+        )
+    )
+    response = call("record", "--retry-key", str(uuid4()), path)["result"]["knowledge_write"]
     assert len(response["receipt"]["mappings"]) == 2
     identifier = response["receipt"]["mappings"][1]["stored_id"]
     result = call("read", "fact:" + identifier)["result"]
@@ -495,16 +535,35 @@ def test_named_support_and_returned_entities_roundtrip(recorded):
     # Never substitute the new state when the supplied capture becomes stale.
     revised = directory / "revised.md"
     revised.write_text("New source state.")
-    call("update", added["target"], revised, "--expect", added["state"])
+    call(
+        "update",
+        added["document"]["target"],
+        revised,
+        "--expect",
+        added["document"]["state_version"],
+    )
     stale = call("record", "--retry-key", str(uuid4()), path, code=4)
-    assert stale["result"]["write"]["receipt"] is None
+    assert stale["result"]["knowledge_write"]["receipt"] is None
 
 
 @pytest.mark.functional
 @pytest.mark.parametrize(
     "mutation",
-    ["unknown", "unused", "duplicate_capture", "duplicate_name", "duplicate_occurrence",
-     "conflict", "mixed", "native_names", "extra", "blank", "empty", "malformed", "missing"],
+    [
+        "unknown",
+        "unused",
+        "duplicate_capture",
+        "duplicate_name",
+        "duplicate_occurrence",
+        "conflict",
+        "mixed",
+        "native_names",
+        "extra",
+        "blank",
+        "empty",
+        "malformed",
+        "missing",
+    ],
 )
 def test_named_input_rejection_precedes_any_write(recorded, monkeypatch, mutation):
     from copy import deepcopy
@@ -514,7 +573,8 @@ def test_named_input_rejection_precedes_any_write(recorded, monkeypatch, mutatio
     changes[0]["support"]["evidence"] = ["meeting"]
     value = {
         "expected_schema_revision": call("schema", "show")["result"]["revision"],
-        "support": {"meeting": deepcopy(support)}, "changes": changes,
+        "support": {"meeting": deepcopy(support)},
+        "changes": changes,
     }
     if mutation == "unknown":
         changes[0]["support"]["evidence"] = ["missing"]
@@ -565,17 +625,20 @@ def test_named_conjunction_and_expanded_occurrence_limit(recorded, monkeypatch):
     directory, _, _, support, _ = recorded
     another = directory / "another.md"
     another.write_text("New project has corroborating support.")
-    other_target = call("add", another)["result"]["target"]
+    other_target = call("add", another)["result"]["document"]["target"]
     other_support = call("read", other_target)["result"]["entries"][0]["support"]
     change = entity("new", "New", "project", support)
     change["support"]["evidence"] = ["meeting", "other"]
     path = directory / "conjunction.json"
     value = {
         "expected_schema_revision": call("schema", "show")["result"]["revision"],
-        "support": {"meeting": support, "other": other_support}, "changes": [change],
+        "support": {"meeting": support, "other": other_support},
+        "changes": [change],
     }
     path.write_text(json.dumps(value))
-    receipt = call("record", "--retry-key", str(uuid4()), path)["result"]["write"]["receipt"]
+    receipt = call("record", "--retry-key", str(uuid4()), path)["result"]["knowledge_write"][
+        "receipt"
+    ]
     stored = receipt["mappings"][0]["stored_id"]
     entity_read = call("read", "entity:" + stored)["result"]
     assert entity_read["entries"][0]["support"] == [support, other_support]
@@ -588,9 +651,9 @@ def test_named_conjunction_and_expanded_occurrence_limit(recorded, monkeypatch):
     path.write_text(json.dumps(value))
     assert (
         len(
-            call("record", "--retry-key", str(uuid4()), path)["result"]["write"]["receipt"][
-                "mappings"
-            ]
+            call("record", "--retry-key", str(uuid4()), path)["result"]["knowledge_write"][
+                "receipt"
+            ]["mappings"]
         )
         == 100
     )
@@ -614,10 +677,13 @@ def test_record_file_and_expanded_request_byte_limits(recorded, monkeypatch):
     change = entity("new", "New", "project", support)
     change["support"]["evidence"] = ["meeting"]
     path = directory / "size.json"
-    text = json.dumps({
-        "expected_schema_revision": call("schema", "show")["result"]["revision"],
-        "support": {"meeting": support}, "changes": [change],
-    })
+    text = json.dumps(
+        {
+            "expected_schema_revision": call("schema", "show")["result"]["revision"],
+            "support": {"meeting": support},
+            "changes": [change],
+        }
+    )
     path.write_text(text + " " * (MAX_REQUEST_BYTES - len(text.encode())))
     assert record_input(path).payload().changes
     with path.open("a") as stream:
@@ -628,8 +694,12 @@ def test_record_file_and_expanded_request_byte_limits(recorded, monkeypatch):
     path.write_text(text)
     profile = load_profile()
     request = WriteRequest(
-        contract_version="foundation/1", request_id="x" * 36, retry_key="y" * 36,
-        scope=profile.scope, attribution=profile.attribution, payload=record_input(path).payload(),
+        contract_version="foundation/1",
+        request_id="x" * 36,
+        retry_key="y" * 36,
+        scope=profile.scope,
+        attribution=profile.attribution,
+        payload=record_input(path).payload(),
     )
     size = len(request.model_dump_json().encode())
     assert size > len(text.encode())
@@ -667,7 +737,13 @@ def test_direct_hydration_withholds_composite_after_change(recorded, monkeypatch
                 call("remove", "fact:" + mappings["release"], "--confirm")
             elif mutation == "update":
                 file.write_text("Changed source.")
-                call("update", added["target"], file, "--expect", added["state"])
+                call(
+                    "update",
+                    added["document"]["target"],
+                    file,
+                    "--expect",
+                    added["document"]["state_version"],
+                )
             elif mutation == "unrelated":
                 other = directory / "unrelated.md"
                 other.write_text("Unrelated new document.")
@@ -675,7 +751,8 @@ def test_direct_hydration_withholds_composite_after_change(recorded, monkeypatch
             elif mutation == "revoke":
                 profile = load_profile()
                 EvidenceAdministration(
-                    profile.database(), LocalAdminAuthority(principal_id="local"),
+                    profile.database(),
+                    LocalAdminAuthority(principal_id="local"),
                 ).replace_policy(
                     LocalPolicy(corpus_id=profile.scope.corpus_id, bindings=(), grants=()),
                     profile.scope.access.policy_version,
@@ -701,9 +778,13 @@ def test_direct_hydration_rejects_mismatch_and_read_failure(recorded, monkeypatc
         if mutation in {"denied", "budget"}:
             raise EvidenceServiceError("forbidden" if mutation == "denied" else "budget_exceeded")
         result = original(self, scope, identifier, **kwargs)
-        return result.model_copy(update={
-            "contribution_id": "wrong-id",
-        } if mutation == "identity" else {"evidence": ()})
+        return result.model_copy(
+            update={
+                "contribution_id": "wrong-id",
+            }
+            if mutation == "identity"
+            else {"evidence": ()}
+        )
 
     monkeypatch.setattr(KnowledgeService, "contribution", changed)
     result = call("find", "decisions", "Atlas", code=3)
@@ -711,8 +792,19 @@ def test_direct_hydration_rejects_mismatch_and_read_failure(recorded, monkeypatc
 
 
 @pytest.mark.functional
-@pytest.mark.parametrize("field", ["total", "exact", "read_state_id", "result_set_id",
-                                 "records_step_id", "records", "next_ordinal", "exhausted"])
+@pytest.mark.parametrize(
+    "field",
+    [
+        "total",
+        "exact",
+        "read_state_id",
+        "result_set_id",
+        "records_step_id",
+        "records",
+        "next_ordinal",
+        "exhausted",
+    ],
+)
 def test_direct_inspection_correlation_rejects_mismatch(recorded, monkeypatch, field):
     from kg.query import QueryService
 
@@ -724,8 +816,14 @@ def test_direct_inspection_correlation_rejects_mismatch(recorded, monkeypatch, f
         calls.append(request)
         if len(calls) == 2:
             values = {
-                "total": 2, "exact": False, "read_state_id": "other", "result_set_id": "other",
-                "records_step_id": "other", "records": (), "next_ordinal": 1, "exhausted": False,
+                "total": 2,
+                "exact": False,
+                "read_state_id": "other",
+                "result_set_id": "other",
+                "records_step_id": "other",
+                "records": (),
+                "next_ordinal": 1,
+                "exhausted": False,
             }
             return result.model_copy(update={field: values[field]})
         return result
@@ -763,25 +861,79 @@ def test_direct_display_hydrates_only_selected_ids(recorded, monkeypatch):
 @pytest.mark.functional
 def test_named_example_executes_and_schema_describes_both_modes(configured):
     document = configured / "meeting.md"
-    document.write_text("Mira owns Atlas; Atlas will ship Friday.")
-    target = call("add", document)["result"]["target"]
-    support = call("read", target)["result"]["entries"][0]["support"]
-    example = call("record", "--retry-key", str(uuid4()), "--example")["result"]["example"]
-    value = json.loads(example.split("```json\n")[1].split("```")[0])
-    value["support"]["meeting"] = support
-    value["expected_schema_revision"] = call("schema", "show")["result"]["revision"]
-    path = configured / "example.json"
-    path.write_text(json.dumps(value))
-    saved = call("record", "--retry-key", str(uuid4()), path)["result"]["write"]["receipt"]
-    assert len(saved["mappings"]) == 8
-    schema = call("record", "--retry-key", str(uuid4()), "--schema")["result"]["schema"]
+    document.write_text("Sensor Delta is listed in the maintenance log.")
+    target = call("add", document)["result"]["document"]["target"]
+    evidence_target = call("read", target)["result"]["entries"][0]["target"]
+    prepared = call("record", "--from-evidence", evidence_target)
+    template = prepared["result"]["record_template"]
+    assert template["expected_schema_revision"] == call("schema", "show")["result"]["revision"]
+    assert list(template["support"]) == ["evidence-1"]
+    assert template["changes"] == []
+    assert prepared["status"] == "incomplete_template"
+    assert (
+        call("record", "--from-evidence", evidence_target, "--retry-key", str(uuid4()), code=2)[
+            "code"
+        ]
+        == "invalid_arguments"
+    )
+    example = call("record", "--example")["result"]["example"]
+    assert "REGISTERED_PREDICATE" in example and "person" not in example
+    schema = call("record", "--schema")["result"]["schema"]
     assert len(schema["properties"]["support"]["oneOf"]) == 2
     assert [entry["properties"]["support"]["type"] for entry in schema["oneOf"]] == [
-        "array", "object",
+        "array",
+        "object",
     ]
-    assert schema["$defs"]["SourceSupport"]["properties"]["evidence"]["items"]["oneOf"][1][
-        "type"
-    ] == "string"
+    assert (
+        schema["$defs"]["SourceSupport"]["properties"]["evidence"]["items"]["oneOf"][1]["type"]
+        == "string"
+    )
+
+
+@pytest.mark.functional
+def test_record_template_rejects_invalid_duplicate_and_stale_evidence(configured):
+    document = configured / "sensor.md"
+    document.write_text("Sensor Delta is listed in the maintenance log.")
+    added = call("add", document)["result"]
+    evidence_target = call("read", added["document"]["target"])["result"]["entries"][0]["target"]
+    for malformed in ("evidence:", "evidence:not-base64!", "document:wrong-kind"):
+        assert call("record", "--from-evidence", malformed, code=2)["code"] == "invalid_target"
+
+    raw = base64.urlsafe_b64decode(evidence_target.removeprefix("evidence:"))
+    equivalent = (
+        "evidence:"
+        + base64.urlsafe_b64encode(json.dumps(json.loads(raw), indent=2).encode()).decode()
+    )
+    assert equivalent != evidence_target
+    assert (
+        call(
+            "record",
+            "--from-evidence",
+            evidence_target,
+            "--from-evidence",
+            equivalent,
+            code=2,
+        )["code"]
+        == "invalid_support"
+    )
+    assert (
+        call(
+            "record",
+            *(("--from-evidence", evidence_target) * 201),
+            code=2,
+        )["code"]
+        == "invalid_support"
+    )
+
+    document.write_text("Sensor Delta was replaced.")
+    call(
+        "update",
+        added["document"]["target"],
+        document,
+        "--expect",
+        added["document"]["state_version"],
+    )
+    assert call("record", "--from-evidence", evidence_target, code=2)["code"] == "state_conflict"
 
 
 @pytest.mark.functional
@@ -807,24 +959,35 @@ def test_graph_decision_presentation_preserves_both_proof_sides(recorded, monkey
         view = service.contribution(profile.scope, mappings[local_id])
         payload = view.payload
         is_decision = payload.object.kind == "string"
-        member = DecisionSelectionItem(
-            record=Record(
-                record_id=view.contribution_id, record_type="decision", support=payload.support,
-            ),
-            subject_id=payload.subject.entity_id,
-            schema_version=view.schema_version,
-            dependencies=DecisionDependencies(
-                assertion_support=view.evidence, subject_witness=view.witnesses[0],
-                subject_classification=view.classification_witnesses[0],
-            ),
-        ) if is_decision else None
+        member = (
+            DecisionSelectionItem(
+                record=Record(
+                    record_id=view.contribution_id,
+                    record_type="decision",
+                    support=payload.support,
+                ),
+                subject_id=payload.subject.entity_id,
+                schema_version=view.schema_version,
+                dependencies=DecisionDependencies(
+                    assertion_support=view.evidence,
+                    subject_witness=view.witnesses[0],
+                    subject_classification=view.classification_witnesses[0],
+                ),
+            )
+            if is_decision
+            else None
+        )
         return GraphAssertion(
-            assertion_id=view.contribution_id, contribution_sequence=view.sequence,
-            schema_version=view.schema_version, predicate=payload.predicate,
-            interpretation=payload.interpretation, subject_id=payload.subject.entity_id,
+            assertion_id=view.contribution_id,
+            contribution_sequence=view.sequence,
+            schema_version=view.schema_version,
+            predicate=payload.predicate,
+            interpretation=payload.interpretation,
+            subject_id=payload.subject.entity_id,
             object_entity_id=None if is_decision else payload.object.entity.entity_id,
             decision_text=payload.object.value if is_decision else None,
-            attribution=view.attribution, committed_at=view.committed_at,
+            attribution=view.attribution,
+            committed_at=view.committed_at,
             classification_witnesses=view.classification_witnesses,
             classification_evidence=tuple(
                 GraphEvidence(captured=e, passage_set_id=None)
@@ -835,7 +998,8 @@ def test_graph_decision_presentation_preserves_both_proof_sides(recorded, monkey
                 GraphEvidence(captured=item, passage_set_id=None) for item in view.evidence
             ),
             subject_witness=view.witnesses[0],
-            object_witness=None if is_decision else view.witnesses[1], decision_member=member,
+            object_witness=None if is_decision else view.witnesses[1],
+            decision_member=member,
         )
 
     relationship, decision = graph_assertion("ownership"), graph_assertion("release")
@@ -843,21 +1007,30 @@ def test_graph_decision_presentation_preserves_both_proof_sides(recorded, monkey
 
     def controlled(self, request):
         result = GraphRelationshipDecisionsResult(
-            request_id=request.request_id, scope=request.scope, outcome="complete",
+            request_id=request.request_id,
+            scope=request.scope,
+            outcome="complete",
             generation=GraphGeneration(session_id="controlled", ordinal=1),
-            root_entity_id=mappings["mira"], count=2 if truncated else 1, exact=True,
+            root_entity_id=mappings["mira"],
+            count=2 if truncated else 1,
+            exact=True,
             display_truncated=truncated,
-            members=(GraphDecisionMember(
-                decision=decision, relationship_ids=(mappings["ownership"],),
-            ),),
-            relationships=(GraphRelationshipProof(
-                assertion=relationship,
-                path=EvidencePath(
-                    entity_ids=(mappings["mira"], mappings["atlas"]),
-                    assertion_ids=(mappings["ownership"],),
-                    support=decision.decision_member.record.support,
+            members=(
+                GraphDecisionMember(
+                    decision=decision,
+                    relationship_ids=(mappings["ownership"],),
                 ),
-            ),),
+            ),
+            relationships=(
+                GraphRelationshipProof(
+                    assertion=relationship,
+                    path=EvidencePath(
+                        entity_ids=(mappings["mira"], mappings["atlas"]),
+                        assertion_ids=(mappings["ownership"],),
+                        support=decision.decision_member.record.support,
+                    ),
+                ),
+            ),
         )
         returned.append(result.model_dump(mode="json"))
         return result
@@ -889,15 +1062,19 @@ def test_partial_nonzero_count_and_empty_exact_display(recorded, monkeypatch):
 
     directory, _, _, support, mappings = recorded
     change = assertion(
-        "again", {"kind": "stored", "entity_id": mappings["atlas"]}, "decision",
-        {"kind": "string", "value": "Ship Friday"}, support,
+        "again",
+        {"kind": "stored", "entity_id": mappings["atlas"]},
+        "decision",
+        {"kind": "string", "value": "Ship Friday"},
+        support,
     )
     call("record", "--retry-key", str(uuid4()), record_file(directory, support, [change]))
     original = QueryService.execute
 
     def limited(self, request):
         return original(
-            self, request.model_copy(update={"budget": QueryBudget(max_records=2)}),
+            self,
+            request.model_copy(update={"budget": QueryBudget(max_records=2)}),
         )
 
     with monkeypatch.context() as context:

@@ -9,7 +9,8 @@ from typing import Literal
 from pydantic import Field, JsonValue, TypeAdapter
 
 from kg.client.config import ClientError, Profile
-from kg.client.documents import Response, citation_target, submit, token
+from kg.client.documents import Response, citation_target, parse_citation_target, submit, token
+from kg.evidence import EvidenceService
 from kg.evidence.errors import EvidenceServiceError
 from kg.knowledge import KnowledgeService
 from kg.knowledge._selection import CapturedEvidence
@@ -18,10 +19,16 @@ from kg.models.foundation import (
     MAX_CHANGES,
     MAX_REQUEST_BYTES,
     MAX_SUPPORTS,
+    AddAlias,
     AddAssertion,
+    AddClassification,
+    AddEntitySupport,
+    AddIdentifier,
+    AddMention,
     AggregateResult,
     Change,
     ChangeSet,
+    ChangeSetReceipt,
     CountStep,
     DocumentDependency,
     EntityObject,
@@ -32,7 +39,9 @@ from kg.models.foundation import (
     SchemaRevisionRef,
     SelectClassification,
     SourceSupport,
+    StoredClassificationRef,
     StoredEntity,
+    StoredSelectionRef,
     StringObject,
     Token,
     Value,
@@ -85,8 +94,10 @@ class RecordInput(Value):
                 raise ClientError("invalid_support", "Conflicting captured document states.")
             dependencies[key] = dependency
         return ChangeSet(
-            operation="enrich", expected_schema_revision=self.expected_schema_revision,
-            dependencies=tuple(dependencies.values()), changes=self.changes,
+            operation="enrich",
+            expected_schema_revision=self.expected_schema_revision,
+            dependencies=tuple(dependencies.values()),
+            changes=self.changes,
         )
 
 
@@ -125,9 +136,7 @@ def normalize_record(value: JsonValue) -> JsonValue:
     changes = value.get("changes")
     if not isinstance(changes, list) or not 1 <= len(changes) <= MAX_CHANGES:
         raise ClientError("invalid_input", "Named support requires 1..100 changes.")
-    declared = TypeAdapter(dict[Token, CapturedSupport]).validate_json(
-        json.dumps(declarations)
-    )
+    declared = TypeAdapter(dict[Token, CapturedSupport]).validate_json(json.dumps(declarations))
     used: set[str] = set()
     expanded: list[JsonValue] = []
     occurrences = 0
@@ -279,6 +288,7 @@ class Knowledge:
     def __init__(self, profile: Profile) -> None:
         self.profile = profile
         self.database = profile.database()
+        self.evidence = EvidenceService(self.database, profile.identity)
         self.service = KnowledgeService(self.database, profile.identity)
 
     def entities(self, name: str | None, *, after: int, limit: int) -> Response:
@@ -373,25 +383,81 @@ class Knowledge:
         TypeAdapter(Token).validate_python(retry_key, strict=True)
         return self._write(record_input(file).payload(), retry_key=retry_key)
 
+    def record_template(self, targets: tuple[str, ...]) -> Response:
+        if not 1 <= len(targets) <= MAX_SUPPORTS:
+            raise ClientError("invalid_support", "Record preparation requires 1..200 evidence.")
+        citations = [parse_citation_target(target) for target in targets]
+        identities = [citation.model_dump_json() for citation in citations]
+        if len(set(identities)) != len(identities):
+            raise ClientError("invalid_support", "Duplicate captured evidence.")
+        support: dict[str, JsonValue] = {}
+        for index, citation in enumerate(citations, start=1):
+            view = self.evidence.citation(self.profile.scope, citation)
+            if not view.is_current_support:
+                raise ClientError(
+                    "state_conflict",
+                    "Evidence is no longer current support. Read current evidence and reassess.",
+                )
+            support[f"evidence-{index}"] = {
+                "reference": view.reference.model_dump(mode="json"),
+                "state_version": view.state_version,
+            }
+        schema = self.service.schema(self.profile.scope)
+        if schema.status != "configured" or schema.revision is None:
+            raise ClientError(
+                "schema_not_configured",
+                "Record preparation requires an approved schema. Inspect schema workflow help.",
+            )
+        return Response(
+            status="incomplete_template",
+            message=(
+                "Exact support and schema revision prepared. Fill identity reuse/newness, names, "
+                "types, predicates, values, interpretation, selections and rationales before "
+                "submitting; no write occurred."
+            ),
+            result={
+                "record_template": {
+                    "expected_schema_revision": schema.revision.model_dump(mode="json"),
+                    "support": support,
+                    "changes": [],
+                }
+            },
+        )
+
     def classifications(
-        self, target: str, *, history: bool, after_event_id: str | None,
-        limit: int, claim_ids: tuple[str, ...] | None,
+        self,
+        target: str,
+        *,
+        history: bool,
+        after_event_id: str | None,
+        limit: int,
+        claim_ids: tuple[str, ...] | None,
     ) -> Response:
         if not target.startswith("entity:"):
             raise ClientError("invalid_target", "Use the exact entity:ID from a receipt or read.")
         entity_id = target.removeprefix("entity:")
         value = (
             self.service.classification_history(
-                self.profile.scope, entity_id, after_event_id=after_event_id, limit=limit,
-            ) if history else self.service.classification_review(
-                self.profile.scope, entity_id, claim_ids=claim_ids,
+                self.profile.scope,
+                entity_id,
+                after_event_id=after_event_id,
+                limit=limit,
+            )
+            if history
+            else self.service.classification_review(
+                self.profile.scope,
+                entity_id,
+                claim_ids=claim_ids,
             )
         )
         return Response(
             status="complete",
-            message="Authorized classification history." if history else (
+            message="Authorized classification history."
+            if history
+            else (
                 "Explicit subset review; selecting requires accept_incomplete_review=true."
-                if claim_ids is not None else "Complete review of authorized current claims."
+                if claim_ids is not None
+                else "Complete review of authorized current claims."
             ),
             result=value.model_dump(mode="json"),
         )
@@ -400,9 +466,13 @@ class Knowledge:
         if not target.startswith("fact:"):
             raise ClientError("invalid_target", "Use the exact fact:ID of a classification claim.")
         TypeAdapter(Token).validate_python(retry_key, strict=True)
-        return self._write(WithdrawClassification(
-            operation="withdraw_classification", contribution_id=target.removeprefix("fact:"),
-        ), retry_key=retry_key)
+        return self._write(
+            WithdrawClassification(
+                operation="withdraw_classification",
+                contribution_id=target.removeprefix("fact:"),
+            ),
+            retry_key=retry_key,
+        )
 
     def remove(self, target: str) -> Response:
         return self._write(
@@ -412,21 +482,106 @@ class Knowledge:
         )
 
     def _write(
-        self, payload: ChangeSet | WithdrawAssertion | WithdrawClassification,
-        *, retry_key: str | None = None,
+        self,
+        payload: ChangeSet | WithdrawAssertion | WithdrawClassification,
+        *,
+        retry_key: str | None = None,
     ) -> Response:
         outcome = submit(self.profile, payload, retry_key=retry_key)
         if isinstance(outcome, Response):
             return outcome
         success = outcome.receipt is not None
+        result: dict[str, JsonValue] = {
+            "knowledge_write": outcome.model_dump(mode="json"),
+        }
+        if (
+            success
+            and isinstance(payload, ChangeSet)
+            and isinstance(outcome.receipt, ChangeSetReceipt)
+        ):
+            submitted_ids = tuple(change.local_id for change in payload.changes)
+            receipt_ids = tuple(item.local_id for item in outcome.receipt.mappings)
+            if (
+                len(receipt_ids) != len(submitted_ids)
+                or len(set(receipt_ids)) != len(receipt_ids)
+                or set(receipt_ids) != set(submitted_ids)
+            ):
+                return Response(
+                    status="partial",
+                    message=(
+                        "Authored knowledge committed, but copy-ready mapping correlation "
+                        "failed internally. The canonical receipt is preserved; do not "
+                        "replace the saved retry input or key."
+                    ),
+                    result=result,
+                    code="internal_mapping_mismatch",
+                    exit_code=6,
+                )
+            stored = {item.local_id: item.stored_id for item in outcome.receipt.mappings}
+            mappings: list[JsonValue] = []
+            for change in payload.changes:
+                stored_id = stored.get(change.local_id)
+                if stored_id is None:
+                    raise RuntimeError("Canonical receipt omitted a submitted local ID")
+                reference: JsonValue = None
+                inspection_target: str | None
+                if change.kind == "entity":
+                    reference = StoredEntity(kind="stored", entity_id=stored_id).model_dump(
+                        mode="json"
+                    )
+                    inspection_target = f"entity:{stored_id}"
+                elif isinstance(change, AddClassification):
+                    reference = StoredClassificationRef(
+                        kind="stored", contribution_id=stored_id
+                    ).model_dump(mode="json")
+                    inspection_target = f"fact:{stored_id}"
+                elif isinstance(change, SelectClassification):
+                    reference = StoredSelectionRef(kind="stored", event_id=stored_id).model_dump(
+                        mode="json"
+                    )
+                    inspection_target = None
+                elif isinstance(
+                    change,
+                    (AddEntitySupport, AddAlias, AddIdentifier, AddMention, AddAssertion),
+                ):
+                    inspection_target = f"fact:{stored_id}"
+                else:
+                    raise RuntimeError("Unsupported canonical change mapping")
+                mappings.append(
+                    {
+                        "local_id": change.local_id,
+                        "kind": change.kind,
+                        "stored_id": stored_id,
+                        "record_reference": reference,
+                        "inspection_target": inspection_target,
+                        "inspection_command": (
+                            f"kg read {inspection_target} --json"
+                            if inspection_target is not None
+                            else None
+                        ),
+                    }
+                )
+            result["mappings"] = mappings
+        if success and isinstance(payload, ChangeSet):
+            message = (
+                "Authored knowledge committed. Canonical receipt and copy-ready mappings "
+                "returned. Automatic enrichment processing was not run and remains "
+                "separate and unchanged."
+            )
+        elif success:
+            message = (
+                "Authored knowledge change committed. Canonical receipt returned. "
+                "Automatic enrichment processing was not run and remains separate "
+                "and unchanged."
+            )
+        else:
+            message = "Knowledge write did not complete."
         return Response(
             status=outcome.status,
             code=outcome.error.code if outcome.error else None,
             exit_code=0 if success else 4,
-            message="Knowledge committed; complete canonical receipt and mappings returned."
-            if success
-            else "Knowledge write did not complete.",
-            result={"write": outcome.model_dump(mode="json")},
+            message=message,
+            result=result,
         )
 
     def decisions(self, target: str, *, through: str | None, limit: int) -> Response:
@@ -457,7 +612,19 @@ class Knowledge:
         with QueryService(self.database, self.profile.identity) as service:
             execution = service.execute(request)
             result = execution.result
-            data: dict[str, JsonValue] = {"query": execution.model_dump(mode="json")}
+            execution_summary: dict[str, JsonValue] = {
+                **result.model_dump(
+                    mode="json",
+                    exclude={"data", "continuation"},
+                ),
+                "query_elapsed_milliseconds": execution.elapsed_milliseconds,
+                "inspection_elapsed_milliseconds": None,
+                "steps": [step.model_dump(mode="json") for step in execution.steps],
+                "stop_reason": execution.stop_reason,
+                "work_accounting": execution.work_accounting,
+                "support_inspection": None,
+            }
+            data: dict[str, JsonValue] = {"execution": execution_summary}
             if isinstance(result.data, AggregateResult) and result.result_set_id is not None:
                 aggregate = result.data
                 inspection = SupportInspectionRequest(
@@ -502,12 +669,14 @@ class Knowledge:
                         != record.support.evidence
                     ):
                         raise EvidenceServiceError("state_changed")
-                    decisions.append({
-                        "assertion_id": record.record_id,
-                        "target": f"fact:{record.record_id}",
-                        "text": payload.object.value,
-                        **captured_fields(contribution.evidence),
-                    })
+                    decisions.append(
+                        {
+                            "assertion_id": record.record_id,
+                            "target": f"fact:{record.record_id}",
+                            "text": payload.object.value,
+                            **captured_fields(contribution.evidence),
+                        }
+                    )
                 final = inspect()
                 if (
                     final.records != support.records
@@ -515,16 +684,33 @@ class Knowledge:
                     or final.exhausted != support.exhausted
                 ):
                     raise EvidenceServiceError("state_changed")
-                data.update({
-                    "inspection": final.model_dump(mode="json"),
-                    "targets": [f"fact:{record.record_id}" for record in final.records],
-                    "count": result.data.count,
-                    "exact": result.data.exact,
-                    "selection_complete": result.data.exact,
-                    "display_complete": result.data.exact and final.exhausted,
-                    "display_truncated": not final.exhausted,
-                    "decisions": decisions,
-                })
+                data.update(
+                    {
+                        "execution": {
+                            **execution_summary,
+                            "inspection_elapsed_milliseconds": final.elapsed_milliseconds,
+                            "support_inspection": {
+                                "records_step_id": final.records_step_id,
+                                "total": final.total,
+                                "exact": final.exact,
+                                "next_ordinal": final.next_ordinal,
+                                "exhausted": final.exhausted,
+                                "stop_reason": final.stop_reason,
+                                "error": (
+                                    final.error.model_dump(mode="json")
+                                    if final.error is not None
+                                    else None
+                                ),
+                            },
+                        },
+                        "count": result.data.count,
+                        "exact": result.data.exact,
+                        "selection_complete": result.data.exact,
+                        "display_complete": result.data.exact and final.exhausted,
+                        "display_truncated": not final.exhausted,
+                        "decisions": decisions,
+                    }
+                )
             data["retained_handles_usable"] = False
         return Response(
             status=result.outcome,
@@ -567,23 +753,27 @@ class Knowledge:
             )
         data: dict[str, JsonValue] = {"graph": result.model_dump(mode="json")}
         if result.count is not None:
-            data.update({
-                "count": result.count,
-                "exact": result.exact,
-                "selection_complete": result.exact,
-                "display_complete": not result.display_truncated,
-                "display_truncated": result.display_truncated,
-                "decisions": [
-                    {
-                        "assertion_id": member.decision.assertion_id,
-                        "target": f"fact:{member.decision.assertion_id}",
-                        "text": member.decision.decision_text,
-                        **captured_fields(tuple(item.captured for item in member.decision.support)),
-                        "relationship_ids": list(member.relationship_ids),
-                    }
-                    for member in result.members
-                ],
-            })
+            data.update(
+                {
+                    "count": result.count,
+                    "exact": result.exact,
+                    "selection_complete": result.exact,
+                    "display_complete": not result.display_truncated,
+                    "display_truncated": result.display_truncated,
+                    "decisions": [
+                        {
+                            "assertion_id": member.decision.assertion_id,
+                            "target": f"fact:{member.decision.assertion_id}",
+                            "text": member.decision.decision_text,
+                            **captured_fields(
+                                tuple(item.captured for item in member.decision.support)
+                            ),
+                            "relationship_ids": list(member.relationship_ids),
+                        }
+                        for member in result.members
+                    ],
+                }
+            )
         return Response(
             status=result.outcome,
             code=result.error.code if result.error else None,

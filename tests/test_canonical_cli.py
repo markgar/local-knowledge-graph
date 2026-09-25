@@ -37,9 +37,17 @@ def configured(tmp_path, monkeypatch):
         "kg.indexing.search.SentenceTransformerCrossEncoderProvider",
         lambda **kw: Reranker(),
     )
-    result = runner.invoke(app, [
-        "setup", "--yes", "--approve-models", "--schema-preset", "personal/1", "--json",
-    ])
+    result = runner.invoke(
+        app,
+        [
+            "setup",
+            "--yes",
+            "--approve-models",
+            "--schema-preset",
+            "personal/1",
+            "--json",
+        ],
+    )
     assert result.exit_code == 0, result.output
     return tmp_path
 
@@ -56,8 +64,12 @@ def test_document_journey_exact_evidence_history_and_search(configured):
     text = "\ufeffAtlas\r\nCafe\u0301 \U0001f680\0"
     file.write_bytes(text.encode())
     added = call("add", file)
-    target, state = added["result"]["target"], added["result"]["state"]
-    assert added["result"]["preparation"]["outcome"] == "ready"
+    target, state = (
+        added["result"]["document"]["target"],
+        added["result"]["document"]["state_version"],
+    )
+    assert added["result"]["search_preparation"]["outcome"] == "ready"
+    assert "write" not in added["result"] and "preparation" not in added["result"]
     read = call("read", target)
     assert read["message"] == text
     entry = read["result"]["entries"][0]
@@ -76,11 +88,24 @@ def test_document_journey_exact_evidence_history_and_search(configured):
         == state
     )
     found = call("find", "documents", "Atlas")
+    assert set(found["result"]) == {"search_context", "entries"}
     assert found["result"]["entries"][0]["document"] == target
+    assert "search" not in found["result"]
+    assert "hits" not in found["result"]["search_context"]
+    legacy_projection = {
+        **found["result"]["search_context"],
+        "hits": [
+            {"score": entry["score"], "evidence": entry["evidence"]}
+            for entry in found["result"]["entries"]
+        ],
+    }
+    assert len(json.dumps(found["result"])) < len(
+        json.dumps({**found["result"], "search": legacy_projection})
+    )
     old_metadata = read["result"]["document"]["metadata"]["metadata"]
     file.write_text("Atlas revised")
     changed = call("update", target, file, "--expect", state)
-    new_state = changed["result"]["state"]
+    new_state = changed["result"]["document"]["state_version"]
     assert new_state != state
     assert call("read", target)["result"]["document"]["metadata"]["metadata"] == old_metadata
     assert call("read", f"{target}@{state}")["message"] == text
@@ -126,8 +151,12 @@ def test_saved_receipt_survives_preparation_failure(configured, monkeypatch, fai
     file.write_text("still saved")
     result = call("add", file, code=5)
     assert result["status"] == "partial"
-    assert result["result"]["write"]["receipt"]["document_id"]
-    assert call("read", result["result"]["target"])["message"] == "still saved"
+    assert result["result"]["evidence_write"]["receipt"]["document_id"]
+    assert call("read", result["result"]["document"]["target"])["message"] == "still saved"
+    if failure == "typed":
+        assert result["result"]["search_preparation"]["outcome"] == "failed"
+    else:
+        assert result["result"]["search_preparation"] is None
     assert "sensitive model exception" not in json.dumps(result)
 
 
@@ -180,16 +209,24 @@ def test_direct_evidence_warns_when_no_longer_current(configured):
     file = configured / "note.md"
     file.write_text("original")
     added = call("add", file)["result"]
-    citation = call("read", added["target"])["result"]["entries"][0]["target"]
+    citation = call("read", added["document"]["target"])["result"]["entries"][0]["target"]
     warning = "Historical/inactive support; not a current fact basis."
     assert warning not in runner.invoke(app, ["read", citation]).stdout
     file.write_text("revised")
-    changed = call("update", added["target"], file, "--expect", added["state"])["result"]
+    changed = call(
+        "update", added["document"]["target"], file, "--expect", added["document"]["state_version"]
+    )["result"]
     old_read = runner.invoke(app, ["read", citation])
     assert old_read.exit_code == 0
     assert warning in old_read.stdout and "original" in old_read.stdout
-    citation = call("read", changed["target"])["result"]["entries"][0]["target"]
-    call("remove", changed["target"], "--expect", changed["state"], "--confirm")
+    citation = call("read", changed["document"]["target"])["result"]["entries"][0]["target"]
+    call(
+        "remove",
+        changed["document"]["target"],
+        "--expect",
+        changed["document"]["state_version"],
+        "--confirm",
+    )
     inactive_read = runner.invoke(app, ["read", citation])
     assert inactive_read.exit_code == 0
     assert warning in inactive_read.stdout and "revised" in inactive_read.stdout
@@ -199,7 +236,7 @@ def test_direct_evidence_warns_when_no_longer_current(configured):
 def test_paging_and_invalid_input(configured):
     file = configured / "note.md"
     file.write_text("a" * 2050)
-    target = call("add", file)["result"]["target"]
+    target = call("add", file)["result"]["document"]["target"]
     first = call("read", target, "--limit", "1")["result"]
     assert first["has_more"] and first["next_after"] == 1
     second = call("read", target, "--after", "1")["result"]

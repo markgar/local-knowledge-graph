@@ -12,7 +12,7 @@ pytestmark = pytest.mark.functional
 def test_unresolved_claim_selection_history_and_withdrawal_json_workflow(configured):
     note = configured / "note.md"
     note.write_text("Horizon is a project. The review decided to ship Horizon.")
-    target = call("add", note)["result"]["target"]
+    target = call("add", note)["result"]["document"]["target"]
     support = call("read", target)["result"]["entries"][0]["support"]
     revision = call("schema", "show")["result"]["revision"]
     file = configured / "facts.json"
@@ -27,7 +27,7 @@ def test_unresolved_claim_selection_history_and_withdrawal_json_workflow(configu
                 }
             )
         )
-        return call("record", file, "--retry-key", key)["result"]["write"]
+        return call("record", file, "--retry-key", key)["result"]["knowledge_write"]
 
     created = record(
         [
@@ -79,7 +79,7 @@ def test_unresolved_claim_selection_history_and_withdrawal_json_workflow(configu
         "selection",
         [],
     )
-    replay = call("record", file, "--retry-key", "selection")["result"]["write"]
+    replay = call("record", file, "--retry-key", "selection")["result"]["knowledge_write"]
     assert replay["receipt"] == selected["receipt"]
     assert call("read", entity_target)["result"]["entity"]["entity_type"] == "project"
     history = call("classifications", entity_target, "--history")["result"]
@@ -89,7 +89,7 @@ def test_unresolved_claim_selection_history_and_withdrawal_json_workflow(configu
         "fact:" + claim_id,
         "--retry-key",
         "withdraw",
-    )["result"]["write"]
+    )["result"]["knowledge_write"]
     assert withdrawn["receipt"]["contribution_id"] == claim_id
     assert call("read", entity_target)["result"]["entity"]["entity_type"] is None
     assert call("find", "entities", "Horizon")["result"]["entries"]

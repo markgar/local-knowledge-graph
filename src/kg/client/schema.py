@@ -54,13 +54,17 @@ class Schema:
             message="Installed capabilities, not search readiness or external-agent permission.",
             result={
                 "evidence": EvidenceService(
-                    self.profile.database(), self.profile.identity,
-                ).capabilities().model_dump(mode="json"),
+                    self.profile.database(),
+                    self.profile.identity,
+                )
+                .capabilities()
+                .model_dump(mode="json"),
                 "knowledge": knowledge.model_dump(mode="json"),
                 "workflows": {
                     "exact_intake_read": True,
                     "initial_generation": "external_agent_context"
-                    if knowledge.schema_status == "unconfigured" else "already_configured",
+                    if knowledge.schema_status == "unconfigured"
+                    else "already_configured",
                     "embedded_interpretation": False,
                     "human_review_required": True,
                     "models_approved": self.profile.models_approved,
@@ -78,22 +82,43 @@ class Schema:
         except EvidenceServiceError as error:
             if error.failure.code == "invalid_request":
                 raise ClientError(
-                    "invalid_request", "No usable selected source text. Revise the sample.",
+                    "invalid_request",
+                    "No usable selected source text. Revise the sample.",
                 ) from None
             if error.failure.code == "state_conflict":
                 raise ClientError(
-                    "state_conflict", "Sample or initial schema head changed. Inspect schema show "
+                    "state_conflict",
+                    "Sample or initial schema head changed. Inspect schema show "
                     "and source states; use an additive proposal if already configured.",
                 ) from None
             raise
         return Response(
             status="awaiting_agent",
-            message="Exact selected-excerpt context prepared. The external agent must interpret "
-            "it and author a proposal; no schema or facts created. Validate, then stop for "
-            "human review of the exact digest.",
+            message="Exact selected-excerpt context and an incomplete editable proposal prepared. "
+            "The external agent must fill semantic decisions; no schema or facts created. "
+            "Validate, then stop for human review of the exact digest.",
             result={
                 **value.model_dump(mode="json"),
                 "attribution": self.profile.attribution.model_dump(mode="json"),
+                "editable_proposal": {
+                    "interface_version": "schema-proposal/1",
+                    "corpus_id": value.corpus_id,
+                    "base_revision": value.base_revision,
+                    "attribution": self.profile.attribution.model_dump(mode="json"),
+                    "rationale": None,
+                    "add_entity_types": [],
+                    "add_identifier_schemes": [],
+                    "add_predicates": [],
+                    "widen_predicates": [],
+                    "examples": [],
+                    "unresolved_concepts": [],
+                    "initial_generation": {
+                        "sample": value.sample.model_dump(mode="json"),
+                        "coverage_status": None,
+                        "coverage_limitations": [],
+                        "synonym_decisions": [],
+                    },
+                },
             },
         )
 
@@ -132,7 +157,8 @@ class Schema:
             and proposal.initial_generation.coverage_status == "insufficient"
         ):
             raise ClientError(
-                "invalid_request", "Sample coverage is insufficient. Revise the operator-selected "
+                "invalid_request",
+                "Sample coverage is insufficient. Revise the operator-selected "
                 "sample or report deferral; no approvable digest.",
             )
         value = self.service.validate_schema(self.profile.scope, proposal)

@@ -359,7 +359,10 @@ approved cached-model preparation and separately reported failures.
 
 `schema generate` composes no inference: it returns `awaiting_agent` with exact
 operator-selected document excerpts, citations, offsets, hashes and current
-captures. The external agent interprets this bounded context and writes a proposal.
+captures plus an intentionally incomplete editable proposal scaffold. Only exact
+known corpus/base/attribution/sample bookkeeping is prefilled; semantic decisions
+remain null or empty. The external agent interprets this bounded context and writes
+a proposal.
 Empty, unavailable or stale selections fail explicitly; no selection is silently
 reduced. Original read/observer/final authorization fences and hydration budgets
 apply. Small excerpts still incur whole-source hydration; this is no large-document
@@ -925,18 +928,25 @@ audit records or retained query support. See [CONTRACTS.md](CONTRACTS.md#executi
 for the public API, exact fixed limits and explicit unavailable/redacted shapes.
 
 The installed canonical CLI composes exact save and indexing, with readable output
-or `client/1` JSON. Save success survives preparation failure; manual resubmission
+or `client/1` JSON. Document mutation output separates canonical `evidence_write`,
+document target/state, and exact/null `search_preparation`; messages do not confuse
+saved evidence, prepared search, authored knowledge, or separately operated
+automatic enrichment. Save success survives preparation failure; manual resubmission
 after unknown outcome may duplicate input. Reads expose exact copied support,
 and state-matched revisions/removal retain history. Models require explicit
 approval and load locally only. See [CLI usage](README.md#canonical-document-cli).
 Knowledge commands use existing bounded service reads and explicit grounded writes.
 Entity selection never treats a prefix as unique. Relationship filtering retains
 the underlying assertion page's continuation, even when no displayed row matches.
-Record derives dependencies only from copied exact support states, returns all
-canonical mappings, and never creates implicit endpoints. Withdrawals retain
-history. Direct and native relationship-decision results preserve their original
-count/proof/budget semantics; invocation-local handles expire on exit. The wheel
-ships its strategy skill and input recipe, reachable through model-free help.
+Record derives dependencies only from copied exact support states and never creates
+implicit endpoints. Its read-only evidence scaffold copies exact current support
+and active schema while leaving `changes` empty. Writes preserve the canonical
+outcome under `knowledge_write` and add ordered copy-ready mappings only on success.
+Withdrawals retain history. Document search and direct decisions remove redundant
+parallel evidence/result copies while preserving citations, execution accounting,
+failure fencing, counts and completeness; relationship graph proofs remain
+unchanged. Invocation-local handles expire on exit. The wheel ships its strategy
+skill and short task-specific examples, reachable through model-free help.
 
 The following sections describe the **historical separate Markdown demonstration**, unless
 explicitly referring to `kg.evidence`. Its fixture/gold assets are preserved; its
