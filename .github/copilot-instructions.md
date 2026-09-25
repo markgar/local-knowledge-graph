@@ -3,11 +3,13 @@
 ## Default: lean personal-use MVP
 
 - This is a personal-use MVP. Optimize for getting a useful end-to-end capability into the user's hands with the smallest coherent change.
+- Minimize scope, not engineering quality. The selected path must remain clear, typed, tested, deterministic, and consistent with the existing architecture; MVP is not permission for hacks, duplicated paths, silent failures, or knowingly disposable code.
+- Prioritize the shortest clean vertical slice that lets the user evaluate the product on real data. Every package must state the immediate user experiment it unlocks; defer work that does not enable that experiment, preserve data integrity, or satisfy an observed correctness requirement.
 - Solve the observed problem and its immediate correctness requirements. Do not add production-scale orchestration, generalized frameworks, speculative recovery systems, diagnostics redesigns, storage-format changes, or new public abstractions unless the requested capability cannot work correctly without them.
 - Prefer extending an existing path over replacing adjacent systems. A natural one-item case using the same batch implementation is not compatibility scaffolding.
 - Keep the blast radius minimal. Every changed subsystem, public contract, durable format, command, and operational mechanism must be necessary for the requested outcome. If it is merely useful, defensive, or potentially needed later, leave it out.
-- Treat critic findings as questions about the requested scope, not automatic requirements to expand it. Fix in-scope correctness defects; reject or defer findings that require unrelated capabilities.
-- During design and review, actively remove speculative scope. State the simplest measurable acceptance test first and stop when it is satisfied.
+- Treat critic findings as questions about the selected solution, not automatic requirements to expand it. Fix bugs and in-scope correctness defects; reject or defer findings that require adjacent product capabilities.
+- During design and review, actively remove speculative scope. State the simplest measurable acceptance test first, implement cleanly until it passes, then stop and learn from real use.
 - If the smallest correct solution requires a broader redesign, explain exactly why and obtain explicit user approval before expanding the package.
 
 ## Default: no backward compatibility
