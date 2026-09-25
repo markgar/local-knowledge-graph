@@ -1,6 +1,6 @@
-"""Strict knowledge/1 registry values, not knowledge-write or query services."""
+"""Strict knowledge/1 registry and immutable contribution-read values."""
 
-from typing import Literal, Self
+from typing import Annotated, Literal, Self
 
 from pydantic import Field, model_validator
 
@@ -11,7 +11,23 @@ from kg.knowledge._selection import (
     SeedWitness,
     SourceWitness,
 )
-from kg.models.foundation import Attribution, Change, Label, Name, SchemaRevisionRef, Token, Value
+from kg.models.authoring import ClassificationReviewWitness, ClassificationSelectionWitness
+from kg.models.foundation import (
+    Attribution,
+    BooleanObject,
+    IntegerObject,
+    Label,
+    Name,
+    SchemaRevisionRef,
+    SeedSupport,
+    SourceSupport,
+    StoredEntity,
+    StoredSelectionRef,
+    StringObject,
+    TimestampObject,
+    Token,
+    Value,
+)
 
 
 class KnowledgeValue(Value):
@@ -75,12 +91,9 @@ class KnowledgeSchemaRegistration(KnowledgeValue):
 class KnowledgeCapabilities(KnowledgeValue):
     schema_status: Literal["configured", "unconfigured"] = "configured"
     schema_revision: SchemaRevisionRef | None = None
-    enrichment_revision: Literal["exact_head"] = "exact_head"
+    authoring: Literal["record-authoring/1"] | None = "record-authoring/1"
+    authoring_batch: Literal["record-authoring-batch/1"] | None = "record-authoring-batch/1"
     withdrawal: Literal["owned_assertion"] | None = "owned_assertion"
-    change_kinds: tuple[str, ...] = (
-        "entity", "entity_support", "alias", "identifier", "mention", "assertion",
-        "classification", "classification_selection",
-    )
     support: Literal["anchors_passages_and_seed_add"] = "anchors_passages_and_seed_add"
     reads: tuple[str, ...] = ("entity", "entities", "contribution", "contributions")
     unsupported: tuple[str, ...] = (
@@ -109,6 +122,7 @@ class EntityView(KnowledgeValue):
     witness: EntityWitness
     has_more_support: bool
     classification: ClassificationSummary
+    selection_witness: ClassificationSelectionWitness | None
 
 
 class AssertionWithdrawal(KnowledgeValue):
@@ -118,8 +132,94 @@ class AssertionWithdrawal(KnowledgeValue):
 
 
 Eligibility = Literal[
-    "current", "assertion_withdrawn", "source_stale", "identity_unsupported",
-    "classification_changed", "classification_withdrawn", "classification_stale",
+    "current",
+    "assertion_withdrawn",
+    "source_stale",
+    "identity_unsupported",
+    "classification_changed",
+    "classification_withdrawn",
+    "classification_stale",
+]
+
+
+ContributionSupport = Annotated[
+    SourceSupport | SeedSupport,
+    Field(discriminator="kind"),
+]
+
+
+class EntitySupportPayload(Value):
+    kind: Literal["entity_support"]
+    local_id: Token
+    entity: StoredEntity
+    name: Label
+    support: ContributionSupport
+
+
+class AliasPayload(Value):
+    kind: Literal["alias"]
+    local_id: Token
+    entity: StoredEntity
+    alias: Label
+    support: ContributionSupport
+
+
+class IdentifierPayload(Value):
+    kind: Literal["identifier"]
+    local_id: Token
+    entity: StoredEntity
+    scheme: Name
+    value: Token
+    support: ContributionSupport
+
+
+class MentionPayload(Value):
+    kind: Literal["mention"]
+    local_id: Token
+    entity: StoredEntity
+    support: SourceSupport
+
+
+class ClassificationPayload(Value):
+    kind: Literal["classification"]
+    local_id: Token
+    entity: StoredEntity
+    entity_type: Name
+    interpretation: Literal["explicit", "inferred"]
+    support: ContributionSupport
+
+
+class ContributionEntityObject(Value):
+    kind: Literal["entity"]
+    entity: StoredEntity
+
+
+ContributionAssertionObject = Annotated[
+    ContributionEntityObject | StringObject | IntegerObject | BooleanObject | TimestampObject,
+    Field(discriminator="kind"),
+]
+
+
+class AssertionPayload(Value):
+    kind: Literal["assertion"]
+    local_id: Token
+    subject: StoredEntity
+    predicate: Name
+    object: ContributionAssertionObject
+    interpretation: Literal["explicit", "inferred"]
+    support: SourceSupport
+    subject_classification: StoredSelectionRef
+    object_classification: StoredSelectionRef | None = None
+
+
+KnowledgeContributionPayload = Annotated[
+    EntitySupportPayload
+    | AliasPayload
+    | IdentifierPayload
+    | MentionPayload
+    | ClassificationPayload
+    | AssertionPayload,
+    Field(discriminator="kind"),
 ]
 
 
@@ -129,7 +229,7 @@ class ContributionView(KnowledgeValue):
     schema_version: Token
     attribution: Attribution
     committed_at: str
-    payload: Change
+    payload: KnowledgeContributionPayload
     evidence: tuple[CapturedEvidence, ...] = Field(max_length=200)
     is_current: bool
     witnesses: tuple[EntityWitness, ...] = Field(max_length=2)
@@ -158,6 +258,7 @@ class ClassificationReview(KnowledgeValue):
     review_coverage: Literal["complete", "selected_subset"]
     conflicting_types: bool
     reviewed_candidates_digest: str
+    review_witness: ClassificationReviewWitness
 
 
 class ClassificationEvent(KnowledgeValue):

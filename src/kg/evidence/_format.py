@@ -15,11 +15,11 @@ from kg._sqlite import EVIDENCE_APPLICATION_ID, execute_schema, has_user_schema,
 from kg.evidence._sql import AccountedConnection
 from kg.evidence.errors import EvidenceServiceError
 
-FORMAT = "evidence-store/5"
-USER_VERSION = 5
+FORMAT = "evidence-store/6"
+USER_VERSION = 6
 MANIFEST_VERSION = "canonical-sqlite-manifest/1"
 FORMAT_GUIDANCE = (
-    "Unsupported canonical database format. This build requires evidence-store/5. "
+    "Unsupported canonical database format. This build requires evidence-store/6. "
     "Keep the existing file unchanged; initialize a new empty database and reload "
     "source documents, policy/schema and explicit knowledge. "
     "Automatic upgrade or reset is not supported."

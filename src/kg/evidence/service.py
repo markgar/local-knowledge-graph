@@ -15,7 +15,6 @@ from kg.models.evidence import EvidenceCapabilities, LocalIdentity
 from kg.models.execution import SUMMARY_OPTIONS, Explained, ExplainOptions
 from kg.models.foundation import (
     BatchResult,
-    ChangeSet,
     DocumentReceipt,
     PutDocument,
     RemoveDocument,
@@ -52,8 +51,7 @@ class EvidenceService(ExplainedReads):
     def capabilities(self) -> EvidenceCapabilities:
         base = EvidenceCapabilities()
         return EvidenceCapabilities(
-            operations=(*base.operations, "enrich", "withdraw_assertion"),
-            unsupported=tuple(x for x in base.unsupported if x != "enrich"),
+            operations=(*base.operations, "withdraw_assertion", "withdraw_classification"),
         )
 
     def write(self, request: WriteRequest) -> WriteOutcome:
@@ -73,7 +71,7 @@ class EvidenceService(ExplainedReads):
             "write",
             request.scope,
             required="write_knowledge"
-            if isinstance(request.payload, (ChangeSet, WithdrawAssertion, WithdrawClassification))
+            if isinstance(request.payload, (WithdrawAssertion, WithdrawClassification))
             else "write_documents",
             request_id=request.request_id,
             options=reporting.options(),
@@ -92,28 +90,13 @@ class EvidenceService(ExplainedReads):
         return result
 
     def _run_write(
-        self, request: WriteRequest, capture: Capture | CaptureUnavailable,
+        self,
+        request: WriteRequest,
+        capture: Capture | CaptureUnavailable,
         budget: PrivateBudget | None = None,
     ) -> WriteOutcome:
         from kg.diagnostics._targets import DocumentTarget, ReportTargets, WriterTarget
 
-        if isinstance(request.payload, ChangeSet):
-            from kg.diagnostics._targets import KnowledgeWriterTarget
-            from kg.knowledge._write import writer_targets
-
-            with capture.guard():
-                for target in writer_targets(request):
-                    capture.retain(
-                        ReportTargets(
-                            values=(
-                                KnowledgeWriterTarget(
-                                    namespace=target.namespace,
-                                    owner_id=target.owner_id,
-                                    writer_id=target.writer_id,
-                                ),
-                            )
-                        )
-                    )
         if isinstance(request.payload, (PutDocument, RemoveDocument)):
             with capture.guard():
                 capture.retain(
@@ -170,9 +153,7 @@ class EvidenceService(ExplainedReads):
                 required=(
                     "write_knowledge"
                     if all(
-                        isinstance(
-                            i.payload, (ChangeSet, WithdrawAssertion, WithdrawClassification)
-                        )
+                        isinstance(i.payload, (WithdrawAssertion, WithdrawClassification))
                         for i in batch.items
                     )
                     else "write_documents"

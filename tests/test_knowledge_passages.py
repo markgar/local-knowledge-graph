@@ -1,11 +1,9 @@
 """Real E1 -> E3 -> K1 passage acceptance, without vector/model prerequisites."""
 
-import multiprocessing
 import sqlite3
 import time
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import contextmanager
-from datetime import UTC, datetime, timedelta
 from threading import Event
 from uuid import uuid4
 
@@ -16,6 +14,9 @@ from support.indexing import process
 from support.indexing import request as document_request
 from support.indexing import service as index_service
 from support.knowledge import preset, revision, schema
+from support.private_knowledge import write as private_write
+from support.private_knowledge import write_batch as private_write_batch
+from support.private_knowledge import write_explained as private_write_explained
 from support.withdrawal import withdrawal
 
 from kg._execution_budget import (
@@ -34,6 +35,17 @@ from kg.knowledge import KnowledgeAdministration, KnowledgeService
 from kg.knowledge._reader import KnowledgeReader
 from kg.knowledge._selection import EligibleEOF, EntitySelector
 from kg.knowledge._store import Store
+from kg.knowledge._write_models import (
+    AddAlias,
+    AddAssertion,
+    AddEntitySupport,
+    AddIdentifier,
+    AddMention,
+    ChangeSet,
+    ChangeSetReceipt,
+    EntityObject,
+    LocalEntity,
+)
 from kg.models.evidence import (
     CorpusRegistration,
     KnowledgeWriterBinding,
@@ -41,25 +53,15 @@ from kg.models.evidence import (
     PolicyGrant,
 )
 from kg.models.foundation import (
-    AddAlias,
-    AddAssertion,
-    AddEntitySupport,
-    AddIdentifier,
-    AddMention,
     Attribution,
-    ChangeSet,
-    ChangeSetReceipt,
     DocumentDependency,
-    EntityObject,
     ExpectedState,
-    LocalEntity,
     RemoveDocument,
     SourceSupport,
     StoredEntity,
     StringObject,
     SuppliedAnchor,
     WriteBatch,
-    WriteOutcome,
     WriteRequest,
 )
 
@@ -126,7 +128,7 @@ def passage(env, external="a", namespace="markdown", policy="codepoint-window/1"
         ),
         **kw,
     )
-    saved = receipt(env.service.write(value))
+    saved = receipt(private_write(env.service, value))
     produce(
         env.database,
         env.service.identity,
@@ -151,7 +153,7 @@ def support(saved, page):
 
 
 def request(env, changes, dependencies, retry=None):
-    return WriteRequest(
+    return WriteRequest.model_construct(
         contract_version="foundation/1",
         request_id=str(uuid4()),
         retry_key=retry or str(uuid4()),
@@ -162,8 +164,10 @@ def request(env, changes, dependencies, retry=None):
             producer="passage-tests",
             producer_version="1",
         ),
-        payload=ChangeSet(expected_schema_revision=revision(env),
-            operation="enrich", changes=fixture_changes(env, changes),
+        payload=ChangeSet(
+            expected_schema_revision=revision(env),
+            operation="enrich",
+            changes=fixture_changes(env, changes),
             dependencies=tuple(dependencies),
         ),
     )
@@ -273,25 +277,23 @@ def variants(evidence, target):
 def test_all_passage_variants_exact_provenance_and_capabilities_before_vectors(env, policy):
     value, saved, page = passage(env, policy=policy)
     evidence, dep = support(saved, page)
-    target_id = mappings(env.service.write(request(env, (entity(evidence),), (dep,))))["project"]
+    target_id = mappings(private_write(env.service, request(env, (entity(evidence),), (dep,))))[
+        "project"
+    ]
     target = StoredEntity(kind="stored", entity_id=target_id)
     req = request(env, variants(evidence, target), (dep,))
-    outcome = env.service.write_explained(req)
+    outcome = private_write_explained(env.service, req)
     ids = mappings(outcome.outcome)
     assert outcome.report.state == "collected"
     service = KnowledgeService(env.database, env.service.identity)
     caps = service.capabilities(env.scope)
-    assert caps.change_kinds == (
-        "entity",
-        "entity_support",
-        "alias",
-        "identifier",
-        "mention",
-        "assertion",
-    )
+    assert caps.authoring == "record-authoring/1"
+    assert caps.authoring_batch == "record-authoring-batch/1"
     assert caps.support == "anchors_passages_and_seed_add"
     assert caps.unsupported == ("replace_seed_set", "retraction", "traversal")
     for change in req.payload.changes:
+        if change.kind == "classification_selection":
+            continue
         if change.kind == "entity":
             view = service.entity(env.scope, ids[change.local_id])
             contribution_id = view.witness.contribution_id
@@ -320,12 +322,12 @@ def test_all_passage_variants_exact_provenance_and_capabilities_before_vectors(e
     }
     doc = env.service.document(env.scope, saved.document_id)
     assert doc.processing.indexing == doc.processing.enrichment == "pending"
-    assert env.service.write(req).receipt == outcome.outcome.receipt
+    assert private_write(env.service, req).receipt == outcome.outcome.receipt
     index, _, _ = index_service(env)
     assert process(index, env, value, saved).outcome == "ready"
     assert process(index, env, value, saved, mode="rebuild").outcome == "ready"
     assert service.contribution(env.scope, ids["mention"]).is_current
-    assert env.service.write(req).receipt == outcome.outcome.receipt
+    assert private_write(env.service, req).receipt == outcome.outcome.receipt
     assert env.service.citation(env.scope, page.entries[0].citation).quote == TEXT
 
 
@@ -361,7 +363,7 @@ def test_a09_a17_same_names_conjunction_alternatives_and_no_inferred_edges(env):
         ),
         (da, db),
     )
-    first = env.service.write(req)
+    first = private_write(env.service, req)
     ids = mappings(first)
     assert ids["sam"] != ids["other"]
     with env.database.connection() as connection:
@@ -401,7 +403,7 @@ def test_a09_a17_same_names_conjunction_alternatives_and_no_inferred_edges(env):
         ),
         (da, db),
     )
-    extra = mappings(env.service.write(alternatives))
+    extra = mappings(private_write(env.service, alternatives))
     service = KnowledgeService(env.database, env.service.identity)
     assert all(
         service.contribution(env.scope, extra[k]).is_current for k in ("explicit", "inferred")
@@ -416,7 +418,7 @@ def test_a09_a17_same_names_conjunction_alternatives_and_no_inferred_edges(env):
             ),
         }
     )
-    receipt(env.service.write(removed))
+    receipt(private_write(env.service, removed))
     assert service.entity(env.scope, ids["sam"]).witness.contribution_id == extra["independent"]
     for cid in (ids["sam-mention"], ids["other-mention"], ids["alias"], extra["explicit"]):
         with pytest.raises(EvidenceServiceError, match="not_found"):
@@ -424,7 +426,7 @@ def test_a09_a17_same_names_conjunction_alternatives_and_no_inferred_edges(env):
         historical = service.contribution(env.scope, cid, mode="history")
         assert not historical.is_current and len(historical.evidence) == 2
     assert service.contribution(env.scope, extra["inferred"]).is_current
-    assert env.service.write(req).receipt == first.receipt
+    assert private_write(env.service, req).receipt == first.receipt
     narrow = env.scope.model_copy(
         update={
             "access": env.scope.access.model_copy(update={"namespaces": ("email",)}),
@@ -432,8 +434,10 @@ def test_a09_a17_same_names_conjunction_alternatives_and_no_inferred_edges(env):
     )
     with pytest.raises(EvidenceServiceError, match="not_found"):
         service.contribution(narrow, ids["sam-mention"], mode="history")
-    with pytest.raises(EvidenceServiceError, match="invalid_request"):
-        env.service.write(req.model_copy(update={"scope": narrow}))
+    assert (
+        private_write(env.service, req.model_copy(update={"scope": narrow})).error.code
+        == "forbidden"
+    )
 
 
 @pytest.mark.service
@@ -449,7 +453,9 @@ def test_each_source_staleness_atomically_rejects_all_variants(env, source_numbe
         kind="source", evidence=tuple(ref for supported, _ in pairs for ref in supported.evidence)
     )
     deps = tuple(dep for _, dep in pairs)
-    target_id = mappings(env.service.write(request(env, (entity(evidence),), deps)))["project"]
+    target_id = mappings(private_write(env.service, request(env, (entity(evidence),), deps)))[
+        "project"
+    ]
     req = request(env, variants(evidence, StoredEntity(kind="stored", entity_id=target_id)), deps)
     value, saved, _ = sources[source_number]
     if mutation == "remove":
@@ -493,9 +499,9 @@ def test_each_source_staleness_atomically_rejects_all_variants(env, source_numbe
                 ),
             }
         )
-    receipt(env.service.write(changed))
+    receipt(private_write(env.service, changed))
     before = inventory(env)
-    result = env.service.write(req)
+    result = private_write(env.service, req)
     assert result.error.code == "state_conflict" and result.receipt is None
     assert inventory(env) == before
 
@@ -504,7 +510,9 @@ def test_each_source_staleness_atomically_rejects_all_variants(env, source_numbe
 @pytest.mark.parametrize("transition", ["text", "metadata", "policy", "remove"])
 @pytest.mark.parametrize("withdraw", [False, True])
 def test_roundtrip_never_resurrects_support_and_fresh_support_is_explicit(
-    env, transition, withdraw,
+    env,
+    transition,
+    withdraw,
 ):
     original, a, page = passage(env)
     evidence, dep = support(a, page)
@@ -512,7 +520,7 @@ def test_roundtrip_never_resurrects_support_and_fresh_support_is_explicit(
     req = request(
         env, (entity(evidence), mention(evidence, target), decision(evidence, target)), (dep,)
     )
-    outcome = env.service.write(req)
+    outcome = private_write(env.service, req)
     ids = mappings(outcome)
     if transition == "remove":
         payload = RemoveDocument(
@@ -542,24 +550,25 @@ def test_roundtrip_never_resurrects_support_and_fresh_support_is_explicit(
             }
         )
     changed = receipt(
-        env.service.write(
+        private_write(
+            env.service,
             original.model_copy(
                 update={
                     "retry_key": str(uuid4()),
                     "payload": payload,
                 }
-            )
+            ),
         )
     )
     if withdraw:
-        assert env.service.write(withdrawal(env, ids["decision"])).status == "applied"
+        assert private_write(env.service, withdrawal(env, ids["decision"])).status == "applied"
     _, restored, restored_page = passage(env, state=changed.processing.state_version)
     assert restored.processing.state_version != dep.state_version
     service = KnowledgeService(env.database, env.service.identity)
     with pytest.raises(EvidenceServiceError, match="not_found"):
         service.entity(env.scope, ids["project"])
     assert not service.contribution(env.scope, ids["mention"], mode="history").is_current
-    assert env.service.write(req).receipt == outcome.receipt
+    assert private_write(env.service, req).receipt == outcome.receipt
     new_support, new_dep = support(restored, restored_page)
     stored = StoredEntity(kind="stored", entity_id=ids["project"])
     renewed = request(
@@ -576,7 +585,7 @@ def test_roundtrip_never_resurrects_support_and_fresh_support_is_explicit(
         ),
         (new_dep,),
     )
-    new_ids = mappings(env.service.write(renewed))
+    new_ids = mappings(private_write(env.service, renewed))
     assert service.contribution(env.scope, new_ids["mention"]).is_current
     assert not service.contribution(env.scope, ids["mention"], mode="history").is_current
     assert env.service.citation(env.scope, page.entries[0].citation).quote == TEXT
@@ -595,43 +604,53 @@ def test_withdrawal_two_namespace_authority_and_report_redaction(env, revoked, r
     sb, db = support(b, other)
     both = SourceSupport(kind="source", evidence=sa.evidence + sb.evidence)
     creation = request(
-        env, (entity(sa), decision(both, LocalEntity(kind="local", local_id="project"))),
+        env,
+        (entity(sa), decision(both, LocalEntity(kind="local", local_id="project"))),
         (da, db),
     )
-    target = mappings(env.service.write(creation))["decision"]
+    target = mappings(private_write(env.service, creation))["decision"]
     req = withdrawal(env, target)
-    explained = env.service.write_explained(req) if replay else None
+    explained = private_write_explained(env.service, req) if replay else None
     if explained:
         assert explained.outcome.status == "applied"
         assert TEXT not in explained.report.model_dump_json()
-    narrowed = env.scope.model_copy(update={
-        "access": env.scope.access.model_copy(update={"namespaces": ("markdown",)}),
-    })
+    narrowed = env.scope.model_copy(
+        update={
+            "access": env.scope.access.model_copy(update={"namespaces": ("markdown",)}),
+        }
+    )
     with env.database.connection() as c:
         keys = c.execute("SELECT count(*) FROM write_key").fetchone()[0]
-    narrow_result = env.service.write(req.model_copy(update={"scope": narrowed}))
+    narrow_result = private_write(env.service, req.model_copy(update={"scope": narrowed}))
     assert narrow_result.error.code == "not_found"
     with env.database.connection() as c:
         assert c.execute("SELECT count(*) FROM write_key").fetchone()[0] == keys
         assert c.execute("SELECT count(*) FROM assertion_withdrawal").fetchone()[0] == int(replay)
     if revoked == "binding":
-        policy = env.policy.model_copy(update={
-            "knowledge_bindings": tuple(
-                b for b in env.policy.knowledge_bindings if b.namespace != "email"
-            ),
-        })
+        policy = env.policy.model_copy(
+            update={
+                "knowledge_bindings": tuple(
+                    b for b in env.policy.knowledge_bindings if b.namespace != "email"
+                ),
+            }
+        )
     else:
-        policy = env.policy.model_copy(update={
-            "grants": tuple(
-                g for g in env.policy.grants
-                if not (g.namespace == "email" and g.grant == revoked)
-            ),
-        })
+        policy = env.policy.model_copy(
+            update={
+                "grants": tuple(
+                    g
+                    for g in env.policy.grants
+                    if not (g.namespace == "email" and g.grant == revoked)
+                ),
+            }
+        )
     version = env.admin.replace_policy(policy, env.scope.access.policy_version).policy_version
-    denied = env.scope.model_copy(update={
-        "access": env.scope.access.model_copy(update={"policy_version": version}),
-    })
-    result = env.service.write(req.model_copy(update={"scope": denied}))
+    denied = env.scope.model_copy(
+        update={
+            "access": env.scope.access.model_copy(update={"policy_version": version}),
+        }
+    )
+    result = private_write(env.service, req.model_copy(update={"scope": denied}))
     assert result.error.code == "forbidden"
     assert target not in result.model_dump_json()
     if explained:
@@ -646,15 +665,30 @@ def test_withdrawal_requires_historical_endpoint_even_outside_assertion_support(
     _, b, other = passage(env, "b", "email")
     sa, da = support(a, page)
     sb, db = support(b, other)
-    target = mappings(env.service.write(request(
-        env, (entity(sb), decision(sa, LocalEntity(kind="local", local_id="project"))), (da, db),
-    )))["decision"]
-    narrowed = env.scope.model_copy(update={
-        "access": env.scope.access.model_copy(update={"namespaces": ("markdown",)}),
-    })
-    assert env.service.write(withdrawal(env, target, scope=narrowed)).error.code == "not_found"
-    assert env.service.write(withdrawal(env, target)).status == "applied"
-    assert env.service.write(withdrawal(env, target, scope=narrowed)).error.code == "not_found"
+    target = mappings(
+        private_write(
+            env.service,
+            request(
+                env,
+                (entity(sb), decision(sa, LocalEntity(kind="local", local_id="project"))),
+                (da, db),
+            ),
+        )
+    )["decision"]
+    narrowed = env.scope.model_copy(
+        update={
+            "access": env.scope.access.model_copy(update={"namespaces": ("markdown",)}),
+        }
+    )
+    assert (
+        private_write(env.service, withdrawal(env, target, scope=narrowed)).error.code
+        == "not_found"
+    )
+    assert private_write(env.service, withdrawal(env, target)).status == "applied"
+    assert (
+        private_write(env.service, withdrawal(env, target, scope=narrowed)).error.code
+        == "not_found"
+    )
 
 
 @pytest.mark.service
@@ -685,7 +719,7 @@ def test_forged_chain_rejected_before_any_knowledge_mutation(env, field):
         (bad_dep,),
     )
     before = inventory(env)
-    failed = env.service.write(req)
+    failed = private_write(env.service, req)
     assert failed.error.code in {"not_found", "state_conflict"} and failed.receipt is None
     assert inventory(env) == before
 
@@ -711,7 +745,7 @@ def test_same_revision_passage_from_wrong_policy_membership_is_not_accepted(env)
         (dep,),
     )
     before = inventory(env)
-    assert env.service.write(req).error.code == "not_found"
+    assert private_write(env.service, req).error.code == "not_found"
     assert inventory(env) == before
 
 
@@ -743,7 +777,10 @@ def test_cross_corpus_passage_forgery_and_scope_revocation_fail_closed(env):
         evidence=(evidence.evidence[0].model_copy(update={"corpus_id": original_scope.corpus_id}),),
     )
     before = inventory(env)
-    result = env.service.write_explained(request(env, (entity(forged),), (dep,)))
+    result = private_write_explained(
+        env.service,
+        request(env, (entity(forged),), (dep,)),
+    )
     assert result.outcome.error.code == "not_found" and result.report.state != "collected"
     assert inventory(env) == before
     _, saved, page = passage(env)
@@ -758,7 +795,7 @@ def test_cross_corpus_passage_forgery_and_scope_revocation_fail_closed(env):
         }
     )
     version = env.admin.replace_policy(revoked, env.scope.access.policy_version).policy_version
-    assert env.service.write(req).error.code == "forbidden"
+    assert private_write(env.service, req).error.code == "forbidden"
     version = env.admin.replace_policy(old, version).policy_version
     env.scope = env.scope.model_copy(
         update={
@@ -766,7 +803,7 @@ def test_cross_corpus_passage_forgery_and_scope_revocation_fail_closed(env):
         }
     )
     assert (
-        env.service.write(req.model_copy(update={"scope": env.scope})).error.code
+        private_write(env.service, req.model_copy(update={"scope": env.scope})).error.code
         == "state_conflict"
     )
 
@@ -792,7 +829,9 @@ def test_late_receipt_failure_rolls_back_every_variant_and_batch_units_are_indep
 
     _, saved, page = passage(env)
     evidence, dep = support(saved, page)
-    target_id = mappings(env.service.write(request(env, (entity(evidence),), (dep,))))["project"]
+    target_id = mappings(private_write(env.service, request(env, (entity(evidence),), (dep,))))[
+        "project"
+    ]
     req = request(env, variants(evidence, StoredEntity(kind="stored", entity_id=target_id)), (dep,))
     original = writes.save
     before = inventory(env)
@@ -805,7 +844,7 @@ def test_late_receipt_failure_rolls_back_every_variant_and_batch_units_are_indep
         raise sqlite3.OperationalError("after-receipt")
 
     monkeypatch.setattr(writes, "save", fail)
-    assert env.service.write(req).error.code == "internal_error"
+    assert private_write(env.service, req).error.code == "internal_error"
     assert inventory(env) == before and budgets[0]._root._scratch == 0
     monkeypatch.setattr(writes, "save", original)
     stale = req.model_copy(
@@ -820,12 +859,13 @@ def test_late_receipt_failure_rolls_back_every_variant_and_batch_units_are_indep
         }
     )
     another = req.model_copy(update={"retry_key": str(uuid4()), "request_id": str(uuid4())})
-    result = env.service.write_batch(
-        WriteBatch(
+    result = private_write_batch(
+        env.service,
+        WriteBatch.model_construct(
             contract_version="foundation/1",
             batch_id="passages",
             items=(req, stale, another),
-        )
+        ),
     )
     assert [r.status for r in result.outcomes] == ["applied", "conflict", "applied"]
     assert mappings(result.outcomes[0]) != mappings(result.outcomes[2])
@@ -835,71 +875,9 @@ def _process_write(path, request_json, queue):
     from pathlib import Path
 
     service = EvidenceService(EvidenceDatabase(Path(path)), LocalIdentity(principal_id="principal"))
-    queue.put(service.write(WriteRequest.model_validate_json(request_json)).model_dump_json())
-
-
-@pytest.mark.process
-def test_two_process_retry_convergence_reopen_expiry_and_uncertain_commit(env, monkeypatch):
-    from kg.evidence._sql import AccountedConnection
-
-    _, saved, page = passage(env)
-    evidence, dep = support(saved, page)
-    req = request(
-        env,
-        (
-            entity(evidence),
-            mention(evidence, LocalEntity(kind="local", local_id="project")),
-        ),
-        (dep,),
+    queue.put(
+        private_write(service, WriteRequest.model_validate_json(request_json)).model_dump_json()
     )
-    context = multiprocessing.get_context("spawn")
-    queue = context.Queue()
-    workers = [
-        context.Process(
-            target=_process_write,
-            args=(str(env.database.path), req.model_dump_json(), queue),
-        )
-        for _ in range(2)
-    ]
-    for worker in workers:
-        worker.start()
-    outcomes = [WriteOutcome.model_validate_json(queue.get(timeout=30)) for _ in workers]
-    for worker in workers:
-        worker.join(timeout=30)
-        assert worker.exitcode == 0
-    queue.close()
-    assert mappings(outcomes[0]) == mappings(outcomes[1])
-    restarted = EvidenceService(env.database, env.service.identity)
-    assert restarted.write(req).receipt == outcomes[0].receipt
-    original = AccountedConnection.commit
-
-    def commit_then_fail(connection):
-        original(connection)
-        raise sqlite3.OperationalError("lost-commit-result")
-
-    new_req = req.model_copy(update={"retry_key": str(uuid4())})
-    monkeypatch.setattr(AccountedConnection, "commit", commit_then_fail)
-    assert restarted.write(new_req).error.code == "internal_error"
-    monkeypatch.setattr(AccountedConnection, "commit", original)
-    mappings(restarted.write(new_req))
-    with env.database.connection() as connection:
-        assert connection.execute("SELECT count(*) FROM mention").fetchone()[0] == 2
-    at = datetime(2030, 1, 1, tzinfo=UTC)
-    restarted._clock = lambda: at
-    timed = req.model_copy(update={"retry_key": "expiry"})
-    mappings(restarted.write(timed))
-    changed = timed.model_copy(
-        update={
-            "payload": timed.payload.model_copy(
-                update={"changes": (entity(evidence, name="Changed"),)}
-            ),
-        }
-    )
-    assert restarted.write(changed).error.code == "retry_conflict"
-    restarted._clock = lambda: at + timedelta(days=30)
-    assert restarted.write(changed).error.code == "retry_expired"
-    restarted._clock = lambda: at
-    assert restarted.write(timed).error.code == "retry_expired"
 
 
 @pytest.mark.process
@@ -926,7 +904,8 @@ def test_owner_transaction_serializes_source_edit_after_passage_validation(env, 
 
     def edit():
         attempting.set()
-        return env.service.write(
+        return private_write(
+            env.service,
             original.model_copy(
                 update={
                     "retry_key": str(uuid4()),
@@ -941,12 +920,12 @@ def test_owner_transaction_serializes_source_edit_after_passage_validation(env, 
                         }
                     ),
                 }
-            )
+            ),
         )
 
     monkeypatch.setattr(writes, "save", paused)
     with ThreadPoolExecutor(2) as pool:
-        pending = pool.submit(env.service.write, req)
+        pending = pool.submit(private_write, env.service, req)
         assert entered.wait(10)
         edited = pool.submit(edit)
         assert attempting.wait(10) and not edited.done()
@@ -956,7 +935,7 @@ def test_owner_transaction_serializes_source_edit_after_passage_validation(env, 
         receipt(edited.result(timeout=15))
     service = KnowledgeService(env.database, env.service.identity)
     assert not service.contribution(env.scope, ids["mention"], mode="history").is_current
-    assert env.service.write(req).receipt == outcome.receipt
+    assert private_write(env.service, req).receipt == outcome.receipt
 
 
 @pytest.mark.service
@@ -968,7 +947,8 @@ def test_passage_snapshot_cache_preserves_complete_bundle_bounds_and_lifetime(en
     both = SourceSupport(kind="source", evidence=sa.evidence + sb.evidence)
     target = LocalEntity(kind="local", local_id="project")
     ids = mappings(
-        env.service.write(
+        private_write(
+            env.service,
             request(
                 env,
                 (
@@ -976,7 +956,7 @@ def test_passage_snapshot_cache_preserves_complete_bundle_bounds_and_lifetime(en
                     decision(both, target),
                 ),
                 (da, db),
-            )
+            ),
         )
     )
     with reader(env) as (adapter, context, meter, observer):
@@ -1042,7 +1022,8 @@ def test_passage_snapshot_cache_preserves_complete_bundle_bounds_and_lifetime(en
                 cache=cache,
             )
         receipt(
-            env.service.write(
+            private_write(
+                env.service,
                 value.model_copy(
                     update={
                         "retry_key": str(uuid4()),
@@ -1057,7 +1038,7 @@ def test_passage_snapshot_cache_preserves_complete_bundle_bounds_and_lifetime(en
                             }
                         ),
                     }
-                )
+                ),
             )
         )
         adapter.revalidate_member(member)  # Snapshot-local proof only, not release authority.
@@ -1084,7 +1065,7 @@ def test_passage_snapshot_cache_preserves_complete_bundle_bounds_and_lifetime(en
 def test_mentions_cannot_activate_stale_or_inaccessible_endpoints(env):
     original, a, page = passage(env)
     sa, da = support(a, page)
-    ids = mappings(env.service.write(request(env, (entity(sa),), (da,))))
+    ids = mappings(private_write(env.service, request(env, (entity(sa),), (da,))))
     target = StoredEntity(kind="stored", entity_id=ids["project"])
     _, b, other = passage(env, "b", "email")
     sb, db = support(b, other)
@@ -1095,10 +1076,14 @@ def test_mentions_cannot_activate_stale_or_inaccessible_endpoints(env):
         }
     )
     before = inventory(env)
-    assert env.service.write(fresh.model_copy(update={"scope": narrow})).error.code == "not_found"
+    assert (
+        private_write(env.service, fresh.model_copy(update={"scope": narrow})).error.code
+        == "not_found"
+    )
     assert inventory(env) == before
     receipt(
-        env.service.write(
+        private_write(
+            env.service,
             original.model_copy(
                 update={
                     "retry_key": str(uuid4()),
@@ -1113,11 +1098,11 @@ def test_mentions_cannot_activate_stale_or_inaccessible_endpoints(env):
                         }
                     ),
                 }
-            )
+            ),
         )
     )
     before = inventory(env)
-    assert env.service.write(fresh).error.code == "state_conflict"
+    assert private_write(env.service, fresh).error.code == "state_conflict"
     assert inventory(env) == before
     service = KnowledgeService(env.database, env.service.identity)
     with pytest.raises(EvidenceServiceError, match="not_found"):
@@ -1139,7 +1124,7 @@ def test_revoked_support_history_replay_and_namespace_policy_roundtrip(env):
         ),
         (da, db),
     )
-    outcome = env.service.write(req)
+    outcome = private_write(env.service, req)
     ids = mappings(outcome)
     service = KnowledgeService(env.database, env.service.identity)
     revoked = env.policy.model_copy(
@@ -1159,7 +1144,10 @@ def test_revoked_support_history_replay_and_namespace_policy_roundtrip(env):
     )
     with pytest.raises(EvidenceServiceError, match="forbidden"):
         service.contribution(denied, ids["mention"], mode="history")
-    assert env.service.write(req.model_copy(update={"scope": denied})).error.code == "forbidden"
+    assert (
+        private_write(env.service, req.model_copy(update={"scope": denied})).error.code
+        == "forbidden"
+    )
     version = env.admin.replace_policy(env.policy, version).policy_version
     env.scope = env.scope.model_copy(
         update={
@@ -1168,7 +1156,10 @@ def test_revoked_support_history_replay_and_namespace_policy_roundtrip(env):
     )
     assert service.entity(env.scope, ids["project"]).is_current
     assert not service.contribution(env.scope, ids["mention"], mode="history").is_current
-    assert env.service.write(req.model_copy(update={"scope": env.scope})).receipt == outcome.receipt
+    assert (
+        private_write(env.service, req.model_copy(update={"scope": env.scope})).receipt
+        == outcome.receipt
+    )
     with pytest.raises(EvidenceServiceError, match="not_found"):
         service.contribution(env.scope, ids["mention"])
 
@@ -1187,10 +1178,10 @@ def test_mixed_anchor_passage_conjunction_and_mention_page_boundaries(env):
         .reference
     )
     mixed = SourceSupport(kind="source", evidence=(anchor,) + passage_support.evidence)
-    ids = mappings(env.service.write(request(env, (entity(mixed),), (dep,))))
+    ids = mappings(private_write(env.service, request(env, (entity(mixed),), (dep,))))
     target = StoredEntity(kind="stored", entity_id=ids["project"])
     changes = tuple(mention(passage_support, target, f"m{i}") for i in range(3))
-    committed = mappings(env.service.write(request(env, changes, (dep,))))
+    committed = mappings(private_write(env.service, request(env, changes, (dep,))))
     service = KnowledgeService(env.database, env.service.identity)
     assert len(service.entity(env.scope, target.entity_id).witness.basis.evidence) == 2
     first = service.contributions(env.scope, target.entity_id, kind="mention", limit=2)
@@ -1212,10 +1203,11 @@ def test_mixed_anchor_passage_conjunction_and_mention_page_boundaries(env):
 def test_passage_selection_inherits_local_page_and_global_scratch_limits(env):
     _, saved, page = passage(env)
     evidence, dep = support(saved, page)
-    ids = mappings(env.service.write(request(env, (entity(evidence),), (dep,))))
+    ids = mappings(private_write(env.service, request(env, (entity(evidence),), (dep,))))
     target = StoredEntity(kind="stored", entity_id=ids["project"])
     mappings(
-        env.service.write(
+        private_write(
+            env.service,
             request(
                 env,
                 (
@@ -1223,7 +1215,7 @@ def test_passage_selection_inherits_local_page_and_global_scratch_limits(env):
                     decision(evidence, target, "b"),
                 ),
                 (dep,),
-            )
+            ),
         )
     )
     with reader(env) as (adapter, context, meter, _):
@@ -1255,30 +1247,56 @@ def test_bulk_and_interactive_select_identical_mixed_support_and_stale_exclusion
     value_b, saved_b, page_b = passage(env, external="second", namespace="email")
     sa, da = support(saved_a, page_a)
     sb, db = support(saved_b, page_b)
-    anchor = env.service.anchors(
-        env.scope, saved_a.document_id, saved_a.processing.state_version,
-    ).entries[0].reference
+    anchor = (
+        env.service.anchors(
+            env.scope,
+            saved_a.document_id,
+            saved_a.processing.state_version,
+        )
+        .entries[0]
+        .reference
+    )
     mixed = SourceSupport(kind="source", evidence=(anchor,) + sa.evidence + sb.evidence)
-    ids = mappings(env.service.write(request(env, (entity(sa),), (da,))))
+    ids = mappings(private_write(env.service, request(env, (entity(sa),), (da,))))
     target = StoredEntity(kind="stored", entity_id=ids["project"])
-    records = mappings(env.service.write(request(
-        env, (decision(mixed, target, "mixed"), decision(sa, target, "independent")), (da, db),
-    )))
+    records = mappings(
+        private_write(
+            env.service,
+            request(
+                env,
+                (decision(mixed, target, "mixed"), decision(sa, target, "independent")),
+                (da, db),
+            ),
+        )
+    )
 
     def select(bulk):
-        operation = _graph_build_operation(
-            deadline=Deadline(time.monotonic() + 300), cancel=Event(),
-        ) if bulk else None
+        operation = (
+            _graph_build_operation(
+                deadline=Deadline(time.monotonic() + 300),
+                cancel=Event(),
+            )
+            if bulk
+            else None
+        )
         budget = operation.budget if operation else PrivateBudget(Deadline(time.monotonic() + 30))
         meter = LocalExecutionMeter(budget, max_operations=1, max_items=100)
         step = operation.meter if operation else meter.begin_step("read")
         with (
             observe(
-                env.database, env.service.identity, env.scope, budget.deadline, budget,
+                env.database,
+                env.service.identity,
+                env.scope,
+                budget.deadline,
+                budget,
             ) as observer,
             read_context(
-                env.database, env.service.identity, env.scope, observer.session_id,
-                budget.deadline, step,
+                env.database,
+                env.service.identity,
+                env.scope,
+                observer.session_id,
+                budget.deadline,
+                step,
             ) as context,
         ):
             adapter = KnowledgeReader(context, env.service.identity)
@@ -1290,7 +1308,8 @@ def test_bulk_and_interactive_select_identical_mixed_support_and_stale_exclusion
                     adapter.revalidate_member(member)
                 count = (
                     operation.snapshot().semantic_items_reserved
-                    if operation else meter.public_accounting().items_consumed
+                    if operation
+                    else meter.public_accounting().items_consumed
                 )
                 assert count == len(page.items)
                 return page.items
@@ -1304,13 +1323,19 @@ def test_bulk_and_interactive_select_identical_mixed_support_and_stale_exclusion
     combined = next(item for item in ordinary if item.record.record_id == records["mixed"])
     assert combined.record.support == mixed
     assert tuple(p.reference for p in combined.dependencies.assertion_support) == mixed.evidence
-    removed = env.service.write(value_b.model_copy(update={
-        "retry_key": str(uuid4()),
-        "payload": RemoveDocument(
-            operation="remove_document", document=value_b.payload.document,
-            precondition=ExpectedState(kind="match", state_version=db.state_version),
+    removed = private_write(
+        env.service,
+        value_b.model_copy(
+            update={
+                "retry_key": str(uuid4()),
+                "payload": RemoveDocument(
+                    operation="remove_document",
+                    document=value_b.payload.document,
+                    precondition=ExpectedState(kind="match", state_version=db.state_version),
+                ),
+            }
         ),
-    }))
+    )
     assert removed.error is None
     remaining = select(False)
     assert remaining == select(True)

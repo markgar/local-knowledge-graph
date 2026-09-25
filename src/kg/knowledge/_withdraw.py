@@ -19,8 +19,6 @@ from kg.knowledge._authorization import writer
 from kg.knowledge._store import Store
 from kg.knowledge._write import Manifest, save
 from kg.models.foundation import (
-    AddAssertion,
-    AddClassification,
     AssertionWithdrawalReceipt,
     ClassificationWithdrawalReceipt,
     SeedSupport,
@@ -28,7 +26,7 @@ from kg.models.foundation import (
     WithdrawClassification,
     WriteRequest,
 )
-from kg.models.knowledge import ContributionView
+from kg.models.knowledge import AssertionPayload, ClassificationPayload, ContributionView
 
 
 @contextmanager
@@ -40,9 +38,9 @@ def authorize_target(
     try:
         target = store.contribution(request.payload.contribution_id, history=True)
         expected = (
-            AddClassification
+            ClassificationPayload
             if isinstance(request.payload, WithdrawClassification)
-            else AddAssertion
+            else AssertionPayload
         )
         if not isinstance(target.payload, expected):
             raise EvidenceServiceError("invalid_request")

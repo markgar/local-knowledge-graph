@@ -1,0 +1,45 @@
+[
+  {"kind": "entity", "local_id": "entity/thermometer"},
+  {"kind": "entity", "local_id": "entity/cold-room"},
+  {"kind": "entity", "local_id": "entity/inspection"},
+  {"kind": "entity", "local_id": "entity/service"},
+  {
+    "kind": "classification",
+    "local_id": "classification/thermometer/thermometer-device"
+  },
+  {
+    "kind": "classification",
+    "local_id": "classification/cold-room/cold-room-location"
+  },
+  {
+    "kind": "classification",
+    "local_id": "classification/inspection/inspection-event"
+  },
+  {
+    "kind": "classification",
+    "local_id": "classification/service/service-action"
+  },
+  {
+    "kind": "classification_selection",
+    "local_id": "classification-selection/thermometer"
+  },
+  {
+    "kind": "classification_selection",
+    "local_id": "classification-selection/cold-room"
+  },
+  {
+    "kind": "classification_selection",
+    "local_id": "classification-selection/inspection"
+  },
+  {
+    "kind": "classification_selection",
+    "local_id": "classification-selection/service"
+  },
+  {"kind": "identifier", "local_id": "thermometer-serial"},
+  {"kind": "assertion", "local_id": "placement"},
+  {"kind": "assertion", "local_id": "inspection-target"},
+  {"kind": "assertion", "local_id": "service-target"},
+  {"kind": "assertion", "local_id": "inspection-location"},
+  {"kind": "assertion", "local_id": "calibration-status"},
+  {"kind": "assertion", "local_id": "inspection-result"}
+]

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from datetime import datetime, timedelta
 from typing import Literal
 
@@ -20,26 +21,28 @@ from kg.evidence._values import canonical, sha, timestamp, token
 from kg.evidence.errors import EvidenceServiceError
 from kg.knowledge._authorization import writer
 from kg.knowledge._store import Store
-from kg.models.foundation import (
+from kg.knowledge._write_models import (
     AddAlias,
     AddAssertion,
     AddClassification,
     AddEntitySupport,
     AddIdentifier,
     AddMention,
-    AssertionWithdrawalReceipt,
     Change,
     ChangeSet,
     ChangeSetReceipt,
-    ClassificationWithdrawalReceipt,
     CreateEntity,
     EntityObject,
     EntityRef,
     IDMapping,
     LocalEntity,
     LocalSelectionRef,
-    SeedSupport,
     SelectClassification,
+)
+from kg.models.foundation import (
+    AssertionWithdrawalReceipt,
+    ClassificationWithdrawalReceipt,
+    SeedSupport,
     SourceSupport,
     StoredEntity,
     StoredSelectionRef,
@@ -48,6 +51,7 @@ from kg.models.foundation import (
     WithdrawClassification,
     WriteRequest,
 )
+from kg.models.knowledge import KnowledgeContributionPayload
 from kg.models.knowledge_events import KnowledgeEncoding, KnowledgeValidation
 
 
@@ -78,10 +82,12 @@ def digest(request: WriteRequest) -> str:
     )
 
 
-def writer_targets(request: WriteRequest) -> tuple[KnowledgeWriterTarget | SeedSetTarget, ...]:
-    assert isinstance(request.payload, ChangeSet)
+def plan_writer_targets(
+    request: WriteRequest,
+    plan: ChangeSet,
+) -> tuple[KnowledgeWriterTarget | SeedSetTarget, ...]:
     targets: dict[KnowledgeWriterTarget | SeedSetTarget, None] = {}
-    for change in request.payload.changes:
+    for change in plan.changes:
         if isinstance(change, SelectClassification):
             continue
         support = change.support
@@ -105,8 +111,12 @@ def writer_targets(request: WriteRequest) -> tuple[KnowledgeWriterTarget | SeedS
     return tuple(targets)
 
 
-def authorize_new(context: CanonicalWriteContext, request: WriteRequest) -> None:
-    for target in writer_targets(request):
+def authorize_new(
+    context: CanonicalWriteContext,
+    request: WriteRequest,
+    plan: ChangeSet,
+) -> None:
+    for target in plan_writer_targets(request, plan):
         writer(
             context.connection,
             context.identity,
@@ -125,9 +135,16 @@ def _resolved(change: Change, ids: dict[str, str]) -> Change:
             entity_id=ids[value.local_id] if isinstance(value, LocalEntity) else value.entity_id,
         )
 
-    if isinstance(change, (
-        AddAlias, AddIdentifier, AddMention, AddClassification, SelectClassification,
-    )):
+    if isinstance(
+        change,
+        (
+            AddAlias,
+            AddIdentifier,
+            AddMention,
+            AddClassification,
+            SelectClassification,
+        ),
+    ):
         return change.model_copy(update={"entity": ref(change.entity)})
     if isinstance(change, AddAssertion):
         obj = change.object
@@ -137,7 +154,10 @@ def _resolved(change: Change, ids: dict[str, str]) -> Change:
     return change
 
 
-def _comparable(change: Change, entity_id: str | None = None) -> dict[str, object]:
+def _comparable(
+    change: Change | KnowledgeContributionPayload,
+    entity_id: str | None = None,
+) -> dict[str, object]:
     result = change.model_dump(mode="json", exclude={"local_id"})
     if isinstance(change, CreateEntity):
         result["kind"] = "entity_support"
@@ -145,31 +165,46 @@ def _comparable(change: Change, entity_id: str | None = None) -> dict[str, objec
     return result
 
 
-def apply(
+def apply_plan(
     context: CanonicalWriteContext,
     request: WriteRequest,
+    plan: ChangeSet,
     at: datetime,
     budget: PrivateBudget,
     *,
     capture: Capture | CaptureUnavailable | None = None,
+    persist: Callable[
+        [
+            CanonicalWriteContext,
+            WriteRequest,
+            str,
+            str,
+            ChangeSetReceipt,
+            Manifest,
+            Literal["applied", "unchanged"],
+            datetime,
+        ],
+        None,
+    ]
+    | None = None,
 ) -> tuple[ChangeSetReceipt, Literal["applied", "unchanged"], str, Manifest]:
     from kg.knowledge import _classification
 
-    assert isinstance(request.payload, ChangeSet)
     connection, scope, attribution = context.connection, request.scope, request.attribution
     store = Store(connection, scope, budget)
     try:
-        authorize_new(context, request)
+        authorize_new(context, request, plan)
         _observed(capture, KnowledgeValidation(phase="binding", status="passed"))
         schema = store.schema()
-        if request.payload.expected_schema_revision is None:
+        if plan.expected_schema_revision is None:
             raise EvidenceServiceError(
-                "invalid_request", explanation="Enrichment requires expected_schema_revision.",
+                "invalid_request",
+                explanation="Enrichment requires expected_schema_revision.",
             )
-        if request.payload.expected_schema_revision != store.registry.head():
+        if plan.expected_schema_revision != store.registry.head():
             raise EvidenceServiceError("state_conflict")
         _observed(capture, KnowledgeValidation(phase="schema", status="passed"))
-        changes = request.payload.changes
+        changes = plan.changes
         references = tuple(
             dict.fromkeys(
                 r
@@ -180,8 +215,8 @@ def apply(
         )
         # Common E1 validator remains authoritative. Preflight/check each exact
         # source once with private scratch before it hydrates the bounded unit.
-        dependencies = {d.document_id: d for d in request.payload.dependencies}
-        TransactionEvidence(context).validate_current(scope, request.payload.dependencies, ())
+        dependencies = {d.document_id: d for d in plan.dependencies}
+        TransactionEvidence(context).validate_current(scope, plan.dependencies, ())
         for reference in references:
             _, current = store.proof(reference, dependencies[reference.document_id].state_version)
             if not current:
@@ -205,7 +240,7 @@ def apply(
         with budget.reserve_scratch(working, "general"):
             validated = TransactionEvidence(context).validate_current(
                 scope,
-                request.payload.dependencies,
+                plan.dependencies,
                 references,
             )
         _observed(capture, KnowledgeValidation(phase="support", status="passed"))
@@ -278,9 +313,16 @@ def apply(
         selection_targets: list[ReportTarget] = []
         for change in planned:
             endpoints = []
-            if isinstance(change, (
-                AddAlias, AddIdentifier, AddMention, AddClassification, SelectClassification,
-            )):
+            if isinstance(
+                change,
+                (
+                    AddAlias,
+                    AddIdentifier,
+                    AddMention,
+                    AddClassification,
+                    SelectClassification,
+                ),
+            ):
                 assert isinstance(change.entity, StoredEntity)
                 endpoints.append(change.entity.entity_id)
             elif isinstance(change, AddAssertion):
@@ -310,17 +352,16 @@ def apply(
                         _classification.authorize_selection(store, context, request, eid),
                     )
                     reviews[change.local_id] = _classification.review(
-                        store, eid,
-                        change.reviewed_claim_ids if change.review_coverage == "selected_subset"
+                        store,
+                        eid,
+                        change.reviewed_claim_ids
+                        if change.review_coverage == "selected_subset"
                         else None,
                     )
             if isinstance(change, AddAssertion):
                 assert isinstance(change.subject, StoredEntity)
                 predicate = predicates.get(change.predicate)
-                if (
-                    predicate is None
-                    or change.object.kind != predicate.object_kind
-                ):
+                if predicate is None or change.object.kind != predicate.object_kind:
                     raise EvidenceServiceError("invalid_request")
                 if predicate.record_projection and change.interpretation != "explicit":
                     raise EvidenceServiceError("invalid_request")
@@ -343,28 +384,45 @@ def apply(
         active_slots: dict[tuple[str, str], int] = {}
         # Creation support precedes endpoint checks, allowing forward attestations
         # to reactivate an historically visible stored identity atomically.
-        ordered = sorted(planned, key=lambda c: (
-            0 if isinstance(c, (CreateEntity, AddEntitySupport))
-            else 1 if isinstance(c, AddClassification)
-            else 2 if isinstance(c, SelectClassification) else 3
-        ))
+        ordered = sorted(
+            planned,
+            key=lambda c: (
+                0
+                if isinstance(c, (CreateEntity, AddEntitySupport))
+                else 1
+                if isinstance(c, AddClassification)
+                else 2
+                if isinstance(c, SelectClassification)
+                else 3
+            ),
+        )
         changed_selections = False
         for change in ordered:
             if isinstance(change, SelectClassification):
                 assert isinstance(change.entity, StoredEntity)
                 store.refresh_entities()
                 if change.entity.entity_id in new_entities:
-                    selection_targets.extend(_classification.authorize_selection(
-                        store, context, request, change.entity.entity_id,
-                    ))
+                    selection_targets.extend(
+                        _classification.authorize_selection(
+                            store,
+                            context,
+                            request,
+                            change.entity.entity_id,
+                        )
+                    )
                 new_claims = tuple(
-                    contributions[c.local_id] for c in planned
+                    contributions[c.local_id]
+                    for c in planned
                     if isinstance(c, AddClassification) and c.entity == change.entity
                 )
                 event_id, changed, target = _classification.apply_selection(
-                    store, change, key_id, claims=contributions,
+                    store,
+                    change,
+                    key_id,
+                    claims=contributions,
                     reviewed=reviews.get(change.local_id),
-                    is_new=change.entity.entity_id in new_entities, new_claims=new_claims,
+                    is_new=change.entity.entity_id in new_entities,
+                    new_claims=new_claims,
                 )
                 mappings[change.local_id] = event_id
                 selection_targets.append(target)
@@ -426,8 +484,13 @@ def apply(
                 assert isinstance(change.entity, StoredEntity)
                 connection.execute(
                     "INSERT INTO classification VALUES (?,?,'classification',?,?,?)",
-                    (scope.corpus_id, cid, change.entity.entity_id,
-                     change.entity_type, change.interpretation),
+                    (
+                        scope.corpus_id,
+                        cid,
+                        change.entity.entity_id,
+                        change.entity_type,
+                        change.interpretation,
+                    ),
                 )
             elif isinstance(change, AddMention):
                 assert isinstance(change.entity, StoredEntity)
@@ -462,9 +525,13 @@ def apply(
                 ]
                 if isinstance(change.object, EntityObject):
                     assert isinstance(change.object.entity, StoredEntity)
-                    required.append((
-                        "object", change.object.entity.entity_id, change.object_classification,
-                    ))
+                    required.append(
+                        (
+                            "object",
+                            change.object.entity.entity_id,
+                            change.object_classification,
+                        )
+                    )
                 for role, eid, selection in required:
                     selected_id = (
                         mappings.get(selection.local_id)
@@ -477,7 +544,8 @@ def apply(
                     if capture_witness is None or capture_witness.selection_id != selected_id:
                         raise EvidenceServiceError("state_conflict")
                     allowed = (
-                        predicates[change.predicate].subject_types if role == "subject"
+                        predicates[change.predicate].subject_types
+                        if role == "subject"
                         else predicates[change.predicate].object_types
                     )
                     if capture_witness.entity_type not in allowed:
@@ -513,8 +581,15 @@ def apply(
                     store.hold(len(encoded.encode()) * 8)
                     connection.execute(
                         "INSERT INTO assertion_classification VALUES (?,?,?,?,?,?,?)",
-                        (scope.corpus_id, cid, role, cw.entity_id, cw.selection_id,
-                         cw.claim_id, encoded),
+                        (
+                            scope.corpus_id,
+                            cid,
+                            role,
+                            cw.entity_id,
+                            cw.selection_id,
+                            cw.claim_id,
+                            encoded,
+                        ),
                     )
             else:
                 raise EvidenceServiceError("unsupported")
@@ -532,8 +607,7 @@ def apply(
                             raise EvidenceServiceError("internal_error")
                         passage_set_id = passage[0]
                     connection.execute(
-                        "INSERT INTO contribution_evidence "
-                        "VALUES (?,?,?,'source',?,?,?,?,?,?,?,?)",
+                        "INSERT INTO contribution_evidence VALUES (?,?,?,'source',?,?,?,?,?,?,?,?)",
                         (
                             scope.corpus_id,
                             cid,
@@ -621,7 +695,7 @@ def apply(
                     ),
                 )
         store.refresh_entities()
-        targets: list[ReportTarget] = [*writer_targets(request), *selection_targets]
+        targets: list[ReportTarget] = [*plan_writer_targets(request, plan), *selection_targets]
         for change in planned:
             if isinstance(change, SelectClassification):
                 continue
@@ -654,16 +728,39 @@ def apply(
             ),
         )
         status: Literal["applied", "unchanged"] = (
-            "unchanged" if not changed_selections and len(old_slots) == (
-                len(changes) - sum(isinstance(c, SelectClassification) for c in changes)
-            ) else "applied"
+            "unchanged"
+            if not changed_selections
+            and len(old_slots)
+            == (len(changes) - sum(isinstance(c, SelectClassification) for c in changes))
+            else "applied"
         )
         manifest = Manifest(
             owner_id=attribution.owner_id,
             writer_id=attribution.writer_id,
             targets=tuple(targets),
         )
-        save(context, request, key_id, schema.schema_version, receipt, manifest, status, at)
+        if persist is None:
+            save(
+                context,
+                request,
+                key_id,
+                schema.schema_version,
+                receipt,
+                manifest,
+                status,
+                at,
+            )
+        else:
+            persist(
+                context,
+                request,
+                key_id,
+                schema.schema_version,
+                receipt,
+                manifest,
+                status,
+                at,
+            )
         return receipt, status, key_id, manifest
     finally:
         store.close()
@@ -698,8 +795,11 @@ def save(
     connection.execute(
         "INSERT INTO knowledge_write_response VALUES (?,?,?,?,?)",
         (
-            key_id, request.scope.corpus_id, receipt.kind,
-            receipt.model_dump_json(), manifest.model_dump_json(),
+            key_id,
+            request.scope.corpus_id,
+            receipt.kind,
+            receipt.model_dump_json(),
+            manifest.model_dump_json(),
         ),
     )
     connection.execute(
@@ -745,21 +845,7 @@ def replay(
             with authorize_withdrawal(context, request, budget):
                 pass
         else:
-            authorize_new(context, request)
-            assert isinstance(request.payload, ChangeSet)
-            from kg.knowledge import _classification
-
-            store = Store(context.connection, request.scope, budget)
-            try:
-                for change in request.payload.changes:
-                    if isinstance(change, SelectClassification) and isinstance(
-                        change.entity, StoredEntity,
-                    ):
-                        _classification.authorize_selection(
-                            store, context, request, change.entity.entity_id,
-                        )
-            finally:
-                store.close()
+            raise EvidenceServiceError("internal_error")
         if not key["expired"]:
             raise EvidenceServiceError("internal_error")
     observed = _receipts.clock(context.connection, at)
@@ -770,7 +856,7 @@ def replay(
     if digest(request) != key["digest"]:
         return _receipts.ReplayConflict(EvidenceServiceError("retry_conflict").failure), manifest
     assert response is not None
-    receipt: ChangeSetReceipt | AssertionWithdrawalReceipt | ClassificationWithdrawalReceipt
+    receipt: AssertionWithdrawalReceipt | ClassificationWithdrawalReceipt
     if isinstance(request.payload, (WithdrawAssertion, WithdrawClassification)):
         receipt = (
             ClassificationWithdrawalReceipt.model_validate_json(response["receipt_json"])
@@ -783,7 +869,5 @@ def replay(
         ):
             raise EvidenceServiceError("internal_error")
     else:
-        receipt = ChangeSetReceipt.model_validate_json(response["receipt_json"])
-        if response["receipt_kind"] != receipt.kind:
-            raise EvidenceServiceError("internal_error")
+        raise EvidenceServiceError("internal_error")
     return _receipts.ReplaySuccess(key_id, key["status"], receipt), manifest

@@ -6,11 +6,13 @@ from support.graph import fixture, require_native
 
 from kg.graph import LocalGraphSession
 from kg.graph._session_types import GraphSessionError
-from kg.models.evidence import StoredCitation
-from kg.models.foundation import (
+from kg.knowledge._write_models import (
     AddAlias,
     AddAssertion,
     EntityObject,
+)
+from kg.models.evidence import StoredCitation
+from kg.models.foundation import (
     SourceSupport,
     StoredEntity,
 )

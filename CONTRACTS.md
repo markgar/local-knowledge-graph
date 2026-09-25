@@ -1,29 +1,28 @@
 # Service and value contract reference
 
-The canonical Python services operate on SQLite `evidence-store/5`. SQLite owns
+The canonical Python services operate on SQLite `evidence-store/6`. SQLite owns
 supplied text/revisions, identities, knowledge schema, entities/assertions, exact
 support and history. Optional Ladybug is a rebuildable exact-scope graph
 projection, not a second authored store or a replacement for canonical search.
 The installed CLI exposes canonical document and knowledge workflows; see
 [usage and client/1 outcomes](README.md#canonical-document-cli).
-`kg record --schema` exposes strict grounded JSON changes plus captured
-`{reference, state_version}` support. Entity read/list entries include a native
-stored `reference` for direct reuse; support states are never upgraded implicitly.
-The CLI also accepts a request-local named support map with source evidence names;
-it expands into existing service values, not a new service write format. Native
-support arrays remain accepted. Mixed forms, unresolved/unused declarations,
-duplicate evidence and conflicting states fail; canonical limits apply after expansion.
+`kg record --schema` exposes the strict `record-authoring/1` document with named
+exact source/seed captures, explicit entity declarations, and assertions. Entity
+reads include exact stored IDs and copy-ready selection witnesses; support states
+are never upgraded implicitly. Native change plans and support arrays are not
+accepted. Unknown/unused declarations, duplicate evidence, mixed support kinds,
+conflicting states, and implicit endpoints fail; canonical limits apply after
+private expansion.
 `kg record --from-evidence evidence:...` is a read-only preparation mode: it
 strictly decodes, authorizes and requires current citations, reads the active
 schema, and returns an incomplete `record_template` with exact bookkeeping and
-`changes: []`. It makes no write or semantic choice. `kg record --example`
+empty `entities`/`assertions`. It makes no write or semantic choice. `kg record --example`
 documents creation versus reuse and exact evidence copying.
 Document mutation presentation preserves the canonical outcome under
 `evidence_write`, reports target/state under `document`, and reports the exact
-process result or `null` under `search_preparation`. Knowledge mutation
-presentation preserves the canonical outcome under `knowledge_write`; successful
-change sets add ordered local-ID mappings with native stored references and valid
-copy-ready inspection commands. Selection events have no fact target.
+process result or `null` under `search_preparation`. Record authoring returns the
+`RecordAuthoringOutcome` directly, with its canonical authored receipt and no
+native plan or flat derived-change mappings.
 Knowledge pages preserve continuation; query envelopes preserve native proof,
 count, partial and failure semantics. Retained handles are not usable after CLI exit.
 Document search presentation returns hit-free `search_context` plus one
@@ -52,8 +51,9 @@ enforce ACLs or ownership, execute writes or queries, synchronize sources, proce
 content, implement retries, or retain snapshots/continuations. Declared grants,
 state tokens, receipts and result-set IDs are values, not proof of those services.
 
-`kg.evidence` executes document writes, bounded enrichment and evidence reads;
-`kg.query` executes its supported canonical plans using foundation values. Only
+`kg.evidence` executes document writes, owned withdrawals, and evidence reads;
+`kg.knowledge` executes record authoring; `kg.query` executes its supported
+canonical plans using foundation values. Only
 the service operations explicitly listed below are executable; broader foundation
 query/synchronization descriptions remain validation contracts.
 
@@ -70,15 +70,15 @@ not here. Follow each owning issue's current scope and linked approved requireme
 LocalAdminAuthority)`, `EvidenceService(database, LocalIdentity)` and
 `EvidenceServiceError`. Administrative/read values live in `kg.models.evidence`;
 top-level service values carry `interface_version="evidence/2"`. Existing
-`foundation/1` document write/result shapes are unchanged. The pre-release
-enrichment values include independent entity support and explicitly namespaced seeds.
+`foundation/1` document write/result shapes are unchanged. Knowledge creation uses
+the separate `record-authoring/1` contract described below.
 
 | API | Result / behavior |
 | --- | --- |
-| `database.initialize()` | Initialize empty or verify the complete `evidence-store/5` schema and manifest; incompatible targets raise `unsupported` with recreate/reload guidance. Use a fresh file and resupply sources, policy/schema and explicit knowledge; no migration or automatic reset. |
+| `database.initialize()` | Initialize empty or verify the complete `evidence-store/6` schema and manifest; incompatible targets raise `unsupported` with recreate/reload guidance. Use a fresh file and resupply sources, policy/schema and explicit knowledge; no migration or automatic reset. |
 | `admin.register(CorpusRegistration)` | Register namespaces, writer bindings and explicit `LocalPolicy`; identical original registration is unchanged and returns the **current** policy version, without restoring old grants. Conflicting registration fails. |
 | `admin.replace_policy(LocalPolicy, expected_policy_version)` | Atomic policy/state rotation; returns version, affected namespaces and changed-document count. |
-| `service.write(WriteRequest)` | `put_document` / `remove_document` / bounded `enrich` / `withdraw_assertion` -> `WriteOutcome`. Enrichment supports the change kinds described below, including explicitly passage-backed mentions. |
+| `service.write(WriteRequest)` | `put_document` / `remove_document` / `withdraw_assertion` / `withdraw_classification` -> `WriteOutcome`. |
 | `service.write_batch(WriteBatch)` | Ordered `BatchResult`; complete envelope validation precedes independent unit transactions. |
 | `current(scope, ExternalDocument)` / `document(scope, document_id)` | Current `DocumentView`, including inactive sources and separate `indexing_reason` / `enrichment_reason` fields. |
 | `state(scope, document_id, state_version)` | Immutable historical state/metadata context plus latest-state flag. |
@@ -94,7 +94,7 @@ enrichment values include independent entity support and explicitly namespaced s
 
 All reads need current trusted `read` authority. Document writes need `write_documents`
 and an owner/writer/synchronization binding; they do not confer full-text access.
-Enrichment instead needs `read`, `write_knowledge` and exact knowledge bindings,
+Record authoring instead needs `read`, `write_knowledge` and exact knowledge bindings,
 plus `seed` for seed-backed contributions; it never requires `write_documents`.
 Attribution is not a credential. Namespace policy changes rotate affected document
 states independently of corpus-wide access-context freshness.
@@ -348,25 +348,33 @@ create no aliases or facts. Public `kg schema generate --schema/--example`,
 it exposes schema readiness separately from installed evidence operations and
 does not check search readiness.
 
-## Knowledge enrichment and reads
+## Knowledge authoring and reads
 
-`EvidenceService.write` accepts a bounded `ChangeSet` atomically: `CreateEntity`,
-`AddEntitySupport`, `AddClassification`, `SelectClassification`, `AddAlias`,
-`AddIdentifier`, `AddMention`, and `AddAssertion`.
-Fresh `/5` enrichment requires `expected_schema_revision` equal to the exact active
-revision/hash. Missing binding is `invalid_request`; stale binding is `state_conflict`.
-Committed authorized retries replay before this fresh-write check. Historical facts
-retain their original `schema_version` (the server revision ID) and validate against
-that authored vocabulary and its additive successor; they are never relabelled to head.
-References must be actual canonical anchors or E3-produced passages with exact
-current document dependencies. E3's common resolver validates the full immutable
-source/state/set/passage/anchor chain on the owner's authorized write transaction.
-`AddMention` requires passage evidence for every reference; it creates no factual
-edge or identity merge. Every input change has one input-ordered mapping. CreateEntity
-maps an entity ID; selection maps an event ID; other changes map contribution IDs.
-Receipts also report final selection state for identities actually created or selected
-in the unit. There is no inference,
-identity merging, automatic deduplication or document-readiness update.
+`KnowledgeService.record` accepts one strict `record-authoring/1`
+`RecordAuthoringRequest` atomically. Its document declares named exact source or
+seed captures, 1..100 explicit entity declarations, and up to 100 assertions.
+Each semantic item names its own support; source arrays are conjunctive and seed
+support is one scalar name. The service privately compiles identities,
+classification claims/selections, aliases, identifiers, mentions and assertions
+to the canonical write kernel. Native plans are not a public request format.
+
+Fresh authoring requires `expected_schema_revision` equal to the exact active
+revision/hash. Missing binding or malformed semantics is `invalid_request`; stale
+state is `state_conflict`. Committed authorized retries replay the original
+authored receipt before fresh-state compilation. Historical facts retain their
+original `schema_version` and validate against that authored vocabulary and its
+additive successor; they are never relabelled to head. Source captures must be
+actual canonical anchors or E3-produced passages with exact state versions.
+Mentions require passage evidence and create no factual edge or identity merge.
+There is no inference, name-based identity resolution, automatic deduplication,
+or document-readiness update.
+
+`RecordAuthoringBatch` uses `record-authoring-batch/1` and contains 1..100 complete
+requests with unique request IDs and retry identities. Envelope validation occurs
+before item zero. Items execute independently in input order and continue after
+confirmed failures; each item remains atomic and replayable through its own key.
+`EvidenceService.write` and `WriteBatch` retain document operations and owned
+assertion/classification withdrawals only.
 
 An immutable string predicate registered with `direct-subject-decision/1` accepts
 only explicit string assertions. Its assertion ID is the submitted record ID.
@@ -386,7 +394,9 @@ withdraws it. Whole-set replacement is not installed.
 
 | Method | Result |
 | --- | --- |
-| `capabilities(scope)` | Authorized `KnowledgeCapabilities`: installed change kinds, support boundary and registered decision encoding. |
+| `capabilities(scope)` | Authorized `KnowledgeCapabilities`: `record-authoring/1`, `record-authoring-batch/1`, support boundary and registered decision encoding. |
+| `record(request)` / `record_explained(request, options)` | Atomic `RecordAuthoringOutcome` with copied captures, authored-item mappings, classification outcomes and bounded derived-operation counts. |
+| `record_batch(batch)` / `record_batch_explained(batch, options)` | Independent ordered authoring outcomes with `complete`, `partial`, or `failed` status. |
 | `entity(scope, entity_id, *, mode="current")` | `EntityView`: immutable identity, eligibility, a sequence-selected visible support witness and visible-only more-support flag. |
 | `entities(scope, *, name=None, scheme=None, identifier=None, after_sequence=0, limit=100)` | Current exact identity/name/eligible-alias or scheme+identifier selection. At most one selector; no normalization or fuzzy matching. |
 | `contribution(scope, contribution_id, *, mode="current")` | `ContributionView`: typed resolved payload, full attribution, schema version, captured evidence and endpoint witnesses. |
@@ -397,21 +407,21 @@ withdraws it. Whole-set replacement is not installed.
 Identity creation/support has no permanent `entity_type`. It is eligible using independent
 identity evidence, even without a classification or any domain edges. `EntityView.entity_type`
 is nullable derived output; `classification` exposes the current opaque selection ID and
-only an eligible visible selected witness. Each `AddClassification` has its own exact
+only an eligible visible selected witness. Each authored classification has its own exact
 support, interpretation and authored schema revision; it cannot activate identity.
 Competing claims remain independent. There is no automatic merge, selection, newest-wins
 rule, or hidden global veto.
 
-`SelectClassification` names an entity and local/stored claim (or null to clear), exact
-`expected_selection_id`, `reviewed_candidates_digest`, `reviewed_claim_ids`, coverage and
-rationale. `selected_subset` requires `accept_incomplete_review=true`. Only the original
+Classification selection names a local or stored claim (or clears selection) and
+carries the exact copied review witness and rationale. A subset review requires
+explicit acknowledgement. Only the original
 identity owner AND writer with current original-namespace authority may select/clear.
 Actual newly allocated identities permit null preconditions and empty complete review;
 seed aliases resolving an existing entity require ordinary stored-entity review/CAS.
 One transaction resolves identity, claims, selections and typed assertions atomically.
 
-`AddAssertion.subject_classification` and entity-object `object_classification` name
-the selected event, either stored or local to the same unit. SQLite captures the exact
+Typed assertions derive local selection events or use copied current-selection
+witnesses for stored entities. SQLite captures the exact
 event, claim, type, authored revision, interpretation and full source/seed witness.
 Endpoint types must satisfy the assertion's schema. A changed event permanently makes
 old assertions ineligible, including same-type supporting-claim replacement, clear and
@@ -454,7 +464,7 @@ First withdrawal returns `applied` and `AssertionWithdrawalReceipt`; identical
 same-key replay returns the original status/event, while a fresh key returns
 `unchanged` with that same event. Ordinary receipt expiry/authorization and
 independent ordered batch semantics apply; private coordinated withdrawal is
-`unsupported`. Corrections are separate enrichment writes, not replacements.
+`unsupported`. Corrections are separate record-authoring requests, not replacements.
 
 `KnowledgeCapabilities.withdrawal` is `"owned_assertion"`; general `"retraction"`
 remains unsupported. `ContributionView.withdrawal` is null unless a first immutable
@@ -469,20 +479,20 @@ Source support is conjunctive. Any stale supporting state makes the contribution
 ineligible. Aliases/identifiers/mentions/assertions cannot activate an unsupported entity.
 History still requires current access to every support namespace and a historically
 visible creation basis for each endpoint. Missing/inaccessible direct IDs return
-`not_found`. New AddEntitySupport may reactivate an historically visible identity
-and supply another change's endpoint within the same atomic unit, including forward
-references. It never revives an old stale assertion.
+`not_found`. A `support_existing` identity may reactivate an historically visible
+identity and supply an assertion endpoint within the same atomic request. It never
+revives an old stale assertion.
 
 `KnowledgeCapabilities.support` is `anchors_passages_and_seed_add`. Supported
-variants are explicit rather than inferred from validation-only foundation values:
+authored item support is explicit:
 
-| Change | Anchor support | Passage support | Seed ADD support |
+| Authored item | Anchor support | Passage support | Seed support |
 | --- | --- | --- | --- |
-| `entity`, `entity_support`, `alias`, `identifier` | Yes | Yes | Yes |
-| `classification` | Yes | Yes | Yes (separate explicit slot) |
-| `classification_selection` | No new support; reviewed claim manifest | Same | Same |
-| `assertion` | Yes | Yes | No |
-| `mention` | No | Yes (all references) | No |
+| new/support-existing identity, alias, identifier | Yes | Yes | Yes |
+| classification | Yes | Yes | Yes (separate explicit slot) |
+| selection | No new support; copied review witness | Same | Same |
+| assertion | Yes | Yes | No |
+| mention | No | Yes (all references) | No |
 
 Anchor and passage references may be mixed conjunctively except in mentions.
 Current/history contribution pages include mentions and accept `kind="mention"`.
@@ -1031,10 +1041,10 @@ against storage.
 | Supplied anchors | 0–1,000 |
 | `WriteRequest` serialized size | 8,000,000 UTF-8 bytes |
 | `WriteBatch` | 1–100 items; 16,000,000 serialized UTF-8 bytes |
-| Changes per `ChangeSet` | 1–100 |
-| Evidence references per source support | 1–200, without duplicates |
-| Total evidence-reference occurrences per change set | 200, including reuse across changes |
-| Document dependencies per change set | 0–200 |
+| `RecordAuthoringDocument.entities` | 1–100 |
+| `RecordAuthoringDocument.assertions` | 0–100 |
+| Named support declarations / expanded source occurrences | 1–200 / at most 200 |
+| Authored or privately derived operations | At most 100 |
 | Query steps / `max_operations` | 1–16; budget defaults to 16 |
 | Query `max_records` | 1–10,000; defaults to 10,000 |
 | Query `max_milliseconds` | 1–30,000; defaults to 5,000 |
@@ -1079,7 +1089,7 @@ scope, run ID, expected generation and `enumeration` (`partial`, `failed`,
 `complete`). Validation requires the namespace in the declared access context
 and a `write_documents` grant. No enumeration or deletion occurs.
 
-## Write requests and enrichment
+## Foundation writes and record authoring
 
 `WriteRequest` requires a request ID, retry key, scope, attribution and a payload
 discriminated by `operation`:
@@ -1088,46 +1098,22 @@ discriminated by `operation`:
 | --- | --- |
 | `put_document` | External document, content, metadata and an explicit precondition: `{"kind": "create"}` or `{"kind": "match", "state_version": "..."}`. |
 | `remove_document` | External document and a `match` precondition only. |
-| `enrich` | A `ChangeSet` of changes and supporting document dependencies. |
+| `withdraw_assertion` | Exact owned assertion contribution ID. |
+| `withdraw_classification` | Exact owned classification contribution ID. |
 
 Document operations require the declared `write_documents` grant and a document
-namespace included in `scope.access.namespaces`. Enrichment requires
-`write_knowledge`; every source evidence reference must match the request corpus
-and a declared namespace. Any seed-supported change additionally requires `seed`.
-These are checks of caller-supplied values, not authorization.
+namespace included in `scope.access.namespaces`. Withdrawals require `read` and
+`write_knowledge`. These values do not admit native knowledge enrichment.
 
-Enrichment change kinds are `entity`, `entity_support`, `alias`, `identifier`, `mention` and
-`assertion`. Each has a unique change-set `local_id`. Entity references use
-`{"kind": "local", "local_id": "..."}` or
-`{"kind": "stored", "entity_id": "..."}`. Local references must name an
-entity-creation change in the same set; forward references are valid.
-
-- Entities, entity-support attestations, aliases and identifiers accept either
-  `SourceSupport` (an evidence tuple) or `SeedSupport` (required `source_namespace`,
-  `seed_set_id` and `seed_key`). The seed namespace must be declared in the request.
-  Mentions and assertions require source
-  support. Every mention evidence reference must have a non-null passage ID.
-- `AddEntitySupport` requires a stored entity reference, name, local ID
-  and support. It represents an independent creation-support attestation, not an
-  alias or merge; only an `entity` creation may be a local-reference target.
-  Validation does not check the stored entity's existence or name equality.
-- Assertions have a subject, syntactically validated predicate, `explicit` or
-  `inferred` interpretation and a typed object. Object kinds are `entity`,
-  `string`, `integer`, `boolean`, `timestamp`; strings use `Label` and timestamps
-  require a timezone. Floating-point and arbitrary JSON objects are not variants.
-- Source support rejects duplicate full evidence references. The change set
-  counts every evidence occurrence across changes toward the 200-reference cap.
-- Dependencies are unique by `(source_namespace, document_id)`. Every evidence
-  reference needs a dependency with that key and the same revision ID; no unused
-  dependencies are allowed. Each dependency also carries a state-version token,
-  but its freshness is not checked.
-
-Attribution belongs to the request, not each change. Validation does not check
-stored entity existence, evidence relationships in a database, ownership,
-semantic support, precondition freshness or retry-key reuse.
-The [entity-support fixture](corpora/foundation/entity-support.json) and
-[validation example](examples/foundation_values.py) demonstrate the amended values,
-not executable enrichment.
+`RecordAuthoringRequest` separately requires request ID, retry key, scope,
+attribution and a strict `RecordAuthoringDocument`. Entity identities explicitly
+choose `new`, exact `existing`, `support_existing`, or `seed_slot`. Classifications,
+aliases, identifiers, mentions, and assertions are nested under declared entities
+or refer to their local IDs. Typed objects are entity, string, integer, boolean,
+or timezone-aware timestamp values. Source support is a nonempty tuple of names;
+seed support is one name. The service validates storage state, ownership,
+authorization, schema terms, endpoint types, review/selection witnesses, and
+retry semantics before commit.
 
 ## Write outcomes, errors and correlation
 
@@ -1147,14 +1133,12 @@ requires a receipt and no error; other statuses require an error and no receipt.
   `AssertionWithdrawalReceipt(kind="assertion_withdrawal", contribution_id=...,
   withdrawal_id=...)` names the exact target and first immutable event.
   Successful batch correlation checks its exact contribution ID.
-- A `ChangeSetReceipt` carries 1–100 local-to-stored ID mappings with unique
-  local IDs. Stored IDs are not required to be unique.
 - `BatchResult` contains 1–100 outcomes with unique request IDs. Its status must
   be `complete` when all have receipts, `partial` when some do, or `failed` when
   none do.
 - `BatchResult.validate_for()` checks batch identity and one outcome per request
-  in input order. Successful document operations need document receipts;
-  enrichment receipts must map every change local ID, with no extras.
+  in input order. Successful document operations need document receipts and
+  withdrawal receipts must match their exact targets.
 
 `Failure` contains only a code and `diagnostic_id` token. Codes are
 `invalid_request`, `forbidden`, `not_found`, `state_conflict`, `retry_conflict`,
@@ -1217,7 +1201,7 @@ evidence resolution, coherent database reads, retained result sets or access.
 
 ## Executable examples and evaluation inputs
 
-- [Enrichment request](corpora/foundation/enrichment.json)
+- [Record-authoring example](src/kg/client/record-example.md)
 - [Exact-ID count plan](corpora/foundation/query.json)
 - [Name-resolution plan](corpora/foundation/query-ambiguous.json)
 - [Fixture guide](corpora/foundation/README.md)

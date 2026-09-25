@@ -30,6 +30,12 @@ from kg.evidence.database import EvidenceDatabase
 from kg.evidence.errors import EvidenceServiceError
 from kg.knowledge._reports import KnowledgeReportAuthorizer
 from kg.knowledge._store import Store
+from kg.models.authoring import (
+    RecordAuthoringBatch,
+    RecordAuthoringBatchResult,
+    RecordAuthoringOutcome,
+    RecordAuthoringRequest,
+)
 from kg.models.evidence import LocalIdentity
 from kg.models.execution import SUMMARY_OPTIONS, Explained, ExplainOptions, OperationName
 from kg.models.foundation import Scope, Value
@@ -75,9 +81,15 @@ def _retain(capture: Capture | CaptureUnavailable, result: object) -> None:
             )
         )
         if result.classification.selected is not None:
-            capture.retain(ReportTargets(values=(ClassificationTarget(
-                contribution_ids=(result.classification.selected.claim_id,),
-            ),)))
+            capture.retain(
+                ReportTargets(
+                    values=(
+                        ClassificationTarget(
+                            contribution_ids=(result.classification.selected.claim_id,),
+                        ),
+                    )
+                )
+            )
     elif isinstance(result, ContributionView):
         capture.retain(
             ReportTargets(
@@ -97,14 +109,24 @@ def _retain(capture: Capture | CaptureUnavailable, result: object) -> None:
         if result.selected is not None:
             ids.add(result.selected.claim_id)
         if ids:
-            capture.retain(ReportTargets(values=(ClassificationTarget(
-                contribution_ids=tuple(sorted(ids)),
-            ),)))
+            capture.retain(
+                ReportTargets(
+                    values=(
+                        ClassificationTarget(
+                            contribution_ids=tuple(sorted(ids)),
+                        ),
+                    )
+                )
+            )
     elif isinstance(result, ClassificationHistory):
-        capture.retain(ReportTargets(values=tuple(
-            ClassificationEventTarget(entity_id=e.entity_id, event_id=e.event_id)
-            for e in result.entries
-        )))
+        capture.retain(
+            ReportTargets(
+                values=tuple(
+                    ClassificationEventTarget(entity_id=e.entity_id, event_id=e.event_id)
+                    for e in result.entries
+                )
+            )
+        )
 
 
 class KnowledgeService:
@@ -114,8 +136,12 @@ class KnowledgeService:
         self.diagnostics = DiagnosticService(self._collector, KnowledgeReportAuthorizer(database))
 
     def _read[T](
-        self, scope: Scope, operation: OperationName, run: Callable[[Store], T],
-        *, identity_id: str | None = None,
+        self,
+        scope: Scope,
+        operation: OperationName,
+        run: Callable[[Store], T],
+        *,
+        identity_id: str | None = None,
     ) -> T:
         scope = validated(Scope, scope)
         budget = PrivateBudget(Deadline(time.monotonic() + 30))
@@ -149,9 +175,13 @@ class KnowledgeService:
                             result = run(store)
                         with capture.guard():
                             if identity_id is not None:
-                                _retain(capture, store.entity(
-                                    identity_id, history=operation == "classification_history",
-                                ))
+                                _retain(
+                                    capture,
+                                    store.entity(
+                                        identity_id,
+                                        history=operation == "classification_history",
+                                    ),
+                                )
                             _retain(capture, result)
                             capture.append(
                                 KnowledgeSelection(
@@ -194,21 +224,65 @@ class KnowledgeService:
             head = store.registry.head()
             if head is None:
                 return KnowledgeCapabilities(
-                    schema_status="unconfigured", schema_revision=None, decision_encoding=None,
-                    change_kinds=(), withdrawal=None, classification_withdrawal=None,
-                    reads=("schema", "schema_history", "schema_change", "validate_schema",
-                           "schema_generation_context"),
+                    schema_status="unconfigured",
+                    schema_revision=None,
+                    decision_encoding=None,
+                    authoring=None,
+                    authoring_batch=None,
+                    withdrawal=None,
+                    classification_withdrawal=None,
+                    reads=(
+                        "schema",
+                        "schema_history",
+                        "schema_change",
+                        "validate_schema",
+                        "schema_generation_context",
+                    ),
                 )
             return KnowledgeCapabilities(
-                schema_revision=head, decision_encoding="direct-subject-decision/1"
-                if any(p.record_projection for p in store.schema().predicates) else None,
-                reads=("entity", "entities", "contribution", "contributions",
-                       "classification_review", "classification_history"),
+                schema_revision=head,
+                decision_encoding="direct-subject-decision/1"
+                if any(p.record_projection for p in store.schema().predicates)
+                else None,
+                reads=(
+                    "entity",
+                    "entities",
+                    "contribution",
+                    "contributions",
+                    "classification_review",
+                    "classification_history",
+                ),
             )
 
         return self._read(
-            scope, "capabilities", result,
+            scope,
+            "capabilities",
+            result,
         )
+
+    def record(self, request: RecordAuthoringRequest) -> RecordAuthoringOutcome:
+        from kg.knowledge import _record
+
+        return _record.record(self, request)
+
+    def record_explained(
+        self,
+        request: RecordAuthoringRequest,
+        options: ExplainOptions = SUMMARY_OPTIONS,
+    ) -> Explained[RecordAuthoringOutcome]:
+        return _reporting.explained(options, self.record, request)
+
+    def record_batch(self, batch: RecordAuthoringBatch) -> RecordAuthoringBatchResult:
+        from kg.knowledge import _record
+
+        return _record.record_batch(self, batch)
+
+    def record_batch_explained(
+        self,
+        batch: RecordAuthoringBatch,
+        options: ExplainOptions = SUMMARY_OPTIONS,
+    ) -> Explained[RecordAuthoringBatchResult]:
+        return _reporting.explained(options, self.record_batch, batch)
 
     def _schema_read[T: Value](self, scope: Scope, run: Callable[[Store], T]) -> T:
         scope = validated(Scope, scope)
@@ -216,19 +290,35 @@ class KnowledgeService:
         selection = budget.limited(max_visits=10_000)
         meter = LocalExecutionMeter(budget, max_operations=1, max_items=100_000).begin_step("read")
         try:
-            with ExitStack() as output, observe(
-                self.database, self.identity, scope, budget.deadline, budget,
-            ) as observer:
-                with read_context(
-                    self.database, self.identity, scope,
-                    observer.session_id, budget.deadline, meter,
-                ) as context, context.using_budget(selection), closing(
-                    Store(context.connection, scope, selection, context=context),
-                ) as store:
+            with (
+                ExitStack() as output,
+                observe(
+                    self.database,
+                    self.identity,
+                    scope,
+                    budget.deadline,
+                    budget,
+                ) as observer,
+            ):
+                with (
+                    read_context(
+                        self.database,
+                        self.identity,
+                        scope,
+                        observer.session_id,
+                        budget.deadline,
+                        meter,
+                    ) as context,
+                    context.using_budget(selection),
+                    closing(
+                        Store(context.connection, scope, selection, context=context),
+                    ) as store,
+                ):
                     result = run(store)
                     output.enter_context(
                         budget.reserve_scratch(
-                            len(result.model_dump_json().encode()) * 8, "general",
+                            len(result.model_dump_json().encode()) * 8,
+                            "general",
                         ),
                     )
                 with release_fence(observer, self.identity, scope, budget.deadline, budget=budget):
@@ -245,12 +335,17 @@ class KnowledgeService:
         return self._schema_read(scope, lambda store: _schema_operations.view(store, revision_id))
 
     def schema_history(
-        self, scope: Scope, *, after_sequence: int = 0, limit: int = 20,
+        self,
+        scope: Scope,
+        *,
+        after_sequence: int = 0,
+        limit: int = 20,
     ) -> SchemaRevisionPage:
         from kg.knowledge import _schema_operations
 
         return self._schema_read(
-            scope, lambda store: _schema_operations.history(store, after_sequence, limit),
+            scope,
+            lambda store: _schema_operations.history(store, after_sequence, limit),
         )
 
     def schema_change(self, scope: Scope, revision_id: str) -> SchemaChangeView:
@@ -258,7 +353,8 @@ class KnowledgeService:
 
         revision_id = check_token(revision_id)
         return self._schema_read(
-            scope, lambda store: _schema_operations.change(store, self.identity, revision_id),
+            scope,
+            lambda store: _schema_operations.change(store, self.identity, revision_id),
         )
 
     def validate_schema(self, scope: Scope, proposal: SchemaProposal) -> SchemaValidation:
@@ -268,13 +364,16 @@ class KnowledgeService:
         return self._schema_read(scope, lambda store: _schema_operations.validate(store, proposal))
 
     def schema_generation_context(
-        self, scope: Scope, sample: SchemaSample,
+        self,
+        scope: Scope,
+        sample: SchemaSample,
     ) -> SchemaGenerationBrief:
         from kg.knowledge import _schema_operations
 
         sample = validated(SchemaSample, sample)
         return self._schema_read(
-            scope, lambda store: _schema_operations.generation_context(store, sample),
+            scope,
+            lambda store: _schema_operations.generation_context(store, sample),
         )
 
     def entity(self, scope: Scope, entity_id: str, *, mode: Mode = "current") -> EntityView:
@@ -282,43 +381,70 @@ class KnowledgeService:
         return self._read(scope, "entity", lambda store: store.entity(entity_id, history=history))
 
     def classification_review(
-        self, scope: Scope, entity_id: str, *, claim_ids: tuple[str, ...] | None = None,
+        self,
+        scope: Scope,
+        entity_id: str,
+        *,
+        claim_ids: tuple[str, ...] | None = None,
     ) -> ClassificationReview:
         from kg.knowledge import _classification
 
         return self._read(
-            scope, "classification_review",
+            scope,
+            "classification_review",
             lambda store: _classification.review(store, entity_id, claim_ids),
             identity_id=entity_id,
         )
 
     def classification_history(
-        self, scope: Scope, entity_id: str, *,
-        after_event_id: str | None = None, limit: int = 100,
+        self,
+        scope: Scope,
+        entity_id: str,
+        *,
+        after_event_id: str | None = None,
+        limit: int = 100,
     ) -> ClassificationHistory:
         from kg.knowledge import _classification
 
         return self._read(
-            scope, "classification_history",
+            scope,
+            "classification_history",
             lambda store: _classification.history(store, entity_id, after_event_id, limit),
             identity_id=entity_id,
         )
 
     def classification_review_explained(
-        self, scope: Scope, entity_id: str, *, claim_ids: tuple[str, ...] | None = None,
+        self,
+        scope: Scope,
+        entity_id: str,
+        *,
+        claim_ids: tuple[str, ...] | None = None,
         options: ExplainOptions = SUMMARY_OPTIONS,
     ) -> Explained[ClassificationReview]:
         return _reporting.explained(
-            options, self.classification_review, scope, entity_id, claim_ids=claim_ids,
+            options,
+            self.classification_review,
+            scope,
+            entity_id,
+            claim_ids=claim_ids,
         )
 
     def classification_history_explained(
-        self, scope: Scope, entity_id: str, *, after_event_id: str | None = None,
-        limit: int = 100, options: ExplainOptions = SUMMARY_OPTIONS,
+        self,
+        scope: Scope,
+        entity_id: str,
+        *,
+        after_event_id: str | None = None,
+        limit: int = 100,
+        options: ExplainOptions = SUMMARY_OPTIONS,
     ) -> Explained[ClassificationHistory]:
         return _reporting.explained(
-            options, self.classification_history, scope, entity_id,
-            after_event_id=after_event_id, limit=limit,
+            options,
+            self.classification_history,
+            scope,
+            entity_id,
+            after_event_id=after_event_id,
+            limit=limit,
         )
 
     def contribution(
@@ -415,8 +541,14 @@ class KnowledgeService:
         history, entity_id = _history(mode), check_token(entity_id)
         if kind is not None and (
             type(kind) is not str
-            or kind not in {
-                "entity_support", "alias", "identifier", "mention", "assertion", "classification",
+            or kind
+            not in {
+                "entity_support",
+                "alias",
+                "identifier",
+                "mention",
+                "assertion",
+                "classification",
             }
         ):
             raise EvidenceServiceError("invalid_request")

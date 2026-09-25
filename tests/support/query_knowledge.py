@@ -1,13 +1,20 @@
 """Real evidence intake and K1 production for composed query acceptance."""
 
+from time import monotonic
 from uuid import uuid4
 
+from kg._execution_budget import Deadline, PrivateBudget
+from kg.evidence._transactions import writing
+from kg.evidence._values import now
 from kg.knowledge import KnowledgeAdministration
+from kg.knowledge import _write as knowledge_write
+from kg.knowledge._write_models import (
+    AddAssertion,
+    ChangeSet,
+)
 from kg.models.evidence import KnowledgeWriterBinding, PolicyGrant
 from kg.models.foundation import (
-    AddAssertion,
     Attribution,
-    ChangeSet,
     CountStep,
     DocumentDependency,
     QueryBudget,
@@ -80,27 +87,40 @@ def setup(path, *, registered=True):
 
 
 def write(env, changes, *, retry=None, dependencies=None):
-    result = env.service.write(
-        WriteRequest(
-            contract_version="foundation/1",
-            request_id=str(uuid4()),
-            retry_key=retry or str(uuid4()),
-            scope=env.scope,
-            attribution=Attribution(
+    evidence = getattr(env, "service", None) or env.evidence
+    plan = ChangeSet(
+        expected_schema_revision=revision(env),
+        operation="enrich",
+        changes=fixture_changes(env, changes),
+        dependencies=(env.dependency,) if dependencies is None else tuple(dependencies),
+    )
+    request = WriteRequest.model_construct(
+        contract_version="foundation/1",
+        request_id=str(uuid4()),
+        retry_key=retry or str(uuid4()),
+        scope=env.scope,
+        attribution=getattr(
+            env,
+            "attribution",
+            Attribution(
                 owner_id="owner",
                 writer_id="writer",
                 producer="query-tests",
                 producer_version="1",
             ),
-            payload=ChangeSet(expected_schema_revision=revision(env),
-                operation="enrich",
-                changes=fixture_changes(env, changes),
-                dependencies=(env.dependency,) if dependencies is None else tuple(dependencies),
-            ),
-        )
+        ),
+        payload=plan,
     )
-    assert result.error is None, result.error
-    return {m.local_id: m.stored_id for m in result.receipt.mappings}
+    budget = PrivateBudget(Deadline(monotonic() + 30))
+    with writing(env.database, evidence.identity, budget=budget) as context:
+        result, _, _, _ = knowledge_write.apply_plan(
+            context,
+            request,
+            plan,
+            now(),
+            budget,
+        )
+    return {mapping.local_id: mapping.stored_id for mapping in result.mappings}
 
 
 def produce(env, count, *, name="Project"):

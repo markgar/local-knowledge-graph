@@ -29,7 +29,7 @@
 
 ## Architecture
 
-- SQLite `evidence-store/5` is authoritative for exact text and revisions, identities, schema revisions, entities, assertions, evidence, receipts, and history.
+- SQLite `evidence-store/6` is authoritative for exact text and revisions, identities, schema revisions, entities, assertions, evidence, receipts, and history.
 - Ladybug is an optional, rebuildable graph projection. It contains no unique authored truth, and leftover graph files never prove freshness.
 - Ownership:
   - `evidence/`: intake, authorization, exact evidence.

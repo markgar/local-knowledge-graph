@@ -1,7 +1,7 @@
 """Explicit classification inputs for synthetic typed-knowledge fixtures."""
 
 from kg.knowledge import KnowledgeService
-from kg.models.foundation import (
+from kg.knowledge._write_models import (
     AddAssertion,
     AddClassification,
     CreateEntity,
@@ -9,8 +9,10 @@ from kg.models.foundation import (
     LocalClassificationRef,
     LocalEntity,
     LocalSelectionRef,
-    SeedSupport,
     SelectClassification,
+)
+from kg.models.foundation import (
+    SeedSupport,
     StoredSelectionRef,
 )
 
@@ -52,7 +54,8 @@ def fixture_changes(env, changes):
     flat = tuple(
         item for value in changes for item in (value if isinstance(value, tuple) else (value,))
     )
-    service = KnowledgeService(env.database, env.service.identity)
+    evidence = getattr(env, "service", None) or env.evidence
+    service = KnowledgeService(env.database, evidence.identity)
     captured = {}
 
     def capture(ref):

@@ -22,9 +22,9 @@ from kg.knowledge._selection import (
     SeedWitness,
     SourceWitness,
 )
+from kg.models.authoring import ClassificationSelectionWitness
 from kg.models.foundation import (
     Attribution,
-    Change,
     DocumentDependency,
     EvidenceRef,
     Scope,
@@ -38,10 +38,13 @@ from kg.models.knowledge import (
     ContributionView,
     Eligibility,
     EntityView,
+    KnowledgeContributionPayload,
     KnowledgeSchema,
 )
 
-_CHANGE: TypeAdapter[Change] = TypeAdapter(Change)
+_CONTRIBUTION_PAYLOAD: TypeAdapter[KnowledgeContributionPayload] = TypeAdapter(
+    KnowledgeContributionPayload
+)
 
 if TYPE_CHECKING:
     from kg.evidence._read_context import CanonicalReadContext
@@ -57,7 +60,9 @@ class RevalidationCache:
         self.witnesses: set[EntityWitness] = set()
         self.schema: KnowledgeSchema | None = None
         self.registry = Registry(
-            context.connection, context.scope.corpus_id, context.meter.private_budget,
+            context.connection,
+            context.scope.corpus_id,
+            context.meter.private_budget,
             custody=context._scratch,
         )
         self.reservations: list[ScratchReservation] = []
@@ -117,9 +122,13 @@ class Store:
         self._cache = cache
         self.registry = (
             Registry(
-                connection, scope.corpus_id, budget,
+                connection,
+                scope.corpus_id,
+                budget,
                 custody=context._scratch if context is not None else None,
-            ) if cache is None else cache.registry
+            )
+            if cache is None
+            else cache.registry
         )
 
     def close(self) -> None:
@@ -321,7 +330,8 @@ class Store:
 
     @contextmanager
     def _activation_support(
-        self, row: sqlite3.Row,
+        self,
+        row: sqlite3.Row,
     ) -> Iterator[tuple[SourceWitness | SeedWitness, bool]]:
         if self.budget.resource_profile != "graph-build/1":
             yield self.support(row)
@@ -348,9 +358,7 @@ class Store:
                 self.registry.authored(row["schema_version"])
                 try:
                     with self._activation_support(row) as (support, current):
-                        if (
-                            row["attested_name"] != entity["name"]
-                        ):
+                        if row["attested_name"] != entity["name"]:
                             raise EvidenceServiceError("internal_error")
                         if history or current:
                             if self.budget.resource_profile == "graph-build/1":
@@ -403,6 +411,21 @@ class Store:
                 more = True
                 break
         classification = _classification.summary(self, entity_id)
+        schema_revision = self.registry.head()
+        if schema_revision is None:
+            raise EvidenceServiceError("internal_error")
+        selection_witness = (
+            None
+            if classification.selected is None
+            else ClassificationSelectionWitness(
+                interface_version="classification-selection-witness/1",
+                entity_id=entity_id,
+                schema_revision=schema_revision,
+                selection_id=classification.selection_id,
+                selected_claim_id=classification.selected.claim_id,
+                entity_type=classification.selected.entity_type,
+            )
+        )
         return EntityView(
             entity_id=entity_id,
             name=row["name"],
@@ -412,6 +435,7 @@ class Store:
             witness=witness,
             has_more_support=more,
             classification=classification,
+            selection_witness=selection_witness,
         )
 
     def contribution(self, cid: str, *, history: bool = False) -> ContributionView:
@@ -503,7 +527,8 @@ class Store:
                 payload.update(name=detail["attested_name"])
             elif kind == "classification":
                 payload.update(
-                    entity_type=detail["entity_type"], interpretation=detail["interpretation"],
+                    entity_type=detail["entity_type"],
+                    interpretation=detail["interpretation"],
                 )
             elif kind == "alias":
                 payload["alias"] = detail["alias"]
@@ -518,16 +543,19 @@ class Store:
         authored = self.registry.authored(row["schema_version"])
         if kind == "assertion":
             predicate = next(
-                (p for p in authored.predicates if p.name == detail["predicate"]), None,
+                (p for p in authored.predicates if p.name == detail["predicate"]),
+                None,
             )
             captures = _classification.assertion_captures(self, cid)
             if len(captures) != (2 if detail["object_kind"] == "entity" else 1):
                 raise EvidenceServiceError("internal_error")
             payload["subject_classification"] = StoredSelectionRef(
-                kind="stored", event_id=captures[0].selection_id,
+                kind="stored",
+                event_id=captures[0].selection_id,
             )
             if (
-                predicate is None or predicate.object_kind != detail["object_kind"]
+                predicate is None
+                or predicate.object_kind != detail["object_kind"]
                 or captures[0].entity_id != detail["subject_id"]
                 or captures[0].entity_type not in predicate.subject_types
                 or (predicate.record_projection and detail["interpretation"] != "explicit")
@@ -535,7 +563,8 @@ class Store:
                 raise EvidenceServiceError("internal_error")
             if predicate.object_kind == "entity":
                 payload["object_classification"] = StoredSelectionRef(
-                    kind="stored", event_id=captures[1].selection_id,
+                    kind="stored",
+                    event_id=captures[1].selection_id,
                 )
                 if (
                     captures[1].entity_id != detail["object_entity_id"]
@@ -544,9 +573,9 @@ class Store:
                     raise EvidenceServiceError("internal_error")
             if eligibility == "current":
                 eligibility = _classification.capture_status(self, captures)
-        elif (
-            kind == "classification" and detail["entity_type"] not in authored.entity_types
-        ) or (kind == "identifier" and detail["scheme"] not in authored.identifier_schemes):
+        elif (kind == "classification" and detail["entity_type"] not in authored.entity_types) or (
+            kind == "identifier" and detail["scheme"] not in authored.identifier_schemes
+        ):
             raise EvidenceServiceError("internal_error")
         withdrawal = None
         if kind in {"assertion", "classification"}:
@@ -588,7 +617,7 @@ class Store:
                 configuration_id=row["configuration_id"],
             ),
             committed_at=row["committed_at"],
-            payload=_CHANGE.validate_python(payload),
+            payload=_CONTRIBUTION_PAYLOAD.validate_python(payload),
             evidence=basis.evidence if isinstance(basis, SourceWitness) else (),
             is_current=current,
             witnesses=witnesses,

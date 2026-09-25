@@ -3,10 +3,12 @@
 from __future__ import annotations
 
 import json
+import logging
 from pathlib import Path
 from typing import Literal
+from uuid import uuid4
 
-from pydantic import Field, JsonValue, TypeAdapter
+from pydantic import JsonValue, TypeAdapter
 
 from kg.client.config import ClientError, Profile
 from kg.client.documents import Response, citation_target, parse_citation_target, submit, token
@@ -14,91 +16,33 @@ from kg.evidence import EvidenceService
 from kg.evidence.errors import EvidenceServiceError
 from kg.knowledge import KnowledgeService
 from kg.knowledge._selection import CapturedEvidence
+from kg.models.authoring import RecordAuthoringDocument, RecordAuthoringRequest
 from kg.models.evidence import StoredCitation
 from kg.models.foundation import (
-    MAX_CHANGES,
     MAX_REQUEST_BYTES,
     MAX_SUPPORTS,
-    AddAlias,
-    AddAssertion,
-    AddClassification,
-    AddEntitySupport,
-    AddIdentifier,
-    AddMention,
     AggregateResult,
-    Change,
-    ChangeSet,
-    ChangeSetReceipt,
     CountStep,
-    DocumentDependency,
-    EntityObject,
-    EvidenceRef,
     QueryRequest,
     RecordsStep,
     ResolveStep,
-    SchemaRevisionRef,
-    SelectClassification,
-    SourceSupport,
-    StoredClassificationRef,
     StoredEntity,
-    StoredSelectionRef,
     StringObject,
     Token,
-    Value,
     WithdrawAssertion,
     WithdrawClassification,
 )
-from kg.models.knowledge import ContributionView, EntityView, KnowledgePage
+from kg.models.knowledge import (
+    AssertionPayload,
+    ContributionEntityObject,
+    ContributionView,
+    EntityView,
+    KnowledgePage,
+)
 from kg.models.query import SupportInspection, SupportInspectionRequest
 from kg.query import QueryService
 
-
-class CapturedSupport(Value):
-    reference: EvidenceRef
-    state_version: Token
-
-
-class RecordInput(Value):
-    """Native changes plus the unmodified support objects returned by read."""
-
-    expected_schema_revision: SchemaRevisionRef
-    support: tuple[CapturedSupport, ...] = Field(max_length=MAX_SUPPORTS)
-    changes: tuple[Change, ...] = Field(min_length=1, max_length=MAX_CHANGES)
-
-    def payload(self) -> ChangeSet:
-        dependencies: dict[tuple[str, str], DocumentDependency] = {}
-        captured = {entry.reference for entry in self.support}
-        if len(captured) != len(self.support):
-            raise ClientError("invalid_support", "Duplicate captured evidence.")
-        used: set[EvidenceRef] = set()
-        for change in self.changes:
-            if isinstance(change, SelectClassification):
-                continue
-            if not isinstance(change.support, SourceSupport):
-                raise ClientError(
-                    "invalid_support", "Record requires exact source support, not seeds."
-                )
-            used.update(change.support.evidence)
-        if used != captured:
-            raise ClientError("invalid_support", "Copy exactly the support used by these changes.")
-        for entry in self.support:
-            ref = entry.reference
-            dependency = DocumentDependency(
-                source_namespace=ref.source_namespace,
-                document_id=ref.document_id,
-                revision_id=ref.revision_id,
-                state_version=entry.state_version,
-            )
-            key = (ref.source_namespace, ref.document_id)
-            if key in dependencies and dependencies[key] != dependency:
-                raise ClientError("invalid_support", "Conflicting captured document states.")
-            dependencies[key] = dependency
-        return ChangeSet(
-            operation="enrich",
-            expected_schema_revision=self.expected_schema_revision,
-            dependencies=tuple(dependencies.values()),
-            changes=self.changes,
-        )
+LOGGER = logging.getLogger(__name__)
 
 
 def _unique_keys(pairs: list[tuple[str, JsonValue]]) -> dict[str, JsonValue]:
@@ -110,7 +54,7 @@ def _unique_keys(pairs: list[tuple[str, JsonValue]]) -> dict[str, JsonValue]:
     return result
 
 
-def record_input(file: Path) -> RecordInput:
+def record_input(file: Path) -> RecordAuthoringDocument:
     if file.is_symlink() or not file.is_file():
         raise ClientError("invalid_file", "Record input must be a regular UTF-8 JSON file.")
     with file.open("rb") as stream:
@@ -121,111 +65,17 @@ def record_input(file: Path) -> RecordInput:
         value = json.loads(data.decode("utf-8"), object_pairs_hook=_unique_keys)
     except (ValueError, UnicodeError):
         raise ClientError("invalid_input", "Record input must be valid UTF-8 JSON.") from None
-    return RecordInput.model_validate_json(json.dumps(normalize_record(value)))
-
-
-def normalize_record(value: JsonValue) -> JsonValue:
-    """Expand request-local names only; native validation still owns change shapes."""
-    if not isinstance(value, dict):
-        return value
-    declarations = value.get("support")
-    if not isinstance(declarations, dict):
-        return value
-    if not 1 <= len(declarations) <= MAX_SUPPORTS:
-        raise ClientError("invalid_support", "Named support requires 1..200 declarations.")
-    changes = value.get("changes")
-    if not isinstance(changes, list) or not 1 <= len(changes) <= MAX_CHANGES:
-        raise ClientError("invalid_input", "Named support requires 1..100 changes.")
-    declared = TypeAdapter(dict[Token, CapturedSupport]).validate_json(json.dumps(declarations))
-    used: set[str] = set()
-    expanded: list[JsonValue] = []
-    occurrences = 0
-    for change in changes:
-        if not isinstance(change, dict):
-            raise ClientError("invalid_input", "Each change must be an object.")
-        if change.get("kind") == "classification_selection":
-            expanded.append(change)
-            continue
-        support = change.get("support")
-        if not isinstance(support, dict) or support.get("kind") != "source":
-            raise ClientError("invalid_support", "Named support requires source evidence names.")
-        names = support.get("evidence")
-        if not isinstance(names, list) or not 1 <= len(names) <= MAX_SUPPORTS:
-            raise ClientError("invalid_support", "Each change requires 1..200 evidence names.")
-        occurrences += len(names)
-        if occurrences > MAX_SUPPORTS:
-            raise ClientError(
-                "invalid_support", "Changes exceed 200 expanded evidence occurrences."
-            )
-        if any(not isinstance(name, str) for name in names):
-            raise ClientError("invalid_support", "Do not mix evidence names and native references.")
-        if len(set(names)) != len(names):
-            raise ClientError("invalid_support", "Duplicate evidence name in a change.")
-        evidence: list[JsonValue] = []
-        for name in names:
-            if not isinstance(name, str) or name not in declared:
-                raise ClientError("invalid_support", "Unknown request-local support name.")
-            used.add(name)
-            evidence.append(declared[name].reference.model_dump(mode="json"))
-        expanded.append({**change, "support": {**support, "evidence": evidence}})
-    if used != set(declared):
-        raise ClientError("invalid_support", "Every declared support name must be used.")
-    return {
-        **value,
-        "support": [entry.model_dump(mode="json") for entry in declared.values()],
-        "changes": expanded,
-    }
+    return RecordAuthoringDocument.model_validate_json(json.dumps(value), strict=True)
 
 
 def record_schema() -> dict[str, JsonValue]:
-    schema = RecordInput.model_json_schema()
-    native = schema["properties"]["support"]
-    named = {
-        "type": "object",
-        "minProperties": 1,
-        "maxProperties": MAX_SUPPORTS,
-        "propertyNames": TypeAdapter(Token).json_schema(),
-        "additionalProperties": {"$ref": "#/$defs/CapturedSupport"},
-    }
-    schema["properties"]["support"] = {"oneOf": [native, named]}
-    reference = schema["$defs"]["SourceSupport"]["properties"]["evidence"]["items"]
-    name = TypeAdapter(Token).json_schema()
-    schema["$defs"]["SourceSupport"]["properties"]["evidence"]["items"] = {
-        "oneOf": [reference, name]
-    }
-    schema["oneOf"] = [
-        {
-            "properties": {
-                "support": {"type": mode},
-                "changes": {
-                    "items": {
-                        "properties": {
-                            "support": {
-                                "properties": {"evidence": {"items": item}},
-                            }
-                        }
-                    }
-                },
-            }
-        }
-        for mode, item in (("array", reference), ("object", name))
-    ]
-    schema["description"] = (
-        "Use a captured-support array with native evidence references, OR a named map "
-        "with evidence names only. Names must resolve and all declarations must be used. "
-        "Duplicate JSON keys/evidence, conflicting states and seeds are rejected. "
-        "Expanded canonical change/evidence/request-byte limits apply at runtime."
-    )
-    return schema
+    return RecordAuthoringDocument.model_json_schema()
 
 
 def entity_entry(entity: EntityView) -> dict[str, JsonValue]:
     basis = entity.witness.basis
     return {
         "target": f"entity:{entity.entity_id}",
-        "reference": StoredEntity(kind="stored", entity_id=entity.entity_id).model_dump(
-            mode="json"
-        ),
         "entity": entity.model_dump(mode="json"),
         "evidence_targets": [
             citation_target(
@@ -335,7 +185,9 @@ class Knowledge:
         entries: list[JsonValue] = []
         for item in page.entries:
             payload = item.payload
-            if isinstance(payload, AddAssertion) and isinstance(payload.object, EntityObject):
+            if isinstance(payload, AssertionPayload) and isinstance(
+                payload.object, ContributionEntityObject
+            ):
                 entry = contribution_entry(item)
                 entry["directions"] = [
                     direction
@@ -381,7 +233,42 @@ class Knowledge:
 
     def record(self, file: Path, *, retry_key: str) -> Response:
         TypeAdapter(Token).validate_python(retry_key, strict=True)
-        return self._write(record_input(file).payload(), retry_key=retry_key)
+        request = RecordAuthoringRequest(
+            interface_version="record-authoring/1",
+            request_id=str(uuid4()),
+            retry_key=retry_key,
+            scope=self.profile.scope,
+            attribution=self.profile.attribution,
+            document=record_input(file),
+        )
+        try:
+            outcome = self.service.record(request)
+        except (Exception, KeyboardInterrupt):
+            LOGGER.error("Record authoring raised; commit outcome is unknown.")
+            from kg.knowledge._record import digest
+
+            return Response(
+                status="uncertain",
+                code="write_outcome_unknown",
+                exit_code=7,
+                message="Write outcome unknown. Retry only the exact input and saved retry key.",
+                result={
+                    "request_id": request.request_id,
+                    "retry_key": request.retry_key,
+                    "prepared_input_digest": digest(request),
+                },
+            )
+        return Response(
+            status=outcome.status,
+            code=outcome.error.code if outcome.error else None,
+            exit_code=0 if outcome.receipt is not None else 4,
+            message=(
+                "Authored knowledge committed with exact provenance and canonical receipt."
+                if outcome.receipt is not None
+                else "Knowledge authoring did not complete."
+            ),
+            result=outcome.model_dump(mode="json"),
+        )
 
     def record_template(self, targets: tuple[str, ...]) -> Response:
         if not 1 <= len(targets) <= MAX_SUPPORTS:
@@ -390,7 +277,7 @@ class Knowledge:
         identities = [citation.model_dump_json() for citation in citations]
         if len(set(identities)) != len(identities):
             raise ClientError("invalid_support", "Duplicate captured evidence.")
-        support: dict[str, JsonValue] = {}
+        support: dict[str, dict[str, JsonValue]] = {}
         for index, citation in enumerate(citations, start=1):
             view = self.evidence.citation(self.profile.scope, citation)
             if not view.is_current_support:
@@ -417,9 +304,13 @@ class Knowledge:
             ),
             result={
                 "record_template": {
+                    "interface_version": "record-authoring/1",
                     "expected_schema_revision": schema.revision.model_dump(mode="json"),
-                    "support": support,
-                    "changes": [],
+                    "support": {
+                        name: {"kind": "source", **capture} for name, capture in support.items()
+                    },
+                    "entities": [],
+                    "assertions": [],
                 }
             },
         )
@@ -483,7 +374,7 @@ class Knowledge:
 
     def _write(
         self,
-        payload: ChangeSet | WithdrawAssertion | WithdrawClassification,
+        payload: WithdrawAssertion | WithdrawClassification,
         *,
         retry_key: str | None = None,
     ) -> Response:
@@ -491,89 +382,9 @@ class Knowledge:
         if isinstance(outcome, Response):
             return outcome
         success = outcome.receipt is not None
-        result: dict[str, JsonValue] = {
-            "knowledge_write": outcome.model_dump(mode="json"),
-        }
-        if (
-            success
-            and isinstance(payload, ChangeSet)
-            and isinstance(outcome.receipt, ChangeSetReceipt)
-        ):
-            submitted_ids = tuple(change.local_id for change in payload.changes)
-            receipt_ids = tuple(item.local_id for item in outcome.receipt.mappings)
-            if (
-                len(receipt_ids) != len(submitted_ids)
-                or len(set(receipt_ids)) != len(receipt_ids)
-                or set(receipt_ids) != set(submitted_ids)
-            ):
-                return Response(
-                    status="partial",
-                    message=(
-                        "Authored knowledge committed, but copy-ready mapping correlation "
-                        "failed internally. The canonical receipt is preserved; do not "
-                        "replace the saved retry input or key."
-                    ),
-                    result=result,
-                    code="internal_mapping_mismatch",
-                    exit_code=6,
-                )
-            stored = {item.local_id: item.stored_id for item in outcome.receipt.mappings}
-            mappings: list[JsonValue] = []
-            for change in payload.changes:
-                stored_id = stored.get(change.local_id)
-                if stored_id is None:
-                    raise RuntimeError("Canonical receipt omitted a submitted local ID")
-                reference: JsonValue = None
-                inspection_target: str | None
-                if change.kind == "entity":
-                    reference = StoredEntity(kind="stored", entity_id=stored_id).model_dump(
-                        mode="json"
-                    )
-                    inspection_target = f"entity:{stored_id}"
-                elif isinstance(change, AddClassification):
-                    reference = StoredClassificationRef(
-                        kind="stored", contribution_id=stored_id
-                    ).model_dump(mode="json")
-                    inspection_target = f"fact:{stored_id}"
-                elif isinstance(change, SelectClassification):
-                    reference = StoredSelectionRef(kind="stored", event_id=stored_id).model_dump(
-                        mode="json"
-                    )
-                    inspection_target = None
-                elif isinstance(
-                    change,
-                    (AddEntitySupport, AddAlias, AddIdentifier, AddMention, AddAssertion),
-                ):
-                    inspection_target = f"fact:{stored_id}"
-                else:
-                    raise RuntimeError("Unsupported canonical change mapping")
-                mappings.append(
-                    {
-                        "local_id": change.local_id,
-                        "kind": change.kind,
-                        "stored_id": stored_id,
-                        "record_reference": reference,
-                        "inspection_target": inspection_target,
-                        "inspection_command": (
-                            f"kg read {inspection_target} --json"
-                            if inspection_target is not None
-                            else None
-                        ),
-                    }
-                )
-            result["mappings"] = mappings
-        if success and isinstance(payload, ChangeSet):
-            message = (
-                "Authored knowledge committed. Canonical receipt and copy-ready mappings "
-                "returned. Automatic enrichment processing was not run and remains "
-                "separate and unchanged."
-            )
-        elif success:
-            message = (
-                "Authored knowledge change committed. Canonical receipt returned. "
-                "Automatic enrichment processing was not run and remains separate "
-                "and unchanged."
-            )
+        result: dict[str, JsonValue] = {"knowledge_write": outcome.model_dump(mode="json")}
+        if success:
+            message = "Owned knowledge withdrawal committed. Canonical receipt returned."
         else:
             message = "Knowledge write did not complete."
         return Response(
@@ -661,7 +472,7 @@ class Knowledge:
                         contribution.contribution_id != record.record_id
                         or record.record_type != "decision"
                         or not contribution.is_current
-                        or not isinstance(payload, AddAssertion)
+                        or not isinstance(payload, AssertionPayload)
                         or payload.interpretation != "explicit"
                         or not isinstance(payload.object, StringObject)
                         or payload.support != record.support
