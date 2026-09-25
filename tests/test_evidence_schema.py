@@ -141,7 +141,7 @@ def _image(path: Path) -> tuple[bytes, tuple[object, ...]]:
 @pytest.mark.service
 def test_complete_inventory_and_relational_programs(tmp_path: Path) -> None:
     assert expected_manifest().signature == (
-        "abba0723ec31fb9ce3c32c9c1bdb62d8f5a98de1ec72693a6d67ce1073efe5a9"
+        "04f891c6d162673d97ce7ef56ec2eee7e9a629f9ec72a13b9fb9012cf10a15f7"
     )
     database = EvidenceDatabase(tmp_path / "complete.db")
     database.initialize()
@@ -156,10 +156,10 @@ def test_complete_inventory_and_relational_programs(tmp_path: Path) -> None:
         assert connection.execute("PRAGMA foreign_key_check").fetchall() == []
         assert connection.execute("PRAGMA integrity_check").fetchone()[0] == "ok"
         assert connection.execute("PRAGMA foreign_keys").fetchone()[0] == 1
-        assert connection.execute("PRAGMA user_version").fetchone()[0] == 5
+        assert connection.execute("PRAGMA user_version").fetchone()[0] == 6
         assert tuple(connection.execute("SELECT * FROM store_format").fetchone()) == (
             1,
-            "evidence-store/5",
+            "evidence-store/6",
             "canonical-sqlite-manifest/1",
             expected_manifest().signature,
         )
@@ -233,7 +233,7 @@ def test_copied_manifest_cannot_hide_constraint_changes(tmp_path: Path, replacem
 
 
 @pytest.mark.service
-@pytest.mark.parametrize("version", [1, 2, 3, 4])
+@pytest.mark.parametrize("version", [1, 2, 3, 4, 5])
 def test_old_or_spoofed_nonempty_format_is_not_repaired(tmp_path: Path, version: int) -> None:
     path = tmp_path / "old.db"
     with sqlite3.connect(path) as connection:

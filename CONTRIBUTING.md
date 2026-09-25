@@ -7,7 +7,7 @@ Thanks for helping improve Local Knowledge Graph.
 The canonical engine uses **SQLite for authored evidence and knowledge, with an
 optional Ladybug graph projection**. Exact supplied text, immutable revisions,
 identities, registered schema, entities/assertions, support and history belong to
-`evidence-store/5`. Ladybug holds only rebuildable, exact-scope derived data.
+`evidence-store/6`. Ladybug holds only rebuildable, exact-scope derived data.
 Canonical writes invalidate the captured graph generation; a file or manifest
 alone cannot establish freshness. Search remains canonical keyword/vector
 retrieval, fusion and reranking, not a Ladybug search replacement.
@@ -190,7 +190,7 @@ documentation-only change. Classification lives in
 
 | Path | Responsibility |
 | --- | --- |
-| `src/kg/evidence/`, `src/kg/evidence/schema.sql` | Canonical `evidence-store/5`, exact supplied-source intake/history, trusted local policy and owner transactions. |
+| `src/kg/evidence/`, `src/kg/evidence/schema.sql` | Canonical `evidence-store/6`, exact supplied-source intake/history, trusted local policy and owner transactions. |
 | `src/kg/knowledge/` | Immutable schema revisions and approved additive evolution, knowledge reads, enrichment validation and complete eligible graph export. |
 | `src/kg/indexing/` | Canonical passage/vector indexing and scoped full search. |
 | `src/kg/processing/`, `src/kg/query/` | Processing control plane and supervised canonical query execution. |
@@ -199,7 +199,7 @@ documentation-only change. Classification lives in
 | `src/kg/models/` | Validated service values, including `foundation/1`; models alone do not execute operations. |
 | `src/kg/config.py`, `src/kg/models/manifest.py` | Markdown demonstration manifest loading and source selection. |
 | `src/kg/markdown/`, `src/kg/ingest/` | Demonstration Markdown ranges, explicit extraction and demo-store writes. |
-| `src/kg/schema.sql`, `src/kg/db.py` | Separate Markdown demonstration SQLite schema and connections, not `evidence-store/5`. |
+| `src/kg/schema.sql`, `src/kg/db.py` | Separate Markdown demonstration SQLite schema and connections, not `evidence-store/6`. |
 | `src/kg/retrieval/`, `src/kg/cli.py` | Demonstration search, structured/evidence reads and local text/JSON CLI. |
 | `tests/`, `corpora/` | Automated coverage, manifests, source fixtures and acceptance inputs. |
 | `benchmarks/`, `examples/` | Scoped evaluation tools/results and executable canonical-service, graph-build and demo clients. |

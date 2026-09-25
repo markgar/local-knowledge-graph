@@ -38,7 +38,7 @@ def test_fresh_format_reopen_and_transaction(tmp_path: Path) -> None:
     before = snapshot(database.path)
     database.initialize()
     assert snapshot(database.path) == before
-    assert before[:3] == (EVIDENCE_APPLICATION_ID, 5, "wal")
+    assert before[:3] == (EVIDENCE_APPLICATION_ID, 6, "wal")
     with pytest.raises(EvidenceServiceError) as error, database.transaction() as connection:
         connection.execute("INSERT INTO corpus VALUES ('c', 'p', '{}')")
         connection.execute("INSERT INTO document VALUES ('d','c','n','e','o','s','state')")
@@ -103,7 +103,7 @@ def test_admission_snapshot_during_competing_evidence_commit(tmp_path: Path, mon
     monkeypatch.setattr(database, "_open", open_connection)
     database.initialize()
     assert competed
-    assert snapshot(path)[:3] == (EVIDENCE_APPLICATION_ID, 5, "wal")
+    assert snapshot(path)[:3] == (EVIDENCE_APPLICATION_ID, 6, "wal")
 
 
 @pytest.mark.service

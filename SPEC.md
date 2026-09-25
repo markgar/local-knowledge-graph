@@ -17,7 +17,7 @@ The canonical engine is **SQLite plus an optional Ladybug graph projection**:
 
 | Layer | Ownership and execution |
 | --- | --- |
-| Canonical SQLite (`evidence-store/5`) | Exact supplied text/revisions, identities, immutable knowledge schema revisions, entities/assertions, support, history and service control state. `src/kg/evidence/schema.sql` owns this format. |
+| Canonical SQLite (`evidence-store/6`) | Exact supplied text/revisions, identities, immutable knowledge schema revisions, entities/assertions, support, history and service control state. `src/kg/evidence/schema.sql` owns this format. |
 | Canonical indexing/search | `kg.indexing` publishes passages/vectors and executes scoped keyword/dense retrieval, fusion and reranking. Search does not depend on Ladybug. |
 | Canonical query composition | `kg.query.QueryService` executes supported evidence, search, exact entity resolution and explicit-decision records/counts with fresh release authorization. |
 | Optional Ladybug projection | `kg.graph` builds complete eligible entity/relationship/explicit-decision coverage for one exact authorized scope. `LocalGraphSession` manages reusable lifecycle, typed cited one-hop relationships and fixed relationship-to-decision queries. It contains no unique authored truth; arbitrary joins and public retained inspection remain unimplemented. |
@@ -42,9 +42,9 @@ under [private disposable graph staging](#private-disposable-graph-staging).
 
 `kg.evidence.EvidenceDatabase`, `EvidenceAdministration` and `EvidenceService`
 implement the Python-only canonical evidence engine. Its packaged
-`kg/evidence/schema.sql` uses SQLite application ID `0x4b474531`, user version 5
-and `evidence-store/5`. Initialization atomically creates an empty target or
-verifies that exact format. Old/unknown nonempty files (including versions 1–4) are rejected without
+`kg/evidence/schema.sql` uses SQLite application ID `0x4b474531`, user version 6
+and `evidence-store/6`. Initialization atomically creates an empty target or
+verifies that exact format. Old/unknown nonempty files (including versions 1–5) are rejected without
 changing headers, journal mode, schema or rows. There is no migration/reset API:
 use a fresh path and explicitly resupply content, policy/schema and explicit knowledge.
 The exception and correlated log explain this action; structured failure stays
@@ -1259,7 +1259,7 @@ exercise validation and supply evaluation inputs, not service integration result
 for source documents/revisions/anchors/activations, entities/aliases/mentions,
 relationships, structured records/bindings, passages, lexical projections, and
 ingest summaries. Dense projections are independently disposable. This is not the
-canonical [`evidence-store/5` schema](src/kg/evidence/schema.sql), and these tables
+canonical [`evidence-store/6` schema](src/kg/evidence/schema.sql), and these tables
 are not the source of the optional Ladybug projection.
 
 After upgrades, reingest each corpus and rebuild matching dense projections.

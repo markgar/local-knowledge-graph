@@ -1,6 +1,6 @@
 # Service and value contract reference
 
-The canonical Python services operate on SQLite `evidence-store/5`. SQLite owns
+The canonical Python services operate on SQLite `evidence-store/6`. SQLite owns
 supplied text/revisions, identities, knowledge schema, entities/assertions, exact
 support and history. Optional Ladybug is a rebuildable exact-scope graph
 projection, not a second authored store or a replacement for canonical search.
@@ -75,7 +75,7 @@ enrichment values include independent entity support and explicitly namespaced s
 
 | API | Result / behavior |
 | --- | --- |
-| `database.initialize()` | Initialize empty or verify the complete `evidence-store/5` schema and manifest; incompatible targets raise `unsupported` with recreate/reload guidance. Use a fresh file and resupply sources, policy/schema and explicit knowledge; no migration or automatic reset. |
+| `database.initialize()` | Initialize empty or verify the complete `evidence-store/6` schema and manifest; incompatible targets raise `unsupported` with recreate/reload guidance. Use a fresh file and resupply sources, policy/schema and explicit knowledge; no migration or automatic reset. |
 | `admin.register(CorpusRegistration)` | Register namespaces, writer bindings and explicit `LocalPolicy`; identical original registration is unchanged and returns the **current** policy version, without restoring old grants. Conflicting registration fails. |
 | `admin.replace_policy(LocalPolicy, expected_policy_version)` | Atomic policy/state rotation; returns version, affected namespaces and changed-document count. |
 | `service.write(WriteRequest)` | `put_document` / `remove_document` / bounded `enrich` / `withdraw_assertion` -> `WriteOutcome`. Enrichment supports the change kinds described below, including explicitly passage-backed mentions. |

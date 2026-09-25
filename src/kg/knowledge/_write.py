@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from datetime import datetime, timedelta
 from typing import Literal
 
@@ -192,10 +193,22 @@ def apply_plan(
     budget: PrivateBudget,
     *,
     capture: Capture | CaptureUnavailable | None = None,
+    persist: Callable[
+        [
+            CanonicalWriteContext,
+            WriteRequest,
+            str,
+            str,
+            ChangeSetReceipt,
+            Manifest,
+            Literal["applied", "unchanged"],
+            datetime,
+        ],
+        None,
+    ] | None = None,
 ) -> tuple[ChangeSetReceipt, Literal["applied", "unchanged"], str, Manifest]:
     from kg.knowledge import _classification
 
-    assert isinstance(request.payload, PublicChangeSet)
     connection, scope, attribution = context.connection, request.scope, request.attribution
     store = Store(connection, scope, budget)
     try:
@@ -703,16 +716,28 @@ def apply_plan(
             writer_id=attribution.writer_id,
             targets=tuple(targets),
         )
-        save(
-            context,
-            request,
-            key_id,
-            schema.schema_version,
-            receipt_to_public(receipt),
-            manifest,
-            status,
-            at,
-        )
+        if persist is None:
+            save(
+                context,
+                request,
+                key_id,
+                schema.schema_version,
+                receipt_to_public(receipt),
+                manifest,
+                status,
+                at,
+            )
+        else:
+            persist(
+                context,
+                request,
+                key_id,
+                schema.schema_version,
+                receipt,
+                manifest,
+                status,
+                at,
+            )
         return receipt, status, key_id, manifest
     finally:
         store.close()

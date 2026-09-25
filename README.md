@@ -183,7 +183,7 @@ See [canonical search contracts](CONTRACTS.md#canonical-full-search).
 Neither API implements processing coordination or establishes real-model
 quality/workload acceptance.
 
-The canonical store uses the complete `evidence-store/5` schema and the `evidence/2`
+The canonical store uses the complete `evidence-store/6` schema and the `evidence/2`
 service interface. Initialization verifies the actual schema and its recorded
 manifest, not just a version marker. Incompatible stores are refused without
 repair: use a fresh path and resupply sources, policy/schema and explicit knowledge.

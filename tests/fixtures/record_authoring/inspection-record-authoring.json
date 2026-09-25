@@ -1,0 +1,149 @@
+{
+  "interface_version": "record-authoring/1",
+  "expected_schema_revision": {
+    "revision_id": "inspection-schema",
+    "definition_hash": "0000000000000000000000000000000000000000000000000000000000000000"
+  },
+  "support": {
+    "inspection": {
+      "kind": "source",
+      "reference": {
+        "corpus_id": "inspection-corpus",
+        "source_namespace": "reports",
+        "document_id": "inspection-document",
+        "revision_id": "inspection-revision",
+        "anchor_id": "inspection-anchor",
+        "passage_id": null
+      },
+      "state_version": "inspection-state"
+    }
+  },
+  "entities": [
+    {
+      "local_id": "thermometer",
+      "identity": {
+        "kind": "new",
+        "name": "Thermometer DX-42",
+        "support": ["inspection"]
+      },
+      "classifications": [
+        {
+          "local_id": "thermometer-device",
+          "entity_type": "device",
+          "interpretation": "explicit",
+          "support": ["inspection"],
+          "select": {"rationale": "The report identifies a device."}
+        }
+      ],
+      "identifiers": [
+        {
+          "local_id": "thermometer-serial",
+          "scheme": "serial_number",
+          "value": "DX-42",
+          "support": ["inspection"]
+        }
+      ]
+    },
+    {
+      "local_id": "cold-room",
+      "identity": {
+        "kind": "new",
+        "name": "Cold Room 3",
+        "support": ["inspection"]
+      },
+      "classifications": [
+        {
+          "local_id": "cold-room-location",
+          "entity_type": "location",
+          "interpretation": "explicit",
+          "support": ["inspection"],
+          "select": {"rationale": "The report identifies a location."}
+        }
+      ]
+    },
+    {
+      "local_id": "inspection",
+      "identity": {
+        "kind": "new",
+        "name": "Quarterly inspection",
+        "support": ["inspection"]
+      },
+      "classifications": [
+        {
+          "local_id": "inspection-event",
+          "entity_type": "inspection_event",
+          "interpretation": "explicit",
+          "support": ["inspection"],
+          "select": {"rationale": "The report identifies an inspection event."}
+        }
+      ]
+    },
+    {
+      "local_id": "service",
+      "identity": {
+        "kind": "new",
+        "name": "Calibration service",
+        "support": ["inspection"]
+      },
+      "classifications": [
+        {
+          "local_id": "service-action",
+          "entity_type": "service_action",
+          "interpretation": "explicit",
+          "support": ["inspection"],
+          "select": {"rationale": "The report identifies a service action."}
+        }
+      ]
+    }
+  ],
+  "assertions": [
+    {
+      "local_id": "placement",
+      "subject": "thermometer",
+      "predicate": "installed_at",
+      "object": {"kind": "entity", "entity": "cold-room"},
+      "interpretation": "explicit",
+      "support": ["inspection"]
+    },
+    {
+      "local_id": "inspection-target",
+      "subject": "inspection",
+      "predicate": "inspected",
+      "object": {"kind": "entity", "entity": "thermometer"},
+      "interpretation": "explicit",
+      "support": ["inspection"]
+    },
+    {
+      "local_id": "service-target",
+      "subject": "service",
+      "predicate": "serviced",
+      "object": {"kind": "entity", "entity": "thermometer"},
+      "interpretation": "explicit",
+      "support": ["inspection"]
+    },
+    {
+      "local_id": "inspection-location",
+      "subject": "inspection",
+      "predicate": "occurred_at",
+      "object": {"kind": "entity", "entity": "cold-room"},
+      "interpretation": "explicit",
+      "support": ["inspection"]
+    },
+    {
+      "local_id": "calibration-status",
+      "subject": "thermometer",
+      "predicate": "status",
+      "object": {"kind": "string", "value": "Calibration due"},
+      "interpretation": "explicit",
+      "support": ["inspection"]
+    },
+    {
+      "local_id": "inspection-result",
+      "subject": "inspection",
+      "predicate": "result",
+      "object": {"kind": "string", "value": "Service required"},
+      "interpretation": "explicit",
+      "support": ["inspection"]
+    }
+  ]
+}

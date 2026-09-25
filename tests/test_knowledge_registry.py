@@ -78,7 +78,7 @@ def test_registration_reopen_order_independence_and_no_fact_mutations(tmp_path):
         ):
             assert conn.execute(f"SELECT count(*) FROM {table}").fetchone()[0] == 0
         assert conn.execute("PRAGMA foreign_key_check").fetchall() == []
-        assert conn.execute("PRAGMA user_version").fetchone()[0] == 5
+        assert conn.execute("PRAGMA user_version").fetchone()[0] == 6
     assert env.service.diagnostics.recent(env.scope).entries == ()
 
 

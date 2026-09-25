@@ -1,0 +1,75 @@
+{
+  "interface_version": "record-authoring/1",
+  "expected_schema_revision": {
+    "revision_id": "botanical-schema",
+    "definition_hash": "1111111111111111111111111111111111111111111111111111111111111111"
+  },
+  "support": {
+    "field-note": {
+      "kind": "source",
+      "reference": {
+        "corpus_id": "botanical-corpus",
+        "source_namespace": "field_notes",
+        "document_id": "field-note-document",
+        "revision_id": "field-note-revision",
+        "anchor_id": "field-note-anchor",
+        "passage_id": null
+      },
+      "state_version": "field-note-state"
+    }
+  },
+  "entities": [
+    {
+      "local_id": "specimen",
+      "identity": {
+        "kind": "new",
+        "name": "Specimen A-17",
+        "support": ["field-note"]
+      },
+      "classifications": [
+        {
+          "local_id": "specimen-type",
+          "entity_type": "specimen",
+          "interpretation": "explicit",
+          "support": ["field-note"],
+          "select": {"rationale": "The field note identifies a specimen."}
+        }
+      ],
+      "identifiers": [
+        {
+          "local_id": "accession",
+          "scheme": "accession_code",
+          "value": "A-17",
+          "support": ["field-note"]
+        }
+      ]
+    },
+    {
+      "local_id": "collection-site",
+      "identity": {
+        "kind": "new",
+        "name": "North meadow",
+        "support": ["field-note"]
+      },
+      "classifications": [
+        {
+          "local_id": "site-type",
+          "entity_type": "collection_site",
+          "interpretation": "explicit",
+          "support": ["field-note"],
+          "select": {"rationale": "The field note identifies a collection site."}
+        }
+      ]
+    }
+  ],
+  "assertions": [
+    {
+      "local_id": "collection",
+      "subject": "specimen",
+      "predicate": "collected_from",
+      "object": {"kind": "entity", "entity": "collection-site"},
+      "interpretation": "explicit",
+      "support": ["field-note"]
+    }
+  ]
+}
