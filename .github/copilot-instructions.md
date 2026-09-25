@@ -1,5 +1,15 @@
 # Local Knowledge Graph
 
+## Default: lean personal-use MVP
+
+- This is a personal-use MVP. Optimize for getting a useful end-to-end capability into the user's hands with the smallest coherent change.
+- Solve the observed problem and its immediate correctness requirements. Do not add production-scale orchestration, generalized frameworks, speculative recovery systems, diagnostics redesigns, storage-format changes, or new public abstractions unless the requested capability cannot work correctly without them.
+- Prefer extending an existing path over replacing adjacent systems. A natural one-item case using the same batch implementation is not compatibility scaffolding.
+- Keep the blast radius minimal. Every changed subsystem, public contract, durable format, command, and operational mechanism must be necessary for the requested outcome. If it is merely useful, defensive, or potentially needed later, leave it out.
+- Treat critic findings as questions about the requested scope, not automatic requirements to expand it. Fix in-scope correctness defects; reject or defer findings that require unrelated capabilities.
+- During design and review, actively remove speculative scope. State the simplest measurable acceptance test first and stop when it is satisfied.
+- If the smallest correct solution requires a broader redesign, explain exactly why and obtain explicit user approval before expanding the package.
+
 ## Default: no backward compatibility
 
 - This is experimental software with no production consumers. Prefer the clearest direct replacement over compatibility layers.
@@ -7,6 +17,7 @@
 - Treat compatibility work as a scope expansion that requires explicit approval. Update tests, fixtures, examples, and docs to the new behavior instead.
 - During design and code review, actively look for compatibility scaffolding. Report any unapproved compatibility effort explicitly and treat it as a regression or design defect, not defensive engineering.
 - Fresh-store reload is the normal recovery path and is cheap. Prefer it over compatibility code.
+- No backward compatibility does not authorize unrelated redesign. Change or remove an existing interface only when the requested capability requires it; otherwise keep useful behavior on the same implementation path without aliases, fallbacks, or duplicate old/new machinery.
 
 ## Start here
 
