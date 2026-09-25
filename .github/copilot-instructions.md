@@ -5,6 +5,8 @@
 - This is experimental software with no production consumers. Prefer the clearest direct replacement over compatibility layers.
 - Do not add migrations, dual reads/writes, legacy aliases, deprecated paths, parallel old/new output shapes, or opt-in compatibility modes unless the user explicitly requests them for a named consumer.
 - Treat compatibility work as a scope expansion that requires explicit approval. Update tests, fixtures, examples, and docs to the new behavior instead.
+- During design and code review, actively look for compatibility scaffolding. Report any unapproved compatibility effort explicitly and treat it as a regression or design defect, not defensive engineering.
+- Fresh-store reload is the normal recovery path and is cheap. Prefer it over compatibility code.
 
 ## Start here
 
