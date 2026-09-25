@@ -13,11 +13,13 @@ from kg.evidence._values import canonical, sha, token
 from kg.evidence.errors import EvidenceServiceError
 from kg.knowledge._authorization import writer
 from kg.knowledge._selection import ClassificationWitness, SourceWitness
+from kg.knowledge._write_models import (
+    EntityClassificationReceipt,
+    SelectClassification,
+)
 from kg.models.foundation import (
     Attribution,
-    EntityClassificationReceipt,
     LocalClassificationRef,
-    SelectClassification,
     StoredClassificationRef,
     StoredEntity,
 )

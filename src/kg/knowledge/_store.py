@@ -24,7 +24,6 @@ from kg.knowledge._selection import (
 )
 from kg.models.foundation import (
     Attribution,
-    Change,
     DocumentDependency,
     EvidenceRef,
     Scope,
@@ -38,10 +37,13 @@ from kg.models.knowledge import (
     ContributionView,
     Eligibility,
     EntityView,
+    KnowledgeContributionPayload,
     KnowledgeSchema,
 )
 
-_CHANGE: TypeAdapter[Change] = TypeAdapter(Change)
+_CONTRIBUTION_PAYLOAD: TypeAdapter[KnowledgeContributionPayload] = TypeAdapter(
+    KnowledgeContributionPayload
+)
 
 if TYPE_CHECKING:
     from kg.evidence._read_context import CanonicalReadContext
@@ -588,7 +590,7 @@ class Store:
                 configuration_id=row["configuration_id"],
             ),
             committed_at=row["committed_at"],
-            payload=_CHANGE.validate_python(payload),
+            payload=_CONTRIBUTION_PAYLOAD.validate_python(payload),
             evidence=basis.evidence if isinstance(basis, SourceWitness) else (),
             is_current=current,
             witnesses=witnesses,

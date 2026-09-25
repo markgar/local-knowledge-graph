@@ -31,7 +31,6 @@ from kg.models.foundation import (
     ChangeSetReceipt,
     CountStep,
     DocumentDependency,
-    EntityObject,
     EvidenceRef,
     QueryRequest,
     RecordsStep,
@@ -48,7 +47,13 @@ from kg.models.foundation import (
     WithdrawAssertion,
     WithdrawClassification,
 )
-from kg.models.knowledge import ContributionView, EntityView, KnowledgePage
+from kg.models.knowledge import (
+    AssertionPayload,
+    ContributionEntityObject,
+    ContributionView,
+    EntityView,
+    KnowledgePage,
+)
 from kg.models.query import SupportInspection, SupportInspectionRequest
 from kg.query import QueryService
 
@@ -335,7 +340,9 @@ class Knowledge:
         entries: list[JsonValue] = []
         for item in page.entries:
             payload = item.payload
-            if isinstance(payload, AddAssertion) and isinstance(payload.object, EntityObject):
+            if isinstance(payload, AssertionPayload) and isinstance(
+                payload.object, ContributionEntityObject
+            ):
                 entry = contribution_entry(item)
                 entry["directions"] = [
                     direction
@@ -661,7 +668,7 @@ class Knowledge:
                         contribution.contribution_id != record.record_id
                         or record.record_type != "decision"
                         or not contribution.is_current
-                        or not isinstance(payload, AddAssertion)
+                        or not isinstance(payload, AssertionPayload)
                         or payload.interpretation != "explicit"
                         or not isinstance(payload.object, StringObject)
                         or payload.support != record.support

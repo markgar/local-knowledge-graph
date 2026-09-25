@@ -21,7 +21,8 @@ from kg.knowledge._selection import (
     SourceWitness,
 )
 from kg.knowledge._store import Store
-from kg.models.foundation import AddAssertion, Attribution, Label, Name, Token, Value
+from kg.models.foundation import Attribution, Label, Name, Token, Value
+from kg.models.knowledge import AssertionPayload
 
 PAGE_BYTES = 8 << 20
 
@@ -272,7 +273,7 @@ class GraphExportCursor:
         view = store.contribution(identifier)
         payload = view.payload
         if (
-            not isinstance(payload, AddAssertion)
+            not isinstance(payload, AssertionPayload)
         ):
             raise GraphExportError("invalid_projection")
         store.registry.authored(view.schema_version)

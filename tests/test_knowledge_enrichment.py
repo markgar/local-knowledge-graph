@@ -1,3 +1,4 @@
+import json
 import time
 from contextlib import contextmanager
 from datetime import UTC, datetime, timedelta
@@ -5,6 +6,7 @@ from threading import Event
 from uuid import uuid4
 
 import pytest
+from pydantic import ValidationError
 from support.classification import fixture_changes, typed_entity
 from support.evidence import environment, put, receipt
 from support.knowledge import preset, revision, schema
@@ -18,8 +20,21 @@ from kg._execution_budget import (
 from kg.evidence import EvidenceServiceError
 from kg.evidence._read_context import observe, read_context
 from kg.knowledge import KnowledgeAdministration, KnowledgeService
+from kg.knowledge import _write as knowledge_write
 from kg.knowledge._reader import KnowledgeReader
 from kg.knowledge._selection import EligibleEOF, EntitySelector, SelectionStopped
+from kg.knowledge._write_models import (
+    ChangeSetReceipt as PrivateChangeSetReceipt,
+)
+from kg.knowledge._write_models import (
+    CreateEntity as PrivateCreateEntity,
+)
+from kg.knowledge._write_models import (
+    SelectClassification as PrivateSelectClassification,
+)
+from kg.knowledge._write_models import (
+    from_public,
+)
 from kg.models.evidence import KnowledgeWriterBinding, LocalAdminAuthority, PolicyGrant
 from kg.models.foundation import (
     AddAlias,
@@ -40,6 +55,7 @@ from kg.models.foundation import (
     WriteBatch,
     WriteRequest,
 )
+from kg.models.knowledge import AssertionPayload
 
 
 @pytest.fixture
@@ -206,6 +222,115 @@ def test_real_atomic_producer_reads_replay_and_cursor(env):
         adapter.revalidate_member(page.items[0])
     with pytest.raises(EvidenceServiceError):
         cursor.read()
+
+
+@pytest.mark.service
+def test_public_native_write_adapts_to_equivalent_private_plan(
+    env, monkeypatch,
+):
+    support, dep = source(env)
+    local = LocalEntity(kind="local", local_id="project")
+    req = request(
+        env,
+        (
+            decision(support, local),
+            AddAlias(kind="alias", local_id="alias", entity=local, alias="P", support=support),
+            entity(support),
+        ),
+        (dep,),
+    )
+    expected_plan = from_public(req.payload)
+    captured: list[tuple[object, PrivateChangeSetReceipt]] = []
+    original = knowledge_write.apply_plan
+
+    def apply_plan(context, request, plan, at, budget, *, capture=None):
+        result = original(context, request, plan, at, budget, capture=capture)
+        captured.append((plan, result[0]))
+        return result
+
+    monkeypatch.setattr(knowledge_write, "apply_plan", apply_plan)
+    result = env.service.write(req)
+    assert result.error is None
+    assert isinstance(result.receipt, ChangeSetReceipt)
+    assert len(captured) == 1
+    actual_plan, private_receipt = captured[0]
+    assert actual_plan == expected_plan
+    assert expected_plan.model_dump(mode="json") == req.payload.model_dump(mode="json")
+    assert private_receipt.model_dump(mode="json") == result.receipt.model_dump(mode="json")
+    assert tuple(mapping.local_id for mapping in result.receipt.mappings) == tuple(
+        change.local_id for change in expected_plan.changes
+    )
+
+    stored_ids = {mapping.local_id: mapping.stored_id for mapping in result.receipt.mappings}
+    with env.database.connection() as connection:
+        rows = connection.execute(
+            "SELECT c.local_id,c.contribution_id,c.kind,s.entity_id "
+            "FROM contribution c LEFT JOIN entity_support s "
+            "ON s.corpus_id=c.corpus_id AND s.contribution_id=c.contribution_id "
+            "WHERE c.corpus_id=? ORDER BY c.sequence",
+            (env.scope.corpus_id,),
+        ).fetchall()
+        canonical_changes = sorted(
+            expected_plan.changes,
+            key=lambda change: (
+                0
+                if isinstance(change, PrivateCreateEntity)
+                else 1
+                if change.kind == "classification"
+                else 2
+                if isinstance(change, PrivateSelectClassification)
+                else 3
+            ),
+        )
+        assert tuple((row["local_id"], row["kind"]) for row in rows) == tuple(
+            (
+                change.local_id,
+                "entity_support" if isinstance(change, PrivateCreateEntity) else change.kind,
+            )
+            for change in canonical_changes
+            if not isinstance(change, PrivateSelectClassification)
+        )
+        for row in rows:
+            expected_id = (
+                row["entity_id"] if row["kind"] == "entity_support" else row["contribution_id"]
+            )
+            assert stored_ids[row["local_id"]] == expected_id
+        selection = next(
+            change
+            for change in expected_plan.changes
+            if isinstance(change, PrivateSelectClassification)
+        )
+        assert connection.execute(
+            "SELECT 1 FROM classification_selection WHERE corpus_id=? AND event_id=?",
+            (env.scope.corpus_id, stored_ids[selection.local_id]),
+        ).fetchone()
+        stored = connection.execute(
+            "SELECT r.receipt_json,p.attribution_json FROM knowledge_write_response r "
+            "JOIN knowledge_write_provenance p USING(corpus_id,key_id) "
+            "JOIN write_key k USING(corpus_id,key_id) "
+            "WHERE k.operation='enrich'",
+        ).fetchone()
+        assert json.loads(stored["receipt_json"]) == result.receipt.model_dump(mode="json")
+        assert json.loads(stored["attribution_json"]) == req.attribution.model_dump(mode="json")
+
+    decision_id = stored_ids["decision"]
+    view = KnowledgeService(env.database, env.service.identity).contribution(
+        env.scope, decision_id,
+    )
+    assert isinstance(view.payload, AssertionPayload)
+    assert not isinstance(view.payload, AddAssertion)
+    assert view.payload.model_dump(mode="json") == {
+        **expected_plan.changes[0].model_dump(mode="json"),
+        "subject": {"kind": "stored", "entity_id": stored_ids["project"]},
+        "subject_classification": {
+            "kind": "stored",
+            "event_id": stored_ids["project:selection"],
+        },
+    }
+    invalid_read_payload = view.payload.model_dump(mode="python")
+    invalid_read_payload["object"] = {"kind": "entity", "entity": local.model_dump()}
+    with pytest.raises(ValidationError):
+        AssertionPayload.model_validate(invalid_read_payload)
 
 
 @pytest.mark.service

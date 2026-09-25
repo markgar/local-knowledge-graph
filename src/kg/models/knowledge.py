@@ -1,6 +1,6 @@
-"""Strict knowledge/1 registry values, not knowledge-write or query services."""
+"""Strict knowledge/1 registry and immutable contribution-read values."""
 
-from typing import Literal, Self
+from typing import Annotated, Literal, Self
 
 from pydantic import Field, model_validator
 
@@ -11,7 +11,22 @@ from kg.knowledge._selection import (
     SeedWitness,
     SourceWitness,
 )
-from kg.models.foundation import Attribution, Change, Label, Name, SchemaRevisionRef, Token, Value
+from kg.models.foundation import (
+    Attribution,
+    BooleanObject,
+    IntegerObject,
+    Label,
+    Name,
+    SchemaRevisionRef,
+    SeedSupport,
+    SourceSupport,
+    StoredEntity,
+    StoredSelectionRef,
+    StringObject,
+    TimestampObject,
+    Token,
+    Value,
+)
 
 
 class KnowledgeValue(Value):
@@ -123,13 +138,98 @@ Eligibility = Literal[
 ]
 
 
+ContributionSupport = Annotated[
+    SourceSupport | SeedSupport,
+    Field(discriminator="kind"),
+]
+
+
+class EntitySupportPayload(Value):
+    kind: Literal["entity_support"]
+    local_id: Token
+    entity: StoredEntity
+    name: Label
+    support: ContributionSupport
+
+
+class AliasPayload(Value):
+    kind: Literal["alias"]
+    local_id: Token
+    entity: StoredEntity
+    alias: Label
+    support: ContributionSupport
+
+
+class IdentifierPayload(Value):
+    kind: Literal["identifier"]
+    local_id: Token
+    entity: StoredEntity
+    scheme: Name
+    value: Token
+    support: ContributionSupport
+
+
+class MentionPayload(Value):
+    kind: Literal["mention"]
+    local_id: Token
+    entity: StoredEntity
+    support: SourceSupport
+
+
+class ClassificationPayload(Value):
+    kind: Literal["classification"]
+    local_id: Token
+    entity: StoredEntity
+    entity_type: Name
+    interpretation: Literal["explicit", "inferred"]
+    support: ContributionSupport
+
+
+class ContributionEntityObject(Value):
+    kind: Literal["entity"]
+    entity: StoredEntity
+
+
+ContributionAssertionObject = Annotated[
+    ContributionEntityObject
+    | StringObject
+    | IntegerObject
+    | BooleanObject
+    | TimestampObject,
+    Field(discriminator="kind"),
+]
+
+
+class AssertionPayload(Value):
+    kind: Literal["assertion"]
+    local_id: Token
+    subject: StoredEntity
+    predicate: Name
+    object: ContributionAssertionObject
+    interpretation: Literal["explicit", "inferred"]
+    support: SourceSupport
+    subject_classification: StoredSelectionRef
+    object_classification: StoredSelectionRef | None = None
+
+
+KnowledgeContributionPayload = Annotated[
+    EntitySupportPayload
+    | AliasPayload
+    | IdentifierPayload
+    | MentionPayload
+    | ClassificationPayload
+    | AssertionPayload,
+    Field(discriminator="kind"),
+]
+
+
 class ContributionView(KnowledgeValue):
     contribution_id: Token
     sequence: int = Field(ge=1)
     schema_version: Token
     attribution: Attribution
     committed_at: str
-    payload: Change
+    payload: KnowledgeContributionPayload
     evidence: tuple[CapturedEvidence, ...] = Field(max_length=200)
     is_current: bool
     witnesses: tuple[EntityWitness, ...] = Field(max_length=2)

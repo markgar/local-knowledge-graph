@@ -20,26 +20,30 @@ from kg.evidence._values import canonical, sha, timestamp, token
 from kg.evidence.errors import EvidenceServiceError
 from kg.knowledge._authorization import writer
 from kg.knowledge._store import Store
-from kg.models.foundation import (
+from kg.knowledge._write_models import (
     AddAlias,
     AddAssertion,
     AddClassification,
     AddEntitySupport,
     AddIdentifier,
     AddMention,
-    AssertionWithdrawalReceipt,
     Change,
     ChangeSet,
     ChangeSetReceipt,
-    ClassificationWithdrawalReceipt,
     CreateEntity,
+    IDMapping,
+    SelectClassification,
+    from_public,
+    receipt_to_public,
+)
+from kg.models.foundation import (
+    AssertionWithdrawalReceipt,
+    ClassificationWithdrawalReceipt,
     EntityObject,
     EntityRef,
-    IDMapping,
     LocalEntity,
     LocalSelectionRef,
     SeedSupport,
-    SelectClassification,
     SourceSupport,
     StoredEntity,
     StoredSelectionRef,
@@ -48,6 +52,11 @@ from kg.models.foundation import (
     WithdrawClassification,
     WriteRequest,
 )
+from kg.models.foundation import ChangeSet as PublicChangeSet
+from kg.models.foundation import (
+    ChangeSetReceipt as PublicChangeSetReceipt,
+)
+from kg.models.knowledge import KnowledgeContributionPayload
 from kg.models.knowledge_events import KnowledgeEncoding, KnowledgeValidation
 
 
@@ -79,9 +88,16 @@ def digest(request: WriteRequest) -> str:
 
 
 def writer_targets(request: WriteRequest) -> tuple[KnowledgeWriterTarget | SeedSetTarget, ...]:
-    assert isinstance(request.payload, ChangeSet)
+    assert isinstance(request.payload, PublicChangeSet)
+    return plan_writer_targets(request, from_public(request.payload))
+
+
+def plan_writer_targets(
+    request: WriteRequest,
+    plan: ChangeSet,
+) -> tuple[KnowledgeWriterTarget | SeedSetTarget, ...]:
     targets: dict[KnowledgeWriterTarget | SeedSetTarget, None] = {}
-    for change in request.payload.changes:
+    for change in plan.changes:
         if isinstance(change, SelectClassification):
             continue
         support = change.support
@@ -105,8 +121,12 @@ def writer_targets(request: WriteRequest) -> tuple[KnowledgeWriterTarget | SeedS
     return tuple(targets)
 
 
-def authorize_new(context: CanonicalWriteContext, request: WriteRequest) -> None:
-    for target in writer_targets(request):
+def authorize_new(
+    context: CanonicalWriteContext,
+    request: WriteRequest,
+    plan: ChangeSet,
+) -> None:
+    for target in plan_writer_targets(request, plan):
         writer(
             context.connection,
             context.identity,
@@ -137,7 +157,10 @@ def _resolved(change: Change, ids: dict[str, str]) -> Change:
     return change
 
 
-def _comparable(change: Change, entity_id: str | None = None) -> dict[str, object]:
+def _comparable(
+    change: Change | KnowledgeContributionPayload,
+    entity_id: str | None = None,
+) -> dict[str, object]:
     result = change.model_dump(mode="json", exclude={"local_id"})
     if isinstance(change, CreateEntity):
         result["kind"] = "entity_support"
@@ -152,24 +175,41 @@ def apply(
     budget: PrivateBudget,
     *,
     capture: Capture | CaptureUnavailable | None = None,
+) -> tuple[PublicChangeSetReceipt, Literal["applied", "unchanged"], str, Manifest]:
+    assert isinstance(request.payload, PublicChangeSet)
+    plan = from_public(request.payload)
+    receipt, status, key_id, manifest = apply_plan(
+        context, request, plan, at, budget, capture=capture,
+    )
+    return receipt_to_public(receipt), status, key_id, manifest
+
+
+def apply_plan(
+    context: CanonicalWriteContext,
+    request: WriteRequest,
+    plan: ChangeSet,
+    at: datetime,
+    budget: PrivateBudget,
+    *,
+    capture: Capture | CaptureUnavailable | None = None,
 ) -> tuple[ChangeSetReceipt, Literal["applied", "unchanged"], str, Manifest]:
     from kg.knowledge import _classification
 
-    assert isinstance(request.payload, ChangeSet)
+    assert isinstance(request.payload, PublicChangeSet)
     connection, scope, attribution = context.connection, request.scope, request.attribution
     store = Store(connection, scope, budget)
     try:
-        authorize_new(context, request)
+        authorize_new(context, request, plan)
         _observed(capture, KnowledgeValidation(phase="binding", status="passed"))
         schema = store.schema()
-        if request.payload.expected_schema_revision is None:
+        if plan.expected_schema_revision is None:
             raise EvidenceServiceError(
                 "invalid_request", explanation="Enrichment requires expected_schema_revision.",
             )
-        if request.payload.expected_schema_revision != store.registry.head():
+        if plan.expected_schema_revision != store.registry.head():
             raise EvidenceServiceError("state_conflict")
         _observed(capture, KnowledgeValidation(phase="schema", status="passed"))
-        changes = request.payload.changes
+        changes = plan.changes
         references = tuple(
             dict.fromkeys(
                 r
@@ -180,8 +220,8 @@ def apply(
         )
         # Common E1 validator remains authoritative. Preflight/check each exact
         # source once with private scratch before it hydrates the bounded unit.
-        dependencies = {d.document_id: d for d in request.payload.dependencies}
-        TransactionEvidence(context).validate_current(scope, request.payload.dependencies, ())
+        dependencies = {d.document_id: d for d in plan.dependencies}
+        TransactionEvidence(context).validate_current(scope, plan.dependencies, ())
         for reference in references:
             _, current = store.proof(reference, dependencies[reference.document_id].state_version)
             if not current:
@@ -205,7 +245,7 @@ def apply(
         with budget.reserve_scratch(working, "general"):
             validated = TransactionEvidence(context).validate_current(
                 scope,
-                request.payload.dependencies,
+                plan.dependencies,
                 references,
             )
         _observed(capture, KnowledgeValidation(phase="support", status="passed"))
@@ -621,7 +661,7 @@ def apply(
                     ),
                 )
         store.refresh_entities()
-        targets: list[ReportTarget] = [*writer_targets(request), *selection_targets]
+        targets: list[ReportTarget] = [*plan_writer_targets(request, plan), *selection_targets]
         for change in planned:
             if isinstance(change, SelectClassification):
                 continue
@@ -663,7 +703,16 @@ def apply(
             writer_id=attribution.writer_id,
             targets=tuple(targets),
         )
-        save(context, request, key_id, schema.schema_version, receipt, manifest, status, at)
+        save(
+            context,
+            request,
+            key_id,
+            schema.schema_version,
+            receipt_to_public(receipt),
+            manifest,
+            status,
+            at,
+        )
         return receipt, status, key_id, manifest
     finally:
         store.close()
@@ -674,7 +723,7 @@ def save(
     request: WriteRequest,
     key_id: str,
     schema_version: str,
-    receipt: ChangeSetReceipt | AssertionWithdrawalReceipt | ClassificationWithdrawalReceipt,
+    receipt: PublicChangeSetReceipt | AssertionWithdrawalReceipt | ClassificationWithdrawalReceipt,
     manifest: Manifest,
     status: Literal["applied", "unchanged"],
     at: datetime,
@@ -745,13 +794,14 @@ def replay(
             with authorize_withdrawal(context, request, budget):
                 pass
         else:
-            authorize_new(context, request)
-            assert isinstance(request.payload, ChangeSet)
+            assert isinstance(request.payload, PublicChangeSet)
+            plan = from_public(request.payload)
+            authorize_new(context, request, plan)
             from kg.knowledge import _classification
 
             store = Store(context.connection, request.scope, budget)
             try:
-                for change in request.payload.changes:
+                for change in plan.changes:
                     if isinstance(change, SelectClassification) and isinstance(
                         change.entity, StoredEntity,
                     ):
@@ -770,7 +820,7 @@ def replay(
     if digest(request) != key["digest"]:
         return _receipts.ReplayConflict(EvidenceServiceError("retry_conflict").failure), manifest
     assert response is not None
-    receipt: ChangeSetReceipt | AssertionWithdrawalReceipt | ClassificationWithdrawalReceipt
+    receipt: PublicChangeSetReceipt | AssertionWithdrawalReceipt | ClassificationWithdrawalReceipt
     if isinstance(request.payload, (WithdrawAssertion, WithdrawClassification)):
         receipt = (
             ClassificationWithdrawalReceipt.model_validate_json(response["receipt_json"])
@@ -783,7 +833,8 @@ def replay(
         ):
             raise EvidenceServiceError("internal_error")
     else:
-        receipt = ChangeSetReceipt.model_validate_json(response["receipt_json"])
-        if response["receipt_kind"] != receipt.kind:
+        private_receipt = ChangeSetReceipt.model_validate_json(response["receipt_json"])
+        if response["receipt_kind"] != private_receipt.kind:
             raise EvidenceServiceError("internal_error")
+        receipt = receipt_to_public(private_receipt)
     return _receipts.ReplaySuccess(key_id, key["status"], receipt), manifest
