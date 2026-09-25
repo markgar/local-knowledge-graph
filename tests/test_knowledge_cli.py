@@ -2,29 +2,42 @@
 
 import base64
 import json
+from copy import deepcopy
 from importlib.resources import files
 from pathlib import Path
 from uuid import uuid4
 
 import pytest
+from pydantic import ValidationError
 from test_canonical_cli import call, runner
 from test_canonical_cli import configured as configured
 
 from kg.cli import app
 from kg.client.config import load_profile, profile_path
-from kg.evidence import EvidenceService
 from kg.knowledge import KnowledgeService
 
 
-def record_file(directory, support, changes):
+def record_file(directory, support, items):
     file = directory / "facts.json"
     head = call("schema", "show")["result"]["head"]
+    entities = []
+    assertions = []
+    for original in items:
+        item = dict(original)
+        entities.extend(item.pop("__entities", ()))
+        if "identity" in item:
+            entities.append(item)
+        else:
+            assertions.append(item)
+    entities = list({item["local_id"]: item for item in entities}.values())
     file.write_text(
         json.dumps(
             {
+                "interface_version": "record-authoring/1",
                 "expected_schema_revision": head,
-                "support": [support],
-                "changes": changes,
+                "support": {"source": {"kind": "source", **support}},
+                "entities": entities,
+                "assertions": assertions,
             }
         )
     )
@@ -33,61 +46,64 @@ def record_file(directory, support, changes):
 
 def entity(local_id, name, entity_type, support):
     return dict(
-        kind="entity",
         local_id=local_id,
-        name=name,
-        support={"kind": "source", "evidence": [support["reference"]]},
+        identity={"kind": "new", "name": name, "support": ["source"]},
+        classifications=[],
+        aliases=[],
+        identifiers=[],
+        mentions=[],
     )
 
 
 def typed_entity(local_id, name, entity_type, support):
-    return (
-        entity(local_id, name, entity_type, support),
-        dict(
-            kind="classification",
-            local_id=f"{local_id}:classification",
-            entity=local(local_id),
-            entity_type=entity_type,
-            interpretation="explicit",
-            support={"kind": "source", "evidence": [support["reference"]]},
+    value = entity(local_id, name, entity_type, support)
+    value["classifications"] = [
+        {
+            "local_id": f"{local_id}:classification",
+            "entity_type": entity_type,
+            "interpretation": "explicit",
+            "support": ["source"],
+            "select": {"rationale": "Explicit synthetic typed CLI fixture."},
+        }
+    ]
+    return (value,)
+
+
+def existing_entity(local_id, entity_id, *, alias=None):
+    view = call("read", "entity:" + entity_id)["result"]["entity"]
+    return {
+        "local_id": local_id,
+        "identity": {"kind": "existing", "entity_id": entity_id},
+        "selection": {
+            "kind": "current",
+            "expected_entity_type": view["entity_type"],
+            "selection_witness": view["selection_witness"],
+        },
+        "classifications": [],
+        "aliases": (
+            [{"local_id": "alias", "alias": alias, "support": ["source"]}]
+            if alias is not None
+            else []
         ),
-        dict(
-            kind="classification_selection",
-            local_id=f"{local_id}:selection",
-            entity=local(local_id),
-            claim={"kind": "local", "local_id": f"{local_id}:classification"},
-            expected_selection_id=None,
-            reviewed_candidates_digest=None,
-            reviewed_claim_ids=[],
-            review_coverage="complete",
-            accept_incomplete_review=False,
-            rationale="Explicit synthetic typed CLI fixture.",
-        ),
-    )
+        "identifiers": [],
+        "mentions": [],
+    }
 
 
-def assertion(local_id, subject, predicate, obj, support):
-    def selected(ref):
-        if ref["kind"] == "local":
-            return {"kind": "local", "local_id": ref["local_id"] + ":selection"}
-        view = call("read", "entity:" + ref["entity_id"])["result"]["entity"]
-        return {"kind": "stored", "event_id": view["classification"]["selection_id"]}
-
+def assertion(local_id, subject, predicate, obj, support, *, entities=()):
     return dict(
-        kind="assertion",
         local_id=local_id,
         subject=subject,
         predicate=predicate,
         object=obj,
         interpretation="explicit",
-        support={"kind": "source", "evidence": [support["reference"]]},
-        subject_classification=selected(subject),
-        object_classification=selected(obj["entity"]) if obj["kind"] == "entity" else None,
+        support=["source"],
+        __entities=list(entities),
     )
 
 
 def local(local_id):
-    return {"kind": "local", "local_id": local_id}
+    return local_id
 
 
 @pytest.fixture
@@ -125,10 +141,21 @@ def recorded(configured):
     result = call("record", "--retry-key", str(uuid4()), record_file(configured, support, changes))[
         "result"
     ]
-    response = result["knowledge_write"]
+    response = result
     assert response["status"] == "applied"
-    mappings = {item["local_id"]: item["stored_id"] for item in response["receipt"]["mappings"]}
-    assert len(mappings) == len(changes)
+    mappings = {
+        entity["local_id"]: entity["entity_id"] for entity in response["receipt"]["entities"]
+    }
+    mappings.update(
+        {
+            item["local_id"]: item["stored_id"]
+            for entity in response["receipt"]["entities"]
+            for item in entity["items"]
+        }
+    )
+    mappings.update(
+        {item["local_id"]: item["stored_id"] for item in response["receipt"]["assertions"]}
+    )
     return configured, file, added, support, mappings
 
 
@@ -143,17 +170,21 @@ def test_complete_read_record_query_withdraw_update_journey(recorded):
     assert atlas["target"] == "entity:" + mappings["atlas"]
     assert atlas["entity"]["witness"]["basis"]["evidence"][0]["reference"] == support["reference"]
     read = call("read", atlas["target"])["result"]
-    assert read["reference"] == atlas["reference"]
-    # Copy actual returned support and entity reference, no rewriting or fabricated IDs.
+    assert read["entity"] == atlas["entity"]
+    endpoint = existing_entity("stored-atlas", read["entity"]["entity_id"])
+    # Copy the exact entity ID and selection witness into an explicit existing declaration.
     change = assertion(
-        "again", read["reference"], "decision", {"kind": "string", "value": "Ship Friday"}, support
+        "again",
+        "stored-atlas",
+        "decision",
+        {"kind": "string", "value": "Ship Friday"},
+        support,
+        entities=(endpoint,),
     )
     recorded_again = call(
         "record", "--retry-key", str(uuid4()), record_file(directory, support, [change])
     )
-    assert (
-        recorded_again["result"]["knowledge_write"]["receipt"]["mappings"][0]["local_id"] == "again"
-    )
+    assert recorded_again["result"]["receipt"]["assertions"][0]["local_id"] == "again"
     query = call("find", "decisions", "Atlas", "--limit", 1)["result"]
     assert query["count"] == 2 and query["exact"]
     assert set(query) == {
@@ -206,8 +237,7 @@ def test_complete_read_record_query_withdraw_update_journey(recorded):
     stale = call(
         "record", "--retry-key", str(uuid4()), record_file(directory, support, [change]), code=4
     )
-    assert stale["result"]["knowledge_write"]["receipt"] is None
-    assert "mappings" not in stale["result"]
+    assert stale["result"]["receipt"] is None
     assert call("read", added["document"]["target"] + "@" + added["document"]["state_version"])[
         "message"
     ].startswith("Mira owns")
@@ -233,13 +263,7 @@ def test_exact_alias_ambiguity_and_no_prefix_uniqueness(recorded):
     directory, _, _, support, mappings = recorded
     changes = [
         *typed_entity("other", "Atlas", "project", support),
-        {
-            "kind": "alias",
-            "local_id": "alias",
-            "entity": {"kind": "stored", "entity_id": mappings["mira"]},
-            "alias": "M",
-            "support": {"kind": "source", "evidence": [support["reference"]]},
-        },
+        existing_entity("mira-existing", mappings["mira"], alias="M"),
     ]
     call("record", "--retry-key", str(uuid4()), record_file(directory, support, changes))
     assert (
@@ -263,22 +287,27 @@ def test_strict_record_rejects_bad_input_atomically(recorded, mutation):
     if mutation == "extra":
         value["scope"] = {}
     elif mutation == "implicit":
-        value["changes"].append(
-            assertion(
-                "bad", local("undeclared"), "decision", {"kind": "string", "value": "bad"}, support
-            )
+        value["assertions"].append(
+            {
+                "local_id": "bad",
+                "subject": "undeclared",
+                "predicate": "decision",
+                "object": {"kind": "string", "value": "bad"},
+                "interpretation": "explicit",
+                "support": ["source"],
+            }
         )
     elif mutation == "missing_capture":
-        value["support"] = []
+        value["support"] = {}
     elif mutation == "seed":
-        value["changes"][0]["support"] = {
+        value["support"]["source"] = {
             "kind": "seed",
-            "source_namespace": "local",
+            "source_namespace": "documents",
             "seed_set_id": "x",
             "seed_key": "x",
         }
     else:
-        value["support"].append(support)
+        value["support"]["duplicate"] = value["support"]["source"]
     file.write_text(json.dumps(value))
     call("record", "--retry-key", str(uuid4()), file, code=2)
     assert call("find", "entities", "New")["status"] == "empty"
@@ -330,7 +359,7 @@ def test_selection_budget_failure_is_not_unique(recorded, monkeypatch):
 @pytest.mark.parametrize("error", [RuntimeError, KeyboardInterrupt])
 def test_unknown_record_outcome_is_not_retried(recorded, monkeypatch, error):
     directory, _, _, support, mappings = recorded
-    original = EvidenceService.write
+    original = KnowledgeService.record
     calls = []
 
     def lost(self, request):
@@ -338,13 +367,14 @@ def test_unknown_record_outcome_is_not_retried(recorded, monkeypatch, error):
         original(self, request)
         raise error("lost delivery")
 
-    monkeypatch.setattr(EvidenceService, "write", lost)
+    monkeypatch.setattr(KnowledgeService, "record", lost)
     change = assertion(
         "another",
-        {"kind": "stored", "entity_id": mappings["atlas"]},
+        "stored-atlas",
         "decision",
         {"kind": "string", "value": "Ship Friday"},
         support,
+        entities=(existing_entity("stored-atlas", mappings["atlas"]),),
     )
     result = call(
         "record", "--retry-key", str(uuid4()), record_file(directory, support, [change]), code=7
@@ -377,7 +407,8 @@ def test_installed_schema_example_and_strategy_are_discoverable():
     record_example = call("record", "--example")["result"]["example"]
     sample_example = call("schema", "generate", "--example")["result"]["example"]
     proposal_example = call("schema", "validate", "--example")["result"]["example"]
-    assert "COPY-SCAFFOLD-SUPPORT" in record_example
+    assert "COPY-EXACT-REVISION-ID" in record_example
+    assert '"interface_version": "record-authoring/1"' in record_example
     examples = record_example + sample_example + proposal_example
     for coupled in ("Atlas", '"person"', '"project"', '"owns"'):
         assert coupled not in examples
@@ -506,26 +537,24 @@ def test_read_authorization_not_weakened(recorded):
 @pytest.mark.functional
 def test_named_support_and_returned_entities_roundtrip(recorded):
     directory, _, added, support, mappings = recorded
-    stored = call("read", "entity:" + mappings["atlas"])["result"]["reference"]
-    changes = [
+    stored = {"kind": "stored", "entity_id": mappings["atlas"]}
+    endpoint = existing_entity("stored-atlas", mappings["atlas"])
+    items = [
         entity("new", "New", "project", support),
-        assertion("reuse", stored, "decision", {"kind": "string", "value": "Ship Friday"}, support),
+        assertion(
+            "reuse",
+            "stored-atlas",
+            "decision",
+            {"kind": "string", "value": "Ship Friday"},
+            support,
+            entities=(endpoint,),
+        ),
     ]
-    for change in changes:
-        change["support"]["evidence"] = ["meeting"]
-    path = directory / "named.json"
-    path.write_text(
-        json.dumps(
-            {
-                "expected_schema_revision": call("schema", "show")["result"]["revision"],
-                "support": {"meeting": support},
-                "changes": changes,
-            }
-        )
-    )
-    response = call("record", "--retry-key", str(uuid4()), path)["result"]["knowledge_write"]
-    assert len(response["receipt"]["mappings"]) == 2
-    identifier = response["receipt"]["mappings"][1]["stored_id"]
+    path = record_file(directory, support, items)
+    response = call("record", "--retry-key", str(uuid4()), path)["result"]
+    assert len(response["receipt"]["entities"]) == 2
+    assert len(response["receipt"]["assertions"]) == 1
+    identifier = response["receipt"]["assertions"][0]["stored_id"]
     result = call("read", "fact:" + identifier)["result"]
     assert result["support"] == [support]
     assert result["contribution"]["payload"]["subject"] == stored
@@ -543,7 +572,7 @@ def test_named_support_and_returned_entities_roundtrip(recorded):
         added["document"]["state_version"],
     )
     stale = call("record", "--retry-key", str(uuid4()), path, code=4)
-    assert stale["result"]["knowledge_write"]["receipt"] is None
+    assert stale["result"]["receipt"] is None
 
 
 @pytest.mark.functional
@@ -555,7 +584,6 @@ def test_named_support_and_returned_entities_roundtrip(recorded):
         "duplicate_capture",
         "duplicate_name",
         "duplicate_occurrence",
-        "conflict",
         "mixed",
         "native_names",
         "extra",
@@ -569,37 +597,33 @@ def test_named_input_rejection_precedes_any_write(recorded, monkeypatch, mutatio
     from copy import deepcopy
 
     directory, _, _, support, _ = recorded
-    changes = [entity("new", "New", "project", support)]
-    changes[0]["support"]["evidence"] = ["meeting"]
+    authored = entity("new", "New", "project", support)
     value = {
+        "interface_version": "record-authoring/1",
         "expected_schema_revision": call("schema", "show")["result"]["revision"],
-        "support": {"meeting": deepcopy(support)},
-        "changes": changes,
+        "support": {"meeting": {"kind": "source", **deepcopy(support)}},
+        "entities": [authored],
+        "assertions": [],
     }
+    authored["identity"]["support"] = ["meeting"]
     if mutation == "unknown":
-        changes[0]["support"]["evidence"] = ["missing"]
+        authored["identity"]["support"] = ["missing"]
     elif mutation == "unused":
-        value["support"]["unused"] = support
+        value["support"]["unused"] = {"kind": "source", **support}
     elif mutation == "duplicate_capture":
-        value["support"]["same"] = support
-        changes[0]["support"]["evidence"].append("same")
+        value["support"]["same"] = {"kind": "source", **support}
+        authored["identity"]["support"].append("same")
     elif mutation == "duplicate_occurrence":
-        changes[0]["support"]["evidence"].append("meeting")
-    elif mutation == "conflict":
-        conflicting = deepcopy(support)
-        conflicting["reference"]["anchor_id"] = "another-anchor"
-        conflicting["state_version"] = "different-state"
-        value["support"]["conflict"] = conflicting
-        changes[0]["support"]["evidence"].append("conflict")
+        authored["identity"]["support"].append("meeting")
     elif mutation == "mixed":
-        changes[0]["support"]["evidence"].append(support["reference"])
+        authored["identity"]["support"].append(support["reference"])
     elif mutation == "native_names":
         value["support"] = [support]
     elif mutation == "extra":
-        changes[0]["support"]["extra"] = True
+        authored["identity"]["extra"] = True
     elif mutation == "blank":
-        value["support"] = {" ": support}
-        changes[0]["support"]["evidence"] = [" "]
+        value["support"] = {" ": {"kind": "source", **support}}
+        authored["identity"]["support"] = [" "]
     elif mutation == "empty":
         value["support"] = {}
     elif mutation == "malformed":
@@ -612,14 +636,14 @@ def test_named_input_rejection_precedes_any_write(recorded, monkeypatch, mutatio
     path = directory / "bad-named.json"
     path.write_text(text)
     writes = []
-    monkeypatch.setattr(EvidenceService, "write", lambda *args: writes.append(args))
+    monkeypatch.setattr(KnowledgeService, "record", lambda *args: writes.append(args))
     call("record", "--retry-key", str(uuid4()), path, code=2)
     assert not writes
     assert call("find", "entities", "New")["status"] == "empty"
 
 
 @pytest.mark.functional
-def test_named_conjunction_and_expanded_occurrence_limit(recorded, monkeypatch):
+def test_named_conjunction_and_expanded_occurrence_limit(recorded):
     from copy import deepcopy
 
     directory, _, _, support, _ = recorded
@@ -628,83 +652,90 @@ def test_named_conjunction_and_expanded_occurrence_limit(recorded, monkeypatch):
     other_target = call("add", another)["result"]["document"]["target"]
     other_support = call("read", other_target)["result"]["entries"][0]["support"]
     change = entity("new", "New", "project", support)
-    change["support"]["evidence"] = ["meeting", "other"]
+    change["identity"]["support"] = ["meeting", "other"]
     path = directory / "conjunction.json"
     value = {
+        "interface_version": "record-authoring/1",
         "expected_schema_revision": call("schema", "show")["result"]["revision"],
-        "support": {"meeting": support, "other": other_support},
-        "changes": [change],
+        "support": {
+            "meeting": {"kind": "source", **support},
+            "other": {"kind": "source", **other_support},
+        },
+        "entities": [change],
+        "assertions": [],
     }
     path.write_text(json.dumps(value))
-    receipt = call("record", "--retry-key", str(uuid4()), path)["result"]["knowledge_write"][
-        "receipt"
-    ]
-    stored = receipt["mappings"][0]["stored_id"]
+    receipt = call("record", "--retry-key", str(uuid4()), path)["result"]["receipt"]
+    stored = receipt["entities"][0]["entity_id"]
     entity_read = call("read", "entity:" + stored)["result"]
-    assert entity_read["entries"][0]["support"] == [support, other_support]
+    assert {json.dumps(item, sort_keys=True) for item in entity_read["entries"][0]["support"]} == {
+        json.dumps(support, sort_keys=True),
+        json.dumps(other_support, sort_keys=True),
+    }
 
-    # 100 changes x two supports is accepted; one more occurrence must fail,
+    # 100 entities x two supports is accepted; one more occurrence must fail,
     # even though the JSON declares only three supports.
-    value["changes"] = [
-        {**deepcopy(change), "local_id": f"new{i}", "name": f"New {i}"} for i in range(100)
+    value["entities"] = [
+        {
+            **deepcopy(change),
+            "local_id": f"new{i}",
+            "identity": {**deepcopy(change["identity"]), "name": f"New {i}"},
+        }
+        for i in range(100)
     ]
     path.write_text(json.dumps(value))
     assert (
-        len(
-            call("record", "--retry-key", str(uuid4()), path)["result"]["knowledge_write"][
-                "receipt"
-            ]["mappings"]
-        )
+        len(call("record", "--retry-key", str(uuid4()), path)["result"]["receipt"]["entities"])
         == 100
     )
     third = deepcopy(support)
     third["reference"]["anchor_id"] = "distinct-anchor"
-    value["support"]["third"] = third
-    value["changes"][0]["support"]["evidence"].append("third")
+    value["support"]["third"] = {"kind": "source", **third}
+    value["entities"][0]["identity"]["support"].append("third")
     path.write_text(json.dumps(value))
-    writes = []
-    monkeypatch.setattr(EvidenceService, "write", lambda *args: writes.append(args))
-    call("record", "--retry-key", str(uuid4()), path, code=2)
-    assert not writes
+    call("record", "--retry-key", str(uuid4()), path, code=4)
 
 
 @pytest.mark.functional
 def test_record_file_and_expanded_request_byte_limits(recorded, monkeypatch):
     from kg.client.knowledge import record_input
-    from kg.models.foundation import MAX_REQUEST_BYTES, WriteRequest
+    from kg.models.authoring import RecordAuthoringRequest
+    from kg.models.foundation import MAX_REQUEST_BYTES
 
     directory, _, _, support, _ = recorded
     change = entity("new", "New", "project", support)
-    change["support"]["evidence"] = ["meeting"]
+    change["identity"]["support"] = ["meeting"]
     path = directory / "size.json"
     text = json.dumps(
         {
+            "interface_version": "record-authoring/1",
             "expected_schema_revision": call("schema", "show")["result"]["revision"],
-            "support": {"meeting": support},
-            "changes": [change],
+            "support": {"meeting": {"kind": "source", **support}},
+            "entities": [change],
+            "assertions": [],
         }
     )
     path.write_text(text + " " * (MAX_REQUEST_BYTES - len(text.encode())))
-    assert record_input(path).payload().changes
+    assert record_input(path).entities
     with path.open("a") as stream:
         stream.write(" ")
     writes = []
-    monkeypatch.setattr(EvidenceService, "write", lambda *args: writes.append(args))
+    monkeypatch.setattr(KnowledgeService, "record", lambda *args: writes.append(args))
     call("record", "--retry-key", str(uuid4()), path, code=2)
     path.write_text(text)
     profile = load_profile()
-    request = WriteRequest(
-        contract_version="foundation/1",
+    request = RecordAuthoringRequest(
+        interface_version="record-authoring/1",
         request_id="x" * 36,
         retry_key="y" * 36,
         scope=profile.scope,
         attribution=profile.attribution,
-        payload=record_input(path).payload(),
+        document=record_input(path),
     )
     size = len(request.model_dump_json().encode())
     assert size > len(text.encode())
     # Test the existing full-envelope bound after expansion, not only file size.
-    monkeypatch.setattr("kg.models.foundation.MAX_REQUEST_BYTES", size - 1)
+    monkeypatch.setattr("kg.models.authoring.MAX_REQUEST_BYTES", size - 1)
     call("record", "--retry-key", str(uuid4()), path, code=2)
     assert not writes
 
@@ -859,16 +890,18 @@ def test_direct_display_hydrates_only_selected_ids(recorded, monkeypatch):
 
 
 @pytest.mark.functional
-def test_named_example_executes_and_schema_describes_both_modes(configured):
+def test_record_example_executes_and_schema_describes_one_public_shape(configured):
     document = configured / "meeting.md"
     document.write_text("Sensor Delta is listed in the maintenance log.")
     target = call("add", document)["result"]["document"]["target"]
     evidence_target = call("read", target)["result"]["entries"][0]["target"]
     prepared = call("record", "--from-evidence", evidence_target)
     template = prepared["result"]["record_template"]
+    assert template["interface_version"] == "record-authoring/1"
     assert template["expected_schema_revision"] == call("schema", "show")["result"]["revision"]
     assert list(template["support"]) == ["evidence-1"]
-    assert template["changes"] == []
+    assert template["entities"] == []
+    assert template["assertions"] == []
     assert prepared["status"] == "incomplete_template"
     assert (
         call("record", "--from-evidence", evidence_target, "--retry-key", str(uuid4()), code=2)[
@@ -879,15 +912,16 @@ def test_named_example_executes_and_schema_describes_both_modes(configured):
     example = call("record", "--example")["result"]["example"]
     assert "REGISTERED_PREDICATE" in example and "person" not in example
     schema = call("record", "--schema")["result"]["schema"]
-    assert len(schema["properties"]["support"]["oneOf"]) == 2
-    assert [entry["properties"]["support"]["type"] for entry in schema["oneOf"]] == [
-        "array",
-        "object",
-    ]
-    assert (
-        schema["$defs"]["SourceSupport"]["properties"]["evidence"]["items"]["oneOf"][1]["type"]
-        == "string"
-    )
+    assert set(schema["properties"]) == {
+        "interface_version",
+        "expected_schema_revision",
+        "support",
+        "entities",
+        "assertions",
+    }
+    assert schema["properties"]["support"]["type"] == "object"
+    assert schema["properties"]["entities"]["type"] == "array"
+    assert "changes" not in schema["properties"]
 
 
 @pytest.mark.functional
@@ -1063,10 +1097,11 @@ def test_partial_nonzero_count_and_empty_exact_display(recorded, monkeypatch):
     directory, _, _, support, mappings = recorded
     change = assertion(
         "again",
-        {"kind": "stored", "entity_id": mappings["atlas"]},
+        "stored-atlas",
         "decision",
         {"kind": "string", "value": "Ship Friday"},
         support,
+        entities=(existing_entity("stored-atlas", mappings["atlas"]),),
     )
     call("record", "--retry-key", str(uuid4()), record_file(directory, support, [change]))
     original = QueryService.execute
@@ -1119,29 +1154,33 @@ def test_final_inspection_release_withholds_intervening_write(recorded, monkeypa
 
 
 @pytest.mark.functional
-@pytest.mark.parametrize("oversized", ["changes", "declarations", "occurrences", "duplicates"])
-def test_named_support_is_bounded_before_expansion(recorded, monkeypatch, oversized):
-    from kg.client.knowledge import normalize_record
-    from kg.models.foundation import EvidenceRef
+@pytest.mark.parametrize("invalid", ["entities", "declarations", "duplicates"])
+def test_record_authoring_document_enforces_structural_bounds(recorded, invalid):
+    from kg.models.authoring import RecordAuthoringDocument
 
     _, _, _, support, _ = recorded
     change = entity("new", "New", "project", support)
-    change["support"]["evidence"] = ["meeting"]
-    value = {"support": {"meeting": support}, "changes": [change]}
-    if oversized == "changes":
-        value["changes"] *= 101
-    elif oversized == "declarations":
-        value["support"] = {str(i): support for i in range(201)}
-    elif oversized == "occurrences":
-        change["support"]["evidence"] *= 100_000
+    change["identity"]["support"] = ["meeting"]
+    value = {
+        "interface_version": "record-authoring/1",
+        "expected_schema_revision": call("schema", "show")["result"]["revision"],
+        "support": {"meeting": {"kind": "source", **support}},
+        "entities": [change],
+        "assertions": [],
+    }
+    if invalid == "entities":
+        value["entities"] = [
+            {
+                **deepcopy(change),
+                "local_id": f"new{i}",
+                "identity": {**deepcopy(change["identity"]), "name": f"New {i}"},
+            }
+            for i in range(101)
+        ]
+    elif invalid == "declarations":
+        value["support"] = {str(i): {"kind": "source", **support} for i in range(201)}
     else:
-        change["support"]["evidence"] *= 2
+        change["identity"]["support"] *= 2
 
-    def no_expansion(*args, **kwargs):
-        pytest.fail("Oversized or duplicate input must fail before evidence serialization")
-
-    monkeypatch.setattr(EvidenceRef, "model_dump", no_expansion)
-    from kg.client.config import ClientError
-
-    with pytest.raises(ClientError):
-        normalize_record(value)
+    with pytest.raises(ValidationError):
+        RecordAuthoringDocument.model_validate(value)

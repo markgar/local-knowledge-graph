@@ -10,7 +10,24 @@ from kg._execution_budget import PrivateBudget
 from kg.evidence._transactions import CanonicalWriteContext
 from kg.evidence.errors import EvidenceServiceError
 from kg.knowledge import _classification
-from kg.knowledge._authoring_models import (
+from kg.knowledge._store import Store
+from kg.knowledge._write_models import (
+    AddAlias,
+    AddAssertion,
+    AddClassification,
+    AddEntitySupport,
+    AddIdentifier,
+    AddMention,
+    Change,
+    ChangeSet,
+    CreateEntity,
+    EntityObject,
+    LocalClassificationRef,
+    LocalEntity,
+    LocalSelectionRef,
+    SelectClassification,
+)
+from kg.models.authoring import (
     AuthoredEntity,
     AuthoringEntityObject,
     ClassificationReviewReceipt,
@@ -27,25 +44,8 @@ from kg.knowledge._authoring_models import (
     SupportCapture,
     SupportExistingIdentity,
 )
-from kg.knowledge._store import Store
-from kg.knowledge._write_models import (
-    AddAlias,
-    AddAssertion,
-    AddClassification,
-    AddEntitySupport,
-    AddIdentifier,
-    AddMention,
-    Change,
-    ChangeSet,
-    CreateEntity,
-    SelectClassification,
-)
 from kg.models.foundation import (
     DocumentDependency,
-    EntityObject,
-    LocalClassificationRef,
-    LocalEntity,
-    LocalSelectionRef,
     SeedSupport,
     SourceSupport,
     StoredClassificationRef,
@@ -198,10 +198,8 @@ class Compiler:
         selected = review.selected
         if (
             review.selection_id != witness.selection_id
-            or (selected.claim_id if selected is not None else None)
-            != witness.selected_claim_id
-            or tuple(review.reviewed_claim_ids)
-            != tuple(sorted(witness.reviewed_claim_ids))
+            or (selected.claim_id if selected is not None else None) != witness.selected_claim_id
+            or tuple(review.reviewed_claim_ids) != tuple(sorted(witness.reviewed_claim_ids))
             or review.reviewed_candidates_digest != witness.reviewed_candidates_digest
             or review.review_coverage != witness.review_coverage
         ):
@@ -251,7 +249,8 @@ class Compiler:
             identity = entity.identity
             if isinstance(identity, ExistingIdentity):
                 entity_ref: LocalEntity | StoredEntity = StoredEntity(
-                    kind="stored", entity_id=identity.entity_id,
+                    kind="stored",
+                    entity_id=identity.entity_id,
                 )
                 self.store.require_entity(identity.entity_id)
                 entity_plan_ids[entity.local_id] = None
@@ -344,9 +343,7 @@ class Compiler:
                     if select.review_witness is None:
                         raise EvidenceServiceError("invalid_request")
                     fields = self.review_fields(select.review_witness, entity_ref.entity_id)
-                    selected_added = (
-                        select.review_witness.review_coverage == "selected_subset"
-                    )
+                    selected_added = select.review_witness.review_coverage == "selected_subset"
                     review = _classification.review(
                         self.store,
                         entity_ref.entity_id,
@@ -363,10 +360,7 @@ class Compiler:
                             conflicting_types=(
                                 len(
                                     {
-                                        *(
-                                            claim.entity_type
-                                            for claim in review.claims
-                                        ),
+                                        *(claim.entity_type for claim in review.claims),
                                         *(
                                             classification.entity_type
                                             for classification in entity.classifications
@@ -408,11 +402,13 @@ class Compiler:
                     )
                 )
                 selection_refs[entity.local_id] = LocalSelectionRef(
-                    kind="local", local_id=selection_id,
+                    kind="local",
+                    local_id=selection_id,
                 )
             elif isinstance(entity.selection, CurrentSelection):
                 selection_refs[entity.local_id] = self.current_selection(
-                    entity, entity.selection,
+                    entity,
+                    entity.selection,
                 )
             elif isinstance(entity.selection, (StoredClaimSelection, ClearSelection)):
                 identity = entity.identity
@@ -423,15 +419,15 @@ class Compiler:
                 claim = None
                 if isinstance(selection, StoredClaimSelection):
                     value = _classification.claim(
-                        self.store, selection.claim_id, entity_id=identity.entity_id,
+                        self.store,
+                        selection.claim_id,
+                        entity_id=identity.entity_id,
                     )
-                    if (
-                        not value.is_current
-                        or value.entity_type != selection.expected_entity_type
-                    ):
+                    if not value.is_current or value.entity_type != selection.expected_entity_type:
                         raise EvidenceServiceError("state_conflict")
                     claim = StoredClassificationRef(
-                        kind="stored", contribution_id=selection.claim_id,
+                        kind="stored",
+                        contribution_id=selection.claim_id,
                     )
                 review = _classification.review(
                     self.store,
@@ -477,7 +473,8 @@ class Compiler:
                     )
                 )
                 selection_refs[entity.local_id] = LocalSelectionRef(
-                    kind="local", local_id=selection_id,
+                    kind="local",
+                    local_id=selection_id,
                 )
             else:
                 selection_refs[entity.local_id] = None
@@ -535,8 +532,7 @@ class Compiler:
                 else None
             )
             if subject_selection is None or (
-                isinstance(assertion.object, AuthoringEntityObject)
-                and object_selection is None
+                isinstance(assertion.object, AuthoringEntityObject) and object_selection is None
             ):
                 raise EvidenceServiceError("invalid_request")
             obj = (
@@ -570,10 +566,7 @@ class Compiler:
         plan = ChangeSet(
             operation="enrich",
             expected_schema_revision=self.document.expected_schema_revision,
-            dependencies=tuple(
-                self.dependencies[key]
-                for key in sorted(self.dependencies)
-            ),
+            dependencies=tuple(self.dependencies[key] for key in sorted(self.dependencies)),
             changes=changes,
         )
         return CompiledAuthoring(
@@ -581,9 +574,7 @@ class Compiler:
             support_names=self.support_names,
             authored_ids=self.authored_ids,
             entity_plan_ids=entity_plan_ids,
-            entity_item_ids={
-                local_id: tuple(items) for local_id, items in entity_item_ids.items()
-            },
+            entity_item_ids={local_id: tuple(items) for local_id, items in entity_item_ids.items()},
             entity_selection_refs=selection_refs,
             review_receipts=tuple(reviews),
             operation_counts=counts,

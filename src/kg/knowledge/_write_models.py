@@ -9,32 +9,60 @@ from pydantic import Field, model_validator
 from kg.models.foundation import (
     MAX_CHANGES,
     MAX_SUPPORTS,
-    AssertionObject,
+    BooleanObject,
     DocumentDependency,
-    EntityRef,
     EvidenceRef,
+    IntegerObject,
     Label,
-    LocalClassificationRef,
-    LocalEntity,
-    LocalSelectionRef,
     Name,
     SchemaRevisionRef,
     SeedSupport,
-    SelectionRef,
     SourceSupport,
     StoredClassificationRef,
     StoredEntity,
+    StoredSelectionRef,
+    StringObject,
+    TimestampObject,
     Token,
     Value,
 )
-from kg.models.foundation import (
-    ChangeSet as PublicChangeSet,
-)
-from kg.models.foundation import (
-    ChangeSetReceipt as PublicChangeSetReceipt,
-)
 
 Support = Annotated[SourceSupport | SeedSupport, Field(discriminator="kind")]
+
+
+class LocalEntity(Value):
+    kind: Literal["local"]
+    local_id: Token
+
+
+EntityRef = Annotated[LocalEntity | StoredEntity, Field(discriminator="kind")]
+
+
+class LocalClassificationRef(Value):
+    kind: Literal["local"]
+    local_id: Token
+
+
+class LocalSelectionRef(Value):
+    kind: Literal["local"]
+    local_id: Token
+
+
+SelectionRef = Annotated[
+    LocalSelectionRef | StoredSelectionRef,
+    Field(discriminator="kind"),
+]
+
+
+class EntityObject(Value):
+    kind: Literal["entity"]
+    entity: EntityRef
+
+
+AssertionObject = Annotated[
+    EntityObject | StringObject | IntegerObject | BooleanObject | TimestampObject,
+    Field(discriminator="kind"),
+]
 
 
 class CreateEntity(Value):
@@ -95,10 +123,13 @@ class SelectClassification(Value):
     kind: Literal["classification_selection"]
     local_id: Token
     entity: EntityRef
-    claim: Annotated[
-        LocalClassificationRef | StoredClassificationRef,
-        Field(discriminator="kind"),
-    ] | None
+    claim: (
+        Annotated[
+            LocalClassificationRef | StoredClassificationRef,
+            Field(discriminator="kind"),
+        ]
+        | None
+    )
     expected_selection_id: Token | None
     reviewed_candidates_digest: str | None = Field(pattern=r"^[0-9a-f]{64}$")
     reviewed_claim_ids: tuple[Token, ...] = Field(max_length=200)
@@ -186,9 +217,7 @@ class ChangeSet(Value):
             if isinstance(change, AddAssertion):
                 if change.subject_classification is None:
                     raise ValueError("Assertion requires subject classification selection")
-                if (change.object.kind == "entity") != (
-                    change.object_classification is not None
-                ):
+                if (change.object.kind == "entity") != (change.object_classification is not None):
                     raise ValueError("Entity objects require an object classification selection")
                 for selection in (change.subject_classification, change.object_classification):
                     if (
@@ -233,7 +262,8 @@ class ChangeSetReceipt(Value):
     kind: Literal["enrichment"]
     mappings: tuple[IDMapping, ...] = Field(min_length=1, max_length=MAX_CHANGES)
     entity_classifications: tuple[EntityClassificationReceipt, ...] = Field(
-        default=(), max_length=MAX_CHANGES,
+        default=(),
+        max_length=MAX_CHANGES,
     )
 
     @model_validator(mode="after")
@@ -241,15 +271,3 @@ class ChangeSetReceipt(Value):
         if len({mapping.local_id for mapping in self.mappings}) != len(self.mappings):
             raise ValueError("duplicate local ID mapping")
         return self
-
-
-def from_public(value: PublicChangeSet) -> ChangeSet:
-    return ChangeSet.model_validate(value.model_dump(mode="python"), strict=True)
-
-
-def receipt_to_public(value: ChangeSetReceipt) -> PublicChangeSetReceipt:
-    return PublicChangeSetReceipt.model_validate(value.model_dump(mode="python"), strict=True)
-
-
-def receipt_from_public(value: PublicChangeSetReceipt) -> ChangeSetReceipt:
-    return ChangeSetReceipt.model_validate(value.model_dump(mode="python"), strict=True)

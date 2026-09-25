@@ -4,11 +4,20 @@ import argparse
 from pathlib import Path
 from uuid import uuid4
 
-from classification_inputs import classified_entity
-
 from kg.evidence import EvidenceAdministration, EvidenceDatabase, EvidenceService
 from kg.indexing._passages import produce
 from kg.knowledge import KnowledgeAdministration, KnowledgeService
+from kg.models.authoring import (
+    AuthoredAssertion,
+    AuthoredClassification,
+    AuthoredEntity,
+    AuthoredMention,
+    NewIdentity,
+    RecordAuthoringDocument,
+    RecordAuthoringRequest,
+    SelectLocalClaim,
+    SourceCapture,
+)
 from kg.models.evidence import (
     CorpusRegistration,
     KnowledgeWriterBinding,
@@ -20,21 +29,13 @@ from kg.models.evidence import (
 )
 from kg.models.foundation import (
     AccessContext,
-    AddAssertion,
-    AddMention,
     Attribution,
-    ChangeSet,
-    ChangeSetReceipt,
     CreateOnly,
-    DocumentDependency,
     DocumentReceipt,
     ExternalDocument,
-    LocalEntity,
-    LocalSelectionRef,
     PutDocument,
     Scope,
     SourceMetadata,
-    SourceSupport,
     StringObject,
     SuppliedAnchor,
     SuppliedContent,
@@ -49,8 +50,13 @@ from kg.models.schema import (
 )
 
 
-def supply(path: Path, *, passages: bool = False) -> tuple[
-    EvidenceService, Scope, Attribution, str,
+def supply(
+    path: Path, *, passages: bool = False
+) -> tuple[
+    EvidenceService,
+    Scope,
+    Attribution,
+    str,
 ]:
     database = EvidenceDatabase(path)
     database.initialize()
@@ -95,9 +101,12 @@ def supply(path: Path, *, passages: bool = False) -> tuple[
             preset_name="example/1",
             preset_rationale="Explicit example vocabulary; no inferred facts.",
             definition=SchemaDefinition(
-                entity_types=(EntityTypeDefinition(
-                    name="project", description="An explicitly identified project.",
-                ),),
+                entity_types=(
+                    EntityTypeDefinition(
+                        name="project",
+                        description="An explicitly identified project.",
+                    ),
+                ),
                 predicates=(
                     SchemaPredicateDefinition(
                         name="work:decision",
@@ -174,74 +183,79 @@ def supply(path: Path, *, passages: bool = False) -> tuple[
         reference = evidence.anchors(scope, doc.document_id, doc.processing.state_version).entries[
             0
         ]
-    support = SourceSupport(kind="source", evidence=(reference.reference,))
-    enriched = evidence.write(
-        WriteRequest(
-            contract_version="foundation/1",
+    enriched = KnowledgeService(database, identity).record(
+        RecordAuthoringRequest(
+            interface_version="record-authoring/1",
             request_id=str(uuid4()),
             retry_key="knowledge/passages/1" if passages else "knowledge/1",
             scope=scope,
             attribution=attribution,
-            payload=ChangeSet(
+            document=RecordAuthoringDocument(
+                interface_version="record-authoring/1",
                 expected_schema_revision=schema_registration.revision,
-                operation="enrich",
-                dependencies=(
-                    DocumentDependency(
-                        source_namespace="notes",
-                        document_id=doc.document_id,
-                        revision_id=doc.revision_id,
+                support={
+                    "source": SourceCapture(
+                        kind="source",
+                        reference=reference.reference,
                         state_version=doc.processing.state_version,
+                    )
+                },
+                entities=(
+                    AuthoredEntity(
+                        local_id="project",
+                        identity=NewIdentity(
+                            kind="new",
+                            name="Atlas",
+                            support=("source",),
+                        ),
+                        classifications=(
+                            AuthoredClassification(
+                                local_id="project-type",
+                                entity_type="project",
+                                interpretation="explicit",
+                                support=("source",),
+                                select=SelectLocalClaim(
+                                    rationale="The source explicitly identifies a project."
+                                ),
+                            ),
+                        ),
+                        mentions=(AuthoredMention(local_id="mention", support=("source",)),)
+                        if passages
+                        else (),
                     ),
                 ),
-                changes=(
-                    *classified_entity(
-                        local_id="project",
-                        name="Atlas",
-                        entity_type="project",
-                        support=support,
-                    ),
-                    AddAssertion(
-                        kind="assertion",
+                assertions=(
+                    AuthoredAssertion(
                         local_id="decision",
-                        subject=LocalEntity(kind="local", local_id="project"),
-                        subject_classification=LocalSelectionRef(
-                            kind="local", local_id="project:selection",
-                        ),
+                        subject="project",
                         predicate="work:decision",
                         object=StringObject(
                             kind="string",
                             value="Ship the reviewed release.",
                         ),
                         interpretation="explicit",
-                        support=support,
+                        support=("source",),
                     ),
-                )
-                + (
-                    (
-                        AddMention(
-                            kind="mention",
-                            local_id="mention",
-                            entity=LocalEntity(kind="local", local_id="project"),
-                            support=support,
-                        ),
-                    )
-                    if passages
-                    else ()
                 ),
             ),
         )
     )
-    if not isinstance(enriched.receipt, ChangeSetReceipt):
+    if enriched.receipt is None:
         raise RuntimeError(enriched.model_dump_json())
-    record_id = next(m.stored_id for m in enriched.receipt.mappings if m.local_id == "decision")
+    record_id = enriched.receipt.assertions[0].stored_id
     return evidence, scope, attribution, record_id
 
 
 def run(path: Path, *, passages: bool = False) -> str:
     evidence, scope, _, record_id = supply(path, passages=passages)
-    return KnowledgeService(evidence.database, evidence.identity).contribution(
-        scope, record_id,
-    ).model_dump_json()
+    return (
+        KnowledgeService(evidence.database, evidence.identity)
+        .contribution(
+            scope,
+            record_id,
+        )
+        .model_dump_json()
+    )
 
 
 if __name__ == "__main__":

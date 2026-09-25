@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import json
+import multiprocessing
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from uuid import uuid4
 
@@ -9,9 +11,10 @@ from pydantic import ValidationError
 from support.evidence import environment, put, receipt
 from support.knowledge import preset
 
+from kg.graph import LocalGraphSession
 from kg.indexing._passages import produce
 from kg.knowledge import KnowledgeAdministration, KnowledgeService, _record, _write
-from kg.knowledge._authoring_models import (
+from kg.models.authoring import (
     AuthoredAlias,
     AuthoredAssertion,
     AuthoredClassification,
@@ -26,6 +29,7 @@ from kg.knowledge._authoring_models import (
     NewIdentity,
     RecordAuthoringBatch,
     RecordAuthoringDocument,
+    RecordAuthoringOutcome,
     RecordAuthoringRequest,
     SeedCapture,
     SeedSlotIdentity,
@@ -38,6 +42,18 @@ from kg.knowledge._authoring_models import (
 from kg.models.evidence import KnowledgeWriterBinding, LocalAdminAuthority, PolicyGrant
 from kg.models.foundation import Attribution, StoredSelectionRef, StringObject
 from kg.models.knowledge import KnowledgeSchema, PredicateDefinition
+
+
+def _process_record(path, request_json, queue):
+    from kg.evidence import EvidenceDatabase
+    from kg.models.evidence import LocalIdentity
+
+    service = KnowledgeService(
+        EvidenceDatabase(Path(path)),
+        LocalIdentity(principal_id="principal"),
+    )
+    request = RecordAuthoringRequest.model_validate_json(request_json)
+    queue.put(service.record(request).model_dump_json())
 
 
 @pytest.fixture
@@ -143,7 +159,9 @@ def authored_request(env, *, retry_key="record-key"):
         expected_schema_revision=KnowledgeService(
             env.database,
             env.service.identity,
-        ).schema(env.scope).head,
+        )
+        .schema(env.scope)
+        .head,
         support={
             "inspection": SourceCapture(
                 kind="source",
@@ -243,7 +261,7 @@ def test_private_record_compiles_exact_plan_and_authored_receipt(env, monkeypatc
         return original(context, canonical_request, plan, at, budget, **kwargs)
 
     monkeypatch.setattr(_write, "apply_plan", apply_plan)
-    result = _record.record(service, request)
+    result = service.record(request)
     assert result.error is None
     assert result.receipt is not None
     assert len(captured) == 1
@@ -281,9 +299,7 @@ def test_private_record_compiles_exact_plan_and_authored_receipt(env, monkeypatc
         for entity in result.receipt.entities
         for item in entity.items
     )
-    assert all(
-        item.subject_classification is not None for item in result.receipt.assertions
-    )
+    assert all(item.subject_classification is not None for item in result.receipt.assertions)
     assert service.diagnostics.for_request(env.scope, request.request_id).entries
 
 
@@ -344,12 +360,9 @@ def test_complete_inspection_fixture_compiles_to_exact_19_operations(env, monkey
     monkeypatch.setattr(_write, "apply_plan", apply_plan)
     result = _record.record(service, request)
     assert result.status == "applied"
-    expected = json.loads(
-        (fixture_root / "inspection-canonical-operations.json").read_text()
-    )
+    expected = json.loads((fixture_root / "inspection-canonical-operations.json").read_text())
     assert [
-        {"kind": change.kind, "local_id": change.local_id}
-        for change in captured[0].changes
+        {"kind": change.kind, "local_id": change.local_id} for change in captured[0].changes
     ] == expected
     assert len(captured[0].changes) == 19
 
@@ -358,7 +371,7 @@ def test_complete_inspection_fixture_compiles_to_exact_19_operations(env, monkey
 def test_replay_precedes_compilation_and_mutable_state_fences(env, monkeypatch):
     request = authored_request(env)
     service = KnowledgeService(env.database, env.service.identity)
-    first = _record.record(service, request)
+    first = service.record(request)
     assert first.receipt is not None
     source = next(iter(request.document.support.values()))
     assert isinstance(source, SourceCapture)
@@ -379,7 +392,7 @@ def test_replay_precedes_compilation_and_mutable_state_fences(env, monkeypatch):
         raise AssertionError("replay must not compile")
 
     monkeypatch.setattr(_record, "compile_authoring", forbidden_compile)
-    replay = _record.record(service, request)
+    replay = service.record(request)
     assert replay.receipt == first.receipt
     changed = request.model_copy(
         update={
@@ -414,8 +427,7 @@ def test_replay_reauthorizes_all_disclosed_classification_provenance(env):
                 grant
                 for grant in env.policy.grants
                 if not (
-                    grant.namespace == "markdown"
-                    and grant.grant in {"read", "write_knowledge"}
+                    grant.namespace == "markdown" and grant.grant in {"read", "write_knowledge"}
                 )
             ),
             "knowledge_bindings": tuple(
@@ -456,12 +468,97 @@ def test_persist_failure_rolls_back_and_exact_retry_can_commit(env, monkeypatch)
     with pytest.raises(RuntimeError, match="injected"):
         _record.record(service, request)
     with env.database.connection() as connection:
-        assert connection.execute(
-            "SELECT count(*) FROM write_key WHERE operation='record_knowledge'"
-        ).fetchone()[0] == 0
+        assert (
+            connection.execute(
+                "SELECT count(*) FROM write_key WHERE operation='record_knowledge'"
+            ).fetchone()[0]
+            == 0
+        )
         assert connection.execute("SELECT count(*) FROM entity").fetchone()[0] == 0
     monkeypatch.setattr(_record, "_save", original)
     assert _record.record(service, request).status == "applied"
+
+
+@pytest.mark.service
+def test_concurrent_same_retry_and_unknown_commit_replay_exact_receipt(env, monkeypatch):
+    request = authored_request(env, retry_key="concurrent-record")
+    service = KnowledgeService(env.database, env.service.identity)
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        outcomes = tuple(pool.map(service.record, (request, request)))
+    assert outcomes[0].receipt == outcomes[1].receipt
+    assert outcomes[0].status == outcomes[1].status == "applied"
+
+    uncertain = request.model_copy(
+        update={
+            "request_id": "uncertain-record",
+            "retry_key": "uncertain-record",
+            "document": request.document.model_copy(
+                update={
+                    "entities": (
+                        request.document.entities[0].model_copy(
+                            update={
+                                "local_id": "uncertain-device",
+                                "identity": NewIdentity(
+                                    kind="new",
+                                    name="Uncertain device",
+                                    support=("inspection",),
+                                ),
+                                "classifications": (
+                                    request.document.entities[0]
+                                    .classifications[0]
+                                    .model_copy(update={"local_id": "uncertain-device-type"}),
+                                ),
+                                "identifiers": (),
+                            }
+                        ),
+                    ),
+                    "assertions": (),
+                }
+            ),
+        }
+    )
+    original = _record._run
+    committed = []
+
+    def lose_response(*args, **kwargs):
+        outcome = original(*args, **kwargs)
+        committed.append(outcome)
+        raise RuntimeError("lost committed response")
+
+    monkeypatch.setattr(_record, "_run", lose_response)
+    with pytest.raises(RuntimeError, match="lost committed response"):
+        service.record(uncertain)
+    monkeypatch.setattr(_record, "_run", original)
+    replay = service.record(uncertain)
+    assert replay.receipt == committed[0].receipt
+    with env.database.connection() as connection:
+        assert (
+            connection.execute(
+                "SELECT count(*) FROM write_key WHERE operation='record_knowledge'"
+            ).fetchone()[0]
+            == 2
+        )
+
+
+@pytest.mark.process
+def test_independent_processes_share_one_public_record_retry_key(env):
+    request = authored_request(env, retry_key="process-record")
+    context = multiprocessing.get_context("spawn")
+    queue = context.Queue()
+    workers = [
+        context.Process(
+            target=_process_record,
+            args=(str(env.database.path), request.model_dump_json(), queue),
+        )
+        for _ in range(2)
+    ]
+    for process in workers:
+        process.start()
+    outcomes = [RecordAuthoringOutcome.model_validate_json(queue.get(timeout=30)) for _ in workers]
+    for process in workers:
+        process.join(timeout=30)
+        assert process.exitcode == 0
+    assert outcomes[0].receipt == outcomes[1].receipt
 
 
 @pytest.mark.service
@@ -471,7 +568,9 @@ def test_seed_slot_authored_receipt_and_fresh_unchanged_retry(env):
         expected_schema_revision=KnowledgeService(
             env.database,
             env.service.identity,
-        ).schema(env.scope).head,
+        )
+        .schema(env.scope)
+        .head,
         support={
             "catalog": SeedCapture(
                 kind="seed",
@@ -593,16 +692,22 @@ def test_existing_entity_local_selection_uses_exact_review_fence(env):
         ),
         document=document,
     )
-    tampered_classification = document.entities[0].classifications[0].model_copy(
-        update={
-            "select": document.entities[0].classifications[0].select.model_copy(
-                update={
-                    "review_witness": witness.model_copy(
-                        update={"selected_claim_id": "different-claim"}
-                    )
-                }
-            )
-        }
+    tampered_classification = (
+        document.entities[0]
+        .classifications[0]
+        .model_copy(
+            update={
+                "select": document.entities[0]
+                .classifications[0]
+                .select.model_copy(
+                    update={
+                        "review_witness": witness.model_copy(
+                            update={"selected_claim_id": "different-claim"}
+                        )
+                    }
+                )
+            }
+        )
     )
     tampered = request.model_copy(
         update={
@@ -781,17 +886,12 @@ def test_current_selection_witness_compiles_only_authored_assertion(env, monkeyp
     assert result.status == "applied"
     assert len(plans[0].changes) == 1
     assert isinstance(plans[0].changes[0].subject_classification, StoredSelectionRef)
-    assert (
-        plans[0].changes[0].subject_classification.event_id
-        == selected.selection_id
-    )
+    assert plans[0].changes[0].subject_classification.event_id == selected.selection_id
     narrowed = request.model_copy(
         update={
             "scope": request.scope.model_copy(
                 update={
-                    "access": request.scope.access.model_copy(
-                        update={"namespaces": ("email",)}
-                    )
+                    "access": request.scope.access.model_copy(update={"namespaces": ("email",)})
                 }
             )
         }
@@ -848,9 +948,7 @@ def test_passage_backed_mentions_preserve_exact_named_support(env):
                     name="Observed device",
                     support=("passage",),
                 ),
-                mentions=(
-                    AuthoredMention(local_id="mention", support=("passage",)),
-                ),
+                mentions=(AuthoredMention(local_id="mention", support=("passage",)),),
             ),
         ),
     )
@@ -891,9 +989,9 @@ def test_private_batch_preserves_independent_order_and_replay(env):
                                     support=("inspection",),
                                 ),
                                 "classifications": (
-                                    one.document.entities[0].classifications[0].model_copy(
-                                        update={"local_id": "sensor-device"}
-                                    ),
+                                    one.document.entities[0]
+                                    .classifications[0]
+                                    .model_copy(update={"local_id": "sensor-device"}),
                                 ),
                                 "identifiers": (),
                             }
@@ -910,13 +1008,55 @@ def test_private_batch_preserves_independent_order_and_replay(env):
         items=(one, two),
     )
     service = KnowledgeService(env.database, env.service.identity)
-    result = _record.record_batch(service, batch)
+    result = service.record_batch(batch)
     assert result.status == "complete"
     assert tuple(outcome.request_id for outcome in result.outcomes) == (
         one.request_id,
         two.request_id,
     )
-    assert _record.record_batch(service, batch).outcomes == result.outcomes
+    assert service.record_batch(batch).outcomes == result.outcomes
+
+
+@pytest.mark.service
+def test_graph_session_record_and_batch_preserve_replay_and_independent_outcomes(
+    env,
+    tmp_path,
+):
+    request = authored_request(env, retry_key="graph-record")
+    stale = request.model_copy(
+        update={
+            "request_id": "graph-stale",
+            "retry_key": "graph-stale",
+            "document": request.document.model_copy(
+                update={
+                    "expected_schema_revision": (
+                        request.document.expected_schema_revision.model_copy(
+                            update={"definition_hash": "0" * 64}
+                        )
+                    )
+                }
+            ),
+        }
+    )
+    with LocalGraphSession(
+        env.database,
+        env.service.identity,
+        env.scope,
+        graph_directory=tmp_path / "graph",
+    ) as session:
+        first = session.record(request)
+        assert first.receipt is not None
+        assert session.status().state == "dirty"
+        batch = session.record_batch(
+            RecordAuthoringBatch(
+                interface_version="record-authoring-batch/1",
+                batch_id="graph-batch",
+                items=(request, stale),
+            )
+        )
+        assert batch.status == "partial"
+        assert batch.outcomes[0].receipt == first.receipt
+        assert batch.outcomes[1].error.code == "state_conflict"
 
 
 @pytest.mark.service
@@ -938,9 +1078,9 @@ def test_interrupted_batch_replays_prior_item_then_finishes(env, monkeypatch):
                                     support=("inspection",),
                                 ),
                                 "classifications": (
-                                    one.document.entities[0].classifications[0].model_copy(
-                                        update={"local_id": "second-device-type"}
-                                    ),
+                                    one.document.entities[0]
+                                    .classifications[0]
+                                    .model_copy(update={"local_id": "second-device-type"}),
                                 ),
                                 "identifiers": (),
                             }
@@ -963,9 +1103,10 @@ def test_interrupted_batch_replays_prior_item_then_finishes(env, monkeypatch):
     def interrupted(owner, item, **kwargs):
         nonlocal calls
         calls += 1
+        outcome = original(owner, item, **kwargs)
         if calls == 2:
             raise RuntimeError("interrupted batch")
-        return original(owner, item, **kwargs)
+        return outcome
 
     monkeypatch.setattr(_record, "record", interrupted)
     with pytest.raises(RuntimeError, match="interrupted"):
@@ -976,13 +1117,16 @@ def test_interrupted_batch_replays_prior_item_then_finishes(env, monkeypatch):
     assert recovered.outcomes[0].status == "applied"
     assert recovered.outcomes[1].status == "applied"
     with env.database.connection() as connection:
-        assert connection.execute(
-            "SELECT count(*) FROM write_key WHERE operation='record_knowledge'"
-        ).fetchone()[0] == 2
+        assert (
+            connection.execute(
+                "SELECT count(*) FROM write_key WHERE operation='record_knowledge'"
+            ).fetchone()[0]
+            == 2
+        )
 
 
 @pytest.mark.unit
-def test_private_validation_and_public_surface_are_not_compatibility_layers():
+def test_public_validation_and_removed_native_surface_have_no_compatibility_layers():
     with pytest.raises(ValidationError):
         RecordAuthoringDocument.model_validate(
             {
@@ -1025,9 +1169,17 @@ def test_private_validation_and_public_surface_are_not_compatibility_layers():
             },
             strict=True,
         )
-    assert not hasattr(KnowledgeService, "record")
-    with pytest.raises(ModuleNotFoundError):
-        __import__("kg.models.authoring")
+    assert hasattr(KnowledgeService, "record")
+    __import__("kg.models.authoring")
+    foundation = __import__("kg.models.foundation", fromlist=["foundation"])
+    for name in (
+        "ChangeSet",
+        "CreateEntity",
+        "AddClassification",
+        "SelectClassification",
+        "AddAssertion",
+    ):
+        assert not hasattr(foundation, name)
     with pytest.raises(Exception) as error:
         validate_request({})
     assert error.value.code == "invalid_literal_shape"
@@ -1073,7 +1225,7 @@ def test_domain_neutral_fixtures_and_private_engine_have_no_fixture_leakage():
 
     assert not (keys(json.loads(inspection.model_dump_json())) & forbidden_fields)
     owned = (
-        Path("src/kg/knowledge/_authoring_models.py"),
+        Path("src/kg/models/authoring.py"),
         Path("src/kg/knowledge/_authoring.py"),
         Path("src/kg/knowledge/_record.py"),
         *fixture_root.glob("*.json"),

@@ -25,13 +25,11 @@ from kg.models.evidence import LocalIdentity
 from kg.models.execution_events import CommitEvent, EvidenceEvent
 from kg.models.foundation import (
     BatchResult,
-    ChangeSet,
     DocumentReceipt,
     Failure,
     PutDocument,
     Receipt,
     RemoveDocument,
-    SelectClassification,
     WithdrawAssertion,
     WithdrawClassification,
     WriteBatch,
@@ -105,14 +103,9 @@ def write(
             raise EvidenceServiceError("invalid_request")
     context: CanonicalWriteContext | None = None
     receipt: Receipt
-    knowledge = isinstance(request.payload, (ChangeSet, WithdrawAssertion, WithdrawClassification))
+    knowledge = isinstance(request.payload, (WithdrawAssertion, WithdrawClassification))
     try:
-        if participant is not None and (
-            isinstance(request.payload, (WithdrawAssertion, WithdrawClassification))
-            or isinstance(request.payload, ChangeSet) and any(
-                isinstance(c, SelectClassification) for c in request.payload.changes
-            )
-        ):
+        if participant is not None and knowledge:
             raise EvidenceServiceError("unsupported")
         if knowledge:
             root = budget or PrivateBudget(Deadline(time.monotonic() + 30))
@@ -230,16 +223,14 @@ def write(
                 from kg.knowledge._reports import retain_manifest
 
                 assert budget is not None
-                if isinstance(request.payload, (WithdrawAssertion, WithdrawClassification)):
-                    from kg.knowledge import _withdraw
+                from kg.knowledge import _withdraw
 
-                    receipt, status, key_id, manifest = _withdraw.apply(
-                        context, request, at, budget,
-                    )
-                else:
-                    receipt, status, key_id, manifest = knowledge_write.apply(
-                        context, request, at, budget, capture=capture,
-                    )
+                receipt, status, key_id, manifest = _withdraw.apply(
+                    context,
+                    request,
+                    at,
+                    budget,
+                )
                 if capture is not None:
                     retain_manifest(capture, manifest)
             else:

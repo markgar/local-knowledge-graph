@@ -4,11 +4,13 @@ import pytest
 from support.evidence import put, receipt
 from support.query_knowledge import plan, produce, setup, write
 
-from kg.models.execution import ExecutionReport
-from kg.models.foundation import (
+from kg.knowledge._write_models import (
     AddAlias,
     AddAssertion,
     AddEntitySupport,
+)
+from kg.models.execution import ExecutionReport
+from kg.models.foundation import (
     DocumentDependency,
     PathsStep,
     QueryBudget,

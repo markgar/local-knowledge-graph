@@ -8,8 +8,15 @@ from support.graph import fixture, require_native
 from kg.graph import LocalGraphSession, _decisions, _relationships
 from kg.knowledge import KnowledgeAdministration, KnowledgeService
 from kg.knowledge._registry import proposal_digest
+from kg.knowledge._write_models import (
+    AddAssertion,
+)
 from kg.models.evidence import LocalAdminAuthority
-from kg.models.foundation import AddAssertion, SourceSupport, StoredEntity, StringObject
+from kg.models.foundation import (
+    SourceSupport,
+    StoredEntity,
+    StringObject,
+)
 from kg.models.graph import GraphEntitySelector, GraphRelationshipDecisionsRequest
 from kg.models.schema import (
     ConsideredTerm,

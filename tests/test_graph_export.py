@@ -4,16 +4,18 @@ from time import monotonic
 from uuid import uuid4
 
 import pytest
-from support.classification import typed_entity
-from support.graph import fixture
+from support.graph import example, fixture
+from support.query_knowledge import write as write_private
 
 from kg._execution_budget import Deadline, _graph_build_operation
 from kg.evidence._graph_observer import open_graph_source
 from kg.evidence.errors import EvidenceServiceError
 from kg.knowledge import _graph_export as export
 from kg.knowledge._graph_export import GraphEntity, GraphExportError, graph_export
-from kg.models.foundation import (
+from kg.knowledge._write_models import (
     AddEntitySupport,
+)
+from kg.models.foundation import (
     ExpectedState,
     ExternalDocument,
     RemoveDocument,
@@ -57,8 +59,19 @@ def test_complete_mapping_proof_identity_and_exact_semantic_charge(tmp_path):
                         seen[item.assertion_id] = item
                         expected = env.expected[item.assertion_id]
                         assert item.subject_witness == env.witnesses[expected["subject"]]
-                        assert (
-                            tuple(p.captured.reference for p in item.support) == expected["support"]
+                        actual_support = tuple(p.captured.reference for p in item.support)
+                        assert actual_support == tuple(
+                            sorted(
+                                expected["support"],
+                                key=lambda ref: (
+                                    ref.corpus_id,
+                                    ref.source_namespace,
+                                    ref.document_id,
+                                    ref.revision_id,
+                                    ref.anchor_id,
+                                    ref.passage_id or "",
+                                ),
+                            )
                         )
                         if expected["object"]:
                             assert item.object_witness == env.witnesses[expected["object"]]
@@ -152,25 +165,66 @@ def test_real_rejected_activation_trials_have_bounded_live_scratch(tmp_path, rej
     env = fixture(tmp_path / "source.sqlite", decisions=0)
     # A new entity initially has only support in the namespace later excluded.
     support = SourceSupport(kind="source", evidence=(env.references[2],))
-    identifier = env.write((typed_entity(
-        kind="entity", local_id="denied", name="Alternatives", entity_type="project",
-        support=support,
-    ),))["denied"]
+    identifier = env.write(
+        (
+            example.EntityInput(
+                local_id="denied",
+                name="Alternatives",
+                entity_type="project",
+                support=support,
+            ),
+        )
+    )["denied"]
     for start in range(0, rejected, 50):
-        env.write(tuple(AddEntitySupport(
-            kind="entity_support", local_id=f"alternative-{i}",
-            entity=StoredEntity(kind="stored", entity_id=identifier),
-            name="Alternatives",
-            support=SourceSupport(kind="source", evidence=(env.references[1 + i % 2],)),
-        ) for i in range(start, min(start + 50, rejected))))
-    selected = env.write((AddEntitySupport(
-        kind="entity_support", local_id="selected",
-        entity=StoredEntity(kind="stored", entity_id=identifier),
-        name="Alternatives",
-        support=(SeedSupport(kind="seed", source_namespace="notes",
-                             seed_set_id="alternatives", seed_key="selected") if seed else
-                 SourceSupport(kind="source", evidence=(env.references[0],))),
-    ),))["selected"]
+        changes = tuple(
+            AddEntitySupport(
+                kind="entity_support",
+                local_id=f"alternative-{i}",
+                entity=StoredEntity(kind="stored", entity_id=identifier),
+                name="Alternatives",
+                support=SourceSupport(
+                    kind="source",
+                    evidence=(env.references[1 + i % 2],),
+                ),
+            )
+            for i in range(start, min(start + 50, rejected))
+        )
+        dependencies = tuple(
+            {
+                reference.document_id: env.dependencies[reference.document_id]
+                for change in changes
+                for reference in change.support.evidence
+            }.values()
+        )
+        write_private(env, changes, dependencies=dependencies)
+    selected_support = (
+        SeedSupport(
+            kind="seed",
+            source_namespace="notes",
+            seed_set_id="alternatives",
+            seed_key="selected",
+        )
+        if seed
+        else SourceSupport(kind="source", evidence=(env.references[0],))
+    )
+    selected_dependencies = (
+        ()
+        if seed
+        else (env.dependencies[env.references[0].document_id],)
+    )
+    selected = write_private(
+        env,
+        (
+            AddEntitySupport(
+                kind="entity_support",
+                local_id="selected",
+                entity=StoredEntity(kind="stored", entity_id=identifier),
+                name="Alternatives",
+                support=selected_support,
+            ),
+        ),
+        dependencies=selected_dependencies,
+    )["selected"]
     removed = env.evidence.write(WriteRequest(
         contract_version="foundation/1", request_id=str(uuid4()), retry_key=str(uuid4()),
         scope=env.scope, attribution=env.attribution,

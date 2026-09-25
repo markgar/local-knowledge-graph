@@ -1,4 +1,4 @@
-"""Private concise record-authoring values for the pre-cutover engine."""
+"""Strict public record-authoring request, result, and witness values."""
 
 from __future__ import annotations
 
@@ -196,19 +196,13 @@ class AuthoredEntity(Value):
             and self.selection is not None
         ):
             raise ValueError("new identities cannot use an entity-level selection")
-        if (
-            isinstance(self.identity, (NewIdentity, SeedSlotIdentity))
-            and selected
-        ):
+        if isinstance(self.identity, (NewIdentity, SeedSlotIdentity)) and selected:
             local_selection = next(
                 item.select for item in self.classifications if item.local_id == selected[0]
             )
             if local_selection is not None and local_selection.review_witness is not None:
                 raise ValueError("new-entity local selection cannot carry a review witness")
-        if (
-            selected
-            and isinstance(self.identity, (ExistingIdentity, SupportExistingIdentity))
-        ):
+        if selected and isinstance(self.identity, (ExistingIdentity, SupportExistingIdentity)):
             selection = next(
                 item.select for item in self.classifications if item.local_id == selected[0]
             )
@@ -309,9 +303,7 @@ class RecordAuthoringDocument(Value):
                             ):
                                 raise ValueError("mentions require passage evidence")
             for classification in entity.classifications:
-                derived_ids.append(
-                    f"classification/{entity.local_id}/{classification.local_id}"
-                )
+                derived_ids.append(f"classification/{entity.local_id}/{classification.local_id}")
                 if classification.select is not None:
                     derived += 1
             if isinstance(entity.selection, (StoredClaimSelection, ClearSelection)):
@@ -414,7 +406,8 @@ class RecordAuthoringBatch(Value):
     interface_version: Literal["record-authoring-batch/1"]
     batch_id: Token
     items: tuple[RecordAuthoringRequest, ...] = Field(
-        min_length=1, max_length=MAX_BATCH_ITEMS,
+        min_length=1,
+        max_length=MAX_BATCH_ITEMS,
     )
 
     @model_validator(mode="after")
@@ -538,18 +531,15 @@ class RecordAuthoringBatchResult(Value):
     batch_id: Token
     status: Literal["complete", "partial", "failed"]
     outcomes: tuple[RecordAuthoringOutcome, ...] = Field(
-        min_length=1, max_length=MAX_BATCH_ITEMS,
+        min_length=1,
+        max_length=MAX_BATCH_ITEMS,
     )
 
     @model_validator(mode="after")
     def exact_summary(self) -> Self:
         successes = sum(outcome.receipt is not None for outcome in self.outcomes)
         expected = (
-            "complete"
-            if successes == len(self.outcomes)
-            else "partial"
-            if successes
-            else "failed"
+            "complete" if successes == len(self.outcomes) else "partial" if successes else "failed"
         )
         if self.status != expected:
             raise ValueError("batch status disagrees with outcomes")

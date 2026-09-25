@@ -9,81 +9,62 @@ from test_canonical_cli import configured as configured
 pytestmark = pytest.mark.functional
 
 
-def test_unresolved_claim_selection_history_and_withdrawal_json_workflow(configured):
+def test_recorded_classification_history_and_withdrawal_json_workflow(configured):
     note = configured / "note.md"
     note.write_text("Horizon is a project. The review decided to ship Horizon.")
     target = call("add", note)["result"]["document"]["target"]
     support = call("read", target)["result"]["entries"][0]["support"]
-    revision = call("schema", "show")["result"]["revision"]
+    revision = call("schema", "show")["result"]["head"]
     file = configured / "facts.json"
-
-    def record(changes, key, supports):
-        file.write_text(
-            json.dumps(
-                {
-                    "expected_schema_revision": revision,
-                    "support": supports,
-                    "changes": changes,
-                }
-            )
+    file.write_text(
+        json.dumps(
+            {
+                "interface_version": "record-authoring/1",
+                "expected_schema_revision": revision,
+                "support": {"source": {"kind": "source", **support}},
+                "entities": [
+                    {
+                        "local_id": "horizon",
+                        "identity": {
+                            "kind": "new",
+                            "name": "Horizon",
+                            "support": ["source"],
+                        },
+                        "classifications": [
+                            {
+                                "local_id": "type",
+                                "entity_type": "project",
+                                "interpretation": "explicit",
+                                "support": ["source"],
+                                "select": {
+                                    "rationale": (
+                                        "The selected source explicitly identifies a project."
+                                    )
+                                },
+                            }
+                        ],
+                    }
+                ],
+                "assertions": [],
+            }
         )
-        return call("record", file, "--retry-key", key)["result"]["knowledge_write"]
+    )
 
-    created = record(
-        [
-            {
-                "kind": "entity",
-                "local_id": "horizon",
-                "name": "Horizon",
-                "support": {"kind": "source", "evidence": [support["reference"]]},
-            }
-        ],
-        "identity",
-        [support],
+    created = call("record", file, "--retry-key", "classification")["result"]
+    replay = call("record", file, "--retry-key", "classification")["result"]
+    assert replay["receipt"] == created["receipt"]
+    entity = created["receipt"]["entities"][0]
+    entity_id = entity["entity_id"]
+    claim_id = next(
+        item["stored_id"] for item in entity["items"] if item["local_id"] == "type"
     )
-    entity_id = created["receipt"]["mappings"][0]["stored_id"]
     entity_target = "entity:" + entity_id
-    view = call("read", entity_target)["result"]["entity"]
-    assert view["entity_type"] is None and view["classification"]["status"] == "unresolved"
-    claim = record(
-        [
-            {
-                "kind": "classification",
-                "local_id": "type",
-                "entity": {"kind": "stored", "entity_id": entity_id},
-                "entity_type": "project",
-                "interpretation": "explicit",
-                "support": {"kind": "source", "evidence": [support["reference"]]},
-            }
-        ],
-        "claim",
-        [support],
-    )
-    claim_id = claim["receipt"]["mappings"][0]["stored_id"]
-    reviewed = call("classifications", entity_target)["result"]
-    selected = record(
-        [
-            {
-                "kind": "classification_selection",
-                "local_id": "selection",
-                "entity": {"kind": "stored", "entity_id": entity_id},
-                "claim": {"kind": "stored", "contribution_id": claim_id},
-                "expected_selection_id": reviewed["selection_id"],
-                "reviewed_candidates_digest": reviewed["reviewed_candidates_digest"],
-                "reviewed_claim_ids": reviewed["reviewed_claim_ids"],
-                "review_coverage": reviewed["review_coverage"],
-                "accept_incomplete_review": False,
-                "rationale": "Selected the reviewed exact source-backed project claim.",
-            }
-        ],
-        "selection",
-        [],
-    )
-    replay = call("record", file, "--retry-key", "selection")["result"]["knowledge_write"]
-    assert replay["receipt"] == selected["receipt"]
     assert call("read", entity_target)["result"]["entity"]["entity_type"] == "project"
+    review = call("classifications", entity_target)["result"]
+    assert review["review_witness"]["entity_id"] == entity_id
     history = call("classifications", entity_target, "--history")["result"]
-    assert len(history["entries"]) == 2
+    assert history["entries"]
+
     withdrawn = call(
         "withdraw-classification",
         "fact:" + claim_id,

@@ -15,11 +15,12 @@ from kg.knowledge._authorization import writer
 from kg.knowledge._selection import ClassificationWitness, SourceWitness
 from kg.knowledge._write_models import (
     EntityClassificationReceipt,
+    LocalClassificationRef,
     SelectClassification,
 )
+from kg.models.authoring import ClassificationReviewWitness
 from kg.models.foundation import (
     Attribution,
-    LocalClassificationRef,
     StoredClassificationRef,
     StoredEntity,
 )
@@ -214,6 +215,19 @@ def review(
         }
     )
     store.hold(len(encoded.encode()) * 8 + 4096)
+    if schema_head is None:
+        raise EvidenceServiceError("internal_error")
+    review_witness = ClassificationReviewWitness(
+        interface_version="classification-review-witness/1",
+        entity_id=entity_id,
+        schema_revision=schema_head,
+        selection_id=event["event_id"],
+        selected_claim_id=current.claim_id if current is not None else None,
+        reviewed_claim_ids=tuple(c.claim_id for c in values),
+        reviewed_candidates_digest=sha(encoded.encode()),
+        review_coverage=coverage,
+        accept_incomplete_review=coverage == "selected_subset",
+    )
     return ClassificationReview(
         entity_id=entity_id,
         selection_id=event["event_id"],
@@ -223,6 +237,7 @@ def review(
         review_coverage=coverage,
         conflicting_types=len({c.entity_type for c in values}) > 1,
         reviewed_candidates_digest=sha(encoded.encode()),
+        review_witness=review_witness,
     )
 
 

@@ -8,7 +8,14 @@ from kg._execution_budget import PrivateResourceStop
 from kg.evidence._graph_observer import GraphSourceOperation
 from kg.graph import LocalGraphSession, _relationships
 from kg.graph.session import GraphReadContext, _size
-from kg.models.foundation import AddAssertion, EntityObject, SourceSupport, StoredEntity
+from kg.knowledge._write_models import (
+    AddAssertion,
+    EntityObject,
+)
+from kg.models.foundation import (
+    SourceSupport,
+    StoredEntity,
+)
 from kg.models.graph import GraphEntitySelector, GraphTraversalRequest
 
 

@@ -17,7 +17,11 @@ from kg.evidence._values import canonical, now, sha, timestamp, validated
 from kg.evidence.errors import EvidenceServiceError
 from kg.knowledge import _classification
 from kg.knowledge._authoring import CompiledAuthoring, compile_authoring
-from kg.knowledge._authoring_models import (
+from kg.knowledge._reports import retain_manifest
+from kg.knowledge._store import Store
+from kg.knowledge._write import Manifest
+from kg.knowledge._write_models import ChangeSetReceipt
+from kg.models.authoring import (
     AuthoredItemReceipt,
     CaptureReceipt,
     DerivedOperationCounts,
@@ -33,10 +37,6 @@ from kg.knowledge._authoring_models import (
     SourceCaptureReceipt,
     SupportCapture,
 )
-from kg.knowledge._reports import retain_manifest
-from kg.knowledge._store import Store
-from kg.knowledge._write import Manifest
-from kg.knowledge._write_models import ChangeSetReceipt
 from kg.models.execution_events import CommitEvent, EvidenceEvent
 from kg.models.foundation import (
     Failure,
@@ -126,8 +126,7 @@ def _contribution_id(
     local_id: str,
 ) -> str:
     row = context.connection.execute(
-        "SELECT contribution_id FROM contribution "
-        "WHERE corpus_id=? AND key_id=? AND local_id=?",
+        "SELECT contribution_id FROM contribution WHERE corpus_id=? AND key_id=? AND local_id=?",
         (request.scope.corpus_id, key_id, local_id),
     ).fetchone()
     if row is not None:
@@ -207,7 +206,11 @@ def _build_receipt(
             if plan_local is None:
                 raise EvidenceServiceError("internal_error")
             contribution_id = _contribution_id(
-                context, request, compiled, key_id, plan_local,
+                context,
+                request,
+                compiled,
+                key_id,
+                plan_local,
             )
             row = store.row("contribution", contribution_id)
             witness, current = store.support(row)
@@ -224,8 +227,7 @@ def _build_receipt(
                 if not isinstance(contribution.payload, AssertionPayload):
                     raise EvidenceServiceError("internal_error")
                 witnesses = {
-                    witness.entity_id: witness
-                    for witness in contribution.classification_witnesses
+                    witness.entity_id: witness for witness in contribution.classification_witnesses
                 }
                 subject_classification = witnesses.get(
                     contribution.payload.subject.entity_id,
@@ -256,12 +258,14 @@ def _build_receipt(
             else:
                 identity = authored.identity
                 entity_id = (
-                    identity.entity_id
-                    if hasattr(identity, "entity_id")
-                    else mapping[plan_id]
+                    identity.entity_id if hasattr(identity, "entity_id") else mapping[plan_id]
                 )
                 identity_contribution_id = _contribution_id(
-                    context, request, compiled, key_id, plan_id,
+                    context,
+                    request,
+                    compiled,
+                    key_id,
+                    plan_id,
                 )
                 identity_support_names = compiled.support_names[plan_id]
             head = _classification.head(store, entity_id)
@@ -272,21 +276,17 @@ def _build_receipt(
                     entity_id=entity_id,
                     identity_contribution_id=identity_contribution_id,
                     identity_support_names=identity_support_names,
-                    identity_captures=tuple(
-                        captures[name] for name in identity_support_names
-                    ),
+                    identity_captures=tuple(captures[name] for name in identity_support_names),
                     classification=selected,
                     selection_id=head["event_id"],
                     selected_claim_id=head["claim_id"],
                     items=tuple(
-                        item(local_id)
-                        for local_id in compiled.entity_item_ids[authored.local_id]
+                        item(local_id) for local_id in compiled.entity_item_ids[authored.local_id]
                     ),
                 )
             )
         assertions = tuple(
-            item(assertion.local_id, assertion=True)
-            for assertion in request.document.assertions
+            item(assertion.local_id, assertion=True) for assertion in request.document.assertions
         )
         counts = compiled.operation_counts
         receipt = RecordAuthoringReceipt(
@@ -578,9 +578,7 @@ def _run(
         with capture.guard():
             capture.append(
                 CommitEvent(
-                    observation=(
-                        context.commit_outcome if context is not None else "not_attempted"
-                    )
+                    observation=(context.commit_outcome if context is not None else "not_attempted")
                 )
             )
 
@@ -622,11 +620,5 @@ def record_batch(
     return RecordAuthoringBatchResult(
         batch_id=batch.batch_id,
         outcomes=outcomes,
-        status=(
-            "complete"
-            if successes == len(outcomes)
-            else "partial"
-            if successes
-            else "failed"
-        ),
+        status=("complete" if successes == len(outcomes) else "partial" if successes else "failed"),
     )

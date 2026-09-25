@@ -129,7 +129,7 @@ All fresh states report pending indexing/enrichment, with separate stored
 `indexing_reason` and `enrichment_reason` values of `processor_not_available`.
 EvidenceService has no indexing/search/readiness setter or public passage production.
 The separate IndexService owns standalone processing and default index readiness.
-Explicit bounded enrichment uses the same owner transaction and shared key ledger.
+Explicit bounded record authoring uses the same owner transaction and shared key ledger.
 
 The private `kg.indexing._passages` kernel prepares exact authorized source outside
 the publication lock, then reauthorizes the current active state/writer/policy in an
@@ -296,7 +296,7 @@ through complete-result admission. All serialized occurrences and transient deco
 copies count; public/native proof shapes are unchanged.
 
 Public service, `kg record --retry-key`, `kg classifications` and
-`kg withdraw-classification` expose this lifecycle. See [CONTRACTS.md](CONTRACTS.md#knowledge-enrichment-and-reads)
+`kg withdraw-classification` expose this lifecycle. See [CONTRACTS.md](CONTRACTS.md#knowledge-authoring-and-reads)
 and `kg record --example` for exact fields, bounded review and retry recipes.
 Incompatible `/4` stores remain intact; only explicit fresh `/5` initialization/reload
 is supported. No automatic schema generation or broad agent extraction is implied.
@@ -385,14 +385,14 @@ assertion captures are unchanged.
 
 ### Atomic owned knowledge
 
-Anchor/passage-backed enrichment uses the existing canonical schema and the evidence
-dispatcher's single write owner. It revalidates exact namespace/owner/writer
-bindings, the exact active schema revision, all direct support, stored endpoints and the
-whole planned post-state before committing mappings, provenance and a complete
-receipt together. Independent creation-support contributions activate identity;
-aliases, identifiers, mentions and assertions do not. Forward AddEntitySupport can supply
-a stored endpoint within the unit, but only for an historically visible,
-nonretired identity with exactly matching name/type.
+`KnowledgeService.record` accepts one strict `record-authoring/1` request and
+compiles it privately under the existing canonical write owner. It revalidates
+exact namespace/owner/writer bindings, the exact active schema revision, all
+named support, stored endpoints and the whole planned post-state before committing
+authored mappings, provenance and a complete receipt together. Independent
+identity-support contributions activate identity; aliases, identifiers, mentions
+and assertions do not. Existing identities are named by exact stored ID, never
+resolved by name.
 
 Passage support uses E3's exact immutable membership resolver on that same
 authorized transaction, with the validated passage/set IDs persisted alongside
@@ -464,7 +464,7 @@ Shared VM and scratch allowances remain cumulative. Every eligible entity/decisi
 admitted to a composed selection reserves its public event once; internal
 support checks do not masquerade as public evidence requests. The private adapter
 produces real selection records but does not itself implement Q1 count or retained
-query support. See [knowledge contracts](CONTRACTS.md#knowledge-enrichment-and-reads).
+query support. See [knowledge contracts](CONTRACTS.md#knowledge-authoring-and-reads).
 
 ## Durable processing control
 
@@ -940,8 +940,9 @@ Entity selection never treats a prefix as unique. Relationship filtering retains
 the underlying assertion page's continuation, even when no displayed row matches.
 Record derives dependencies only from copied exact support states and never creates
 implicit endpoints. Its read-only evidence scaffold copies exact current support
-and active schema while leaving `changes` empty. Writes preserve the canonical
-outcome under `knowledge_write` and add ordered copy-ready mappings only on success.
+and active schema while leaving `entities` and `assertions` empty. Writes return
+the `RecordAuthoringOutcome` directly with a canonical authored receipt and no
+native plan or flat derived-change mappings.
 Withdrawals retain history. Document search and direct decisions remove redundant
 parallel evidence/result copies while preserving citations, execution accounting,
 failure fencing, counts and completeness; relationship graph proofs remain
@@ -1081,8 +1082,11 @@ from kg.retrieval import SearchService
 search = SearchService(Database(Path("index.sqlite3")), "corpus-id")
 results = search.search("release evidence", subject="Atlas", limit=20)
 report = search.explain_search(
-    "release evidence", subject="Atlas", limit=20,
-    include_quotes=False, trace_limit=50,
+    "release evidence",
+    subject="Atlas",
+    limit=20,
+    include_quotes=False,
+    trace_limit=50,
 )
 ```
 
@@ -1235,8 +1239,8 @@ readiness or concurrency semantics. Lexical explanations use version 1.
 ### Foundation value contracts (validation only)
 
 `kg.models.foundation` implements strict `foundation/1` request/result values for
-supplied content, evidence, document writes, atomic enrichment descriptions,
-batch correlation, synchronization/metadata snapshots and dependent query plans.
+supplied content, evidence, document and owned-withdrawal writes, batch correlation,
+synchronization/metadata snapshots and dependent query plans.
 `model_validate_json()` checks types, bounds, exact code-point source slices,
 request-local references, supporting-document dependency coverage and declared
 scope. `model_dump_json()` round-trips these immutable values without normalizing

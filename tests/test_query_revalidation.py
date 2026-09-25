@@ -11,7 +11,7 @@ from kg.evidence._read_context import observe, read_context
 from kg.knowledge._reader import KnowledgeReader
 from kg.knowledge._selection import DecisionSelectionItem
 from kg.knowledge._store import RevalidationCache, Store
-from kg.models.foundation import CreateEntity
+from kg.knowledge._write_models import CreateEntity
 from kg.query import QueryService
 
 

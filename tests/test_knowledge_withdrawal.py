@@ -11,8 +11,8 @@ from support.withdrawal import withdrawal
 
 from kg.evidence import EvidenceService, EvidenceServiceError
 from kg.knowledge import KnowledgeService
+from kg.knowledge._write_models import AddAssertion, EntityObject
 from kg.models.foundation import (
-    AddAssertion,
     AssertionWithdrawalReceipt,
     StoredEntity,
     StringObject,
@@ -167,7 +167,6 @@ def test_all_assertion_object_kinds_and_incoming_outgoing_pages(tmp_path):
     from kg.knowledge import KnowledgeAdministration
     from kg.models.foundation import (
         BooleanObject,
-        EntityObject,
         IntegerObject,
         TimestampObject,
     )

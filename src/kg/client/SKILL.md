@@ -93,19 +93,20 @@ Never manufacture approval; software-design approval, unattended mode, setup and
 model permission are not schema-content consent. Changed content needs renewed
 review. A stale base needs reassessment, not silent rebasing. Apply creates no facts.
 
-## Grounded records and changes
+## Grounded records
 
 Use `kg record --from-evidence evidence:... --json` to prefill exact current
 support and active schema into an incomplete, non-writing template. Use the short
 `kg record --example` / complete `--schema` references for creation, reuse,
 classification, selection and assertions. Copy returned evidence support
-objects and entity `reference` objects unchanged; command `target` strings are not
-record objects. Named support can reuse exact captures. Explicitly create local
-entities or deliberately reuse stored IDs; endpoints are never implicit.
+objects unchanged. Reuse entities by exact stored ID and copy current selection
+witnesses from entity reads when a typed endpoint requires them; command `target`
+strings are not record objects. Named support can reuse exact captures. Explicitly
+create local entities or deliberately reuse stored IDs; endpoints are never implicit.
 
 Identity requires independent existence support, not a type. For identifiable but
-unclassified things, omit `entity_type` from `entity`/`entity_support`; never force
-a type or merge. Classification is a separately supported authored claim.
+unclassified things, leave `classifications` empty; never force a type or merge.
+Classification is a separately supported authored claim.
 `kg classifications entity:ID --json` returns exact selection/review preconditions;
 copy them into an explicit selection with rationale. Only the original owner AND
 writer selects/clears. Complete review is bounded at 200 eligible visible claims;
@@ -119,10 +120,11 @@ Use `kg classifications entity:ID --history` for selection history and
 Independent identity/history survives; reassess before new claims/assertions.
 
 Copy the exact schema `result.revision` into `expected_schema_revision`.
-Persist input/key before `kg record FILE --retry-key KEY --json`; preserve
-`knowledge_write` and its ordered copy-ready mappings. Selection-event mappings
-have no fact target. Unknown record/schema outcomes permit only identical input/key
-retry; honor conflicts/expiry. Never substitute latest schema/source captures.
+Persist input/key before `kg record FILE --retry-key KEY --json`; preserve the
+direct `RecordAuthoringOutcome` and canonical authored receipt. The public result
+does not expose the private expanded plan or flat derived-change mappings. Unknown
+record/schema outcomes permit only identical input/key retry; honor
+conflicts/expiry. Never substitute latest schema/source captures.
 Read changed evidence and reassess. Label interpretation honestly, not "explicit".
 
 Every `add` creates a new document; filename/content is not identity. Read before

@@ -10,14 +10,16 @@ from support.query_knowledge import plan, setup, write
 
 from kg.knowledge import KnowledgeAdministration, KnowledgeService
 from kg.knowledge._registry import proposal_digest
+from kg.knowledge._write_models import (
+    AddAssertion,
+    EntityObject,
+    LocalEntity,
+)
 from kg.models.evidence import LocalAdminAuthority
 from kg.models.foundation import (
-    AddAssertion,
     Attribution,
     BooleanObject,
     DocumentDependency,
-    EntityObject,
-    LocalEntity,
     SourceSupport,
     StringObject,
 )

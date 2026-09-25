@@ -84,10 +84,10 @@ the canonical evidence store.
 | Standalone indexing | `kg.indexing.IndexService`: immutable passages, fenced attempts, actual pinned-provider vector projections, incremental reuse/rebuild, model-free readiness and bounded cleanup. No coordinated job execution. |
 | Canonical search | `kg.indexing.EvidenceSearchService`: scoped lexical/dense candidates, fusion/deduplication, reranking and exact supplied-source citations in one guarded snapshot. Both providers and complete matching projections are mandatory. |
 | Processing control | `kg.processing`: trusted plan/worker registration, scheduling/deduplication, fenced claims/heartbeats/failure, bounded recovery, and idempotent retry episodes. Controls do not execute or acknowledge work. |
-| Owned knowledge | Atomic anchor/passage-backed entities, independent entity support, aliases, identifiers, explicit passage mentions and typed assertions through `EvidenceService.write`; current/history reads and evidence-backed, explicitly approved additive vocabulary revisions. Explicit decision assertions produce distinct submitted records. |
+| Owned knowledge | Atomic anchor/passage-backed entities, independent entity support, aliases, identifiers, explicit passage mentions and typed assertions through `KnowledgeService.record`; current/history reads and evidence-backed, explicitly approved additive vocabulary revisions. Explicit decision assertions produce distinct submitted records. |
 | Markdown demonstration | Manifest-selected local Markdown, explicit records, seed entities, structured reads, source context and revision comparison in its separate database. |
 | Demonstration search | Full local keyword + semantic retrieval, fusion/deduplication and reranking; matching vector preparation is required. No keyword-only fallback. |
-| Foundation values | Strict `foundation/1` request/result validation. Document and bounded enrichment operations execute through `EvidenceService`; canonical anchor/passage-evidence plans execute through `QueryService`. Whole-set seed replacement is not implemented. |
+| Foundation values | Strict `foundation/1` document/withdrawal request/result validation and strict `record-authoring/1` knowledge requests. Canonical anchor/passage-evidence plans execute through `QueryService`. Whole-set seed replacement is not implemented. |
 | Canonical queries | `kg.query.QueryService`: full canonical ranked search, historical anchor/passage reads and actual K1 exact entity resolution, explicit decision records/counts, bounded retained support inspection, spawned deadline supervision and fresh release authorization. Paths remain unsupported. |
 | Execution diagnostics | Evidence, indexing, processing and query calls retain bounded, authorized in-memory summaries. Named explained wrappers execute once; detailed traces and source quotes require opt-in. |
 | Optional local graph | `kg.graph.LocalGraphSession` lazily builds/reuses an exact-scope disposable Ladybug graph, explicitly refreshes it and serializes controlled canonical writes. Typed `traverse` and `relationship_decisions` return full cited explicit relationship/decision proofs and exact joined counts; SQLite stays authoritative. |
@@ -222,7 +222,7 @@ does not enable enrichment/query capabilities. Trusted schema provisioning has n
 scoped execution report. See the [registry API](CONTRACTS.md#knowledge-registry-api)
 and [storage behavior](SPEC.md#immutable-knowledge-registry).
 
-For real source-backed enrichment, run
+For real source-backed authoring, run
 `uv run python examples/knowledge_enrichment.py --database /tmp/knowledge-demo.sqlite3`.
 It discovers an actual supplied anchor, atomically submits an entity and explicit
 decision, and reads the assertion's immutable provenance. Repeating it replays the
@@ -233,7 +233,7 @@ replacement and atomic correction/supersession remain unsupported.
 Typed cited one-hop queries use `LocalGraphSession.traverse`.
 `QueryService` composes the real
 entity/decision reader for public decision selections and counts.
-See [knowledge service contracts](CONTRACTS.md#knowledge-enrichment-and-reads).
+See [knowledge service contracts](CONTRACTS.md#knowledge-authoring-and-reads).
 
 To withdraw one exact owned assertion while preserving its evidence/history:
 
@@ -497,8 +497,8 @@ incoming neighbors. Use an actual registered predicate, not an inferred path.
 Entity discovery uses eligible listing and exact case-sensitive name/alias matches,
 not semantic search or first-match selection. Empty/incomplete matches do not prove
 an entity is new; list/page entities or inspect source evidence first.
-Read output supplies identifying support and
-an explicit stored `reference` suitable for reuse in record input.
+Read output supplies identifying support, the exact `entity_id`, and a
+`selection_witness` when the entity is typed.
 
 Entity and contribution pages have `has_more` and `next_after`; continue with
 `--after`. Relationship inspection filters entity-valued assertions involving
@@ -508,41 +508,42 @@ bounded, fenced service scan establishes uniqueness; ambiguity returns candidate
 and budget failure never becomes a false uniqueness claim. Paging is not a
 cross-command snapshot.
 
-Record input accepts a named `support` map copied from exact reads, for example
-`"support": {"meeting": <returned support object>}`; changes refer to it with
-`"support": {"kind": "source", "evidence": ["meeting"]}`. Multiple names are
-conjunctive evidence. The original support-array/native-reference form remains
-accepted. Modes cannot be mixed; unknown/unused names, duplicate keys/evidence
-and conflicting captured states are rejected before writing. Canonical limits
-apply after expansion. `kg record --from-evidence` authorizes exact current
-citations and copies the active schema/support into `result.record_template` with
-`changes: []`; it chooses no identity, type, predicate, value, interpretation,
-rationale, selection, or approval and performs no write. See `kg record --example`
-and `--schema`.
+Record input is one strict `record-authoring/1` document. Its named `support` map
+contains exact copied source or seed captures; each authored identity,
+classification, alias, identifier, mention, or assertion names its own support.
+Multiple source names are conjunctive evidence. Unknown/unused names, duplicate
+keys/evidence, mixed support kinds, conflicting captured states, and the removed
+native `changes` shape are rejected. Canonical limits apply after private
+expansion. `kg record --from-evidence` authorizes exact current citations and
+copies the active schema/support into `result.record_template` with empty
+`entities` and `assertions`; it chooses no identity, type, predicate, value,
+interpretation, rationale, selection, or approval and performs no write. See
+`kg record --example` and `--schema`.
 
-Identity can remain unresolved with exact existence support and no edges. Do not put
-`entity_type` on `entity`/`entity_support` or coerce a local export/certificate into a
-project. Author a supported `classification` claim separately and explicitly select it
-using the exact review from `kg classifications entity:ID --json`. Only the original
-identity owner/writer selects or clears. Typed assertions capture selected events;
-same-type replacements, A-to-B-to-A and refresh never revive old assertions.
+Identity can remain unresolved with exact existence support and no edges. Author
+a supported classification claim separately and explicitly select it using the
+exact review witness from `kg classifications entity:ID --json`. Existing typed
+entities and assertion endpoints use the exact selection witness returned by
+`kg read entity:ID --json`. Only the original identity owner/writer selects or
+clears. Typed assertions capture selected events; same-type replacements,
+A-to-B-to-A and refresh never revive old assertions.
 `kg classifications entity:ID --history --json` preserves authorized history;
 `kg withdraw-classification fact:ID --retry-key KEY` terminally withdraws a claim
 without erasing identity/evidence. Persist the input and retry key before recording.
 See [the input recipe](src/kg/client/record-example.md) for compound creation,
 selection-only input, bounded subset recovery and unknown-outcome retry.
 
-The client derives dependencies
-from the captured states, never current/latest replacements. Every endpoint is an
-explicit local creation or stored-ID reuse. The complete canonical write result is
-returned unchanged under `knowledge_write`. Successful change sets also return
-ordered copy-ready `mappings` with each local ID, change kind, stored ID, native
-stored reference where one exists, and a valid inspection target/command.
-Classification-selection events intentionally have no fake `fact:` target.
-Fact/entity reads include copy-ready
-`evidence_targets` for exact source inspection. Copy a returned entity `reference`
-object directly into record's `subject`/`entity`; `target` strings are command
-arguments, not record objects. Withdrawal is owned assertion
+The service derives dependencies from captured states, never current/latest
+replacements. Every endpoint is an explicit local declaration. Successful record
+results return the `RecordAuthoringOutcome` directly, including the canonical
+authored receipt, copied captures, authored-item mappings, classification outcome,
+and bounded private expansion counts. No native plan or flat derived-change
+mapping is exposed.
+Fact/entity reads include copy-ready `evidence_targets` for exact source inspection.
+To reuse a typed entity, declare an `existing` identity with the returned
+`entity.entity_id` and `entity.selection_witness`, then reference that declaration's
+local ID from an assertion. `target` strings are command arguments, not record
+objects. Withdrawal is owned assertion
 withdrawal only, requires noninteractive confirmation and preserves history.
 Entity/knowledge history remains subject to current authorization.
 
@@ -875,19 +876,20 @@ executable that implements the demo commands; canonical `kg` does not.
 ## Foundation value validation
 
 `kg.models.foundation` supplies immutable, strict `foundation/1` values for
-document-write descriptions, bounded enrichment changes and dependent query plans.
+document and owned-withdrawal writes plus dependent query plans.
 It checks shape, declared scope, exact source slices, references and result
 correlation. Models alone do **not** ingest, execute, authorize or persist requests;
-the canonical services execute their documented subsets separately, including
-document/enrichment writes and supported query plans. There is no CLI command for
-submitting these values.
+the canonical services execute their documented subsets separately. Public
+knowledge authoring uses `kg.models.authoring.RecordAuthoringRequest` through
+`KnowledgeService.record`, while foundation writes retain documents and owned
+withdrawals.
 
 ```python
 from pathlib import Path
-from kg.models.foundation import WriteRequest
+from kg.models.authoring import RecordAuthoringDocument
 
-request = WriteRequest.model_validate_json(
-    Path("corpora/foundation/enrichment.json").read_text(encoding="utf-8")
+request = RecordAuthoringDocument.model_validate_json(
+    Path("record.json").read_text(encoding="utf-8")
 )
 payload = request.model_dump_json()
 schema = WriteRequest.model_json_schema()

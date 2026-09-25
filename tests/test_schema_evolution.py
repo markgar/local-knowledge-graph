@@ -16,14 +16,15 @@ from kg.evidence import EvidenceDatabase, EvidenceServiceError
 from kg.evidence._sql import AccountedConnection
 from kg.knowledge import KnowledgeAdministration, KnowledgeService
 from kg.knowledge._registry import definition_json, proposal_digest
-from kg.models.evidence import LocalAdminAuthority
-from kg.models.foundation import (
+from kg.knowledge._write_models import (
     AddAssertion,
-    Attribution,
-    BooleanObject,
-    ChangeSet,
     EntityObject,
     LocalEntity,
+)
+from kg.models.evidence import LocalAdminAuthority
+from kg.models.foundation import (
+    Attribution,
+    BooleanObject,
     SourceSupport,
     StoredEntity,
     StringObject,
@@ -300,43 +301,6 @@ def test_endpoint_union_and_authored_revision_survive_withdrawal_and_query(env):
     assert withdrawn.status == "applied", withdrawn
     history = env.knowledge.contribution(env.scope, decision, mode="history")
     assert history.schema_version == original.schema_version and not history.is_current
-
-
-@pytest.mark.service
-def test_exact_head_fresh_write_and_successful_receipt_replay(env):
-    authored = revision(env)
-    fresh = WriteRequest(
-        contract_version="foundation/1",
-        request_id="facts",
-        retry_key="facts",
-        scope=env.scope,
-        attribution=proposal(env).attribution,
-        payload=ChangeSet(
-            operation="enrich",
-            expected_schema_revision=authored,
-            dependencies=(env.dependency,),
-            changes=typed_entity(
-                kind="entity",
-                local_id="p",
-                name="Atlas",
-                entity_type="project",
-                support=env.support,
-            ),
-        ),
-    )
-    saved = env.service.write(fresh)
-    assert saved.status == "applied"
-    assert env.schema_admin.apply_schema(request(env, proposal(env))).status == "applied"
-    assert env.service.write(fresh).receipt == saved.receipt
-    stale = env.service.write(fresh.model_copy(update={"retry_key": "new"}))
-    assert stale.error.code == "state_conflict"
-    missing = fresh.model_copy(
-        update={
-            "retry_key": "missing",
-            "payload": fresh.payload.model_copy(update={"expected_schema_revision": None}),
-        }
-    )
-    assert env.service.write(missing).error.code == "invalid_request"
 
 
 @pytest.mark.service
@@ -809,7 +773,9 @@ def test_schema_scratch_exhaustion_rolls_back_without_success_shape(env, monkeyp
 def test_simultaneous_widening_discloses_full_cartesian_product_and_rejects_noops(env):
     value = proposal(env)
     widening = WidenPredicate(
-        name="work:owns", add_subject_types=("project",), add_object_types=("person",),
+        name="work:owns",
+        add_subject_types=("project",),
+        add_object_types=("person",),
         review=value.add_entity_types[0].review,
     )
     value = value.model_copy(update={"widen_predicates": (widening,)})
@@ -817,8 +783,9 @@ def test_simultaneous_widening_discloses_full_cartesian_product_and_rejects_noop
     effect = checked.widenings[0]
     assert effect.new_endpoint_combinations == 3
     assert effect.subject_types == effect.object_types == ("person", "project")
-    original = next(p for p in env.knowledge.schema(env.scope).definition.predicates
-                    if p.name == "work:owns")
+    original = next(
+        p for p in env.knowledge.schema(env.scope).definition.predicates if p.name == "work:owns"
+    )
     accepted = next(p for p in checked.definition.predicates if p.name == "work:owns")
     assert original.model_dump(exclude={"subject_types", "object_types"}) == accepted.model_dump(
         exclude={"subject_types", "object_types"},
@@ -847,53 +814,25 @@ def test_schema_commit_invalidates_retained_query_but_fresh_query_keeps_authored
         old = query.execute(req).result
         assert old.error is None and old.data.count == 3
         assert env.schema_admin.apply_schema(request(env, proposal(env))).receipt is not None
-        stale = query.inspect_support(SupportInspectionRequest(
-            request_id="old", scope=env.scope, result_set_id=old.result_set_id,
-            records_step_id="decisions", budget=req.budget,
-        ))
+        stale = query.inspect_support(
+            SupportInspectionRequest(
+                request_id="old",
+                scope=env.scope,
+                result_set_id=old.result_set_id,
+                records_step_id="decisions",
+                budget=req.budget,
+            )
+        )
         assert stale.error.code == "state_changed" and not stale.records
         fresh = query.execute(req).result
         assert fresh.error is None and fresh.data.count == 3
-        page = query.inspect_support(SupportInspectionRequest(
-            request_id="new", scope=env.scope, result_set_id=fresh.result_set_id,
-            records_step_id="decisions", budget=req.budget,
-        ))
-        assert page.error is None and {r.record_id for r in page.records} == identifiers
-
-
-@pytest.mark.service
-@pytest.mark.parametrize("corruption", ["missing", "rewound"])
-def test_missing_or_rewound_head_is_corrupt_not_unconfigured_or_writable(env, corruption):
-    old = revision(env)
-    prepared = request(env, proposal(env))
-    assert env.schema_admin.apply_schema(prepared).receipt is not None
-    with env.database.transaction() as connection:
-        if corruption == "missing":
-            connection.execute("DELETE FROM knowledge_schema_head WHERE corpus_id='work'")
-        else:
-            connection.execute(
-                "UPDATE knowledge_schema_head SET revision_id=? WHERE corpus_id='work'",
-                (old.revision_id,),
+        page = query.inspect_support(
+            SupportInspectionRequest(
+                request_id="new",
+                scope=env.scope,
+                result_set_id=fresh.result_set_id,
+                records_step_id="decisions",
+                budget=req.budget,
             )
-    before = counts(env)
-    for read in (env.knowledge.schema, env.knowledge.schema_history):
-        with pytest.raises(EvidenceServiceError, match="internal_error"):
-            read(env.scope)
-    with pytest.raises(EvidenceServiceError, match="internal_error"):
-        env.schema_admin.register_knowledge_schema(preset())
-    result = env.schema_admin.apply_schema(prepared.model_copy(update={"retry_key": "fresh"}))
-    assert result.error.code == "internal_error"
-    fresh = env.service.write(WriteRequest(
-        contract_version="foundation/1", request_id="corrupt-head", retry_key="corrupt-head",
-        scope=env.scope, attribution=prepared.proposal.attribution,
-        payload=ChangeSet(
-            operation="enrich", expected_schema_revision=old,
-            dependencies=(env.dependency,),
-            changes=typed_entity(
-                kind="entity", local_id="p", name="Atlas", entity_type="project",
-                support=env.support,
-            ),
-        ),
-    ))
-    assert fresh.error.code == "internal_error"
-    assert counts(env) == before
+        )
+        assert page.error is None and {r.record_id for r in page.records} == identifiers

@@ -172,7 +172,7 @@ class SuppliedContent(Value):
         if len({anchor.local_id for anchor in self.anchors}) != len(self.anchors):
             raise ValueError("duplicate anchor local IDs")
         for anchor in self.anchors:
-            if anchor.end > len(self.text) or self.text[anchor.start:anchor.end] != anchor.quote:
+            if anchor.end > len(self.text) or self.text[anchor.start : anchor.end] != anchor.quote:
                 raise ValueError("anchor must match exact source slice")
         return self
 
@@ -223,17 +223,9 @@ class DocumentDependency(Value):
     state_version: Token
 
 
-class LocalEntity(Value):
-    kind: Literal["local"]
-    local_id: Token
-
-
 class StoredEntity(Value):
     kind: Literal["stored"]
     entity_id: Token
-
-
-EntityRef = Annotated[LocalEntity | StoredEntity, Field(discriminator="kind")]
 
 
 class SourceSupport(Value):
@@ -254,117 +246,14 @@ class SeedSupport(Value):
     seed_key: Token
 
 
-Support = Annotated[SourceSupport | SeedSupport, Field(discriminator="kind")]
-
-
-class CreateEntity(Value):
-    kind: Literal["entity"]
-    local_id: Token
-    name: Label
-    support: Support
-
-
-class AddEntitySupport(Value):
-    kind: Literal["entity_support"]
-    local_id: Token
-    entity: StoredEntity
-    name: Label
-    support: Support
-
-
-class AddAlias(Value):
-    kind: Literal["alias"]
-    local_id: Token
-    entity: EntityRef
-    alias: Label
-    support: Support
-
-
-class AddIdentifier(Value):
-    kind: Literal["identifier"]
-    local_id: Token
-    entity: EntityRef
-    scheme: Name
-    value: Token
-    support: Support
-
-
-class AddMention(Value):
-    kind: Literal["mention"]
-    local_id: Token
-    entity: EntityRef
-    support: SourceSupport
-
-    @model_validator(mode="after")
-    def passage_required(self) -> Self:
-        if any(ref.passage_id is None for ref in self.support.evidence):
-            raise ValueError("mentions require passage evidence")
-        return self
-
-
-class LocalClassificationRef(Value):
-    kind: Literal["local"]
-    local_id: Token
-
-
 class StoredClassificationRef(Value):
     kind: Literal["stored"]
     contribution_id: Token
 
 
-class LocalSelectionRef(Value):
-    kind: Literal["local"]
-    local_id: Token
-
-
 class StoredSelectionRef(Value):
     kind: Literal["stored"]
     event_id: Token
-
-
-ClassificationRef = Annotated[
-    LocalClassificationRef | StoredClassificationRef, Field(discriminator="kind"),
-]
-SelectionRef = Annotated[
-    LocalSelectionRef | StoredSelectionRef, Field(discriminator="kind"),
-]
-
-
-class AddClassification(Value):
-    kind: Literal["classification"]
-    local_id: Token
-    entity: EntityRef
-    entity_type: Name
-    interpretation: Literal["explicit", "inferred"]
-    support: Support
-
-
-class SelectClassification(Value):
-    kind: Literal["classification_selection"]
-    local_id: Token
-    entity: EntityRef
-    claim: ClassificationRef | None
-    expected_selection_id: Token | None
-    reviewed_candidates_digest: str | None = Field(pattern=r"^[0-9a-f]{64}$")
-    reviewed_claim_ids: tuple[Token, ...] = Field(max_length=200)
-    review_coverage: Literal["complete", "selected_subset"]
-    accept_incomplete_review: bool
-    rationale: Label
-
-    @model_validator(mode="after")
-    def bounded_review(self) -> Self:
-        if len(self.rationale.encode("utf-8")) > 4096:
-            raise ValueError("Selection rationale exceeds 4096 UTF-8 bytes")
-        if len(set(self.reviewed_claim_ids)) != len(self.reviewed_claim_ids):
-            raise ValueError("Duplicate reviewed claim")
-        if self.accept_incomplete_review != (self.review_coverage == "selected_subset"):
-            raise ValueError("Subset review requires explicit incomplete-review acknowledgement")
-        return self
-
-
-class EntityObject(Value):
-    kind: Literal["entity"]
-    entity: EntityRef
 
 
 class StringObject(Value):
@@ -387,99 +276,6 @@ class TimestampObject(Value):
     value: AwareDatetime
 
 
-AssertionObject = Annotated[
-    EntityObject | StringObject | IntegerObject | BooleanObject | TimestampObject,
-    Field(discriminator="kind"),
-]
-
-
-class AddAssertion(Value):
-    kind: Literal["assertion"]
-    local_id: Token
-    subject: EntityRef
-    predicate: Name
-    object: AssertionObject
-    interpretation: Literal["explicit", "inferred"]
-    support: SourceSupport
-    subject_classification: SelectionRef | None = None
-    object_classification: SelectionRef | None = None
-
-
-Change = Annotated[
-    CreateEntity | AddEntitySupport | AddAlias | AddIdentifier | AddMention | AddAssertion
-    | AddClassification | SelectClassification,
-    Field(discriminator="kind"),
-]
-
-
-class ChangeSet(Value):
-    operation: Literal["enrich"]
-    expected_schema_revision: SchemaRevisionRef | None = None
-    dependencies: tuple[DocumentDependency, ...] = Field(default=(), max_length=MAX_SUPPORTS)
-    changes: tuple[Change, ...] = Field(min_length=1, max_length=MAX_CHANGES)
-
-    @model_validator(mode="after")
-    def references_and_dependencies(self) -> Self:
-        local_ids = [change.local_id for change in self.changes]
-        if len(set(local_ids)) != len(local_ids):
-            raise ValueError("change local IDs must be unique")
-        entities = {change.local_id for change in self.changes if isinstance(change, CreateEntity)}
-        claims = {c.local_id for c in self.changes if isinstance(c, AddClassification)}
-        selections = {c.local_id for c in self.changes if isinstance(c, SelectClassification)}
-        evidence: list[EvidenceRef] = []
-        for change in self.changes:
-            refs: list[EntityRef] = []
-            if isinstance(change, (
-                AddAlias, AddIdentifier, AddMention, AddClassification, SelectClassification,
-            )):
-                refs.append(change.entity)
-            elif isinstance(change, AddAssertion):
-                refs.append(change.subject)
-                if isinstance(change.object, EntityObject):
-                    refs.append(change.object.entity)
-            if any(isinstance(ref, LocalEntity) and ref.local_id not in entities for ref in refs):
-                raise ValueError("unresolved request-local entity")
-            if isinstance(change, SelectClassification):
-                if (
-                    isinstance(change.claim, LocalClassificationRef)
-                    and change.claim.local_id not in claims
-                ):
-                    raise ValueError("Unresolved local classification")
-                continue
-            if isinstance(change, AddAssertion):
-                if change.subject_classification is None:
-                    raise ValueError("Assertion requires subject classification selection")
-                if isinstance(change.object, EntityObject) != (
-                    change.object_classification is not None
-                ):
-                    raise ValueError("Entity objects require an object classification selection")
-                for selection in (change.subject_classification, change.object_classification):
-                    if (
-                        isinstance(selection, LocalSelectionRef)
-                        and selection.local_id not in selections
-                    ):
-                        raise ValueError("Unresolved local classification selection")
-            if isinstance(change.support, SourceSupport):
-                evidence.extend(change.support.evidence)
-        if len(evidence) > MAX_SUPPORTS:
-            raise ValueError("change set exceeds total evidence reference limit")
-        dependencies = {
-            (dep.source_namespace, dep.document_id): dep for dep in self.dependencies
-        }
-        if len(dependencies) != len(self.dependencies):
-            raise ValueError("duplicate supporting document dependency")
-        used: set[tuple[str, str]] = set()
-        for ref in evidence:
-            key = (ref.source_namespace, ref.document_id)
-            dependency = dependencies.get(key)
-            if dependency is None or dependency.revision_id != ref.revision_id:
-                raise ValueError("every evidence revision requires a matching document dependency")
-            used.add(key)
-        if used != set(dependencies):
-            raise ValueError("unused supporting document dependency")
-        return self
-
-
 class WithdrawAssertion(Value):
     operation: Literal["withdraw_assertion"]
     contribution_id: Token
@@ -491,7 +287,7 @@ class WithdrawClassification(Value):
 
 
 WritePayload = Annotated[
-    PutDocument | RemoveDocument | ChangeSet | WithdrawAssertion | WithdrawClassification,
+    PutDocument | RemoveDocument | WithdrawAssertion | WithdrawClassification,
     Field(discriminator="operation"),
 ]
 
@@ -509,23 +305,6 @@ class WriteRequest(Versioned):
         if isinstance(self.payload, (WithdrawAssertion, WithdrawClassification)):
             if not {"read", "write_knowledge"} <= set(access.grants):
                 raise ValueError("read and knowledge grants required")
-        elif isinstance(self.payload, ChangeSet):
-            if "write_knowledge" not in access.grants:
-                raise ValueError("knowledge grant required")
-            for change in self.payload.changes:
-                if isinstance(change, SelectClassification):
-                    continue
-                if isinstance(change.support, SeedSupport):
-                    if "seed" not in access.grants:
-                        raise ValueError("seed grant required")
-                    if change.support.source_namespace not in access.namespaces:
-                        raise ValueError("seed outside declared namespaces")
-                else:
-                    for ref in change.support.evidence:
-                        if ref.corpus_id != self.scope.corpus_id:
-                            raise ValueError("cross-corpus evidence")
-                        if ref.source_namespace not in access.namespaces:
-                            raise ValueError("evidence outside declared namespaces")
         else:
             if "write_documents" not in access.grants:
                 raise ValueError("document grant required")
@@ -564,31 +343,6 @@ class DocumentReceipt(Value):
     processing: ProcessingState
 
 
-class IDMapping(Value):
-    local_id: Token
-    stored_id: Token
-
-
-class EntityClassificationReceipt(Value):
-    entity_id: Token
-    selection_id: Token
-    selected_claim_id: Token | None
-
-
-class ChangeSetReceipt(Value):
-    kind: Literal["enrichment"]
-    mappings: tuple[IDMapping, ...] = Field(min_length=1, max_length=MAX_CHANGES)
-    entity_classifications: tuple[EntityClassificationReceipt, ...] = Field(
-        default=(), max_length=MAX_CHANGES,
-    )
-
-    @model_validator(mode="after")
-    def unique_local_ids(self) -> Self:
-        if len({mapping.local_id for mapping in self.mappings}) != len(self.mappings):
-            raise ValueError("duplicate local ID mapping")
-        return self
-
-
 class AssertionWithdrawalReceipt(Value):
     kind: Literal["assertion_withdrawal"]
     contribution_id: Token
@@ -602,13 +356,20 @@ class ClassificationWithdrawalReceipt(Value):
 
 
 Receipt = Annotated[
-    DocumentReceipt | ChangeSetReceipt | AssertionWithdrawalReceipt
-    | ClassificationWithdrawalReceipt,
+    DocumentReceipt | AssertionWithdrawalReceipt | ClassificationWithdrawalReceipt,
     Field(discriminator="kind"),
 ]
 ErrorCode = Literal[
-    "invalid_request", "forbidden", "not_found", "state_conflict", "retry_conflict",
-    "retry_expired", "unsupported", "state_changed", "stale_index", "budget_exceeded",
+    "invalid_request",
+    "forbidden",
+    "not_found",
+    "state_conflict",
+    "retry_conflict",
+    "retry_expired",
+    "unsupported",
+    "state_changed",
+    "stale_index",
+    "budget_exceeded",
     "internal_error",
 ]
 
@@ -661,12 +422,7 @@ class BatchResult(Versioned):
         for item, outcome in zip(request.items, self.outcomes, strict=True):
             if outcome.receipt is None:
                 continue
-            if isinstance(item.payload, ChangeSet):
-                if not isinstance(outcome.receipt, ChangeSetReceipt) or {
-                    mapping.local_id for mapping in outcome.receipt.mappings
-                } != {change.local_id for change in item.payload.changes}:
-                    raise ValueError("enrichment receipt must map every change")
-            elif isinstance(item.payload, WithdrawAssertion):
+            if isinstance(item.payload, WithdrawAssertion):
                 if (
                     not isinstance(outcome.receipt, AssertionWithdrawalReceipt)
                     or outcome.receipt.contribution_id != item.payload.contribution_id
@@ -855,8 +611,14 @@ class QueryResult(Versioned):
     request_id: Token
     scope: Scope
     outcome: Literal[
-        "complete", "empty", "ambiguous", "unsupported", "partial",
-        "stale_index", "state_changed", "failed",
+        "complete",
+        "empty",
+        "ambiguous",
+        "unsupported",
+        "partial",
+        "stale_index",
+        "state_changed",
+        "failed",
     ]
     read_state_id: Token | None
     result_set_id: Token | None
@@ -913,7 +675,8 @@ class QueryResult(Versioned):
             evidence = [ref for path in self.data.paths for ref in path.support.evidence]
         if any(
             ref.corpus_id != self.scope.corpus_id
-            or ref.source_namespace not in self.scope.access.namespaces for ref in evidence
+            or ref.source_namespace not in self.scope.access.namespaces
+            for ref in evidence
         ):
             raise ValueError("result evidence outside declared scope")
         return self
@@ -942,8 +705,12 @@ class QueryResult(Versioned):
             else:
                 break
         kinds = {
-            "search": "ranked", "resolve": "entities", "records": "records",
-            "count": "aggregate", "paths": "paths", "evidence": "records",
+            "search": "ranked",
+            "resolve": "entities",
+            "records": "records",
+            "count": "aggregate",
+            "paths": "paths",
+            "evidence": "records",
         }
         # An ambiguous dependency stops the plan before its requested output.
         if self.outcome == "ambiguous":
@@ -961,12 +728,16 @@ class QueryResult(Versioned):
                 entity_id != output.entity_id for entity_id in self.data.entity_ids
             ):
                 raise ValueError("exact resolution must return the requested entity")
-        if isinstance(output, RecordsStep) and isinstance(self.data, RecordsResult) and any(
-            record.record_type != output.record_type for record in self.data.records
+        if (
+            isinstance(output, RecordsStep)
+            and isinstance(self.data, RecordsResult)
+            and any(record.record_type != output.record_type for record in self.data.records)
         ):
             raise ValueError("record type disagrees with requested selection")
-        if isinstance(output, PathsStep) and isinstance(self.data, PathsResult) and any(
-            len(path.assertion_ids) > output.max_hops for path in self.data.paths
+        if (
+            isinstance(output, PathsStep)
+            and isinstance(self.data, PathsResult)
+            and any(len(path.assertion_ids) > output.max_hops for path in self.data.paths)
         ):
             raise ValueError("path exceeds requested hop limit")
         if isinstance(output, CountStep) and isinstance(self.data, AggregateResult):
@@ -975,7 +746,8 @@ class QueryResult(Versioned):
             if self.outcome in {"complete", "empty"} and not self.data.exact:
                 raise ValueError("completed count must be exact")
         if (
-            isinstance(output, SearchStep) and isinstance(self.data, RankedResult)
+            isinstance(output, SearchStep)
+            and isinstance(self.data, RankedResult)
             and len(self.data.hits) > output.limit
         ):
             raise ValueError("search result exceeds requested limit")
@@ -990,8 +762,16 @@ class FoundationCapabilities(Versioned):
     max_changes: Literal[100] = MAX_CHANGES
     max_supports: Literal[200] = MAX_SUPPORTS
     write_operations: tuple[str, ...] = (
-        "put_document", "remove_document", "enrich", "withdraw_assertion",
+        "put_document",
+        "remove_document",
+        "withdraw_assertion",
+        "withdraw_classification",
     )
     query_operations: tuple[str, ...] = (
-        "search", "resolve", "records", "count", "paths", "evidence",
+        "search",
+        "resolve",
+        "records",
+        "count",
+        "paths",
+        "evidence",
     )

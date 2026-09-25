@@ -40,7 +40,8 @@ def fresh(tmp_path, monkeypatch):
 def test_public_initial_workflow_no_facts(fresh, domain, subject, obj, predicate, text):
     assert call("schema", "show")["result"]["status"] == "unconfigured"
     caps = call("capabilities")["result"]
-    assert caps["knowledge"]["change_kinds"] == []
+    assert caps["knowledge"]["authoring"] is None
+    assert caps["knowledge"]["authoring_batch"] is None
     assert caps["workflows"]["initial_generation"] == "external_agent_context"
     assert not caps["workflows"]["models_approved"]
     assert caps["workflows"]["search_readiness"] == "not_checked"

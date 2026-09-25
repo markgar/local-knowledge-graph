@@ -58,6 +58,7 @@ SOURCE_AREAS = {
     "retrieval": {"demo"},
 }
 MODEL_AREAS = {
+    "authoring": {"knowledge", "graph", "cli"},
     "foundation": {"evidence", "knowledge", "query"},
     "evidence": {"evidence"},
     "knowledge": {"knowledge", "schema"},

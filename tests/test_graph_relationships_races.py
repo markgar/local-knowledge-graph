@@ -7,10 +7,12 @@ from support.graph import fixture, require_native
 
 from kg.evidence._graph_observer import GraphSourceOperation
 from kg.graph import LocalGraphSession, _relationships
-from kg.models.foundation import (
+from kg.knowledge._write_models import (
     AddAssertion,
     AddEntitySupport,
     EntityObject,
+)
+from kg.models.foundation import (
     ExpectedState,
     ExternalDocument,
     RemoveDocument,

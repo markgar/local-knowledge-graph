@@ -9,6 +9,7 @@ import pytest
 from support.evidence import environment, receipt
 from support.indexing import ControlledProvider, process, request, service
 from support.knowledge import preset, revision, schema
+from support.private_knowledge import write as private_write
 
 from kg._execution_budget import Deadline, PrivateBudget, PrivateResourceStop
 from kg.evidence._sql import AccountedConnection
@@ -20,12 +21,10 @@ from kg.indexing import _storage, _vectors
 from kg.indexing._configuration import configuration_id
 from kg.indexing._process import Process
 from kg.knowledge import KnowledgeAdministration, KnowledgeService
+from kg.knowledge._write_models import ChangeSet, ChangeSetReceipt, CreateEntity
 from kg.models.evidence import KnowledgeWriterBinding, LocalAdminAuthority, PolicyGrant
 from kg.models.execution import ExecutionReport, ExplainOptions
 from kg.models.foundation import (
-    ChangeSet,
-    ChangeSetReceipt,
-    CreateEntity,
     DocumentDependency,
     ExpectedState,
     RemoveDocument,
@@ -783,7 +782,10 @@ def test_vector_rebuild_preserves_committed_k1_anchor_support(tmp_path, monkeypa
             ),
             "knowledge_bindings": tuple(
                 KnowledgeWriterBinding(
-                    namespace=ns, principal_id="principal", owner_id="owner", writer_id="writer"
+                    namespace=ns,
+                    principal_id="principal",
+                    owner_id="owner",
+                    writer_id="writer",
                 )
                 for ns in env.scope.access.namespaces
             ),
@@ -801,7 +803,8 @@ def test_vector_rebuild_preserves_committed_k1_anchor_support(tmp_path, monkeypa
         }
     )
     KnowledgeAdministration(
-        env.database, LocalAdminAuthority(principal_id="admin")
+        env.database,
+        LocalAdminAuthority(principal_id="admin"),
     ).register_knowledge_schema(preset(schema()))
     value = request(
         env,
@@ -810,7 +813,9 @@ def test_vector_rebuild_preserves_committed_k1_anchor_support(tmp_path, monkeypa
     )
     saved = receipt(env.service.write(value))
     anchor = env.service.anchors(
-        env.scope, saved.document_id, saved.processing.state_version
+        env.scope,
+        saved.document_id,
+        saved.processing.state_version,
     ).entries[0]
     index, provider, _ = service(env)
     budgets = []
@@ -829,7 +834,8 @@ def test_vector_rebuild_preserves_committed_k1_anchor_support(tmp_path, monkeypa
         update={
             "request_id": "enrich",
             "retry_key": "enrich",
-            "payload": ChangeSet(expected_schema_revision=revision(env),
+            "payload": ChangeSet(
+                expected_schema_revision=revision(env),
                 operation="enrich",
                 dependencies=(
                     DocumentDependency(
@@ -844,13 +850,16 @@ def test_vector_rebuild_preserves_committed_k1_anchor_support(tmp_path, monkeypa
                         kind="entity",
                         local_id="project",
                         name="Supported project",
-                        support=SourceSupport(kind="source", evidence=(anchor.reference,)),
+                        support=SourceSupport(
+                            kind="source",
+                            evidence=(anchor.reference,),
+                        ),
                     ),
                 ),
             ),
         }
     )
-    outcome = env.service.write(enrichment)
+    outcome = private_write(env.service, enrichment)
     assert outcome.error is None
     assert isinstance(outcome.receipt, ChangeSetReceipt)
     entity_id = outcome.receipt.mappings[0].stored_id
@@ -868,7 +877,10 @@ def test_vector_rebuild_preserves_committed_k1_anchor_support(tmp_path, monkeypa
         env,
         value,
         saved,
-        configuration=IndexConfiguration(contextual=True, representation="generic-title-quote/1"),
+        configuration=IndexConfiguration(
+            contextual=True,
+            representation="generic-title-quote/1",
+        ),
     )
     assert alternate.outcome == "ready"
     assert env.service.document(env.scope, saved.document_id).processing == ready
@@ -885,7 +897,7 @@ def test_vector_rebuild_preserves_committed_k1_anchor_support(tmp_path, monkeypa
     assert knowledge.contribution(env.scope, contribution.contribution_id) == contribution
     assert env.service.citation(env.scope, anchor.citation).quote == anchor.quote
     assert env.service.document(env.scope, saved.document_id).processing == ready
-    assert env.service.write(enrichment).receipt == outcome.receipt
+    assert private_write(env.service, enrichment).receipt == outcome.receipt
     assert len(budgets) == 3 + int(index_first)
     assert all(
         root._root is root

@@ -56,8 +56,15 @@ from kg.graph._session_types import (
     SessionStatus,
     _WarmReadMeter,
 )
+from kg.knowledge import KnowledgeService
 from kg.knowledge._graph_export import GraphCoverage, GraphEvidence
 from kg.knowledge._selection import ClassificationWitness
+from kg.models.authoring import (
+    RecordAuthoringBatch,
+    RecordAuthoringBatchResult,
+    RecordAuthoringOutcome,
+    RecordAuthoringRequest,
+)
 from kg.models.evidence import LocalIdentity
 from kg.models.foundation import (
     BatchResult,
@@ -202,8 +209,11 @@ class _BorrowedRows:
 
 class _BorrowedNativeReader:
     def __init__(
-        self, session: LocalGraphSession, generation: GraphGeneration,
-        native: NativeGraphReadHandle, request: _Request,
+        self,
+        session: LocalGraphSession,
+        generation: GraphGeneration,
+        native: NativeGraphReadHandle,
+        request: _Request,
     ) -> None:
         self._session, self._generation = session, generation
         self._native, self._request = native, request
@@ -218,10 +228,16 @@ class _BorrowedNativeReader:
 
     def execute(self, template: str, parameters: Mapping[str, NativeValue]) -> _BorrowedRows:
         self.check()
-        rows = _BorrowedRows(self, self._native.execute(
-            template, parameters, budget=self._request.budget, cancel=self._request.cancel,
-            timeout_milliseconds=5000,
-        ))
+        rows = _BorrowedRows(
+            self,
+            self._native.execute(
+                template,
+                parameters,
+                budget=self._request.budget,
+                cancel=self._request.cancel,
+                timeout_milliseconds=5000,
+            ),
+        )
         self._rows.append(rows)
         return rows
 
@@ -247,7 +263,9 @@ class GraphReadContext:
     _classification_passages: dict[str, str] = field(default_factory=dict)
 
     def require_classification_captures(
-        self, assertion_id: str, captures: tuple[ClassificationWitness, ...],
+        self,
+        assertion_id: str,
+        captures: tuple[ClassificationWitness, ...],
         evidence: tuple[GraphEvidence, ...],
     ) -> None:
         from kg.evidence._values import sha
@@ -263,7 +281,8 @@ class GraphReadContext:
             if not 1 <= len(sizes) <= 2 or sizes[0][0] != "subject":
                 raise NativeError("invalid_projection")
             with self.meter.reserve_scratch(
-                4096 + 8 * sum(row[1] for row in sizes), "general",
+                4096 + 8 * sum(row[1] for row in sizes),
+                "general",
             ):
                 rows = self.canonical.connection.execute(
                     "SELECT witness_json FROM assertion_classification "
@@ -271,12 +290,16 @@ class GraphReadContext:
                     (self.canonical.scope.corpus_id, assertion_id),
                 ).fetchall()
                 digest = sha("\n".join(row[0] for row in rows).encode())
-            self._output.append(self.meter.reserve_scratch(
-                256 + 8 * len(assertion_id) + len(digest), "general",
-            ))
+            self._output.append(
+                self.meter.reserve_scratch(
+                    256 + 8 * len(assertion_id) + len(digest),
+                    "general",
+                )
+            )
             self._classification_digests[assertion_id] = digest
         with self.meter.reserve_scratch(
-            4096 + 8 * bounded_size(captures, 8 << 20), "general",
+            4096 + 8 * bounded_size(captures, 8 << 20),
+            "general",
         ):
             actual = sha("\n".join(c.model_dump_json() for c in captures).encode())
         if actual != self._classification_digests[assertion_id]:
@@ -297,9 +320,12 @@ class GraphReadContext:
                     raise NativeError("invalid_projection")
                 expected = row[0]
                 if len(self._classification_passages) < 200:
-                    self._output.append(self.meter.reserve_scratch(
-                        256 + 8 * (len(passage_id) + len(expected)), "general",
-                    ))
+                    self._output.append(
+                        self.meter.reserve_scratch(
+                            256 + 8 * (len(passage_id) + len(expected)),
+                            "general",
+                        )
+                    )
                     self._classification_passages[passage_id] = expected
             if proof.passage_set_id != expected:
                 raise NativeError("invalid_projection")
@@ -315,9 +341,12 @@ class GraphReadContext:
             ).fetchone()
             if row is None:
                 raise NativeError("invalid_projection")
-            self._output.append(self.meter.reserve_scratch(
-                256 + 8 * (len(assertion_id) + len(row["schema_version"])), "general",
-            ))
+            self._output.append(
+                self.meter.reserve_scratch(
+                    256 + 8 * (len(assertion_id) + len(row["schema_version"])),
+                    "general",
+                )
+            )
             self._authored_revisions[assertion_id] = row["schema_version"]
         if self._authored_revisions[assertion_id] != revision_id:
             raise NativeError("invalid_projection")
@@ -333,8 +362,13 @@ class GraphReadContext:
 
 class LocalGraphSession:
     def __init__(
-        self, database: EvidenceDatabase, identity: LocalIdentity, scope: Scope, *,
-        graph_directory: Path, expected_coverage: GraphCoverage | None = None,
+        self,
+        database: EvidenceDatabase,
+        identity: LocalIdentity,
+        scope: Scope,
+        *,
+        graph_directory: Path,
+        expected_coverage: GraphCoverage | None = None,
     ) -> None:
         self._database = EvidenceDatabase(database.path.resolve())
         self._identity, self._scope = validated(LocalIdentity, identity), validated(Scope, scope)
@@ -363,6 +397,7 @@ class LocalGraphSession:
         self._root: Path | None = None
         self._active: _Request | None = None
         self._evidence: EvidenceService | None = None
+        self._knowledge: KnowledgeService | None = None
         self._accounting: _BulkReadAccounting | None = None
         self._build_failure: GraphBuildFailure | None = None
         self._cleanup_outcome: GraphCleanupOutcome | None = None
@@ -390,7 +425,10 @@ class LocalGraphSession:
         return self._call(request, probe)
 
     def traverse(
-        self, request: GraphTraversalRequest, *, cancel: Event | None = None,
+        self,
+        request: GraphTraversalRequest,
+        *,
+        cancel: Event | None = None,
     ) -> GraphTraversalResult:
         from kg.graph._relationships import traverse
         from kg.models.graph import GraphTraversalRequest, GraphTraversalResult
@@ -401,16 +439,24 @@ class LocalGraphSession:
             raise GraphSessionError(_translate(error)) from None
         try:
             return self._run_read(
-                request.scope, lambda context: traverse(context, request), cancel=cancel,
+                request.scope,
+                lambda context: traverse(context, request),
+                cancel=cancel,
             )
         except GraphSessionError as error:
             return GraphTraversalResult(
-                request_id=request.request_id, scope=request.scope, outcome="failed",
-                generation=None, error=error.failure,
+                request_id=request.request_id,
+                scope=request.scope,
+                outcome="failed",
+                generation=None,
+                error=error.failure,
             )
 
     def relationship_decisions(
-        self, request: GraphRelationshipDecisionsRequest, *, cancel: Event | None = None,
+        self,
+        request: GraphRelationshipDecisionsRequest,
+        *,
+        cancel: Event | None = None,
     ) -> GraphRelationshipDecisionsResult:
         from kg.graph._decisions import relationship_decisions
         from kg.models.graph import (
@@ -424,17 +470,24 @@ class LocalGraphSession:
             raise GraphSessionError(_translate(error)) from None
         try:
             return self._run_read(
-                request.scope, lambda context: relationship_decisions(context, request),
+                request.scope,
+                lambda context: relationship_decisions(context, request),
                 cancel=cancel,
             )
         except GraphSessionError as error:
             return GraphRelationshipDecisionsResult(
-                request_id=request.request_id, scope=request.scope, outcome="failed",
-                generation=None, error=error.failure,
+                request_id=request.request_id,
+                scope=request.scope,
+                outcome="failed",
+                generation=None,
+                error=error.failure,
             )
 
     def _relationship_decision_selection(
-        self, request: GraphRelationshipDecisionsRequest, *, cancel: Event | None = None,
+        self,
+        request: GraphRelationshipDecisionsRequest,
+        *,
+        cancel: Event | None = None,
     ) -> _GraphDecisionSelection:
         from kg.graph._decisions import _select_relationship_decisions
         from kg.models.graph import GraphRelationshipDecisionsRequest
@@ -444,12 +497,16 @@ class LocalGraphSession:
         except EvidenceServiceError as error:
             raise GraphSessionError(_translate(error)) from None
         return self._run_read(
-            request.scope, lambda context: _select_relationship_decisions(context, request),
+            request.scope,
+            lambda context: _select_relationship_decisions(context, request),
             cancel=cancel,
         )
 
     def _set(
-        self, *, state: GraphState | None = None, **changes: Unpack[_StatusChanges],
+        self,
+        *,
+        state: GraphState | None = None,
+        **changes: Unpack[_StatusChanges],
     ) -> None:
         with self._lock:
             self._status = replace(self._status, **changes)
@@ -491,6 +548,7 @@ class LocalGraphSession:
                     self._accounting = request.bulk.snapshot()
                 with self._lock:
                     self._active = None
+
         try:
             return self._owner.call(run, request.budget.deadline)
         except Exception as error:
@@ -511,16 +569,24 @@ class LocalGraphSession:
                 self._resources = None
             if self._residue is not None:
                 self._cleanup_outcome = self._residue.last_outcome
-                self._set(cleanup_pending=True, cleanup_error=_failure(
-                    "cleanup_failed", self._cleanup_outcome.diagnostic_id,
-                ))
+                self._set(
+                    cleanup_pending=True,
+                    cleanup_error=_failure(
+                        "cleanup_failed",
+                        self._cleanup_outcome.diagnostic_id,
+                    ),
+                )
                 return False
         except Exception as error:
             cleanup_log(error)
             self._cleanup_outcome = GraphCleanupOutcome(False, str(uuid4()))
-            self._set(cleanup_pending=True, cleanup_error=_failure(
-                "cleanup_failed", self._cleanup_outcome.diagnostic_id,
-            ))
+            self._set(
+                cleanup_pending=True,
+                cleanup_error=_failure(
+                    "cleanup_failed",
+                    self._cleanup_outcome.diagnostic_id,
+                ),
+            )
             return False
         self._cleanup_outcome = GraphCleanupOutcome(True)
         self._set(cleanup_pending=False, cleanup_error=None)
@@ -534,9 +600,13 @@ class LocalGraphSession:
                 if outcome.complete:
                     self._residue = None
                 else:
-                    self._set(cleanup_pending=True, cleanup_error=_failure(
-                        "cleanup_failed", outcome.diagnostic_id,
-                    ))
+                    self._set(
+                        cleanup_pending=True,
+                        cleanup_error=_failure(
+                            "cleanup_failed",
+                            outcome.diagnostic_id,
+                        ),
+                    )
                     return False
             except Exception as error:
                 cleanup_log(error)
@@ -578,8 +648,12 @@ class LocalGraphSession:
             self._directory.mkdir(parents=True, exist_ok=True)
             self._root = Path(tempfile.mkdtemp(prefix="session-", dir=self._directory))
         self._stage = build_graph(
-            self._database, self._identity, self._scope, staging_parent=self._root,
-            operation=request.bulk, expected_coverage=self._coverage,
+            self._database,
+            self._identity,
+            self._scope,
+            staging_parent=self._root,
+            operation=request.bulk,
+            expected_coverage=self._coverage,
         )
         self._resources = self._stage.transfer(operation=request.bulk)
         self._stage = None
@@ -591,10 +665,16 @@ class LocalGraphSession:
             or (self._coverage is not None and self._coverage != resource.manifest.coverage)
         ):
             raise GraphSessionError(_failure("invalid_projection"))
-        with resource.observer.operation(
-            resource.binding, self._identity, self._scope,
-            request.budget.deadline, request.budget,
-        ) as operation, operation.release_fence():
+        with (
+            resource.observer.operation(
+                resource.binding,
+                self._identity,
+                self._scope,
+                request.budget.deadline,
+                request.budget,
+            ) as operation,
+            operation.release_fence(),
+        ):
             self._check(request)
             self._generation = GraphGeneration(self._session_id, self._ordinal)
             self._set(state="ready", last_error=None)
@@ -603,6 +683,7 @@ class LocalGraphSession:
     def refresh(self, *, cancel: Event | None = None) -> RefreshResult:
         try:
             request = self._admit(build=True, cancel=cancel)
+
             def refresh() -> RefreshResult:
                 try:
                     self._build(request)
@@ -610,22 +691,30 @@ class LocalGraphSession:
                 except Exception as error:
                     failure = self._failed(error, request).failure
                     return RefreshResult(
-                        "dirty" if failure.code == "state_changed" else "error", failure,
+                        "dirty" if failure.code == "state_changed" else "error",
+                        failure,
                     )
+
             return self._call(request, refresh)
         except Exception as error:
             return RefreshResult("error", _translate(error))
 
     def _run_read[T](
-        self, scope: Scope, consume: Callable[[GraphReadContext], T], *,
-        expected_generation: GraphGeneration | None = None, cancel: Event | None = None,
+        self,
+        scope: Scope,
+        consume: Callable[[GraphReadContext], T],
+        *,
+        expected_generation: GraphGeneration | None = None,
+        cancel: Event | None = None,
     ) -> T:
         scope = validated(Scope, scope)
         if scope != self._scope:
             raise GraphSessionError(_failure("forbidden"))
         request = self._admit(
-            build=expected_generation is None and self.status().state != "ready", cancel=cancel,
+            build=expected_generation is None and self.status().state != "ready",
+            cancel=cancel,
         )
+
         def read() -> T:
             if expected_generation is not None and (
                 expected_generation != self._generation or self.status().state != "ready"
@@ -639,20 +728,32 @@ class LocalGraphSession:
                 if resource is None or generation is None:
                     raise GraphSessionError(_failure("generation_invalid"))
                 with resource.observer.operation(
-                    resource.binding, self._identity, scope,
-                    request.budget.deadline, request.budget,
+                    resource.binding,
+                    self._identity,
+                    scope,
+                    request.budget.deadline,
+                    request.budget,
                 ) as operation:
                     with operation.read_context(request.meter) as canonical:
                         native = _BorrowedNativeReader(self, generation, resource.native, request)
                         context = GraphReadContext(
-                            generation, resource.binding, canonical, native,
-                            request.meter, request.cancel, output, [0],
+                            generation,
+                            resource.binding,
+                            canonical,
+                            native,
+                            request.meter,
+                            request.cancel,
+                            output,
+                            [0],
                         )
                         try:
                             result = consume(context)
-                            output.append(request.meter.reserve_scratch(
-                                max(1, _size(result)), "general",
-                            ))
+                            output.append(
+                                request.meter.reserve_scratch(
+                                    max(1, _size(result)),
+                                    "general",
+                                )
+                            )
                         except Exception:
                             try:
                                 native.close()
@@ -670,11 +771,12 @@ class LocalGraphSession:
             finally:
                 for reservation in output:
                     reservation.release()
+
         return self._call(request, read)
 
-    def _write_units(self, requests: tuple[WriteRequest, ...], request: _Request) -> tuple[
-        WriteOutcome, ...
-    ]:
+    def _write_units(
+        self, requests: tuple[WriteRequest, ...], request: _Request
+    ) -> tuple[WriteOutcome, ...]:
         if self._evidence is None:
             self._evidence = EvidenceService(self._database, self._identity)
         outcomes = []
@@ -682,13 +784,16 @@ class LocalGraphSession:
             try:
                 self._check(request)
             except (CancelledStop, DeadlineStop, GraphSessionError) as error:
-                self._set(last_error=(
-                    _failure("closed") if self.status().closed else _translate(error)
-                ))
-                outcomes.append(WriteOutcome(
-                    request_id=item.request_id, status="failed",
-                    error=Failure(code="budget_exceeded", diagnostic_id=str(uuid4())),
-                ))
+                self._set(
+                    last_error=(_failure("closed") if self.status().closed else _translate(error))
+                )
+                outcomes.append(
+                    WriteOutcome(
+                        request_id=item.request_id,
+                        status="failed",
+                        error=Failure(code="budget_exceeded", diagnostic_id=str(uuid4())),
+                    )
+                )
                 continue
             self._invalidate()
             # Committed receipts are not read results: no post-write cancellation gate.
@@ -696,9 +801,9 @@ class LocalGraphSession:
             try:
                 self._check(request)
             except (CancelledStop, DeadlineStop, GraphSessionError) as error:
-                self._set(last_error=(
-                    _failure("closed") if self.status().closed else _translate(error)
-                ))
+                self._set(
+                    last_error=(_failure("closed") if self.status().closed else _translate(error))
+                )
         return tuple(outcomes)
 
     def write(self, request: WriteRequest, *, cancel: Event | None = None) -> WriteOutcome:
@@ -713,6 +818,7 @@ class LocalGraphSession:
         if any(item.scope != self._scope for item in batch.items):
             raise GraphSessionError(_failure("forbidden"))
         operation = self._admit(build=False, cancel=cancel)
+
         def write() -> BatchResult:
             outcomes = self._write_units(batch.items, operation)
             successes = sum(outcome.receipt is not None for outcome in outcomes)
@@ -720,30 +826,118 @@ class LocalGraphSession:
                 "complete" if successes == len(outcomes) else "partial" if successes else "failed"
             )
             result = BatchResult(
-                contract_version="foundation/1", batch_id=batch.batch_id, outcomes=outcomes,
+                contract_version="foundation/1",
+                batch_id=batch.batch_id,
+                outcomes=outcomes,
                 status=status,
             )
             result.validate_for(batch)
             return result
+
         return self._call(operation, write)
+
+    def _record_units(
+        self,
+        requests: tuple[RecordAuthoringRequest, ...],
+        request: _Request,
+    ) -> tuple[RecordAuthoringOutcome, ...]:
+        from kg.knowledge import _record
+
+        if self._knowledge is None:
+            self._knowledge = KnowledgeService(self._database, self._identity)
+        outcomes = []
+        for item in requests:
+            try:
+                self._check(request)
+            except (CancelledStop, DeadlineStop, GraphSessionError) as error:
+                self._set(
+                    last_error=(_failure("closed") if self.status().closed else _translate(error))
+                )
+                outcomes.append(
+                    RecordAuthoringOutcome(
+                        request_id=item.request_id,
+                        status="failed",
+                        error=Failure(code="budget_exceeded", diagnostic_id=str(uuid4())),
+                    )
+                )
+                continue
+            self._invalidate()
+            outcomes.append(_record.record(self._knowledge, item, budget=request.budget))
+            try:
+                self._check(request)
+            except (CancelledStop, DeadlineStop, GraphSessionError) as error:
+                self._set(
+                    last_error=(_failure("closed") if self.status().closed else _translate(error))
+                )
+        return tuple(outcomes)
+
+    def record(
+        self,
+        request: RecordAuthoringRequest,
+        *,
+        cancel: Event | None = None,
+    ) -> RecordAuthoringOutcome:
+        request = validated(RecordAuthoringRequest, request)
+        if request.scope != self._scope:
+            raise GraphSessionError(_failure("forbidden"))
+        operation = self._admit(build=False, cancel=cancel)
+        return self._call(operation, lambda: self._record_units((request,), operation)[0])
+
+    def record_batch(
+        self,
+        batch: RecordAuthoringBatch,
+        *,
+        cancel: Event | None = None,
+    ) -> RecordAuthoringBatchResult:
+        batch = validated(RecordAuthoringBatch, batch)
+        if any(item.scope != self._scope for item in batch.items):
+            raise GraphSessionError(_failure("forbidden"))
+        operation = self._admit(build=False, cancel=cancel)
+
+        def record() -> RecordAuthoringBatchResult:
+            outcomes = self._record_units(batch.items, operation)
+            successes = sum(outcome.receipt is not None for outcome in outcomes)
+            return RecordAuthoringBatchResult(
+                batch_id=batch.batch_id,
+                outcomes=outcomes,
+                status=(
+                    "complete"
+                    if successes == len(outcomes)
+                    else "partial"
+                    if successes
+                    else "failed"
+                ),
+            )
+
+        return self._call(operation, record)
 
     def _inventory(self) -> tuple[GraphArtifactLocation, ...]:
         def inventory() -> tuple[GraphArtifactLocation, ...]:
             result = []
             if self._residue is not None:
                 residue = self._residue
-                result.append(GraphArtifactLocation(
-                    residue.directory, residue.owned_paths, "cleanup_pending",
-                    residue.native_reader is not None or residue.native_writer is not None,
-                    residue.observer is not None,
-                ))
+                result.append(
+                    GraphArtifactLocation(
+                        residue.directory,
+                        residue.owned_paths,
+                        "cleanup_pending",
+                        residue.native_reader is not None or residue.native_writer is not None,
+                        residue.observer is not None,
+                    )
+                )
             for owner in (self._stage, self._resources):
                 if owner is not None:
-                    result.append(GraphArtifactLocation(
-                        owner.directory, tuple(owner.directory.rglob("*")) + (owner.directory,),
-                        "active" if self.status().state == "ready" else "retired", True, True,
-                    ))
+                    result.append(
+                        GraphArtifactLocation(
+                            owner.directory,
+                            tuple(owner.directory.rglob("*")) + (owner.directory,),
+                            "active" if self.status().state == "ready" else "retired",
+                            True,
+                            True,
+                        )
+                    )
             return tuple(result)
+
         return self._owner.call(inventory, Deadline(time.monotonic() + _WARM_SECONDS))
 
     def _shutdown(self) -> bool:

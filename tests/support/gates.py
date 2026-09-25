@@ -30,7 +30,7 @@ CORE = {
         "test_evidence_acceptance.py::test_a01_actual_workload_indices_and_isolated_copy",
         "test_evidence_acceptance.py::test_a02_exact_recipe_and_rejected_ranges",
         "test_knowledge_registry.py::test_registration_reopen_order_independence_and_no_fact_mutations",
-        "test_knowledge_enrichment.py::test_failed_last_change_rolls_back_entities_seeds_and_key",
+        "test_record_authoring_private.py::test_persist_failure_rolls_back_and_exact_retry_can_commit",
     ),
     **cases(
         "functional",
@@ -63,7 +63,8 @@ AREAS = {
     "knowledge": {
         **cases(
             "service",
-            "test_knowledge_enrichment.py::test_full_conjunction_and_hidden_endpoint_prevent_alias_activation",
+            "test_record_authoring_private.py::test_private_record_compiles_exact_plan_and_authored_receipt",
+            "test_record_authoring_private.py::test_graph_session_record_and_batch_preserve_replay_and_independent_outcomes",
         ),
         **cases(
             "process",
@@ -102,6 +103,8 @@ AREAS = {
         "test_canonical_cli.py::test_parser_errors_use_json_envelope",
         "test_canonical_cli.py::test_every_help_level_is_model_free",
         "test_schema_cli.py::test_discover_validate_approve_apply_record_read_and_retry",
+        "test_knowledge_cli.py::test_complete_read_record_query_withdraw_update_journey",
+        "test_knowledge_cli.py::test_record_example_executes_and_schema_describes_one_public_shape",
     ),
     "demo": {
         **cases("service", "test_product_search.py::test_unavailable_projection_never_degrades"),
@@ -192,8 +195,11 @@ def plan(areas: list[str], extra: list[str]) -> tuple[list[str], dict[str, str |
     for selector in extra:
         path = Path(selector.split("::")[0])
         if (
-            path.is_absolute() or ".." in path.parts or not path.is_file()
-            or path.parts[0] != "tests" or not selector.partition("::")[2]
+            path.is_absolute()
+            or ".." in path.parts
+            or not path.is_file()
+            or path.parts[0] != "tests"
+            or not selector.partition("::")[2]
             or not path.resolve().is_relative_to(ROOT / "tests")
         ):
             raise ValueError(f"Additional cases must be exact repo-relative test nodes: {selector}")
