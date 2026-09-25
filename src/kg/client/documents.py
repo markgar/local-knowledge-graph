@@ -8,7 +8,7 @@ import logging
 from pathlib import Path
 from uuid import uuid4
 
-from pydantic import JsonValue
+from pydantic import JsonValue, ValidationError
 
 from kg.client.config import ClientError, Profile
 from kg.evidence import EvidenceService
@@ -49,7 +49,10 @@ def token() -> str:
 
 
 def submit(
-    profile: Profile, payload: WritePayload, *, retry_key: str | None = None,
+    profile: Profile,
+    payload: WritePayload,
+    *,
+    retry_key: str | None = None,
 ) -> WriteOutcome | Response:
     request = WriteRequest(
         contract_version="foundation/1",
@@ -77,14 +80,22 @@ def submit(
             ),
             result={
                 "request_id": request.request_id,
-                **({
-                    "retry_key": request.retry_key,
-                    "prepared_input_digest": sha(canonical({
-                        "payload": payload.model_dump(mode="json"),
-                        "attribution": request.attribution.model_dump(mode="json"),
-                        "corpus_id": request.scope.corpus_id,
-                    }).encode()),
-                } if retry_key is not None else {}),
+                **(
+                    {
+                        "retry_key": request.retry_key,
+                        "prepared_input_digest": sha(
+                            canonical(
+                                {
+                                    "payload": payload.model_dump(mode="json"),
+                                    "attribution": request.attribution.model_dump(mode="json"),
+                                    "corpus_id": request.scope.corpus_id,
+                                }
+                            ).encode()
+                        ),
+                    }
+                    if retry_key is not None
+                    else {}
+                ),
             },
         )
 
@@ -92,6 +103,20 @@ def submit(
 def citation_target(citation: StoredCitation) -> str:
     encoded = base64.urlsafe_b64encode(citation.model_dump_json().encode()).decode()
     return "evidence:" + encoded
+
+
+def parse_citation_target(target: str) -> StoredCitation:
+    if not target.startswith("evidence:") or not target.removeprefix("evidence:"):
+        raise ClientError("invalid_target", "Use an exact evidence: reference returned by read.")
+    try:
+        raw = base64.b64decode(
+            target.removeprefix("evidence:"),
+            altchars=b"-_",
+            validate=True,
+        )
+        return StoredCitation.model_validate_json(raw)
+    except (ValueError, UnicodeError, binascii.Error, ValidationError):
+        raise ClientError("invalid_target", "Invalid evidence reference.") from None
 
 
 def evidence_entry(view: EvidenceView) -> dict[str, JsonValue]:
@@ -204,7 +229,10 @@ class Documents:
         outcome = submit(self.profile, payload)
         if isinstance(outcome, Response):
             return outcome
-        result: dict[str, JsonValue] = {"write": outcome.model_dump(mode="json")}
+        result: dict[str, JsonValue] = {
+            "evidence_write": outcome.model_dump(mode="json"),
+            "search_preparation": None,
+        }
         if not isinstance(outcome.receipt, DocumentReceipt):
             return Response(
                 status=outcome.status,
@@ -214,12 +242,17 @@ class Documents:
                 exit_code=4,
             )
         receipt = outcome.receipt
-        result["target"] = f"document:{receipt.document_id}"
-        result["state"] = receipt.processing.state_version
+        result["document"] = {
+            "target": f"document:{receipt.document_id}",
+            "state_version": receipt.processing.state_version,
+        }
         if not prepare:
             if isinstance(payload, PutDocument):
-                result["preparation"] = {"status": "not_requested"}
-                message = "Exact evidence saved; search not prepared; no facts extracted."
+                message = (
+                    "Exact evidence saved. Search/index preparation was not requested. "
+                    "This command submitted no authored knowledge and did not run "
+                    "automatic enrichment; enrichment processing remains separate and unchanged."
+                )
                 if isinstance(payload.precondition, ExpectedState):
                     message += " Knowledge supported by the old state may need reassessment."
             else:
@@ -243,14 +276,19 @@ class Documents:
                 receipt.processing.state_version,
                 self.profile.index,
             )
-            result["preparation"] = prepared.model_dump(mode="json")
+            result["search_preparation"] = prepared.model_dump(mode="json")
             if prepared.outcome not in {"ready", "unchanged"}:
                 return Response(
                     status="partial",
                     code=prepared.reason,
                     exit_code=5,
                     result=result,
-                    message="Saved; search preparation failed. Exact text remains saved.",
+                    message=(
+                        f"Exact evidence saved. Search/index preparation failed: "
+                        f"{prepared.reason}. This command submitted no authored knowledge "
+                        "and did not run automatic enrichment; enrichment processing "
+                        "remains separate and unchanged."
+                    ),
                 )
         except (Exception, KeyboardInterrupt) as error:
             LOGGER.error("Search preparation raised after confirmed document save.")
@@ -261,9 +299,17 @@ class Documents:
                 code=error.failure.code
                 if isinstance(error, EvidenceServiceError)
                 else "preparation_failed",
-                message="Saved; search preparation failed. Exact text remains saved.",
+                message=(
+                    "Exact evidence saved. Search/index preparation failed. This command "
+                    "submitted no authored knowledge and did not run automatic enrichment; "
+                    "enrichment processing remains separate and unchanged."
+                ),
             )
-        message = "Saved. Search preparation complete for this document. No facts were extracted."
+        message = (
+            "Exact evidence saved. Search/index preparation is ready. This command "
+            "submitted no authored knowledge and did not run automatic enrichment; "
+            "enrichment processing remains separate and unchanged."
+        )
         if isinstance(payload.precondition, ExpectedState):
             message += " Knowledge supported by the old state may need reassessment."
         return Response(status="complete", message=message, result=result)
@@ -274,15 +320,7 @@ class Documents:
                 raise ClientError(
                     "invalid_option", "Evidence references have no history/page selector."
                 )
-            try:
-                raw = base64.b64decode(
-                    target.removeprefix("evidence:"),
-                    altchars=b"-_",
-                    validate=True,
-                )
-            except (ValueError, binascii.Error):
-                raise ClientError("invalid_target", "Invalid evidence reference.") from None
-            citation = StoredCitation.model_validate_json(raw)
+            citation = parse_citation_target(target)
             value = self.evidence.citation(self.profile.scope, citation)
             return Response(
                 status="complete",
@@ -339,7 +377,7 @@ class Documents:
             status="complete" if result.hits else "empty",
             message="Ranked matching passages." if result.hits else "No matching passages.",
             result={
-                "search": result.model_dump(mode="json"),
+                "search_context": result.model_dump(mode="json", exclude={"hits"}),
                 "entries": [
                     {
                         "document": f"document:{hit.evidence.reference.document_id}",

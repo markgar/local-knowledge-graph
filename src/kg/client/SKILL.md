@@ -66,8 +66,9 @@ For initial vocabulary, read operator-chosen documents using `kg read`, followin
 all needed excerpt pages. Have the operator select exact support objects; never
 broaden that sample or claim corpus-wide coverage. `kg schema generate --example`
 and `--schema` explain SAMPLE.json; `kg schema generate SAMPLE.json --json`
-returns exact context with `awaiting_agent`, not inferred vocabulary.
-Author the proposal externally with complete `initial_generation.sample`,
+returns exact context with `awaiting_agent` and an incomplete `editable_proposal`,
+not inferred vocabulary. Fill its semantic null/empty fields externally and retain
+the complete `initial_generation.sample`,
 limitations, naming/synonym decisions and selected term examples. All selected
 sources remain dependencies, including unused examples. Insufficient declared
 coverage is rejected; denied host interpretation permission is a blocker.
@@ -94,8 +95,10 @@ review. A stale base needs reassessment, not silent rebasing. Apply creates no f
 
 ## Grounded records and changes
 
-Use `kg record --example` / `--schema` for exact input recipes, including compound
-creation, classification, selection and assertions. Copy returned evidence support
+Use `kg record --from-evidence evidence:... --json` to prefill exact current
+support and active schema into an incomplete, non-writing template. Use the short
+`kg record --example` / complete `--schema` references for creation, reuse,
+classification, selection and assertions. Copy returned evidence support
 objects and entity `reference` objects unchanged; command `target` strings are not
 record objects. Named support can reuse exact captures. Explicitly create local
 entities or deliberately reuse stored IDs; endpoints are never implicit.
@@ -116,14 +119,18 @@ Use `kg classifications entity:ID --history` for selection history and
 Independent identity/history survives; reassess before new claims/assertions.
 
 Copy the exact schema `result.revision` into `expected_schema_revision`.
-Persist input/key before `kg record FILE --retry-key KEY --json`; preserve full
-receipts/mappings. Unknown record/schema outcomes permit only identical input/key
+Persist input/key before `kg record FILE --retry-key KEY --json`; preserve
+`knowledge_write` and its ordered copy-ready mappings. Selection-event mappings
+have no fact target. Unknown record/schema outcomes permit only identical input/key
 retry; honor conflicts/expiry. Never substitute latest schema/source captures.
 Read changed evidence and reassess. Label interpretation honestly, not "explicit".
 
 Every `add` creates a new document; filename/content is not identity. Read before
 `update`, retain its expected state and inspect current/history afterward.
-A saved receipt survives search-preparation failure: report both separately.
+A saved `evidence_write` receipt survives search-preparation failure: report it
+separately from exact/null `search_preparation`. Document commands submit no
+authored knowledge and do not run automatic enrichment; enrichment processing
+remains separate and unchanged.
 Unknown add/update outcomes are not safe to resubmit automatically.
 Withdrawal removes an owned assertion from current answers, not evidence/history
 or an entity. Historical support remains authorization-gated, not current proof.

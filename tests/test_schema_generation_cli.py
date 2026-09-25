@@ -49,10 +49,15 @@ def test_public_initial_workflow_no_facts(fresh, domain, subject, obj, predicate
         file = fresh / f"{filename}.txt"
         file.write_text(content)
         added = call("add", file, "--evidence-only")
-        assert added["result"]["preparation"]["status"] == "not_requested"
-        read = call("read", added["result"]["target"])["result"]
+        assert added["result"]["search_preparation"] is None
+        assert "not requested" in added["message"]
+        read = call("read", added["result"]["document"]["target"])["result"]
         support.append(read["entries"][0]["support"])
         assert read["entries"][0]["evidence"]["quote"] == content
+    assert (
+        call("record", "--from-evidence", read["entries"][0]["target"], code=2)["code"]
+        == "schema_not_configured"
+    )
     sample = {
         "support": support,
         "intended_use": f"Describe {domain} records.",
@@ -65,6 +70,14 @@ def test_public_initial_workflow_no_facts(fresh, domain, subject, obj, predicate
     brief = generated["result"]
     assert brief["base_revision"] is None
     assert brief["evidence"][0]["quote"] == text
+    editable = brief["editable_proposal"]
+    assert editable["corpus_id"] == brief["corpus_id"]
+    assert editable["base_revision"] is None
+    assert editable["attribution"] == brief["attribution"]
+    assert editable["initial_generation"]["sample"] == brief["sample"]
+    assert editable["rationale"] is None
+    assert editable["initial_generation"]["coverage_status"] is None
+    assert editable["examples"] == [] and editable["unresolved_concepts"] == []
     assert call("schema", "show")["result"]["status"] == "unconfigured"
     rendered = runner.invoke(app, ["schema", "generate", str(sample_file)])
     assert rendered.exit_code == 0 and text in rendered.stdout
@@ -163,25 +176,27 @@ def test_evidence_only_update_permissions_and_schema_free_attach(fresh, monkeypa
     assert (
         call(
             "update",
-            added["target"],
+            added["document"]["target"],
             file,
             "--expect",
-            added["state"],
+            added["document"]["state_version"],
             code=2,
         )["code"]
         == "models_not_approved"
     )
     updated = call(
         "update",
-        added["target"],
+        added["document"]["target"],
         file,
         "--expect",
-        added["state"],
+        added["document"]["state_version"],
         "--evidence-only",
     )
     assert "old state" in updated["message"]
     assert "deactivated" not in updated["message"]
-    old = call("read", added["target"] + "@" + added["state"])["result"]["entries"][0]
+    old = call("read", added["document"]["target"] + "@" + added["document"]["state_version"])[
+        "result"
+    ]["entries"][0]
     assert old["evidence"]["quote"] == "An exact source."
     source_profile = profile_path()
     database = load_profile().database()
@@ -229,7 +244,7 @@ def test_generation_errors_are_explicit(fresh, kind):
     file = fresh / "source.txt"
     file.write_text("  \n\t" if kind == "blank" else "Specimen S.")
     added = call("add", file, "--evidence-only")["result"]
-    capture = call("read", added["target"])["result"]["entries"][0]["support"]
+    capture = call("read", added["document"]["target"])["result"]["entries"][0]["support"]
     sample = {
         "support": [capture],
         "intended_use": "Specimens.",
@@ -248,7 +263,13 @@ def test_generation_errors_are_explicit(fresh, kind):
         link.symlink_to(file)
         file = link
     elif kind == "stale":
-        call("remove", added["target"], "--expect", added["state"], "--confirm")
+        call(
+            "remove",
+            added["document"]["target"],
+            "--expect",
+            added["document"]["state_version"],
+            "--confirm",
+        )
     result = call("schema", "generate", file, code=2)
     assert result["status"] == "rejected"
     assert call("schema", "show")["result"]["status"] == "unconfigured"
@@ -261,5 +282,7 @@ def test_generation_help_and_input_schema_without_profile(tmp_path, monkeypatch)
         assert runner.invoke(app, args).exit_code == 0
     assert call("schema", "generate", "--schema")["result"]["schema"]["title"] == "SchemaSample"
     text = call("schema", "generate", "--example")["result"]["example"]
-    assert "initial_generation" in text and "awaiting_agent" in text
+    assert "selected-excerpt" in text and "initial_generation" not in text
+    proposal = call("schema", "validate", "--example")["result"]["example"]
+    assert "initial_generation" in proposal and "device" in proposal
     assert call("capabilities", code=2)["code"] == "not_configured"

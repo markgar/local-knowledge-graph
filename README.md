@@ -24,8 +24,9 @@ retrieval-quality gates remain unmet.
 
 The installed `kg` command serves **canonical document and knowledge workflows**.
 Run `kg --help` and command-specific help; only shipped commands are advertised.
-Use `kg skill` for the installed strategy skill and `kg record --example` /
-`kg record --schema` for grounded input instructions, without repository access.
+Use `kg skill` for the installed strategy skill, `kg record --from-evidence
+evidence:...` for an incomplete current-data scaffold, and `kg record --example` /
+`kg record --schema` for grounded input instructions without repository access.
 
 The [use-knowledge-graph skill](.github/skills/use-knowledge-graph/SKILL.md) teaches
 an agent evidence/knowledge strategies, deliberate identity reuse, exact support,
@@ -418,9 +419,14 @@ mutations require `--expect`, and removal also requires `--confirm`.
 Removal deactivates the source, retaining text/history. No facts are extracted.
 
 Add/update save exact UTF-8 without newline normalization, then call the existing
-index service. If preparation fails after saving, the command returns non-success
-and the confirmed receipt: **"Saved; search preparation failed."** A failure with
-unknown commit outcome says so. There is no automatic retry or cross-process
+index service. JSON returns the canonical receipt unchanged as `evidence_write`,
+the document target/state under `document`, and the exact returned process value
+as `search_preparation` (or `null` when preparation was not requested or no process
+result exists). If preparation fails after saving, the command returns non-success
+while preserving the confirmed evidence receipt. Messages distinguish exact
+evidence saved, search/index preparation, authored knowledge (none is submitted by
+document commands), and automatic enrichment (not run). A failure with unknown
+commit outcome says so. There is no automatic retry or cross-process
 exactly-once claim; manual resubmission can duplicate data. A saved document
 whose preparation failed remains readable; an explicit update of its observed
 state can attempt preparation again.
@@ -431,14 +437,18 @@ configuration/confirmation or unresolved relationship selection, 3 service read/
 failure or non-complete query, 4 unsuccessful canonical
 write, 5 saved with failed preparation, 6 local/unexpected failure, 7 unknown
 write outcome. Receipt and preparation details remain separately represented.
+Document search JSON contains hit-free `search_context` plus one ordered,
+citation-complete `entries` representation rather than duplicating hit evidence.
 
 For model-free evidence intake, use `kg setup --yes --json`, then
 `kg add FILE --evidence-only --json`. Exact reads and evidence-only updates work
 before any domain schema is approved. `kg capabilities --json` shows the current
 schema state and installed workflow boundaries without checking search readiness.
 An external agent can compose read, `schema generate SAMPLE.json`, validate and
-explicit human-reviewed apply; see `kg schema generate --example` for copy-ready
-input recipes. Generate returns `awaiting_agent`, not inferred vocabulary.
+explicit human-reviewed apply; see the short task-specific `schema generate
+--example` and `schema validate --example` recipes. Generate returns
+`awaiting_agent` plus an intentionally incomplete `editable_proposal` containing
+only exact known bookkeeping; it does not infer vocabulary or submit anything.
 
 For unattended setup with model preparation use `kg setup --yes --approve-models --json`, optionally
 `--store NEW_PATH --model-cache EXISTING_CACHE`. Approval includes the pinned
@@ -464,6 +474,7 @@ kg find entities --json
 kg find entities Atlas --json
 kg read entity:RETURNED_ID --json
 kg find relationships Atlas --limit 20 --json
+kg record --from-evidence evidence:RETURNED_REFERENCE --json
 kg record --example
 kg record --schema --json
 kg record facts.json --retry-key reviewed-facts-1 --json
@@ -503,7 +514,11 @@ Record input accepts a named `support` map copied from exact reads, for example
 conjunctive evidence. The original support-array/native-reference form remains
 accepted. Modes cannot be mixed; unknown/unused names, duplicate keys/evidence
 and conflicting captured states are rejected before writing. Canonical limits
-apply after expansion. See `kg record --example` and `--schema`.
+apply after expansion. `kg record --from-evidence` authorizes exact current
+citations and copies the active schema/support into `result.record_template` with
+`changes: []`; it chooses no identity, type, predicate, value, interpretation,
+rationale, selection, or approval and performs no write. See `kg record --example`
+and `--schema`.
 
 Identity can remain unresolved with exact existence support and no edges. Do not put
 `entity_type` on `entity`/`entity_support` or coerce a local export/certificate into a
@@ -519,8 +534,12 @@ selection-only input, bounded subset recovery and unknown-outcome retry.
 
 The client derives dependencies
 from the captured states, never current/latest replacements. Every endpoint is an
-explicit local creation or stored-ID reuse. The complete canonical write receipt
-and every local-ID mapping are returned. Fact/entity reads include copy-ready
+explicit local creation or stored-ID reuse. The complete canonical write result is
+returned unchanged under `knowledge_write`. Successful change sets also return
+ordered copy-ready `mappings` with each local ID, change kind, stored ID, native
+stored reference where one exists, and a valid inspection target/command.
+Classification-selection events intentionally have no fake `fact:` target.
+Fact/entity reads include copy-ready
 `evidence_targets` for exact source inspection. Copy a returned entity `reference`
 object directly into record's `subject`/`entity`; `target` strings are command
 arguments, not record objects. Withdrawal is owned assertion
@@ -529,8 +548,11 @@ Entity/knowledge history remains subject to current authorization.
 
 Decision output includes `decisions` entries with `assertion_id`, `target`, `text`,
 captured `support` and exact `evidence_targets`, alongside `count`, `exact`,
-`selection_complete` and `display_complete`. Native `query`/`inspection`/`graph`
-proof fields remain in JSON; human output shows decisions rather than engine dumps.
+`selection_complete` and `display_complete`. Direct decision JSON uses one
+nonduplicative `execution` summary plus those hydrated entries; raw parallel
+`query`, `inspection`, and `targets` copies are not returned. Relationship-decision
+JSON retains its native `graph` proofs unchanged. Human output shows decisions
+rather than engine dumps.
 Direct decisions use QueryService's unchanged count and bounded retained inspection,
 then public contribution reads only for those IDs and final retained reinspection.
 These are separate authorized observations, not one atomic snapshot; detected

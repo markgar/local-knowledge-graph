@@ -13,11 +13,25 @@ The CLI also accepts a request-local named support map with source evidence name
 it expands into existing service values, not a new service write format. Native
 support arrays remain accepted. Mixed forms, unresolved/unused declarations,
 duplicate evidence and conflicting states fail; canonical limits apply after expansion.
-`kg record --example` documents creation versus reuse and exact evidence copying.
+`kg record --from-evidence evidence:...` is a read-only preparation mode: it
+strictly decodes, authorizes and requires current citations, reads the active
+schema, and returns an incomplete `record_template` with exact bookkeeping and
+`changes: []`. It makes no write or semantic choice. `kg record --example`
+documents creation versus reuse and exact evidence copying.
+Document mutation presentation preserves the canonical outcome under
+`evidence_write`, reports target/state under `document`, and reports the exact
+process result or `null` under `search_preparation`. Knowledge mutation
+presentation preserves the canonical outcome under `knowledge_write`; successful
+change sets add ordered local-ID mappings with native stored references and valid
+copy-ready inspection commands. Selection events have no fact target.
 Knowledge pages preserve continuation; query envelopes preserve native proof,
 count, partial and failure semantics. Retained handles are not usable after CLI exit.
-CLI decision presentation adds text, assertion targets, exact captured support and
-count/selection/display completeness without changing service contracts. Direct
+Document search presentation returns hit-free `search_context` plus one
+citation-complete `entries` representation. CLI decision presentation adds text,
+assertion targets, exact captured support and count/selection/display completeness
+without changing service contracts. Direct decision presentation replaces parallel
+raw query/inspection/target copies with one execution summary; relationship graph
+proof presentation is unchanged. Direct
 text comes from bounded authorized contribution reads checked against retained
 inspection before and after hydration, not an atomic snapshot. Graph presentation
 uses already-returned members/proofs only. See the usage link for completeness and
@@ -30,6 +44,8 @@ This reference covers executable evidence, indexing/search, knowledge, processin
 control, query and diagnostic APIs. Each section states its supported operations
 and limits; a value's presence in a model does not establish an executable service.
 
+Schema generation returns exact context plus an intentionally incomplete
+`editable_proposal`; it prefills no semantic vocabulary or approval decision.
 `kg.models.foundation` implements **validation and serialization only**, using
 Pydantic models with contract version `foundation/1`. It does not persist data,
 enforce ACLs or ownership, execute writes or queries, synchronize sources, process

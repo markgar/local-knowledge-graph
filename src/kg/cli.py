@@ -94,8 +94,10 @@ Json = Annotated[bool, typer.Option("--json", help="Return a machine-readable cl
 Limit = Annotated[int, typer.Option(min=1, max=200, help="Maximum page entries.")]
 After = Annotated[int, typer.Option(min=0, help="Continue from the returned page position.")]
 EvidenceOnly = Annotated[
-    bool, typer.Option(
-        "--evidence-only", help="Save exact evidence without models or search preparation.",
+    bool,
+    typer.Option(
+        "--evidence-only",
+        help="Save exact evidence without models or search preparation.",
     ),
 ]
 
@@ -116,7 +118,7 @@ def schema_generate(
     """Prepare exact operator-selected excerpts for EXTERNAL agent interpretation.
 
     Returns awaiting_agent, not generated definitions. No model, schema or fact writes.
-    Use --example for the full sample/proposal recipe; stop for human content approval.
+    Use --example for the bounded sampling recipe; stop for human content approval.
     Already configured corpora use schema show and ordinary additive proposals.
     """
     from kg.models.schema import SchemaSample
@@ -124,15 +126,20 @@ def schema_generate(
     def run() -> Response:
         if sum((file is not None, schema, example)) != 1:
             raise ClientError(
-                "invalid_arguments", "Supply FILE, --schema or --example, exactly one.",
+                "invalid_arguments",
+                "Supply FILE, --schema or --example, exactly one.",
             )
         if schema:
             value = SchemaSample.model_json_schema()
             return Response(
-                status="complete", message=json.dumps(value, indent=2), result={"schema": value},
+                status="complete",
+                message=json.dumps(value, indent=2),
+                result={"schema": value},
             )
         if example:
-            text = files("kg.client").joinpath("schema-example.md").read_text(encoding="utf-8")
+            text = (
+                files("kg.client").joinpath("schema-sample-example.md").read_text(encoding="utf-8")
+            )
             return Response(status="complete", message=text, result={"example": text})
         assert file is not None
         return Schema(load_profile()).generate(file)
@@ -178,15 +185,22 @@ def schema_validate(
     def run() -> Response:
         if sum((file is not None, schema, example)) != 1:
             raise ClientError(
-                "invalid_arguments", "Supply FILE, --schema or --example, exactly one.",
+                "invalid_arguments",
+                "Supply FILE, --schema or --example, exactly one.",
             )
         if schema:
             value = SchemaProposal.model_json_schema()
             return Response(
-                status="complete", message=json.dumps(value, indent=2), result={"schema": value},
+                status="complete",
+                message=json.dumps(value, indent=2),
+                result={"schema": value},
             )
         if example:
-            text = files("kg.client").joinpath("schema-example.md").read_text(encoding="utf-8")
+            text = (
+                files("kg.client")
+                .joinpath("schema-proposal-example.md")
+                .read_text(encoding="utf-8")
+            )
             return Response(status="complete", message=text, result={"example": text})
         assert file is not None
         return Schema(load_profile()).validate(file)
@@ -198,10 +212,12 @@ def schema_validate(
 def schema_apply(
     file: Path,
     approve_digest: Annotated[
-        str, typer.Option(help="Explicitly attest human review of this exact validated digest."),
+        str,
+        typer.Option(help="Explicitly attest human review of this exact validated digest."),
     ],
     retry_key: Annotated[
-        str, typer.Option(help="Stable prepared key; preserve for unknown outcomes."),
+        str,
+        typer.Option(help="Stable prepared key; preserve for unknown outcomes."),
     ],
     approval_rationale: Annotated[str, typer.Option(help="Human review/publication rationale.")],
     json_output: Json = False,
@@ -213,7 +229,10 @@ def schema_apply(
     """
     execute(
         lambda: Schema(load_profile()).apply(
-            file, digest=approve_digest, retry_key=retry_key, approval_rationale=approval_rationale,
+            file,
+            digest=approve_digest,
+            retry_key=retry_key,
+            approval_rationale=approval_rationale,
         ),
         json_output,
     )
@@ -236,11 +255,13 @@ def render_knowledge(result: dict[str, Any]) -> None:
                 typer.echo(safe_text(f"Via relationship: fact:{relationship_id}"))
         for proof in result.get("graph", {}).get("relationships", []):
             assertion = proof["assertion"]
-            typer.echo(safe_text(
-                f"Relationship fact:{assertion['assertion_id']}: "
-                f"entity:{assertion['subject_id']} --{assertion['predicate']}--> "
-                f"entity:{assertion['object_entity_id']}"
-            ))
+            typer.echo(
+                safe_text(
+                    f"Relationship fact:{assertion['assertion_id']}: "
+                    f"entity:{assertion['subject_id']} --{assertion['predicate']}--> "
+                    f"entity:{assertion['object_entity_id']}"
+                )
+            )
             typer.echo(safe_text("Relationship support: " + json.dumps(assertion["support"])))
     entity = result.get("entity")
     if isinstance(entity, dict):
@@ -262,9 +283,41 @@ def render_knowledge(result: dict[str, Any]) -> None:
         typer.echo(safe_text("Direction: " + ", ".join(result["directions"])))
     for target in result.get("evidence_targets", []):
         typer.echo(safe_text(f"Evidence: {target}"))
-    for key in ("query", "inspection", "graph", "write"):
+    execution = result.get("execution")
+    if isinstance(execution, dict):
+        typer.echo("Execution:")
+        for key in (
+            "outcome",
+            "read_state_id",
+            "result_set_id",
+            "operations_executed",
+            "records_examined",
+            "truncated",
+            "exhaustion",
+        ):
+            if key in execution:
+                typer.echo(safe_text(f"  {key}: {execution.get(key)}"))
+        inspection = execution.get("support_inspection")
+        if isinstance(inspection, dict):
+            typer.echo("Support inspection:")
+            for key in (
+                "outcome",
+                "read_state_id",
+                "result_set_id",
+                "total",
+                "exact",
+                "displayed",
+                "truncated",
+                "exhausted",
+                "operations_executed",
+                "records_examined",
+            ):
+                if key in inspection:
+                    typer.echo(safe_text(f"  {key}: {inspection.get(key)}"))
+    for key in ("query", "inspection", "graph", "knowledge_write"):
         if key in result and "decisions" not in result:
-            typer.echo(safe_text(f"{key.capitalize()}:\n" + json.dumps(result[key], indent=2)))
+            label = key.replace("_", " ").capitalize()
+            typer.echo(safe_text(f"{label}:\n" + json.dumps(result[key], indent=2)))
     if result.get("display_truncated"):
         typer.echo("Display is incomplete; not all retained counted members are shown.")
     for entry in result.get("entries", []):
@@ -303,6 +356,8 @@ def render(response: Response, machine: bool) -> None:
                 typer.echo(f"{key.replace('_', ' ').capitalize()}: {safe_text(str(result[key]))}")
         document = result.get("document")
         if isinstance(document, dict):
+            if document.get("target"):
+                typer.echo(f"Target: {safe_text(str(document['target']))}")
             typer.echo(f"State: {document.get('state_version')}")
         entries = result.get("entries")
         if isinstance(result.get("evidence"), dict):
@@ -337,7 +392,7 @@ def render(response: Response, machine: bool) -> None:
                 typer.echo(f"More revisions: --after-sequence {result.get('next_after_sequence')}")
             else:
                 typer.echo(f"More entries: --after {result.get('next_after')}")
-        search = result.get("search")
+        search = result.get("search_context")
         if isinstance(search, dict) and any(
             search.get(key) for key in ("lexical_truncated", "dense_truncated", "fusion_truncated")
         ):
@@ -429,7 +484,8 @@ def setup(
         ),
     ] = False,
     schema_preset: Annotated[
-        str | None, typer.Option(
+        str | None,
+        typer.Option(
             help="Explicit example vocabulary: personal/1. Default: no schema.",
         ),
     ] = None,
@@ -556,7 +612,10 @@ def update(
         previous = documents.document(document)
         expected = expected_state(previous.state_version, expect, document, json_output)
         return documents.save(
-            file, previous=previous, expected=expected, evidence_only=evidence_only,
+            file,
+            previous=previous,
+            expected=expected,
+            evidence_only=evidence_only,
         )
 
     execute(run, json_output)
@@ -649,7 +708,7 @@ def find_decisions(
 ) -> None:
     """Find explicit decisions about an exact entity:ID or unique exact name/alias.
 
-    Starter vocabulary: person, project; owns (person -> project), decision (string).
+    Use the active corpus schema; no entity type or predicate is universal.
     Direct queries use canonical SQLite. --through uses optional Ladybug 0.20.4,
     supported on macOS 15+ ARM64 / Python 3.12. Native code runs in-process and can
     crash the host; its 256 MiB buffer is not an RSS cap. Each call builds a fresh
@@ -673,6 +732,13 @@ def record(
     example: Annotated[
         bool, typer.Option("--example", help="Print the annotated input recipe.")
     ] = False,
+    from_evidence: Annotated[
+        list[str] | None,
+        typer.Option(
+            "--from-evidence",
+            help="Prepare from exact current evidence: target; repeat for each support.",
+        ),
+    ] = None,
     retry_key: Annotated[
         str | None, typer.Option(help="Persisted retry identity; required with FILE.")
     ] = None,
@@ -680,21 +746,24 @@ def record(
 ) -> None:
     """Record supported knowledge, explicitly creating local entities or reusing stored IDs.
 
-    Run kg record --example for copy-ready evidence/entity reference instructions;
-    kg record --schema for native changes or named captured-support shorthand.
+    Run kg record --from-evidence evidence:... for an incomplete editable scaffold,
+    kg record --example for the bounded authoring recipe, or kg record --schema for
+    native changes and named captured-support shorthand.
     Copy entity reference objects into record; use target strings as command arguments.
-    Starter vocabulary: person,
-    project, owns (person -> project), decision (string). Support must be copied
-    from reads without replacing old states. No endpoints are implicitly created.
+    Use the active corpus schema; no entity type or predicate is universal. Support
+    must be copied from reads without replacing old states. No endpoints are implicitly created.
     FILE requires --retry-key. Retry an unknown outcome with the exact input/key.
     Identity is independent of classification; select a supported claim explicitly.
     """
 
     def run() -> Response:
-        if sum((file is not None, schema, example)) != 1:
+        if sum((file is not None, schema, example, from_evidence is not None)) != 1:
             raise ClientError(
-                "invalid_arguments", "Supply FILE, --schema or --example, exactly one."
+                "invalid_arguments",
+                "Supply FILE, --schema, --example or --from-evidence, exactly one.",
             )
+        if file is None and retry_key is not None:
+            raise ClientError("invalid_arguments", "--retry-key is valid only with FILE.")
         if schema:
             value = record_schema()
             return Response(
@@ -703,6 +772,8 @@ def record(
         if example:
             text = files("kg.client").joinpath("record-example.md").read_text(encoding="utf-8")
             return Response(status="complete", message=text, result={"example": text})
+        if from_evidence is not None:
+            return Knowledge(load_profile()).record_template(tuple(from_evidence))
         assert file is not None
         if retry_key is None:
             raise ClientError("invalid_arguments", "FILE requires a persisted --retry-key.")
@@ -728,25 +799,37 @@ def classifications(
     json_output: Json = False,
 ) -> None:
     """Review classification claims before an explicit selection-only kg record."""
+
     def run() -> Response:
         if (
-            history and (review_claim is not None or review_empty)
-            or review_empty and review_claim is not None
-            or not history and after_event_id is not None
+            history
+            and (review_claim is not None or review_empty)
+            or review_empty
+            and review_claim is not None
+            or not history
+            and after_event_id is not None
         ):
             raise ClientError(
-                "invalid_arguments", "Choose history, complete review or one subset mode.",
+                "invalid_arguments",
+                "Choose history, complete review or one subset mode.",
             )
         if review_claim is not None and any(not c.startswith("fact:") for c in review_claim):
             raise ClientError("invalid_target", "--review-claim requires exact fact:ID targets.")
         claim_ids = (
             tuple(c.removeprefix("fact:") for c in review_claim)
-            if review_claim is not None else () if review_empty else None
+            if review_claim is not None
+            else ()
+            if review_empty
+            else None
         )
         return Knowledge(load_profile()).classifications(
-            entity, history=history, after_event_id=after_event_id,
-            limit=limit, claim_ids=claim_ids,
+            entity,
+            history=history,
+            after_event_id=after_event_id,
+            limit=limit,
+            claim_ids=claim_ids,
         )
+
     execute(run, json_output)
 
 
